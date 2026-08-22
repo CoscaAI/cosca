@@ -57,3 +57,31 @@
 | **Related** | memory/long/compliance-framework.md |
 | **Learned** | Memory can drift into aspirational/fictitious claims. Pattern: always verify memory claims against codebase reality. Compliance framework marked as aspirational with 5 concrete implementation steps (at-rest encryption, audit logging, data mapping, retention automation, right-to-erasure). |
 | **Next** | Level 3: Implement at-rest encryption for secrets, add audit log digital signatures |
+
+## Session: 2026-08-22 — Semantic Manipulation Security Audit (Level 3)
+
+### 2026-08-22 — CLI Semantic Manipulation Attack Surface Analysis
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-security |
+| **Task** | Investigate CLI security vulnerabilities related to semantic manipulation by external AI |
+| **Technique** | Level 3 — Code audit of 15+ files across engine/, chat/tool/, sandbox/, contenttrust/, execpolicy/, cli/ — focused on prompt injection, trust boundaries, and semantic manipulation vectors |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #prompt-injection #semantic-manipulation #trust-boundary #content-trust #sandbox #cli-security #attack-surface |
+| **Related** | V1-V13 findings: AGENTS.md injection, agent override, .env injection, shell bypass, MCP trust bypass, content trust gaps |
+| **Learned** | **Critical finding:** Content trust envelopes protect memories and knowledge but NOT the system prompt itself (agent definitions + AGENTS.md chain). This is the highest-authority position in the LLM context. The AGENTS.md chain is loaded from filesystem without integrity checks and injected raw into system prompt. Agent definitions can be overridden by placing .md files in .cosca/agents/ (last-wins). The .env loader has no key allowlist. The SandboxTool falls back to unsandboxed local execution. The execpolicy tokenizer doesn't interpret shell operators (|, &&, ;). On non-Linux, all sandbox is advisory. Suspicious content detector has only 5 markers. |
+| **Next** | Level 4: Implement cryptographic agent signatures, shell AST parser for execpolicy, runtime integrity monitor, per-agent trust tiers |
+
+### 2026-08-22 — Key Security Architecture Patterns Discovered
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-security |
+| **Task** | Document positive security patterns for future reference |
+| **Technique** | Pattern extraction from defense-in-depth analysis |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #security-patterns #defense-in-depth #sandbox #rails #content-trust |
+| **Related** | sandbox/rails.go, contenttrust/contenttrust.go, execpolicy/, hardening/ |
+| **Learned** | **Strong patterns:** (1) Path rails with symlink resolution + blocked dirs — comprehensive workspace escape prevention. (2) Content trust envelopes with JSON-escaped length-delimited content — prevents delimiter spoofing. (3) Bubblewrap with --unshare-all, --clearenv, --die-with-parent + resource limits (RLIMIT_AS, FSIZE, NOFILE). (4) Git command whitelist with stash subcommand restriction. (5) Env var allowlist at sandbox boundary. (6) Embed read-only enforcement via --ro-bind in bwrap. (7) Memory integrity gate at startup with first-boot baseline. (8) Null byte rejection in path validation. |
+| **Next** | Apply these patterns to close the gaps identified in V1-V13 |
