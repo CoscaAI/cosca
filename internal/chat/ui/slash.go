@@ -313,7 +313,8 @@ func renderVision(arg string) string {
 
 // expandHome resolves "~" to the user's home directory.
 func expandHome(p string) string {
-	if p == "~" || strings.HasPrefix(p, "~/") {
+	// Handle both ~/ (Unix) and ~\ (Windows) for home directory expansion.
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~\\") {
 		if home, err := os.UserHomeDir(); err == nil {
 			if p == "~" {
 				return home

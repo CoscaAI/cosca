@@ -476,7 +476,8 @@ func IsAbsPath(path string) bool {
 
 // ResolvePath resolves a path relative to base, expanding ~ and env vars.
 func ResolvePath(path, base string) string {
-	if strings.HasPrefix(path, "~/") {
+	// Handle both ~/ (Unix) and ~\ (Windows) for home directory expansion.
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
 		home, err := os.UserHomeDir()
 		if err == nil {
 			path = filepath.Join(home, path[2:])

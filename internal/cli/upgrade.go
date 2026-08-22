@@ -199,7 +199,7 @@ func detectLegacyIssues(dir string) []LegacyIssue {
 	// Already covered by #2 since we check the directory.
 
 	// 4. Old global PATH entries in shell rc files
-	home := os.Getenv("HOME")
+	home, _ := os.UserHomeDir()
 	for _, rc := range []string{".bashrc", ".zshrc", ".bash_profile", ".profile"} {
 		rcPath := filepath.Join(home, rc)
 		data, err := os.ReadFile(rcPath)

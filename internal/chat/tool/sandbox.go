@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -66,7 +67,12 @@ func (t *SandboxTool) executeLocal(ctx context.Context, language, code string) (
 
 	switch strings.ToLower(language) {
 	case "python", "py":
-		cmd = exec.CommandContext(ctx, "python3", "-c", code)
+		// On Windows, python3 is typically just "python".
+		pythonBin := "python3"
+		if runtime.GOOS == "windows" {
+			pythonBin = "python"
+		}
+		cmd = exec.CommandContext(ctx, pythonBin, "-c", code)
 	case "go":
 		// Write to temp file and run
 		tmpFile, err := os.CreateTemp("", "cosca-sandbox-*.go")

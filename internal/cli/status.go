@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -452,46 +451,6 @@ Shows status for:
 // Implementação platform-specific: diskfree_unix.go (syscall.Statfs) e
 // diskfree_windows.go (GetDiskFreeSpaceEx).
 
-// processUptime returns how long the process (PID) has been running, by reading
-// the starttime field from /proc/<pid>/stat and comparing it to /proc/uptime.
-// Returns 0 on any parse error (honest "unknown" rather than a wrong value).
-func processUptime(pid int) time.Duration {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-	if err != nil {
-		return 0
-	}
-	// comm (field 2) may contain spaces and ')'; find the LAST ')' to locate
-	// the start of the numeric fields. fields[0] is state (field 3), and
-	// starttime is field 22 → fields[19].
-	idx := strings.LastIndexByte(string(data), ')')
-	if idx < 0 || idx+2 >= len(data) {
-		return 0
-	}
-	fields := strings.Fields(string(data[idx+2:]))
-	if len(fields) < 20 {
-		return 0
-	}
-	startTicks, err := strconv.ParseUint(fields[19], 10, 64)
-	if err != nil {
-		return 0
-	}
-	upData, err := os.ReadFile("/proc/uptime")
-	if err != nil {
-		return 0
-	}
-	upParts := strings.Fields(string(upData))
-	if len(upParts) == 0 {
-		return 0
-	}
-	sysUpSec, err := strconv.ParseFloat(upParts[0], 64)
-	if err != nil {
-		return 0
-	}
-	// USER_HZ on x86_64 Linux is 100 clock ticks per second.
-	const ticksPerSec = 100
-	startSec := float64(startTicks) / ticksPerSec
-	if sysUpSec < startSec {
-		return 0
-	}
-	return time.Duration((sysUpSec - startSec) * float64(time.Second))
-}
+// processUptime is implemented per-platform:
+//   - status_unix.go: reads /proc/<pid>/stat + /proc/uptime
+//   - status_windows.go: stub (returns 0)

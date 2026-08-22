@@ -67,9 +67,23 @@ func TestShellToolBasics(t *testing.T) {
 	if sb.calls != 1 || sb.mode != chat.SandboxWorkspace {
 		t.Fatalf("sandbox calls=%d mode=%v", sb.calls, sb.mode)
 	}
-	// Command goes through sh -c.
-	if len(sb.cmd.Args) < 3 || sb.cmd.Args[0] != "sh" || sb.cmd.Args[1] != "-c" || sb.cmd.Args[2] != "ls -la" {
-		t.Fatalf("sandbox args: %v", sb.cmd.Args)
+	// Command goes through the platform shell: sh -c on Unix, cmd /c on Windows.
+	if len(sb.cmd.Args) < 3 {
+		t.Fatalf("sandbox args too short: %v", sb.cmd.Args)
+	}
+	shell := sb.cmd.Args[0]
+	if shell == "sh" {
+		// Unix: sh -c <command>
+		if sb.cmd.Args[1] != "-c" || sb.cmd.Args[2] != "ls -la" {
+			t.Fatalf("sandbox args: %v", sb.cmd.Args)
+		}
+	} else if shell == "cmd" {
+		// Windows: cmd /c <command>
+		if sb.cmd.Args[1] != "/c" || sb.cmd.Args[2] != "ls -la" {
+			t.Fatalf("sandbox args: %v", sb.cmd.Args)
+		}
+	} else {
+		t.Fatalf("unexpected shell: %v", sb.cmd.Args)
 	}
 }
 

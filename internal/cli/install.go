@@ -212,7 +212,11 @@ generic_mcp) instead of only the detected one.
 			}
 			coscaDir := filepath.Join(projectDir, ".cosca")
 			if global {
-				coscaDir = filepath.Join(os.Getenv("HOME"), ".cosca")
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("failed to get home directory: %w", err)
+				}
+				coscaDir = filepath.Join(home, ".cosca")
 			}
 
 			if statusMode {
@@ -250,7 +254,8 @@ generic_mcp) instead of only the detected one.
 
 			// Step 3: Discover Cosca Global
 			formatter.Verbose("Step 3: " + installSteps[2].label)
-			globalCoscaDir := filepath.Join(os.Getenv("HOME"), ".config", "opencode", "cosca")
+			home, _ := os.UserHomeDir()
+			globalCoscaDir := filepath.Join(home, ".config", "opencode", "cosca")
 			if info, err := os.Stat(globalCoscaDir); err == nil && info.IsDir() {
 				formatter.Verbose("Found Cosca Global at: " + globalCoscaDir)
 			}

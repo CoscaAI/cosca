@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
@@ -131,10 +132,17 @@ func (t *ShellTool) Execute(ctx context.Context, params json.RawMessage) (*chat.
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(input.Timeout)*time.Millisecond)
 	defer cancel()
 
-	// Build the sandbox command. We run through `sh -c` so the full shell
-	// pipeline (pipes, redirects, variable expansion) is available.
+	// Build the sandbox command. We run through the appropriate shell for the OS:
+	// - Unix: `sh -c <command>` for full shell pipeline support
+	// - Windows: `cmd /c <command>` for native Windows command execution
+	var shellArgs []string
+	if runtime.GOOS == "windows" {
+		shellArgs = []string{"cmd", "/c", input.Command}
+	} else {
+		shellArgs = []string{"sh", "-c", input.Command}
+	}
 	cmd := chat.Command{
-		Args:    []string{"sh", "-c", input.Command},
+		Args:    shellArgs,
 		WorkDir: input.Workdir,
 	}
 

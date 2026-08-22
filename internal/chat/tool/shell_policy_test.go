@@ -77,8 +77,13 @@ rules:
 	if res.Error != "" {
 		t.Errorf("unexpected error: %q", res.Error)
 	}
-	if len(sb.commands) != 1 || sb.commands[0].Args[0] != "sh" {
-		t.Errorf("expected one sandboxed sh -c execution, got %v", sb.commands)
+	if len(sb.commands) != 1 {
+		t.Errorf("expected one sandboxed execution, got %v", sb.commands)
+	}
+	// First arg is the shell binary: "sh" on Unix, "cmd" on Windows.
+	shell := sb.commands[0].Args[0]
+	if shell != "sh" && shell != "cmd" {
+		t.Errorf("expected shell (sh or cmd), got %q", shell)
 	}
 }
 
