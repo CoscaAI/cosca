@@ -14,7 +14,7 @@
 |-------|------|--------------|
 | **Cérebro** | `internal/embed/cosca/` | identidade, memória, leis, protocolos |
 | **Cofre** | `.cosca/knowledge.db`, `secrets.db`, `family_chain.dat` | conhecimento, segredos, chain |
-| **Chave** | `~/.config/cosca/keys/` (fora da jaula, 0600) | identidade Ed25519 |
+| **Chave** | `~/.config/cosca/keys/` (fora da jaula, 0600, protegida por DPAPI) | identidade Ed25519 machine-bound |
 | **Runtime** | `serve` + `runtime` (daemons presos na jaula) | execução de agente |
 
 ---
@@ -25,12 +25,15 @@ O portão reconhece o **MOTORISTA**, não o carro (L259).
 
 | Fator | O que verifica | Comando |
 |-------|----------------|---------|
-| **Passphrase (2FA)** | decripta a chave Ed25519 | `cosca memory register` (fator 1) |
-| **War phrase** | bcrypt do Don | `cosca don phrase/verify` |
-| **Presença** | nonce ao vivo | fator 3 do register |
+| **Máquina (DPAPI)** | `integrity.VerifyKernelIdentity` desprotege a chave Ed25519 via `CryptProtectData` (CurrentUser) — vínculo **máquina+usuário** | fator 1 do `cosca memory register` / `cosca-check --sign` / `--push` |
+| **Consentimento-ao-conteúdo (nonce)** | nonce derivado do conteúdo a assinar; comparação em tempo constante; exige **TTY real** | fator 2 do `cosca memory register` |
 
-- **Sem os 3, nega.** Chave roubada não passa sem senha + frase + presença.
-- **Recuperar senha esquecida**: `cosca-check --rekey` (gera par novo).
+- **Sem os 2, nega.** Chave roubada não passa sem a máquina certa + consentimento ao conteúdo.
+- **Autoridade vs testemunho (M7)**: Ed25519 = **autoridade do Don** (máquina + nonce);
+  git-anchor (`--sign-auto`) = apenas **testemunho** de imutabilidade (sem autoridade).
+  Passphrase e war phrase **não existem mais no fluxo**.
+- **Máquina nova / vínculo perdido**: `cosca-check --rekey` (gera par novo — caminho de
+  recuperação, só presença/nonce).
 - **Jaula**: agentes presos no bwrap com `internal/embed/cosca/` read-only.
 
 ---
@@ -123,3 +126,4 @@ ou amarelo = achado → severidade (P0-P3) → correção na raiz → re-verific
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — a casa blindada (portão, porta dos fundos, janela, vírus, verificação) |
+| 1.1.0 | 2026-08-22 | Portão e chave atualizados: machine-bound (DPAPI) + consentimento-ao-conteúdo (nonce) — passphrase/war phrase/3 fatores removidos; M7 (Ed25519 autoridade vs GIT-ANCHORED testemunho) |

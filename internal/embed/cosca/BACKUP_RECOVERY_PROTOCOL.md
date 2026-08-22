@@ -14,7 +14,7 @@
 | **Cofre de conhecimento** | `.cosca/knowledge.db` | `sqlite3 .backup` (WAL-safe) |
 | **Family chain** | `.cosca/family_chain.dat` | git (o git-anchor já é o backup) |
 | **Memória (learnings/blocks)** | `internal/embed/cosca/memory/` | git + `cosca memory snapshot` |
-| **Chaves** | `~/.config/cosca/keys/` | cópia offline (fora da jaula) |
+| **Chaves** | `~/.config/cosca/keys/` | machine-bound (DPAPI) — cópia offline do arquivo NÃO transfere o vínculo; máquina nova → `--rekey` |
 | **Segredos** | `.cosca/secrets.db` | backup seguro, nunca em git |
 
 ---
@@ -62,8 +62,9 @@ git commit -m "..." && ./bin/cosca-check --sign-auto
 2. **Backup em WAL exige `.backup`, não `cp`** — `cp` do `.db` com WAL ativo
    perde transações (L254).
 3. **O git NÃO é backup de segredo** — segredo não entra em git (`.gitignore`).
-4. **Chave privada sem backup = identidade perdida** — se esquecer a passphrase
-   E perder a chave, só `--rekey` (nova identidade).
+4. **Chave Ed25519 machine-bound (DPAPI)** — sem passphrase para decorar; o vínculo é
+   **máquina+usuário**. Máquina mudou ou chave perdida? Só `--rekey` (gera par novo,
+   caminho de recuperação — só presença/nonce).
 
 ---
 
@@ -72,3 +73,4 @@ git commit -m "..." && ./bin/cosca-check --sign-auto
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — a rede de segurança |
+| 1.1.0 | 2026-08-22 | Chave atualizada: machine-bound (DPAPI) — remoção da passphrase; recuperação só via `--rekey` (presença/nonce) |

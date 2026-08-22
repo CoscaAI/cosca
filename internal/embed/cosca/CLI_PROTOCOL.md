@@ -11,15 +11,14 @@
 
 | Comando | O que faz | Quem roda |
 |---------|-----------|-----------|
-| `cosca memory register` | registrar aprendizado (portão de 3 fatores) | o Don (via kernel) |
+| `cosca memory register` | registrar aprendizado (portão de 2 fatores — máquina + consentimento) | o Don (via kernel) |
 | `cosca memory watch` | vigiar o cofre 24h (watchdog + audit) | o Don / daemon |
-| `cosca-check --sign-auto` | assinar chain (git-anchored, sem passphrase) | o kernel |
-| `cosca-check --sign --passphrase-stdin` | assinar chain (Ed25519, com passphrase) | o Don |
-| `cosca-check --rekey --passphrase-stdin` | gerar par novo (recuperar passphrase esquecida) | o Don |
+| `cosca-check --sign-auto` | assinar chain (git-anchored — testemunho de imutabilidade) | o kernel |
+| `cosca-check --sign` | assinar chain (Ed25519 — máquina DPAPI + nonce) | o Don |
+| `cosca-check --push` | publicar chain (máquina + nonce + credencial de sessão via GIT_ASKPASS) | o Don |
+| `cosca-check --rekey` | gerar par novo (recuperação — só presença/nonce) | o Don |
 | `cosca-check --watch` | watchdog (mesmo que `memory watch`) | o Don / daemon |
 | `cosca-check` | verificar a family chain | qualquer um |
-| `cosca don phrase "<frase>"` | armar a war phrase (fator 2) | o Don |
-| `cosca don verify "<frase>"` | verificar a war phrase | o Don |
 | `cosca kernel self-test` | integridade do kernel | qualquer um |
 | `cosca knowledge verify [--fix]` | integridade do knowledge base | qualquer um |
 
@@ -27,12 +26,13 @@
 
 ## 2. REGISTRAR um aprendizado — o fluxo exato
 
-`cosca memory register` exige **3 fatores** (o portão reconhece o MOTORISTA, não o carro):
+`cosca memory register` exige **2 fatores** (o portão reconhece o MOTORISTA, não o carro):
 
-1. **Passphrase** (fator 1, 2FA) — decripta a chave Ed25519. Vem do env
-   `COSCA_KERNEL_PASSPHRASE` ou é digitada no prompt.
-2. **War phrase** (fator 2) — verifica contra o bcrypt (`.cosca/don.phr`).
-3. **Presença** (fator 3) — nonce aleatório digitado de volta ao vivo.
+1. **Máquina** (fator 1) — `integrity.VerifyKernelIdentity` desprotege a chave
+   Ed25519 da family chain via **DPAPI** (`CryptProtectData`, CurrentUser): o
+   vínculo é **máquina+usuário**, sem passphrase para decorar.
+2. **Consentimento-ao-conteúdo** (fator 2) — nonce derivado do conteúdo que será
+   assinado; comparação em tempo constante; exige **TTY real**. É a presença do Don.
 
 ```bash
 cosca memory register \
@@ -48,20 +48,21 @@ cosca memory register \
   --related "L259 (referência)"
 ```
 
-O comando então pede (interativamente): passphrase → frase de guerra → nonce.
-Sem os 3, **nega**. Depois do sucesso, **commit + sign** (ver §5).
+O comando então pede (interativamente): o nonce do consentimento-ao-conteúdo.
+Sem máquina + consentimento, **nega**. Depois do sucesso, **commit + sign** (ver §5).
 
 **Preview sem gravar**: `--dry-run`.
 
 ---
 
-## 3. REKEY — recuperar passphrase esquecida
+## 3. REKEY — caminho de recuperação (máquina nova)
 
-A passphrase é irrecuperável (a chave é criptografada com AES-256-GCM — de propósito).
-Para resetar: gera um par NOVO com uma senha nova.
+A chave Ed25519 é **machine-bound** via DPAPI — se a máquina muda, o vínculo
+se perde. `cosca-check --rekey` é o **caminho de recuperação**: gera um par
+novo e **só exige PRESENÇA (nonce)** — não precisa desproteger a chave antiga.
 
 ```bash
-printf 'SUA_SENHA_NOVA\n' | ./bin/cosca-check --rekey --passphrase-stdin
+printf 'nonce' | ./bin/cosca-check --rekey
 git add internal/embed/cosca/keys/kernel_public.key
 git commit -m "chave: nova identidade do kernel"
 ./bin/cosca-check --sign-auto
@@ -73,14 +74,19 @@ git commit -m "chave: nova identidade do kernel"
 
 ---
 
-## 4. WAR PHRASE — armar/verificar (fator 2)
+## 4. A AUTORIDADE DO DON — Ed25519 vs git-anchor (M7)
 
-```bash
-cosca don phrase "minha frase secreta"   # arma (grava só o hash bcrypt)
-cosca don verify "minha frase secreta"   # verifica
-cosca don status                          # está armada?
-cosca don attempts                        # trilha de tentativas (audit)
-```
+M7 é o princípio: **Ed25519** = autoridade do Don; **GIT-ANCHORED** = testemunho
+de imutabilidade (sem autoridade). São sempre distinguidos:
+
+| Assinatura | Autoridade | Exige |
+|------------|-----------|-------|
+| `--sign` / `--push` (Ed25519) | **autoridade do Don** | máquina (DPAPI) + nonce |
+| `--sign-auto` (git-anchored) | **testemunho** (sem autoridade) | nada (o commit é a prova) |
+
+A assinatura Ed25519 só acontece porque a chave é desprotegida pela **máquina**
+(DPAPI) **e** o Don consente ao conteúdo (nonce em tempo constante, TTY real).
+Passphrase e war phrase **não existem mais no fluxo**.
 
 ---
 
@@ -96,8 +102,11 @@ git commit -m "..."        # 1º commit
 
 - Se mudar qualquer arquivo do `internal/embed/cosca/` e **não** re-assinar, o
   `cosca-check` acusa `GIT COMMIT MISMATCH` no próximo check.
-- `--sign-auto` (git-anchor) é sem passphrase; `--sign --passphrase-stdin` é o
-  Ed25519 completo (exige a passphrase do Don).
+- `--sign-auto` (git-anchor) é o **testemunho de imutabilidade** (sem autoridade);
+  `--sign` é o **Ed25519** completo — exige **máquina (DPAPI) + nonce** do Don.
+- `--push` também exige **máquina + nonce** e ainda a **credencial de sessão** via
+  `GIT_ASKPASS` efêmero — o token **nunca** é gravado em arquivo/config (a
+  credencial de push não reside na máquina).
 
 ---
 
@@ -126,16 +135,18 @@ Roda como cão de guarda: fsnotify (câmera) + chain (cachorro) + audit log
 
 ## 8. GOTCHAS — não repita
 
-1. **`--passphrase-stdin`**, não `--passphrase-stdi` (erro comum de digitação).
+1. **A assinatura é machine-bound (DPAPI)** — mudou de máquina/usuário? O
+   vínculo se perde; use `--rekey` (caminho de recuperação, só nonce).
 2. **Re-signar após TODO commit** que mexe no `internal/embed/cosca/` — senão
    `GIT COMMIT MISMATCH`.
-3. **Passphrase esquecida = irrecuperável** — use `--rekey` (não tem "recuperar").
+3. **Consentimento-ao-conteúdo exige TTY real** — sem terminal interativo o
+   nonce não é aceito (não há passphrase nem war phrase para "pular").
 4. **Chave pública em 3 lugares** — `~/.config`, `.cosca/keys/`, git. Se uma
    divergir, `cosca-check` acusa `PUBLIC KEY MISMATCH`.
 5. **`memory register` e `memory integrity` rodam FORA da jaula** (admin) — o
    register precisa ler a chave, o integrity audita o manifesto.
-6. **Sem os 3 fatores, o register nega** — mesmo o kernel não registra sozinho;
-   o Don precisa estar presente (passphrase + frase + nonce).
+6. **Sem máquina (DPAPI) + consentimento (nonce), o register nega** — mesmo o
+   kernel não registra sozinho; o Don precisa estar presente na mesma máquina.
 
 ---
 
@@ -144,3 +155,4 @@ Roda como cão de guarda: fsnotify (câmera) + chain (cachorro) + audit log
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — consolida o CLI de governança/segurança |
+| 1.1.0 | 2026-08-22 | Contrato de assinatura atualizado: machine-bound (DPAPI) + consentimento-ao-conteúdo (nonce) — passphrase/war phrase removidas do fluxo; M7 (Ed25519 autoridade vs GIT-ANCHORED testemunho) |

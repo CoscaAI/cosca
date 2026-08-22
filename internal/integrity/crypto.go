@@ -17,6 +17,16 @@ const (
 	nonceLen             = 12
 )
 
+// machineKeyEntropy is the application-specific optionalEntropy passed to
+// protectMachineKey/unprotectMachineKey (DPAPI on Windows).
+//
+// NOTE: it is NOT a secret — the secrecy comes from DPAPI's per-user,
+// per-machine binding, not from the entropy. It is a fixed, in-code domain
+// separator so that only this build can unprotect the blobs it creates. Because
+// it is fixed (not randomly generated per-key), it never needs to be stored
+// alongside the blob, and both protect and unprotect always use the same value.
+var machineKeyEntropy = []byte("cosca:kernel:machine-bound:key:v1")
+
 // deriveKey derives a 32-byte AES-256 key from a passphrase and salt.
 func deriveKey(passphrase string, salt []byte) []byte {
 	// Iterated SHA-256: not a password KDF, just key derivation.
@@ -123,7 +133,22 @@ func wrapBase64(s string, width int) string {
 	return b.String()
 }
 
-// isEncryptedKey checks if the key data is in the encrypted format.
+// protectPrivateKey protects raw key bytes (e.g. a PKCS#8 private key) with the
+// machine-bound mechanism (DPAPI on Windows) and the fixed machineKeyEntropy.
+// This replaces the old passphrase-based encryption — no human secret needed.
+func protectPrivateKey(plaintext []byte) ([]byte, error) {
+	return protectMachineKey(plaintext, machineKeyEntropy)
+}
+
+// unprotectPrivateKey reverses protectPrivateKey. It only succeeds on the same
+// machine + user that created the blob; otherwise an error is returned.
+func unprotectPrivateKey(blob []byte) ([]byte, error) {
+	return unprotectMachineKey(blob, machineKeyEntropy)
+}
+
+// isEncryptedKey checks if the key data is in the legacy passphrase-encrypted
+// armored format (COSCA ENCRYPTED PRIVATE KEY). New machine-bound keys are NOT
+// in this format; they are opaque blobs returned by protectMachineKey.
 func isEncryptedKey(data []byte) bool {
 	return strings.HasPrefix(string(data), encryptedKeyPreamble)
 }

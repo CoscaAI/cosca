@@ -17,27 +17,36 @@ func TestVerifyKernelIdentity_KeyReadable(t *testing.T) {
 		t.Setenv("USERPROFILE", home)
 	}
 	keyDir := filepath.Join(home, ".config", "cosca", "keys")
-	require.NoError(t, os.MkdirAll(keyDir, 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(keyDir, "kernel_private.key"), []byte("dummy-key-material"), 0o600))
+	// A REAL machine-bound key (not a dummy): the unprotect must succeed and the
+	// identity be confirmed on this machine/user.
+	_, _, err := GenerateKeyPair(keyDir)
+	require.NoError(t, err)
 
-	// Chave legível (sem passphrase) → identidade confirmada.
-	require.NoError(t, VerifyKernelIdentity(t.TempDir(), ""))
+	require.NoError(t, VerifyKernelIdentity(t.TempDir()))
 }
 
 func TestVerifyKernelIdentity_KeyMissing(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
 	// Nenhuma chave em HOME nem no fallback → nega (agente preso na jaula).
-	require.Error(t, VerifyKernelIdentity(t.TempDir(), ""))
+	require.Error(t, VerifyKernelIdentity(t.TempDir()))
 }
 
-func TestVerifyKernelIdentity_PassphraseInvalid(t *testing.T) {
+func TestVerifyKernelIdentity_InvalidKeyBlob(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
 	keyDir := filepath.Join(home, ".config", "cosca", "keys")
 	require.NoError(t, os.MkdirAll(keyDir, 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(keyDir, "kernel_private.key"), []byte("dummy-key-material"), 0o600))
+	// A file that is neither a valid machine-bound blob nor a legacy passphrase
+	// key → unprotect/parse must fail → identity denied. Passphrase doesn't
+	// exist anymore; the denial factor is a corrupted/invalid key blob.
+	require.NoError(t, os.WriteFile(filepath.Join(keyDir, "kernel_private.key"), []byte("corrupted-blob-not-a-key"), 0o600))
 
-	// Chave inválida não decripta com passphrase nenhuma → nega.
-	require.Error(t, VerifyKernelIdentity(t.TempDir(), "passphrase-errada"))
+	require.Error(t, VerifyKernelIdentity(t.TempDir()))
 }

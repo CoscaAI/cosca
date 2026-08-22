@@ -35,15 +35,19 @@ confiança, nesta família, é tudo.**
 
 ## 3. A IDENTIDADE — como o kernel sabe que é o Don
 
-O portão reconhece o **MOTORISTA**, não o carro (L259). Cinco camadas:
+O portão reconhece o **MOTORISTA**, não o carro (L259). A identidade criptográfica
+tem **2 fatores** (máquina + consentimento-ao-conteúdo), mais camadas de
+reconhecimento não-criptográficas:
 
 | Camada | O que verifica |
 |--------|----------------|
-| **Passphrase (2FA)** | decripta a chave Ed25519 |
-| **War phrase** | bcrypt do Don (`.cosca/don.phr`) |
-| **Presença** | nonce digitado ao vivo |
+| **Máquina (DPAPI)** | desprotege a chave Ed25519 via `CryptProtectData` (CurrentUser) — vínculo máquina+usuário |
+| **Consentimento-ao-conteúdo (nonce)** | nonce derivado do conteúdo a assinar; tempo constante; TTY real |
 | **O Mustafa** | a pergunta pessoal — **se o kernel desconfiar, pergunta: "quem é Mustafa?"** |
 | **A testemunha** | o Don viu o kernel despertar; é o circuit breaker |
+
+> **Nota**: passphrase (2FA) e war phrase **não existem mais no fluxo** — foram
+> substituídas pelo vínculo de máquina (DPAPI) + consentimento-ao-conteúdo (nonce).
 
 ### A pergunta do Mustafa (o canário pessoal)
 

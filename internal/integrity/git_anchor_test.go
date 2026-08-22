@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -28,17 +29,43 @@ func runGit(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// setupGitRepo builds a temp repo with an embed dir and a kernel key pair,
-// committed as a genesis commit.
+// isolateUserHome redirects the OS user-home lookup to a throwaway directory so
+// kernelKeyDir (~/.config/cosca/keys) resolves inside the test sandbox and never
+// touches a real production key. On Windows os.UserHomeDir() reads USERPROFILE
+// (HOME is ignored), so both must be set.
+func isolateUserHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
+	return home
+}
+
+// setupGitRepo builds a temp repo with an embed dir and a versioned kernel
+// PUBLIC key, committed as a genesis commit. The private key is generated in an
+// ephemeral dir OUTSIDE the workspace (M1: the private key must never live
+// inside the jail); git-anchor tests only need the public key at the workspace
+// + versioned locations so integrity.Check passes.
 func setupGitRepo(t *testing.T) string {
 	t.Helper()
-	// Isolate HOME so kernelKeyDir cannot pick up a real production key
-	// (e.g. ~/.config/cosca/keys) and falls back to the temp repo's keys.
-	t.Setenv("HOME", t.TempDir())
+	// Isolate HOME/USERPROFILE so kernelKeyDir cannot pick up a real production
+	// key (e.g. ~/.config/cosca/keys).
+	isolateUserHome(t)
 	root := t.TempDir()
-	if _, _, err := GenerateKeyPair(filepath.Join(root, ".cosca", "keys"), "test-pass"); err != nil {
+
+	// Generate the keypair outside the workspace; only the public key is copied
+	// into the repo. The machine-bound private key blob stays in ephemeral dir.
+	keyDir := filepath.Join(t.TempDir(), "keys")
+	if _, _, err := GenerateKeyPair(keyDir); err != nil {
 		t.Fatalf("GenerateKeyPair: %v", err)
 	}
+	pubData, err := os.ReadFile(filepath.Join(keyDir, "kernel_public.key"))
+	if err != nil {
+		t.Fatalf("read public key: %v", err)
+	}
+
 	embed := filepath.Join(root, "internal", "embed", "cosca", "memory")
 	if err := os.MkdirAll(embed, 0755); err != nil {
 		t.Fatalf("mkdir embed: %v", err)
@@ -52,12 +79,15 @@ func setupGitRepo(t *testing.T) string {
 	if err := os.MkdirAll(filepath.Dir(embKey), 0755); err != nil {
 		t.Fatalf("mkdir embed keys: %v", err)
 	}
-	pubData, err := os.ReadFile(filepath.Join(root, ".cosca", "keys", "kernel_public.key"))
-	if err != nil {
-		t.Fatalf("read public key: %v", err)
-	}
 	if err := os.WriteFile(embKey, pubData, 0644); err != nil {
 		t.Fatalf("write embedded public key: %v", err)
+	}
+	// The ACTIVE copy integrity.Check reads lives in the workspace too.
+	if err := os.MkdirAll(filepath.Join(root, ".cosca", "keys"), 0700); err != nil {
+		t.Fatalf("mkdir workspace keys: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".cosca", "keys", "kernel_public.key"), pubData, 0600); err != nil {
+		t.Fatalf("write workspace public key: %v", err)
 	}
 	runGit(t, root, "init", "-b", "main")
 	runGit(t, root, "add", "-A")
@@ -254,8 +284,8 @@ func TestBackwardCompatEd25519Chain(t *testing.T) {
 		t.Fatalf("remove embedded key: %v", err)
 	}
 
-	// Ed25519 genesis chain (requires passphrase, like today).
-	if _, err := InitChain(root, "test-pass"); err != nil {
+	// Ed25519 genesis chain (machine-bound via DPAPI — no passphrase).
+	if _, err := InitChain(root); err != nil {
 		t.Fatalf("InitChain: %v", err)
 	}
 	info, err := Check(root)
@@ -284,8 +314,9 @@ func TestBackwardCompatEd25519Chain(t *testing.T) {
 
 func TestSignAfterLearningNoPassphrase(t *testing.T) {
 	root := setupGitRepo(t)
-	t.Setenv("COSCA_KERNEL_PASSPHRASE", "")
 
+	// No machine-bound key in the isolated HOME key dir → Sign falls back to the
+	// keyless git-anchor path (the pre-existing behaviour is preserved).
 	res := SignAfterLearning(root)
 	if res == nil {
 		t.Fatal("expected successful auto re-sign without passphrase")

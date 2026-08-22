@@ -32,7 +32,7 @@ Record what you learned — positive OR negative. **Antes de escrever, valide co
 2. **If failure**: Record in `failures.md` with: what was attempted, why it failed, what should be done instead. Record the learning following P15 (block + gatilho, outcome=failure).
 3. **If nothing new**: Record explicitly: "Task was routine application of existing technique {name}." This prevents silent skipping.
 
-4. **After recording, re-sign the family chain**: call `integrity.SignAfterLearning()` to cryptographically sign the updated learnings.md. This proves the edit was authorized by the kernel (private key 0600). If the chain is broken on next startup, someone else tampered with the codebase — startup will be blocked.
+4. **After recording, re-sign the family chain**: call `integrity.SignAfterLearning()` to cryptographically sign the updated learnings.md. This proves the edit was authorized by the kernel — the Ed25519 key is **machine-bound (DPAPI, CurrentUser)**, so only on this machine/user can it be unsealed. If the chain is broken on next startup, someone else tampered with the codebase — startup will be blocked.
 
 Learnings follow the Learning Entry Format defined at `internal/embed/cosca/memory/LEARNING_PROTOCOL.md`. Each entry includes: timestamp, technique name, task context, level (1-5), outcome, tags for semantic search, what was learned, and what to try next.
 

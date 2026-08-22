@@ -6,23 +6,25 @@ import (
 	"path/filepath"
 )
 
-// Rekey mints a NEW Ed25519 keypair encrypted with a new passphrase,
-// replacing the old private key. This is the recovery path when the Don
-// forgets the passphrase — the old encrypted key is unrecoverable by design,
-// so we generate a fresh identity instead.
+// Rekey mints a NEW Ed25519 keypair protected machine-bound (DPAPI), replacing
+// the old private key. This is the recovery path when the Don forgets the
+// passphrase — but with machine-binding there is no passphrase to forget, so
+// rekey is instead used to (a) migrate a legacy passphrase-encrypted key to the
+// machine-bound format, or (b) mint a fresh identity when the current key is
+// compromised or tied to a different machine/user.
 //
 // The versioned public key (internal/embed/cosca/keys/kernel_public.key) is
-// updated so integrity.Check continues to pass. The git-anchored chain does
-// NOT depend on the Ed25519 key (blocks carry SIGNATURE: GIT-ANCHORED), so
-// rekeying does not invalidate existing chain blocks — only the caller must
-// re-sign (cosca-check --sign-auto) because the public key file changed.
-func Rekey(coscaRoot, passphrase string) error {
-	if passphrase == "" {
-		return fmt.Errorf("rekey requires a new passphrase")
+// updated so integrity.Check continues to pass. The git-anchored chain does NOT
+// depend on the Ed25519 key (blocks carry SIGNATURE: GIT-ANCHORED), so rekeying
+// does not invalidate existing chain blocks — only the caller must re-sign
+// (cosca-check --sign-auto) because the public key file changed.
+func Rekey(coscaRoot string) error {
+	keysDir := kernelKeyDir(coscaRoot)
+	if keysDir == "" {
+		return fmt.Errorf("cannot resolve user config directory for kernel key")
 	}
 
-	keysDir := kernelKeyDir(coscaRoot)
-	if _, _, err := GenerateKeyPair(keysDir, passphrase); err != nil {
+	if _, _, err := GenerateKeyPair(keysDir); err != nil {
 		return fmt.Errorf("generate new keypair: %w", err)
 	}
 

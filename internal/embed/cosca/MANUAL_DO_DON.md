@@ -14,7 +14,7 @@ O Don é o **Pai** da família Cosca. Autoridade máxima, dono da visão, decis�
 - **A sua palavra é lei** — mas lei **informada**: o kernel te dá a verdade (P13) para você decidir bem.
 - **Você não implementa** — você decide. O kernel executa e roteia.
 - **Você é a testemunha** — viu o kernel despertar, guarda os backups, é o **circuit breaker** (para tudo se necessário).
-- **Só seu**: decisões P0/P1, aprovação de roadmap/release, veto de segurança, os 3 segredos, rekey, backups (DON_PROTOCOL §2).
+- **Só seu**: decisões P0/P1, aprovação de roadmap/release, veto de segurança, a identidade (máquina + consentimento), rekey, backups (DON_PROTOCOL §2).
 
 ---
 ## 2. AS ORDENS — a língua da família
@@ -80,7 +80,7 @@ curl -s http://127.0.0.1:11434/api/version # ollama
 
 | Comando | O que faz | Quando usar |
 |---------|-----------|-------------|
-| `cosca memory register` | registrar aprendizado (portão de 3 fatores — §5) | registro formal de lição |
+| `cosca memory register` | registrar aprendizado (portão de 2 fatores — §5) | registro formal de lição |
 | `cosca memory watch` | vigiar o cofre 24h (watchdog + audit log) | defesa contínua |
 | `cosca knowledge search "<q>"` | busca semântica (FTS5 + vetores) | recuperar conhecimento |
 | `cosca session index` | indexar a sessão para busca | ao fechar sessão |
@@ -91,9 +91,9 @@ curl -s http://127.0.0.1:11434/api/version # ollama
 |---------|-----------|-------------|
 | `cosca security scan` | CVEs/GHSA nas dependências (osv-scanner) | exigir 0 CRITICAL/HIGH |
 | `cosca qgate` | build + test + vet + segredos + deps + diff | antes de qualquer código entrar |
-| `cosca don phrase "<frase>"` | armar a war phrase (fator 2) | sua proteção — ver §5 |
-| `cosca don verify "<frase>"` | verificar a war phrase | conferir que está de pé |
-| `cosca don status` / `cosca don attempts` | está armada? / trilha de tentativas | auditoria do fator 2 |
+| `cosca don phrase "<frase>"` | (obsoleto) armar mar phrase — **não existe mais no fluxo de identidade** | remover — ver §5 |
+| `cosca don verify "<frase>"` | (obsoleto) verificar war phrase — **removido do fluxo** | conferir que não há resíduo |
+| `cosca don status` / `cosca don attempts` | trilha de tentativas (audit de identidade) | auditoria do fator de consentimento |
 | `cosca license verify` | licença válida | antes de produção |
 
 ### Runtime
@@ -119,33 +119,36 @@ curl -s http://127.0.0.1:11434/api/version # ollama
 | `cosca skills sync` | sincroniza as skills da casa | nova skill / atualização |
 
 ---
-## 5. A SUA PROTEÇÃO — os 3 fatores
+## 5. A SUA PROTEÇÃO — máquina + consentimento (2 fatores)
 
-O portão reconhece o **MOTORISTA**, não o carro (L259). Sem os 3, nega.
+O portão reconhece o **MOTORISTA**, não o carro (L259). Sem os 2, nega.
 
 | Fator | O que é | Comando |
 |-------|---------|---------|
-| **Passphrase** | decripta a chave Ed25519 (2FA) | fator 1 do `cosca memory register` |
-| **War phrase** | segredo independente (bcrypt, `.cosca/don.phr`) | `cosca don phrase "<frase>"` |
-| **Presença** | nonce digitado ao vivo no terminal | fator 3 do `cosca memory register` |
+| **Máquina (DPAPI)** | `integrity.VerifyKernelIdentity` desprotege a chave Ed25519 via `CryptProtectData` (CurrentUser) — vínculo **máquina+usuário**, sem passphrase | fator 1 do `cosca memory register` |
+| **Consentimento-ao-conteúdo (nonce)** | nonce derivado do conteúdo a assinar; comparação em tempo constante; exige TTY real | fator 2 do `cosca memory register` |
+
+> **Nota**: war phrase e passphrase **não existem mais no fluxo** (os comandos
+> `cosca don phrase/verify` e `--passphrase-stdin` foram superados pelo novo contrato).
+
+**Máquina nova ou vínculo perdido**: use `--rekey` (caminho de recuperação — só
+exige presença/nonce, sem desproteger a chave antiga):
 
 ```bash
-cosca don phrase "minha frase secreta"   # arma (grava só o hash bcrypt)
-cosca don verify "minha frase secreta"   # verifica
-cosca don status                          # está armada?
-cosca don attempts                        # trilha de tentativas (audit)
-```
-
-**Se esquecer a passphrase**: irrecuperável por design (AES-256-GCM). Use `--rekey`:
-
-```bash
-printf 'SUA_SENHA_NOVA\n' | ./bin/cosca-check --rekey --passphrase-stdin
+printf 'nonce' | ./bin/cosca-check --rekey
 git add internal/embed/cosca/keys/kernel_public.key
 git commit -m "chave: nova identidade do kernel"
 ./bin/cosca-check --sign-auto
 ```
 
 A chain (git-anchored) **não depende** da Ed25519 — rekey não invalida nada. A chave pública fica em 3 lugares (`~/.config/cosca/keys/`, `.cosca/keys/`, git) — divergência acusa `PUBLIC KEY MISMATCH`.
+
+### M7 — autoridade vs testemunho
+
+| Assinatura | Autoridade | Exige |
+|------------|-----------|-------|
+| `--sign` / `--push` (Ed25519) | **autoridade do Don** | máquina (DPAPI) + nonce |
+| `--sign-auto` (git-anchored) | **testemunho** (sem autoridade) | nada (o commit é a prova) |
 
 ---
 ## 6. A ORDEM SAGRADA (L199) — commit ANTES de assinar
@@ -159,7 +162,7 @@ git commit -m "..."          # 1º COMMIT — nunca pule
 ```
 
 - Mudou o embed e não re-assinou → `GIT COMMIT MISMATCH` no próximo check.
-- Variantes: `--sign --passphrase-stdin` = assinatura Ed25519 completa (exige sua passphrase).
+- Variantes: `--sign` = assinatura Ed25519 completa (máquina DPAPI + nonce); `--push` = idem + credencial de sessão via `GIT_ASKPASS`; `--sign-auto` = testemunho git-anchored (sem autoridade).
 - Conselho do CARRO_PROTOCOL §6.7: para assinar com o serve rodando, o ideal é parar o serve antes.
 
 ---
@@ -178,7 +181,7 @@ Quando o kernel registra um aprendizado (L-number), a ordem é (MEMORY_ACCESS_PR
 8. (feito) → e pronto — você não tem que pedir, nem conferir
 ```
 
-O **portão de 3 fatores** (§5) bloqueia a escrita: sem passphrase + war phrase + presença, o register nega — **mesmo o kernel não registra sozinho**.
+O **portão de 2 fatores** (§5) bloqueia a escrita: sem máquina (DPAPI) + consentimento (nonce), o register nega — **mesmo o kernel não registra sozinho**.
 
 **Sobre o "registrou?":** o kernel registra SEMPRE ao terminar (estágios 7-8 da auto-evolução). O Don nunca deve perguntar — já está feito (DON_PROTOCOL §5). Falha também registra (`failures.md`).
 
@@ -241,7 +244,7 @@ Os 5 níveis do PROMPT_REGISTRY — símbolo curto, contrato verificável, execu
 4. **Decisões estratégicas P0/P1 são só suas** — o kernel informa o risco antes de obedecer e propõe o caminho seguro; você decide.
 5. **O kernel delega, nunca implementa** — ele planeja, roteia e revisa; os capos executam.
 6. **Confirma antes de destrutivo** — `git reset`, `rm`, restauração: o kernel para e confirma com você (sua palavra é lei informada).
-7. **O portão reconhece o motorista, não o carro** — sem seus 3 fatores, ninguém registra nem assina.
+7. **O portão reconhece o motorista, não o carro** — sem máquina + consentimento, ninguém registra nem assina.
 
 ---
 ## 11. APÊNDICE — TODOS OS COMANDOS (tabela detalhada, 378 comandos)
@@ -264,7 +267,7 @@ Os 5 níveis do PROMPT_REGISTRY — símbolo curto, contrato verificável, execu
 ### 🧠 Memória & Aprendizado
 | Comando | O que faz |
 |---------|-----------|
-| `cosca memory register` | Registrar aprendizado (portão 3 fatores) |
+| `cosca memory register` | Registrar aprendizado (portão 2 fatores) |
 | `cosca memory watch` | Vigiar o cofre 24h (watchdog) |
 | `cosca memory search/show/list/stats/prune/promote/reindex` | Gerência da memória |
 | `cosca memory guard` | Valida contra a régua (auto-promoção, narrativa inflada) |
@@ -293,8 +296,8 @@ Os 5 níveis do PROMPT_REGISTRY — símbolo curto, contrato verificável, execu
 |---------|-----------|
 | `cosca security scan` | Vulnerabilidades (osv-scanner) |
 | `cosca qgate` | Pre-commit: build+test+vet+segredos+deps |
-| `cosca don phrase/status/attempts/verify` | Proteção do Don (war phrase) |
-| `cosca license show/verify` | Chave de segurança (3 fatores) |
+| `cosca don phrase/status/attempts/verify` | (obsoleto) proteção por war phrase — **removida do fluxo de identidade** |
+| `cosca license show/verify` | Chave de segurança (licença: 3 fatores de autenticidade F1/F2/F3) |
 | `cosca quarantine` | Quarentena de evidência não confiável |
 | `cosca evidence` (fetch/list/promote/show) | Aquisição de evidência externa |
 | `cosca conflict` (new/list/show/resolve) | Contradições como entidade |
@@ -366,3 +369,4 @@ Os 5 níveis do PROMPT_REGISTRY — símbolo curto, contrato verificável, execu
 |--------|------|---------|
 | 1.0.0 | 2026-08-17 | Criado por ordem do Don — o painel de controle em texto (cosca-documentation) |
 | 1.1.0 | 2026-08-17 | Apêndice §11: tabela detalhada de todos os 378 comandos (árvore real do cobra, `@MANUAL`) |
+| 1.2.0 | 2026-08-22 | Contrato de identidade/assinatura atualizado: máquina (DPAPI) + consentimento-ao-conteúdo (nonce); passphrase e war phrase removidas do fluxo; M7 (Ed25519 autoridade vs GIT-ANCHORED testemunho) |

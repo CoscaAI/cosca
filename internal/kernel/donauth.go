@@ -1,9 +1,18 @@
 // Package kernel — Don authentication (war phrase).
 //
-// Protection against impersonation: high-risk orders must be confirmed by
-// the Don's war phrase. Only the bcrypt hash of the phrase is ever stored
-// (never the phrase itself), and every verification attempt — success or
-// failure — is recorded so the Don can audit who tried to speak in his name.
+// ⚠️ LEGADO — a war phrase NÃO é mais chamada pelo portão privilegiado.
+//
+// A assinatura da family chain agora é machine-bound via DPAPI + nonce de
+// consentimento-ao-conteúdo (ver internal/cli/memory_identity.go). O portão
+// privilegiado deixou de usar a war phrase como 2º fator; este pacote é
+// mantido APENAS para compatibilidade com o subsistema `cosca don` e outros
+// consumidores legados (cosca CLI / kernel.DonAuth / HashDonPhrase). Não
+// alterar a semântica sem coordenação com a squad que migra os testes.
+//
+// Histórico: proteção contra impersonação — ordens de alto risco eram
+// confirmadas pela war phrase do Don. Apenas o hash bcrypt da frase era
+// armazenado (nunca a frase em si), e toda tentativa de verificação — sucesso
+// ou falha — era registrada para o Don auditar quem tentou falar em seu nome.
 package kernel
 
 import (

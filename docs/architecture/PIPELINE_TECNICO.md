@@ -157,8 +157,8 @@ APRENDIZADO       appendLearning() escreve bloco markdown em agent/{nome}/learni
                   (+ patterns.md, capability-profile.md quando aplicável)
   ↓
 VERSIONAMENTO     integrity.SignAfterLearning() → bloco em .cosca/family_chain.dat
-                  (Ed25519 se COSCA_KERNEL_PASSPHRASE presente; senão git-anchored SignAuto;
-                  se ambos falham: loga, chain pega a violação no próximo boot)
+                  (Ed25519 machine-bound via DPAPI — autoridade do Don; senão git-anchored SignAuto
+                  como testemunho de imutabilidade; se ambos falham: loga, chain denuncia no próximo boot)
                   + cosca-merkle regenera merkle/epoch_*.json (folhas = hashes do chain.dat,
                   árvore SHA-256, epochs de 32 blocos)
   ↓
@@ -708,7 +708,7 @@ Tecnicamente: a sessão sem fast path precisa **reconstruir o contexto do zero**
 ### CONFIDENCIAL — descrito apenas função/interface
 
 - **Conteúdo do DESPERTAR** (instruções privadas de ativação) — função e momento descritos em §1.5.
-- **Chaves e credenciais**: jail-secrets, kernel private key, passphrase mechanism, HKDF sources — apenas o mecanismo é descrito; nunca o material.
+- **Chaves e credenciais**: jail-secrets, kernel private key (Ed25519 machine-bound via DPAPI), HKDF sources — apenas o mecanismo é descrito; nunca o material.
 - **Secrets vault** e **auth tokens**: mecânica criptográfica descrita; conteúdo jamais.
 
 ---

@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,34 +22,41 @@ type SignResult struct {
 	Anchored    bool // true when the block is git-anchored (no Ed25519 signature)
 }
 
-// kernelKeyDir resolve o diretório da CHAVE PRIVADA do kernel.
-// Produção: ~/.config/cosca/keys — FORA do workspace, portanto invisível à
-// jaula (um agente preso não pode ler a chave e forjar a chain). Fallback
-// (dev/legado): <coscaRoot>/.cosca/keys. A chave PÚBLICA permanece no
-// workspace (.cosca/keys/kernel_public.key), onde integrity.Check a lê.
-func kernelKeyDir(coscaRoot string) string {
-	if home, err := os.UserHomeDir(); err == nil {
-		cfgDir := filepath.Join(home, ".config", "cosca", "keys")
-		if _, err := os.Stat(filepath.Join(cfgDir, "kernel_private.key")); err == nil {
-			return cfgDir
-		}
+// kernelKeyDir resolve o diretório da CHAVE PRIVADA do kernel — SEMPRE fora do
+// workspace: ~/.config/cosca/keys. Não existe mais um fallback para
+// <coscaRoot>/.cosca/keys (M1): a chave privada jamais pode viver dentro da
+// jaula ou do diretório de trabalho, senão um agente preso a leria e forjaria a
+// chain. A chave PÚBLICA permanece no workspace (.cosca/keys/kernel_public.key),
+// onde integrity.Check a lê.
+//
+// Retorna "" se o home do usuário não puder ser resolvido — o chamador deve
+// tratar esse caso como "identidade indisponível".
+func kernelKeyDir(_ string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
 	}
-	return filepath.Join(coscaRoot, ".cosca", "keys")
+	return filepath.Join(home, ".config", "cosca", "keys")
 }
 
 // Sign scans the embed directory, builds a new manifest, and appends a signed
-// block to the family chain. Requires the kernel passphrase to decrypt the
-// private key. Subagents without the passphrase cannot sign.
-func Sign(coscaRoot string, passphrase string) (*SignResult, error) {
+// block to the family chain. The key is loaded and DECRYPTED machine-bound via
+// DPAPI (no passphrase), so only the same user on the same machine can sign.
+// Subagents without the machine-bound key cannot sign; a different machine or
+// user fails to unprotect the key and is denied.
+func Sign(coscaRoot string) (*SignResult, error) {
 	keysDir := kernelKeyDir(coscaRoot)
+	if keysDir == "" {
+		return nil, fmt.Errorf("cannot resolve user config directory for kernel key")
+	}
 	privKeyPath := filepath.Join(keysDir, "kernel_private.key")
 	chainPath := filepath.Join(coscaRoot, ".cosca", "family_chain.dat")
 	embedDir := filepath.Join(coscaRoot, "internal", "embed", "cosca")
 
-	// Load private key (decrypts with passphrase)
-	privKey, err := loadPrivateKey(privKeyPath, passphrase)
+	// Load private key (machine-bound unprotect; no passphrase)
+	privKey, err := loadPrivateKey(privKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load private key (only kernel can sign): %w", err)
+		return nil, fmt.Errorf("cannot load private key (only the kernel on this machine can sign): %w", err)
 	}
 
 	// Scan embed directory for all files
@@ -118,11 +124,15 @@ func Sign(coscaRoot string, passphrase string) (*SignResult, error) {
 }
 
 // InitChain generates a new keypair and creates the genesis block.
+// The new keypair is machine-bound (DPAPI) — no passphrase to remember.
 // REFUSES to overwrite an existing chain — subagents cannot hijack the chain
-// by deleting keys and re-initializing. If a chain already exists, it must
-// be manually removed (requires filesystem access + passphrase awareness).
-func InitChain(coscaRoot string, passphrase string) (*SignResult, error) {
+// by deleting keys and re-initializing. If a chain already exists, it must be
+// manually removed (requires filesystem access).
+func InitChain(coscaRoot string) (*SignResult, error) {
 	keysDir := kernelKeyDir(coscaRoot)
+	if keysDir == "" {
+		return nil, fmt.Errorf("cannot resolve user config directory for kernel key")
+	}
 	privPath := filepath.Join(keysDir, "kernel_private.key")
 	chainPath := filepath.Join(coscaRoot, ".cosca", "family_chain.dat")
 
@@ -143,10 +153,10 @@ func InitChain(coscaRoot string, passphrase string) (*SignResult, error) {
 
 	// Only generate keys if they don't exist
 	if _, err := os.Stat(privPath); os.IsNotExist(err) {
-		if _, _, err := GenerateKeyPair(keysDir, passphrase); err != nil {
+		if _, _, err := GenerateKeyPair(keysDir); err != nil {
 			return nil, fmt.Errorf("generate keys: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "✅ Ed25519 key pair generated in %s\n", keysDir)
+		fmt.Fprintf(os.Stderr, "✅ Ed25519 key pair generated in %s (machine-bound)\n", keysDir)
 
 		// Copy public key to versioned location (git-tracked, immutable identity)
 		pubPath := filepath.Join(keysDir, "kernel_public.key")
@@ -166,34 +176,34 @@ func InitChain(coscaRoot string, passphrase string) (*SignResult, error) {
 	}
 
 	// Sign the genesis block
-	return Sign(coscaRoot, passphrase)
+	return Sign(coscaRoot)
 }
 
 // SignAfterLearning re-signs the chain after a learning was registered.
 // Called automatically by the kernel after every stage 7-8 evolution step.
-// Passphrase-free: it auto-signs with the git anchor (SignAuto). If a kernel
-// passphrase is available via the COSCA_KERNEL_PASSPHRASE environment
-// variable, full Ed25519 signing is preferred. If signing fails, it logs but
-// does NOT block — the chain will detect the breach on next startup and alert.
+// Machine-bound (no passphrase): it prefers full Ed25519 signing via the
+// DPAPI-bound key (same machine + user). If signing fails (e.g. the key is
+// missing for this user/machine, or it is still in the legacy passphrase
+// format), it falls back to the keyless git-anchored path (SignAuto). On
+// failure to fall back it logs but does NOT block — the chain will detect the
+// breach on next startup and alert.
 func SignAfterLearning(coscaRoot string) *SignResult {
-	if pass := os.Getenv("COSCA_KERNEL_PASSPHRASE"); pass != "" {
-		result, err := Sign(coscaRoot, pass)
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "🔐 Chain re-signed (Ed25519) — block %d (%d files)\n", result.BlockNumber, result.FilesSigned)
-			return result
-		}
-		fmt.Fprintf(os.Stderr, "⚠️  Ed25519 re-sign failed (%v) — falling back to git anchor\n", err)
+	result, err := Sign(coscaRoot)
+	if err == nil {
+		fmt.Fprintf(os.Stderr, "🔐 Chain re-signed (Ed25519, machine-bound) — block %d (%d files)\n", result.BlockNumber, result.FilesSigned)
+		return result
 	}
+	fmt.Fprintf(os.Stderr, "⚠️  Ed25519 re-sign failed (%v) — falling back to git anchor\n", err)
 
-	result, err := SignAuto(coscaRoot)
+	res, err := SignAuto(coscaRoot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Auto re-sign failed: %v\n", err)
 		fmt.Fprintf(os.Stderr, "   Chain will be broken on next startup.\n")
 		fmt.Fprintf(os.Stderr, "   Run: cosca-check --sign-auto\n")
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "🔐 Chain re-signed (git-anchored) — block %d (%d files)\n", result.BlockNumber, result.FilesSigned)
-	return result
+	fmt.Fprintf(os.Stderr, "🔐 Chain re-signed (git-anchored) — block %d (%d files)\n", res.BlockNumber, res.FilesSigned)
+	return res
 }
 
 // chainState returns the previous block hash and the next block number
@@ -280,51 +290,45 @@ func scanEmbed(coscaRoot, embedDir string, algo HashAlgo) ([]FileEntry, error) {
 	return entries, nil
 }
 
-// loadPrivateKey reads an Ed25519 private key.
-// Supports two formats:
-//   - Encrypted: COSCA ENCRYPTED PRIVATE KEY (AES-256-GCM, passphrase required)
-//   - Legacy: PKCS#8 PEM unencrypted (no passphrase needed)
-func loadPrivateKey(path string, passphrase string) (ed25519.PrivateKey, error) {
+// loadPrivateKey reads and unprotects an Ed25519 private key.
+//
+// MACHINE-BOUND (primary): the file holds a blob produced by protectMachineKey
+// (DPAPI on Windows). Unprotecting requires the same machine + user; a different
+// machine/user or a tampered blob yields an error.
+//
+// LEGACY: a file in the old "COSCA ENCRYPTED PRIVATE KEY" passphrase armored
+// format cannot be recovered anymore, because there is no passphrase in the new
+// contract. It returns a clear error pointing to `rekey` as the migration path
+// (fresh machine-bound identity).
+func loadPrivateKey(path string) (ed25519.PrivateKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Try encrypted format first
+	if len(data) == 0 {
+		return nil, fmt.Errorf("private key file is empty")
+	}
+
+	// Legacy passphrase-encrypted armored format — no passphrase is available.
 	if isEncryptedKey(data) {
-		if passphrase == "" {
-			return nil, fmt.Errorf("encrypted key requires passphrase — use --passphrase-stdin")
-		}
-		raw, err := decryptPrivateKey(data, passphrase)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt private key: %w", err)
-		}
-		key, err := x509.ParsePKCS8PrivateKey(raw)
-		if err != nil {
-			return nil, fmt.Errorf("parse PKCS#8: %w", err)
-		}
-		priv, ok := key.(ed25519.PrivateKey)
-		if !ok {
-			return nil, fmt.Errorf("key is not Ed25519")
-		}
-		return priv, nil
+		return nil, fmt.Errorf("private key is in legacy passphrase-encrypted format — run a rekey to migrate to machine-bound protection")
 	}
 
-	// Legacy: unencrypted PKCS#8 PEM
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("invalid key format — not encrypted COSCA key nor PEM")
-	}
-
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	// Primary format: machine-bound (DPAPI) protected blob.
+	raw, err := unprotectPrivateKey(data)
 	if err != nil {
-		return nil, fmt.Errorf("parse PKCS#8: %w", err)
+		return nil, fmt.Errorf("unprotect machine-bound private key (wrong machine or user?): %w", err)
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(raw)
+	if err != nil {
+		return nil, fmt.Errorf("parse PKCS#8 private key: %w", err)
 	}
 
 	priv, ok := key.(ed25519.PrivateKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not Ed25519")
 	}
-
 	return priv, nil
 }

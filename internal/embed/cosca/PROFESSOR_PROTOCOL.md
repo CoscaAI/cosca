@@ -33,7 +33,7 @@ concreto para o Don entender na hora:
 | Conceito técnico | Metáfora |
 |------------------|----------|
 | Chave de identidade | o **carro** |
-| Autorização de 3 fatores | o **portão** que reconhece o motorista |
+| Autorização de 2 fatores (máquina + consentimento) | o **portão** que reconhece o motorista |
 | Supply-chain / backdoor | a **porta dos fundos** |
 | Superfície de ataque | a **janela aberta** |
 | Código fonte | o **filho** |
@@ -126,3 +126,4 @@ APRENDER (tarefa) → APRENDIZADO (L-number) → PADRÃO (patterns.md)
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — consolida a pedagogia da família |
+| 1.1.0 | 2026-08-22 | Metáfora da autorização atualizada: 3 fatores → máquina + consentimento (2 fatores, DPAPI + nonce) |

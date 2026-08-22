@@ -87,7 +87,7 @@ TIME, LEVEL, TAGS, `---`, título, tabela e newlines. **NÃO é só "título + t
 
 **7. Commit no git** — ORDEM SAGRADA (L199): **commit ANTES de assinar**.
 
-**8. Assine a family chain**: `cosca-check --sign-auto` (git-anchored, sem passphrase).
+**8. Assine a family chain**: `cosca-check --sign-auto` (git-anchored — testemunho de imutabilidade, sem autoridade).
 
 ---
 
@@ -106,13 +106,16 @@ TIME, LEVEL, TAGS, `---`, título, tabela e newlines. **NÃO é só "título + t
 ### Modelo de confiança — quem PODE registrar
 
 Registrar na memória do kernel é operação **exclusiva do Don** (via o kernel).
-O portão é em **3 fatores** — não basta a chave (o "carro"), precisa do motorista:
+O portão é em **2 fatores** — não basta a chave (o "carro"), precisa do motorista:
 
 | Fator | Mecanismo | Bloqueia |
 |-------|-----------|----------|
-| **1. Passphrase (2FA)** | `cosca memory register` exige decriptar a chave Ed25519 (algo que você SABE + TEM) | quem roubou a chave sem a senha |
-| **2. War phrase** | verifica contra o bcrypt do Don (`.cosca/don.phr`) — segundo segredo independente | quem tem chave + senha, mas não a frase |
-| **3. Presença** | nonce aleatório digitado de volta ao vivo no terminal | qualquer processo roubado/automatizado |
+| **1. Máquina (DPAPI)** | `integrity.VerifyKernelIdentity` desprotege a chave Ed25519 via `CryptProtectData` (CurrentUser) — vínculo **máquina+usuário**, sem passphrase para decorar | quem roubou a chave e não está na mesma máquina/usuário |
+| **2. Consentimento-ao-conteúdo (nonce)** | nonce derivado do conteúdo a assinar; comparação em tempo constante; exige TTY real | qualquer processo roubado/automatizado sem a presença do Don |
+
+- **Autoridade vs testemunho (M7)**: a Ed25519 desprotegida pela máquina + nonce é a
+  **autoridade do Don**; o git-anchor (`--sign-auto`) é apenas **testemunho** de
+  imutabilidade (sem autoridade).
 
 - **Jaula (L2)**: o sandbox monta `internal/embed/cosca/` como `--ro-bind` (read-only)
   mesmo no modo workspace gravável — agente preso não escreve no cérebro.
@@ -141,12 +144,12 @@ e idempotente. (Foi o que aconteceu em L254/L255 — ver commit `6bc966f`.)
 
 | Comando | Uso |
 |---------|-----|
-| `cosca memory register` | registrar um aprendizado (portão de 3 fatores) |
+| `cosca memory register` | registrar um aprendizado (portão de 2 fatores — máquina + consentimento) |
 | `cosca memory watch` | vigiar o cofre 24h (watchdog + audit log) |
 | `cosca kernel self-test` | integridade do kernel (identidade, 6 leis, 8 princípios) |
 | `cosca knowledge search "<q>"` | busca semântica na base (FTS5 + vetores) |
 | `cosca knowledge verify [--fix]` | verificar/consertar índice (vetores órfãos etc.) |
-| `cosca-check --sign-auto` | assinar family chain (git-anchored) |
+| `cosca-check --sign-auto` | assinar family chain (git-anchored — testemunho de imutabilidade) |
 | `go run ./cmd/cosca-merkle -dir internal/embed/cosca/memory/agent/cosca-kernel` | regenerar merkle |
 | `cosca session index` | indexar a sessão atual para busca FTS5 |
 
@@ -171,3 +174,4 @@ e idempotente. (Foi o que aconteceu em L254/L255 — ver commit `6bc966f`.)
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — consolida LER/REGISTRAR/INTEGRIDADE da memória |
+| 1.1.0 | 2026-08-22 | Modelo de confiança atualizado: 3 fatores → máquina (DPAPI) + consentimento-ao-conteúdo (nonce); sign-auto = testemunho (M7) |

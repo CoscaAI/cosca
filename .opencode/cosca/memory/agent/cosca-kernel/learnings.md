@@ -2,6 +2,96 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-22 — Assinatura Machine-Bound (DPAPI + nonce consent-to-content)
+
+### 2026-08-22 — Implementação da assinatura machine-bound via DPAPI (decisão Opção B)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Implementar assinatura da family chain vinculada à máquina (DPAPI) + nonce consent-to-content + push gating. Ordem do Don. |
+| **Technique** | Level 4 — Orquestração em 3 ondas: Onda 1 (Architecture→ADR + Security→threat model, paralelo), decisão Opção B pelo Don, Onda 2a (specialist backend→DPAPI core) + 2b (specialist backend→CLI gate) + testes (unit) em paralelo, Onda 3 (Review). Download da delegação: nunca implementei — comandei. |
+| **Level** | 4 |
+| **Outcome** | success — build/vet verdes, testes de assinatura machine-bound verdes |
+| **Confidence** | 0.87 (orchestration/security domain) |
+| **Tags** | #assinatura #dpapi #machine-bound #nonce #consent-to-content #family-chain #seguranca |
+| **Related** | internal/integrity/{dpapi_windows,dpapi_other,acl_windows,crypto,keygen,identity,sign,rekey}.go, internal/cli/memory_identity.go, cmd/cosca-check/main.go, machine_key_test.go |
+| **Learned** | 1) O Don tinha razão em questionar a assinatura: ela MUDOU — deixou de ser Ed25519 c/ passphrase e virou **git-anchor (default)** na migração anterior. 2) Fluxo correto de design de segurança: NUNCA implementar direto num sistema criptográfico. Onda 1 = ADR + threat model ANTES de código. O threat model (Security Chief) flagou que **serial do disco NÃO é segredo nem estável** (WMI legível por qualquer processo, sandbox win32 advisory) — sem isso, eu teria implementado o desenho frágil do Don. 3) O Don decidiu Opção B (DPAPI) após ouvir o veredito honesto do Chief — consigliere precisa surfar a má notícia cedo. 4) DPAPI via `golang.org/x/sys/windows` (CryptProtectData/UnprotectData) é a raiz de "máquina" correta no win32: não-espoofável, não WMI-legível, sobrevive a troca de disco. 5) Não esquecer: build quebrou na fronteira — pacote interno migrado, callers (CLI) ficaram com assinatura antiga; a coordenação de interface (contrato compartilhado) foi o que destravou. 6) O portão final ficou em **2 fatores**: máquina (DPAPI, fator you have, sem segredo a lembrar) + **consentimento ao conteúdo** (nonce derivado do bloco, M4 — aprova o bloco EXATO, não "estou presente"). M3 (TTY fail-closed) fechou a falha de "assinatura sem humano". |
+| **Next** | Avaliar com o Don: (1) gatear `--rekey` como `--sign`/`--push` (hoje só máquina, sem nonce), (2) subir entropia do token de consentimento (8→16 hex), (3) atualizar docs em `internal/embed/cosca/*` (P8 — precisa aprovação do Don) que ainda citam `--passphrase-stdin`/`3 fatores`. |
+
+---
+
+## Session: 2026-08-22 — Mineração Google + Claude
+
+### 2026-08-22 — Mineração Google + Claude (5 batedores paralelos)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Revirar Google e Claude (ordem do Don) |
+| **Technique** | Level 3 — Mining via GitHub Search API: descobri que a org de Claude é **`anthropics`** (com "s") — `Anthropic` tem 3 repos inúteis; o ouro é `anthropics/claude-code` (142k★), `skills` (171k★), `claude-agent-sdk-python`. Google: `adk-python` (21k★) + `skills` (18k★). Clone shallow 5 repos, 5 subagentes `general` paralelos, agregação em `google-agent-patterns.md` (14) + `anthropics-skills-patterns.md` (21) + INDEX update (33 total) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.86 (mining/orchestration domain) |
+| **Tags** | #mining #google #anthropic #claude #adk #skills #hooks #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/{google-agent,anthropics-skills}-patterns.md |
+| **Learned** | 1) **Lição da org errada**: eu estava procurando "Anthropic" mas a org é "anthropics" (plural) — a busca por estrelas revelou a correção. Sempre confirmar o segmento do org, não assumir. 2) Google ADK: agente como **estrutura de dados** (Pydantic + sub-agents + `clone()` + herança), transfer de controle com **enum-restrito**, agent loop por **processors** (não while monolítico), event-sourcing de sessão com **rewind**, workflow com **trigger-buffer + scheduler + replay** (o que o cosca-workflow-chief precisa). 3) Google Skills: frontmatter mínimo + **descrição Use when/Don't use when** como contrato de ativação, progressive disclosure (references/scripts/assets), guardrails **codificados dentro da skill** (denylist + dry-run + consent gate), anti-alucinação por **MCP como fonte de fatos**. 4) Claude: **contrato de hooks por eventos** (JSON-in/out + exit-code como control-flow) desacopla o loop do núcleo, permissões **3 estados** imunes a override, **trust-model aditivo anti-prompt-injection** (regra de usuário entra como dado que só soma, nunca suprime), memória de sessão com **git-baseline diff**, e o **meta-loop A/B** da skill-creator (avaliar skill com with/without e versionar por evidência). 5) Padrão transversal mais forte: **controle de segurança como contrato aditivo anti-injeção** (Claude A7) — essencial onde agentes/plugins contribuem regras. 6) Gap confirmado nº2 de evolução: o meta-loop A/B (B7) é o que falta para o Cosca justificar skills por dados (pass-rate/tempo/tokens) em vez de opinião. |
+| **Next** | Levar os padrões de maior valor ao Conselho: (1) hooks por eventos + trust-model anti-injeção (Governança/Segurança), (2) meta-loop A/B de skills (Evolução), (3) adk workflow trigger-buffer/scheduler (Workflow Chief/CTO). |
+
+---
+
+## Session: 2026-08-22 — Mineração org kubernetes
+
+### 2026-08-22 — Mineração org kubernetes (satélites: cri-api, autoscaler, community, kube-state-metrics)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar https://github.com/kubernetes (ordem do Don) — org inteira |
+| **Technique** | Level 3 — Mining via GitHub Search API (org:kubernetes) → 78 repos, escolhi 4 satélites por gap-fit que NÃO estão no core-patterns já minerado (cri-api=execução, autoscaler=capacidade, community=governança, kube-state-metrics=observabilidade). Clone shallow, 4 subagentes `general` paralelos, agregação em `kubernetes-org-patterns.md` (27 padrões) + INDEX update (31 total) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.85 (mining/orchestration domain) |
+| **Tags** | #mining #kubernetes #cri-api #autoscaler #kep #kube-state-metrics #sandbox #scaling #governanca #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/kubernetes-org-patterns.md (complementa kubernetes-core-patterns.md) |
+| **Learned** | 1) Lição de sobrescopo: o core (kubernetes/kubernetes) JÁ foi minerado a fundo — a org tem 78 repos, o valor novo está nos satélites que casam com gaps. Li a diferença entre minerar o repositório-âncora e minerar a **org** (escolher o que NÃO duplica). 2) 4 gaps cobertos: (a) **sandbox/execução** → CRI (contrato gRPC de runtime plugável + sandbox lifecycle idempotente + spec declarativa de isolamento + ExecSync bounded 16MB vs Exec/Attach stream) — desenho direto pro P0; (b) **escalonamento/capacidade** → VPA (decaying histogram, estimador em banda target/lower/upper + confidence-gating) e CA (health gate, unneeded-time monotônico anti-thrash, ClusterSnapshot de simulação); (c) **governança** → KEP (formato de RFC com estados provisional→implementable→implemented→withdrawn + critérios de graduação — o que falta no Ciclo de Decisão), OWNERS (2 fases lgtm→approve + no_parent_owners p/ P8), SIG charter + OARP, escada de contribuidor com evidência + inatividade, RFC2119; (d) **observabilidade de estado** → kube-state-metrics (state->metrics, cardinalidade allowlist, health one-hot, sharding por jump-hash por UID). 3) Padrão que mais falta no Cosca: **KEP** — temos "Ciclo de Decisão" mas não um formato de RFC com estados formais e critérios de graduação. 4) A1/A2/A4 do CRI confirmam o desenho do sandbox P0 além do landlock (aqui o isolamento é dado como spec declarativa, não código). |
+| **Next** | Levar o trio de maior valor (KEP + CRI sandbox P0 + OWNERS) ao Conselho (CTO/Arquiteto/Segurança/Governança). KEP é o maior gap de governança. |
+
+---
+
+## Session: 2026-08-22 — Mineração Safra 8 Orgs
+
+### 2026-08-22 — Mineração safra 8 orgs (busca por estrelas + 8 batedores paralelos)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar openai, vercel, spotify, ifood, uber, aws, n8n, hermes (ordem do Don) |
+| **Technique** | Level 3 — Mining via GitHub Search API (sort=stars) para descobrir âncoras por estrelas + 8 subagentes `general` paralelos, cada um num repo clonado em temp. Agregação em 7 docs de patterns por-fonte + INDEX update + aprofundamento do hermes-agent-patterns.md |
+| **Level** | 3 |
+| **Outcome** | success (7/8 orgs mineradas; iFood e Spotify sem footprint público) |
+| **Confidence** | 0.84 (mining/orchestration domain) |
+| **Tags** | #mining #github-search #openai #vercel #aws #n8n #uber #hermes #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/{openai-agents-sdk,openai-symphony,vercel-ai-sdk,aws-agent-toolkit,n8n-workflow,hermes-self-evolution,uber-cadence}-patterns.md |
+| **Learned** | 1) O Don me ensinou a ROSA de busca: em vez de adivinhar nome de repo, usar `https://api.github.com/search/repositories?q=<query>&sort=stars&order=desc` — isso revelou âncoras que eu não acharia (openai/symphony 26k, aws/agent-toolkit-for-aws, vercel/eve). Machine-check existência com `git ls-remote` (barato) antes de clonar. 2) iFood: `org:ifood` = 0 repos públicos (sem footprint); Spotify: agentic escasso (só ffwd/ads-agentic-tools/ssh-agent) — reportar honesto em vez de forçar repo. 3) Padrão de agregação por-fonte (um doc por repo) em vez de um blob gigante, para o caderno ficar navegável. 4) Cada org destilou diamantes: OpenAI (agent declarativo+handoff+guardrails tripwire), Symphony (orquestrador de claim + runs isoladas), Vercel (provider abstraction+spec versionada+tool loop), AWS (gate em código não em instrução + credencial na borda), n8n (engine de DAG com join barrier + pairedItem lineage + envelope-key), Hermes self-evolution (texto-que-vira-genoma + benchmarks como GATES), Cadence (decisor+replay+NDC-AP). 5) Lição transversal: **"controls in code, never in model instructions"** (AWS) é o padrão de segurança nº1 — limite de custo/escopo que não é convencível por prompt-injection. 6) Gap confirmado: o Cosca registra learnings (stage 7-8) mas NÃO otimiza o texto (Hermes GEPA) — esse é o próximo passo de evolução real. |
+| **Next** | Levar 3-4 padrões de maior valor (GEPA/benchmarks-as-gates, sec control-in-code, n8n join/lineage, Vercel provider factory) ao Conselho (CTO/Arquiteto/Segurança/Evolução) para avaliar P0s e o roadmap do cosca-* evolution. |
+
+---
+
+## Session: 2026-08-22 — Mineração deepseek-harness
+
+### 2026-08-22 — Mineração deepseek-harness (5 batedores paralelos)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar https://github.com/deepseek-ai/deepseek-harness (ordem do Don) — extrair padrões de plugins/Cordis, sandbox, sessão, skills e protocolos para o caderno |
+| **Technique** | Level 3 — Mining campaign: 5 subagentes `general` em paralelo, cada um num filão (A plugin/Cordis, B sandbox/isolamento, C agent-loop/sessão, D skills/permissão, E protocolos/gates). Checkout `git clone --depth 1` em temp, recon de estrutura (7.903 arquivos, TS monorepo pnpm, plugin framework Cordis), agregação em `deepseek-harness-patterns.md` (28 padrões) + INDEX update |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.82 (mining/orchestration domain) |
+| **Tags** | #mining #deepseek-harness #cordis #landlock #sandbox #skill-registry #gates #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/deepseek-harness-patterns.md, INDEX.md |
+| **Learned** | 1) Mining em paralelo por filão funciona bem quando cada subagente tem um caminho de código bem delimitado + formato de retorno canônico (O que resolve/Como funciona/Onde/Aplicação no Cosca). 2) O fluxo mining: recon (clonar+ler shape) → definir veio → delegar em paralelo → agregar em 1 doc → atualizar INDEX → registrar learning. 3) 3 lições estruturais do dsh que o Cosca ainda não tem: (a) orquestração por composição declarativa (config, não código), (b) sandbox com enforcement provado e fail-closed (Probe + `full/partial` + SandboxUnavailableError — nunca passthrough), (c) rede de invariantes geradas-e-verificadas no CI (gen-*/verify-* + run-gates DAG). 4) O gap P0 de sandbox do Cosca (cgroups v2 + seccomp) mapeia muito bem ao design "self-restrict-then-exec" do native/landlock-run — a geometria do runner que se auto-restringe e exec o alvo, com sonda funcional. 5) Landlock só cobre effects de filesystem — não é substituto de cgroups/seccomp; o padrão valioso é o design, não o backend. |
+| **Next** | Levar os 3 padrões de maior valor (B2 cadeia de runners probed, E5 generate-and-diff, D1/D2 skill registry+diger) para o Conselho (CTO/Arquiteto/Segurança) para avaliar P0s. |
+
+---
+
 ## Session: 2026-08-22 — Kernel Audit + Self-Discovery
 
 ### 2026-08-22 — Auditoria Completa do Cérebro do Kernel (Don's Order)

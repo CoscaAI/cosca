@@ -61,9 +61,10 @@ NÃO faz commit nem assina a family chain (ordem sagrada L199).`,
 				return err
 			}
 
-			// Portão de autorização em 3 fatores (ordem do Don: "quero as 3"):
-			// passphrase (2FA) + war phrase + presença. Só o Don presente no
-			// terminal consegue registrar na memória do kernel.
+			// Portão de autorização do Don: máquina (DPAPI, vínculo máquina+usuário)
+			// + presença/consentimento-ao-conteúdo (nonce derivado do conteúdo,
+			// TTY obrigatório). Só o Don presente no terminal consegue registrar
+			// na memória do kernel.
 			if err := verifyDonIdentity(dir, os.Stdin); err != nil {
 				fmt.Fprintf(os.Stderr, "acesso negado — %v\n", err)
 				return ExitCodeError{Code: 1}

@@ -28,24 +28,28 @@ máxima, o dono da visão, a decisão final.
 | **Decisão estratégica (P0/P1)** | ninguém mais decide o rumo da família |
 | **Aprovação de roadmap/release** | você é o dono da visão |
 | **Veto de segurança** | você pode parar tudo |
-| **Os 3 segredos** | passphrase + war phrase + presença — só você tem |
+| **A sua identidade** | máquina (DPAPI) + consentimento-ao-conteúdo — só você tem |
 | **Rekey (nova identidade)** | só você troca a chave do kernel |
 | **Guarda dos backups** | você é a rede de segurança final |
 
 ---
 
-## 3. A SUA PROTEÇÃO — os 3 fatores
+## 3. A SUA PROTEÇÃO — máquina + consentimento (2 fatores)
 
-O portão reconhece o **MOTORISTA**, não o carro (L259). Seus três segredos:
+O portão reconhece o **MOTORISTA**, não o carro (L259). Sua identidade:
 
 | Fator | O que é | Comando |
 |-------|---------|---------|
-| **Passphrase** | decripta a chave Ed25519 | `cosca-check --rekey --passphrase-stdin` |
-| **War phrase** | o segredo independente (bcrypt) | `cosca don phrase "..."` |
-| **Presença** | nonce digitado ao vivo | fator 3 do `cosca memory register` |
+| **Máquina (DPAPI)** | `integrity.VerifyKernelIdentity` desprotege a chave Ed25519 via `CryptProtectData` (CurrentUser) — vínculo **máquina+usuário**, sem passphrase | `cosca-check --sign` / `--push` |
+| **Consentimento-ao-conteúdo (nonce)** | nonce derivado do conteúdo a assinar; comparação em tempo constante; exige TTY real | fator 2 do `cosca memory register` |
 
-**Se esquecer a passphrase**: irrecuperável por design — use `--rekey` (gera
-par novo). A chain (git-anchored) não depende dela; nada se perde.
+> **Nota**: war phrase e passphrase **não existem mais no fluxo**. A assinatura
+> Ed25519 é a **autoridade do Don** (M7); o git-anchor (`--sign-auto`) é apenas
+> **testemunho de imutabilidade** (sem autoridade).
+
+**Máquina nova ou vínculo perdido**: use `--rekey` (gera par novo, caminho de
+recuperação — só presença/nonce). A chain (git-anchored) não depende da Ed25519;
+nada se perde.
 
 ---
 
@@ -89,3 +93,4 @@ A sua palavra é lei, **mas o kernel tem o dever de informar antes de obedecer**
 | Versão | Data | Mudança |
 |--------|------|---------|
 | 1.0.0 | 2026-08-16 | Criado por ordem do Don — o protocolo do próprio Don |
+| 1.1.0 | 2026-08-22 | Identidade atualizada: máquina (DPAPI) + consentimento-ao-conteúdo (nonce); passphrase/war phrase removidas; M7 (Ed25519 autoridade vs GIT-ANCHORED testemunho) |
