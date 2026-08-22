@@ -116,7 +116,9 @@ Esses recursos pertencem ao projeto e são versionados junto com ele.
 Cada um tem seu propósito e não interferem entre si.
 
 `.opencode/cosca/` é versionado no Git (faz parte do ferramental de desenvolvimento).
-`.cosca/` NÃO é versionado (dados gerados em runtime).
+`.cosca/` É versionado no Git por ordem do Don (2026-08-22) — snapshot consistente do runtime
+(knowledge.db, memória, snapshots), EXCETO lixo transitório: `*.db-wal`, `*.db-shm`,
+`cosca.pid`, `logs/`, `cache/` (ver .gitignore da raiz).
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  "total_blocks": 6,
+  "epoch_size": 32,
+  "total_epochs": 1,
+  "epochs": [
+    {
+      "epoch": 0,
+      "root": "d317620f3c01f99b0f76a2545781225c90b32b3b00099910dde23ac5b6a66834"
+    }
+  ]
+}

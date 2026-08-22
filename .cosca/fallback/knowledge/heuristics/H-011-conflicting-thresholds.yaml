@@ -1,0 +1,25 @@
+# heuristics/H-011-conflicting-thresholds.yaml
+id: H-011
+title: "Thresholds conflitantes: auditar o que executa, não o que está documentado"
+domain: governance
+type: anti-pattern
+severity: critical
+source_agents: [cosca-kernel, cosca-qa, cosca-platform, cosca-devops, cosca-review]
+description: >
+  O mesmo quality gate (coverage) tinha 4 thresholds diferentes em 4 lugares:
+  Makefile (40%), CI workflow (55%), documentação (70%), embed target (80%).
+  Isso é um problema de governança: sem single source of truth, cada
+  componente aplica sua própria versão da regra. Pior: o CI usava 55% mas
+  com continue-on-error: true, então o enforcement real era 0%.
+  O padrão se repete em outros gates — documentação diz uma coisa,
+  Makefile diz outra, CI executa outra.
+evidence:
+  - "2026-07-29: Kernel L19 — 'Tínhamos 4 valores (40%, 55%, 70%, 80%) e o único que importava era o 55% do CI. A documentação era ficção.'"
+  - "2026-07-28: Platform — 'docs declare 80%+, reality 46.5%, CI gate G5 uses 55%'"
+  - "2026-07-28: CTO — 'Coverage threshold at 40% in Makefile vs 70% in CI docs indicates process gap'"
+  - "2026-07-28: QA — G0-G9 quality gates definidos com thresholds, mas divergência persiste"
+action: "Single source of truth para cada threshold: CI workflow é a fonte canônica. Documentação e Makefile devem referenciar o CI, não duplicar. Sincronizar todos os thresholds para um valor único acordado. Atualizar após cada auditoria de cobertura."
+related: [H-002, H-003, H-013]
+tags: [governance, thresholds, coverage, quality-gates, single-source-of-truth, anti-pattern, documentation-drift]
+confidence: 0.93
+created: 2026-07-29

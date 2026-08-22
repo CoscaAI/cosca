@@ -1,0 +1,17 @@
+timestamp,task_id,agent,value,threshold,alert,learnings_consulted,stale_count,expired_count
+2026-07-30T17:43:53Z,F0-cosca-chat,cosca-kernel,0.92,0.60,false,3,0,0
+2026-07-30T18:07:28Z,F1-provider-layer,cosca-kernel,0.88,0.60,false,4,0,0
+2026-07-30T18:30:22Z,F2-tool-system,cosca-kernel,0.85,0.60,false,5,0,0
+2026-07-30T18:39:53Z,F3-agent-engine,cosca-kernel,0.91,0.60,false,8,0,0
+2026-07-30T18:55:41Z,F3.5-4-engine-tests,cosca-kernel,0.87,0.60,false,6,0,0
+2026-07-30T19:07:25Z,F5-cli-commands,cosca-kernel,0.83,0.60,false,7,1,0
+2026-07-30T19:10:00Z,F4.5-memory-integration,cosca-kernel,0.79,0.60,false,4,1,0
+2026-07-30T19:21:49Z,F6-extensibility,cosca-kernel,0.90,0.60,false,9,0,0
+2026-07-30T19:43:06Z,F6-mcp-tests,cosca-kernel,0.86,0.60,false,5,0,0
+2026-07-30T19:43:06Z,F6-mcp-deadlock-fix,cosca-kernel,0.94,0.60,false,2,0,0
+2026-07-30T19:45:31Z,F6-mcp-plugin-cli,cosca-kernel,0.81,0.60,false,3,0,0
+2026-07-30T19:48:17Z,F6-agent-skill-cli,cosca-kernel,0.77,0.60,false,4,1,0
+2026-07-30T19:50:19Z,F6-session-cli,cosca-kernel,0.84,0.60,false,3,0,0
+2026-07-30T19:52:19Z,F6-completion-config-cli,cosca-kernel,0.89,0.60,false,3,0,0
+2026-07-30T19:54:00Z,F6-config-tests,cosca-kernel,0.82,0.60,false,2,0,0
+2026-07-30T20:33:38Z,F7-memorize-workflow,cosca-kernel,0.91,0.60,false,11,0,0

@@ -1,0 +1,4 @@
+# Apenas artefatos regeneráveis do SDK TypeScript ficam fora do git:
+node_modules/
+dist/
+*.tsbuildinfo

@@ -1,0 +1,7 @@
+docs: true
+network: true
+test: true
+build: true
+read_only: false
+max_files: 0
+max_time: ""

@@ -1,9 +1,17 @@
-# Cosca runtime (NOT versioned)
-# .cosca/framework/ is the local sync of internal/embed/cosca/ (versioned)
-# .cosca/memory/ is project-specific runtime data (NOT versioned)
-# .cosca/fallback/ was the old sync target — now dead, replaced by .cosca/framework/
-.cosca/*
-!.cosca/framework/
+# Cosca runtime — versionado por ordem do Don (2026-08-22), EXCETO lixo transitório:
+# - *.db-wal / *.db-shm: sidecars SQLite vivos, mudam a cada escrita do servidor
+#   (commit deles = working tree eternamente sujo + snapshot inconsistente)
+# - cosca.pid: muda a cada restart
+# - logs/ e cache/: regeneráveis, ruído puro
+# O knowledge.db (cérebro vetorizado) e os demais .db ENTRAM no git como
+# snapshot consistente — procedimento: parar task -> commit -> subir task.
+.cosca/logs/
+.cosca/cache/
+.cosca/cosca.pid
+
+# Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
+*.db-wal
+*.db-shm
 
 
 # Accidental .cosca dirs in subdirectories (created by tests running cosca with CWD in subdirs)
@@ -23,9 +31,6 @@
 bin/
 build/
 dist/
-*.db
-*.db-wal
-*.db-shm
 
 # Root-owned artifacts (from sudo executions)
 .config/
