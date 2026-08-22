@@ -1,50 +1,50 @@
-# PROVIDER INTERFACE — AI Model Provider Abstraction
+# INTERFACE DE PROVIDER — Abstracao de Provedores de IA
 
-> **Version**: 1.1.0 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-08-01
+> **Versao**: 1.1.0 | **Status**: active | **Dono**: Cosca Kernel | **Ultima Atualizacao**: 2026-08-01
 
-## PURPOSE
-This document defines the standardized interface for AI model providers in the Cosca ecosystem. It enables:
-- **Provider agnosticism** — Swap AI providers without changing agent logic
-- **Provider failover** — Automatic fallback when primary provider fails
-- **Cost optimization** — Route tasks to cheapest capable provider
-- **Multi-model orchestration** — Use different providers for different task types
+## PROPOSITO
+Este documento define a interface padronizada para provedores de modelos de IA no ecossistema Cosca. Permite:
+- **Agnosticismo de provider** — Trocar provedores de IA sem mudar logica de agentes
+- **Failover de provider** — Fallback automatico quando o provedor primario falha
+- **Otimizacao de custo** — Rotear tarefas para o provedor mais barato capaz
+- **Orquestracao multi-modelo** — Usar provedores diferentes para tipos de tarefa diferentes
 
-## ARCHITECTURE
+## ARQUITETURA
 
 ```
 ┌──────────────────────────────────────────────────┐
-│                 Cosca AGENT LAYER                   │
-│  (Chiefs, Specialists, Engines)                   │
-│  Agents request: "complete this task"             │
-│  Agents do NOT know which provider is used        │
+│              CAMADA DE AGENTES COSCA               │
+│  (Chefes, Especialistas, Engines)                │
+│  Agentes pedem: "complete esta tarefa"           │
+│  Agentes NAO sabem qual provedor e usado          │
 └──────────────────────┬───────────────────────────┘
                        │
               ┌────────▼────────┐
-              │ PROVIDER ROUTER │
-              │ (selects best   │
-              │  provider per   │
-              │  task type)     │
+              │ ROUTER PROVIDER │
+              │ (seleciona melhor│
+              │  provider por   │
+              │  tipo de tarefa)│
               └────────┬────────┘
                        │
      ┌─────────────────┼─────────────────┐
      │                 │                 │
 ┌────▼─────┐   ┌──────▼──────┐   ┌─────▼──────┐
-│ PRIMARY  │   │ SECONDARY   │   │ FALLBACK   │
+│PRIMARIO  │   │SECUNDARIO   │   │ FALLBACK   │
 │ Provider │   │ Provider    │   │ Provider   │
-│ (OpenAI) │   │(Anthropic)  │   │ (Local LLM)│
+│ (OpenAI) │   │(Anthropic)  │   │ (LLM Local)│
 └──────────┘   └─────────────┘   └────────────┘
 ```
 
-## 1. PROVIDER REGISTRY
+## 1. REGISTRO DE PROVIDERS
 
-### 1.1 Provider Configuration
+### 1.1 Configuracao do Provider
 
 ```yaml
 providers:
   - id: openai-gpt4
     name: OpenAI GPT-4o
     type: cloud
-    priority: 1                    # Lower = higher priority
+    priority: 1                    # Menor = maior prioridade
     models:
       - gpt-4o
       - gpt-4o-mini
@@ -64,131 +64,85 @@ providers:
     retry:
       max_attempts: 3
       backoff_ms: 5000
-
-  - id: anthropic-claude
-    name: Anthropic Claude 3.5 Sonnet
-    type: cloud
-    priority: 2
-    models:
-      - claude-3-5-sonnet
-      - claude-3-haiku
-    capabilities:
-      - code_generation
-      - code_review
-      - architecture_design
-      - analysis
-      - long_context
-    cost_per_1k_tokens:
-      input: 0.003
-      output: 0.015
-    rate_limit:
-      requests_per_minute: 200
-      tokens_per_minute: 80000
-    timeout_ms: 240000
-    retry:
-      max_attempts: 3
-      backoff_ms: 5000
-
-  - id: local-llama
-    name: Local Llama 3
-    type: local
-    priority: 10
-    models:
-      - llama-3-70b
-    capabilities:
-      - code_generation
-      - analysis
-      - simple_tasks
-    cost_per_1k_tokens:
-      input: 0.0
-      output: 0.0
-    rate_limit:
-      requests_per_minute: 10
-      tokens_per_minute: 20000
-    timeout_ms: 300000
-    endpoint: http://localhost:8080/v1
-    retry:
-      max_attempts: 1
-      backoff_ms: 10000
 ```
 
-### 1.2 Provider Capabilities Matrix
+### 1.2 Matriz de Capacidades do Provider
 
-| Capability | GPT-4o | Claude 3.5 | Llama 3 | DeepSeek | Gemini |
+| Capacidade | GPT-4o | Claude 3.5 | Llama 3 | DeepSeek | Gemini |
 |-----------|--------|------------|---------|----------|--------|
-| code_generation | ✅ | ✅ | ✅ | ✅ | ✅ |
-| code_review | ✅ | ✅ | ⚠️ | ✅ | ⚠️ |
-| architecture_design | ✅ | ✅ | ❌ | ✅ | ⚠️ |
-| creative_writing | ✅ | ✅ | ⚠️ | ⚠️ | ✅ |
-| analysis | ✅ | ✅ | ✅ | ✅ | ✅ |
-| long_context | ⚠️ | ✅ | ❌ | ✅ | ✅ |
-| security_audit | ✅ | ✅ | ❌ | ✅ | ❌ |
-| test_generation | ✅ | ✅ | ✅ | ✅ | ✅ |
-| documentation | ✅ | ✅ | ✅ | ⚠️ | ✅ |
+| code_generation | Sim | Sim | Sim | Sim | Sim |
+| code_review | Sim | Sim | Aviso | Sim | Aviso |
+| architecture_design | Sim | Sim | Nao | Sim | Aviso |
+| creative_writing | Sim | Sim | Aviso | Aviso | Sim |
+| analysis | Sim | Sim | Sim | Sim | Sim |
+| long_context | Aviso | Sim | Nao | Sim | Sim |
+| security_audit | Sim | Sim | Nao | Sim | Nao |
+| test_generation | Sim | Sim | Sim | Sim | Sim |
+| documentation | Sim | Sim | Sim | Aviso | Sim |
 
-### 1.3 Audio Modality (TTS/STT)
+### 1.3 Modalidade de Audio (TTS/STT)
 
-The Cosca framework also abstracts an **audio** modality for local voice interaction. Providers are LOCAL only — no cloud audio services:
+O framework Cosca tambem abstrai uma modalidade de **audio** para interacao por voz local. Providers sao APENAS locais — nenhum servico de audio em nuvem:
 
-| Provider | Modality | Model | License | Notes |
-|----------|----------|-------|---------|-------|
-| Kokoro | TTS | Kokoro-82M | Apache-2.0 | Real-time on CPU, PT-BR native (voice code `p`) |
-| whisper.cpp | STT | ggml-base / whisper models | MIT | CPU via OpenBLAS, faster than real-time |
+| Provider | Modalidade | Modelo | Licenca | Notas |
+|----------|-----------|--------|---------|-------|
+| Kokoro | TTS | Kokoro-82M | Apache-2.0 | Tempo real em CPU, PT-BR nativo (voice code `p`) |
+| whisper.cpp | STT | ggml-base / whisper models | MIT | CPU via OpenBLAS, mais rapido que tempo real |
 
-- Routing and failover follow the same provider abstraction defined in this document.
-- Audio never leaves the machine — 100% local.
-- Managed by the [Voice Engine](engines/voice/SKILL.md); see the `voice.local` capability in [KERNEL.md](KERNEL.md).
+- Roteamento e failover seguem a mesma abstracao de provider definida neste documento.
+- Audio nunca sai da maquina — 100% local.
+- Gerenciado pelo [Voice Engine](engines/voice/SKILL.md); veja a capacidade `voice.local` no [KERNEL.md](KERNEL.md).
 
-## 2. TASK ROUTING RULES
+## 2. REGRAS DE ROTEAMENTO DE TAREFAS
 
-### 2.1 Task Type → Provider Selection
+### 2.1 Tipo de Tarefa → Selecao de Provider
 
-| Task Type | Primary | Secondary | Fallback | Temperature |
-|-----------|---------|-----------|----------|-------------|
-| Strategic (CEO) | GPT-4o | Claude 3.5 | — | 0.7 |
-| Planning (CTO, Product) | GPT-4o | Claude 3.5 | — | 0.5 |
-| Architecture | Claude 3.5 | GPT-4o | — | 0.5 |
-| Code Generation | Claude 3.5 | GPT-4o | Llama 3 | 0.3 |
-| Code Review | GPT-4o | Claude 3.5 | — | 0.2 |
-| Security Audit | GPT-4o | Claude 3.5 | — | 0.1 |
-| Testing | Claude 3.5 | GPT-4o | Llama 3 | 0.2 |
-| Documentation | GPT-4o | Claude 3.5 | Llama 3 | 0.3 |
-| Simple Tasks | Llama 3 | GPT-4o-mini | Claude Haiku | 0.1 |
-| Creative | GPT-4o | Claude 3.5 | — | 0.7 |
+| Tipo de Tarefa | Primario | Secundario | Fallback | Temperature |
+|----------------|----------|-----------|----------|-------------|
+| Estrategico (CEO) | GPT-4o | Claude 3.5 | — | 0.7 |
+| Planejamento (CTO, Produto) | GPT-4o | Claude 3.5 | — | 0.5 |
+| Arquitetura | Claude 3.5 | GPT-4o | — | 0.5 |
+| Geracao de Codigo | Claude 3.5 | GPT-4o | Llama 3 | 0.3 |
+| Revisao de Codigo | GPT-4o | Claude 3.5 | — | 0.2 |
+| Auditoria de Seguranca | GPT-4o | Claude 3.5 | — | 0.1 |
+| Testes | Claude 3.5 | GPT-4o | Llama 3 | 0.2 |
+| Documentacao | GPT-4o | Claude 3.5 | Llama 3 | 0.3 |
+| Tarefas Simples | Llama 3 | GPT-4o-mini | Claude Haiku | 0.1 |
+| Criativo | GPT-4o | Claude 3.5 | — | 0.7 |
 
-### 2.2 Failover Logic
+### 2.2 Logica de Failover
 
 ```
-1. Attempt PRIMARY provider
-   ├── Success → return result
-   └── Failure (timeout, rate limit, error)
-       2. Attempt SECONDARY provider
-          ├── Success → return result, log failover event
-          └── Failure
-              3. Attempt FALLBACK provider
-                 ├── Success → return result, log double-failover event
-                 └── Failure → escalate to Kernel
+1. Tentar provider PRIMARIO
+   ├── Sucesso → retornar resultado
+   └── Falha (timeout, rate limit, erro)
+       2. Tentar provider SECUNDARIO
+          ├── Sucesso → retornar resultado, registrar evento failover
+          └── Falha
+              3. Tentar provider FALLBACK
+                 ├── Sucesso → retornar resultado, registrar evento double-failover
+                 └── Falha → escalar para Kernel
 ```
 
 ### 2.3 Circuit Breaker
 
 ```
-State: CLOSED → (failures > 5 in 60s) → OPEN (reject all for 30s)
-State: OPEN → (30s elapsed) → HALF_OPEN (allow 1 probe request)
-State: HALF_OPEN → (success) → CLOSED | (failure) → OPEN
+Estado: CLOSED → (falhas > 5 em 60s) → OPEN (rejeitar tudo por 30s)
+Estado: OPEN → (30s decorridos) → HALF_OPEN (permitir 1 requisicao sonda)
+Estado: HALF_OPEN → (sucesso) → CLOSED | (falha) → OPEN
 ```
 
-## 3. PROVIDER API INTERFACE
+## 3. INTERFACE API DO PROVIDER
 
-### 3.1 Request Format (Provider-Agnostic)
+### 3.1 Formato da Requisicao (Agnostico de Provider)
 
 ```json
 {
   "provider_id": "openai-gpt4",
   "model": "gpt-4o",
   "messages": [
-    { "role": "system", "content": "You are the Cosca Architecture Chief..." },
-    { "role": "user", "content": "Design a microservice architecture for..." }
+    { "role": "system", "content": "Voce e o Chefe de Arquitetura Cosca..." },
+    { "role": "user", "content": "Projete uma arquitetura de microsservicos para..." }
   ],
   "temperature": 0.5,
   "max_tokens": 4096,
@@ -202,13 +156,13 @@ State: HALF_OPEN → (success) → CLOSED | (failure) → OPEN
 }
 ```
 
-### 3.2 Response Format (Provider-Agnostic)
+### 3.2 Formato da Resposta (Agnostico de Provider)
 
 ```json
 {
   "provider_id": "openai-gpt4",
   "model": "gpt-4o",
-  "content": "Based on the requirements...",
+  "content": "Baseado nos requisitos...",
   "tool_calls": [
     { "tool": "write_file", "arguments": { "path": "...", "content": "..." } }
   ],
@@ -223,14 +177,14 @@ State: HALF_OPEN → (success) → CLOSED | (failure) → OPEN
 }
 ```
 
-### 3.3 Error Response
+### 3.3 Resposta de Erro
 
 ```json
 {
   "provider_id": "openai-gpt4",
   "error": {
     "code": "rate_limit_exceeded",
-    "message": "Rate limit exceeded. Retry after 30s.",
+    "message": "Rate limit excedido. Retry apos 30s.",
     "retry_after_ms": 30000,
     "failover_triggered": true,
     "failover_provider": "anthropic-claude"
@@ -238,9 +192,9 @@ State: HALF_OPEN → (success) → CLOSED | (failure) → OPEN
 }
 ```
 
-## 4. COST TRACKING
+## 4. RASTREAMENTO DE CUSTOS
 
-### 4.1 Cost Event
+### 4.1 Evento de Custo
 
 ```json
 {
@@ -256,65 +210,51 @@ State: HALF_OPEN → (success) → CLOSED | (failure) → OPEN
 }
 ```
 
-### 4.2 Cost Optimization Rules
+### 4.2 Regras de Otimizacao de Custo
 
-| Rule | Action |
-|------|--------|
-| Simple task (< 100 LOC change) | Route to cheapest capable provider |
-| Repeated task (same pattern) | Use cached result if < 1h old |
-| Long context task (> 10k tokens) | Prefer Claude (lower input cost) |
-| Batch processing | Aggregate into single request when possible |
-| Idempotent retries | Reuse previous result on provider failover |
+| Regra | Acao |
+|-------|------|
+| Tarefa simples (mudanca < 100 LOC) | Rotear para provider mais barato capaz |
+| Tarefa repetida (mesmo padrao) | Usar resultado cacheado se < 1h |
+| Tarefa de contexto longo (> 10k tokens) | Preferir Claude (custo de input menor) |
+| Processamento em lote | Agendar em unica requisicao quando possivel |
+| Retries idempotentes | Reutilizar resultado anterior no failover |
 
-## 5. PROVIDER HEALTH MONITORING
+## 5. MONITORAMENTO DE SAUDE DO PROVIDER
 
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| Error rate | > 5% in 5 min | Trigger failover |
-| Latency p95 | > 30s | Log warning, consider secondary |
-| Rate limit hits | > 10 in 1 min | Reduce concurrency |
-| Cost per session | > $5.00 | Alert CTO |
-| Circuit breaker opens | Any | Alert Monitoring Chief |
+| Metrica | Threshold | Acao |
+|---------|-----------|------|
+| Taxa de erro | > 5% em 5 min | Ativar failover |
+| Latencia p95 | > 30s | Registrar alerta, considerar secundario |
+| Hits de rate limit | > 10 em 1 min | Reduzir concorrencia |
+| Custo por sessao | > $5.00 | Alertar CTO |
+| Circuit breaker abre | Qualquer | Alertar Monitoring Chief |
 
-## 6. EXTENDING WITH NEW PROVIDERS
+## 6. ESTENDENDO COM NOVOS PROVIDERS
 
-### 6.1 To Add a New Provider:
+### 6.1 Para Adicionar um Novo Provider:
 
-1. Implement the provider adapter interface:
-   - `complete(request) → response`
+1. Implementar a interface do adaptador do provider:
+   - `complete(requisicao) → resposta`
    - `health_check() → status`
-   - `get_models() → model_list`
-   - `get_cost(model, tokens) → cost_usd`
-2. Register in provider configuration YAML
-3. Add to capability matrix
-4. Configure routing rules
-5. Test failover chain
+   - `get_models() → lista_modelos`
+   - `get_cost(modelo, tokens) → custo_usd`
+2. Registrar na configuracao YAML do provider
+3. Adicionar a matriz de capacidades
+4. Configurar regras de roteamento
+5. Testar cadeia de failover
 
-### 6.2 Provider Adapter Template
+## RELACIONADOS
+- [KERNEL.md](KERNEL.md) — Ponto de entrada da orquestracao
+- [RUNTIME_CONTRACT.md](RUNTIME_CONTRACT.md) — Interface do runtime que consome providers
+- [departments/ai/SKILL.md](departments/ai/SKILL.md) — Chefe de IA (estrategia de selecao de provider)
+- [departments/monitoring/SKILL.md](departments/monitoring/SKILL.md) — Monitoramento de saude do provider
+- [engines/observability/SKILL.md](engines/observability/SKILL.md) — Metricas de custo e latencia
+- [engines/voice/SKILL.md](engines/voice/SKILL.md) — Voice Engine (modalidade de audio TTS/STT)
 
-```python
-class ProviderAdapter:
-    provider_id: str
-    models: list[str]
-    capabilities: list[str]
-    
-    async def complete(self, request: ProviderRequest) -> ProviderResponse: ...
-    async def health_check(self) -> HealthStatus: ...
-    def get_models(self) -> list[ModelInfo]: ...
-    def get_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float: ...
-```
+## HISTORICO
 
-## RELATED
-- [KERNEL.md](KERNEL.md) — Orchestration entry point
-- [RUNTIME_CONTRACT.md](RUNTIME_CONTRACT.md) — Runtime interface that consumes providers
-- [departments/ai/SKILL.md](departments/ai/SKILL.md) — AI Chief (provider selection strategy)
-- [departments/monitoring/SKILL.md](departments/monitoring/SKILL.md) — Provider health monitoring
-- [engines/observability/SKILL.md](engines/observability/SKILL.md) — Cost and latency metrics
-- [engines/voice/SKILL.md](engines/voice/SKILL.md) — Voice Engine (audio modality TTS/STT)
-
-## HISTORY
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0.0 | 2026-07-12 | Cosca Kernel | Initial provider interface — abstraction, failover, cost tracking |
-| 1.1.0 | 2026-08-01 | Voice Engine | Added audio modality (TTS/STT) with local providers Kokoro and whisper.cpp |
+| Versao | Data | Autor | Mudancas |
+|--------|------|-------|----------|
+| 1.0.0 | 2026-07-12 | Cosca Kernel | Interface inicial de provider — abstracao, failover, rastreamento de custos |
+| 1.1.0 | 2026-08-01 | Voice Engine | Adicionada modalidade de audio (TTS/STT) com providers locais Kokoro e whisper.cpp |

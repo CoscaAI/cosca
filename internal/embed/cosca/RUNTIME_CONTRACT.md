@@ -1,12 +1,12 @@
-# RUNTIME CONTRACT — Cosca Kernel ↔ Runtime Interface
+# CONTRATO DE RUNTIME — Interface Cosca Kernel ↔ Runtime
 
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-08-01
 > **Decision**: ADR-7423 — versionamento de contratos por método
 
-## PURPOSE
-This document defines the formal interface between the Cosca Kernel and any Runtime execution environment. The Runtime is responsible for executing the behaviors defined by the Cosca Kernel. This contract ensures that any conforming Runtime (CLI, API server, Dashboard, IDE plugin, headless agent) can consume Cosca directives consistently.
+## PROPÓSITO
+Este documento define a interface formal entre o Cosca Kernel e qualquer ambiente de execução de Runtime. O Runtime é responsável por executar os comportamentos definidos pelo Cosca Kernel. Este contrato garante que qualquer Runtime conformante (CLI, API server, Dashboard, IDE plugin, agente headless) possa consumir as diretrizes do Cosca de forma consistente.
 
-## ARCHITECTURE
+## ARQUITETURA
 
 ```
 ┌──────────────────────────────────────┐
@@ -28,71 +28,71 @@ This document defines the formal interface between the Cosca Kernel and any Runt
 └──────────────────────────────────────┘
 ```
 
-## 1. KERNEL INTERFACE
+## 1. INTERFACE DO KERNEL
 
-### 1.1 Session Lifecycle
+### 1.1 Ciclo de Vida da Sessão
 
-| Operation | Direction | Description |
-|-----------|-----------|-------------|
-| `session.init` | Runtime → Kernel | Initialize a new Cosca session |
-| `session.discover` | Kernel → Runtime | Request workspace discovery |
-| `session.context` | Kernel → Runtime | Request context loading |
-| `session.route` | Kernel → Runtime | Route a user request |
-| `session.execute` | Kernel → Runtime | Execute a workflow step |
-| `session.teardown` | Runtime → Kernel | End session, persist memory |
+| Operação | Direção | Descrição |
+|-----------|---------|-------------|
+| `session.init` | Runtime → Kernel | Inicializar uma nova sessão Cosca |
+| `session.discover` | Kernel → Runtime | Solicitar descoberta do workspace |
+| `session.context` | Kernel → Runtime | Solicitar carregamento de contexto |
+| `session.route` | Kernel → Runtime | Rotear uma requisição do usuário |
+| `session.execute` | Kernel → Runtime | Executar um passo do workflow |
+| `session.teardown` | Runtime → Kernel | Encerrar sessão, persistir memória |
 
-### 1.2 Request/Response Protocol
+### 1.2 Protocolo de Requisição/Resposta
 
 ```
 Request:  { type, payload, metadata }
 Response: { type, payload, status, errors }
 ```
 
-### 1.3 Supported Request Types
+### 1.3 Tipos de Requisição Suportados
 
-| Type | Payload | Response |
+| Tipo | Payload | Resposta |
 |------|---------|----------|
-| `feature` | Feature description, constraints | Executive Plan + Implementation |
-| `bug` | Bug description, steps, expected behavior | Fix + Regression tests + Pattern |
-| `refactor` | Target, reason, scope | Refactored code + Quality comparison |
-| `review` | Target, review_type | Review report + Approval |
-| `deploy` | Environment, version, strategy | Deployment status + Verification |
-| `docs` | Target docs, scope | Updated documentation |
-| `status` | — | Project health + Quality metrics |
-| `evolve` | — | Evolution report + Recommendations |
+| `feature` | Descrição da feature, restrições | Plano Executivo + Implementação |
+| `bug` | Descrição do bug, passos, comportamento esperado | Correção + Testes de regressão + Padrão |
+| `refactor` | Alvo, razão, escopo | Código refatorado + Comparação de qualidade |
+| `review` | Alvo, review_type | Relatório de revisão + Aprovação |
+| `deploy` | Ambiente, versão, estratégia | Status do deploy + Verificação |
+| `docs` | Docs alvo, escopo | Documentação atualizada |
+| `status` | — | Saúde do projeto + Métricas de qualidade |
+| `evolve` | — | Relatório de evolução + Recomendações |
 
-## 2. RUNTIME RESPONSIBILITIES
+## 2. RESPONSABILIDADES DO RUNTIME
 
-### 2.1 The Runtime MUST:
+### 2.1 O Runtime DEVE:
 
-1. **Load Cosca Kernel** — Parse and execute KERNEL.md directives
-2. **Invoke engines** — Load engine skills when triggered by Kernel
-3. **Spawn agents** — Create subagent sessions for chiefs and specialists
-4. **Enforce quality gates** — Apply QUALITY_GATES.md checks
-5. **Manage memory** — Read/write to memory stores per MEMORY_MODEL.md
-6. **Track state** — Maintain workflow state, task status, session context
-7. **Report errors** — Escalate failures per KERNEL.md error handling table
-8. **Provide tools** — Expose file I/O, git, shell, search via Tools Engine
+1. **Carregar o Cosca Kernel** — Analisar e executar as diretrizes do KERNEL.md
+2. **Invocar engines** — Carregar skills de engine quando acionado pelo Kernel
+3. **Criar agentes** — Criar sessões de subagentes para chiefs e especialistas
+4. **Aplicar quality gates** — Aplicar verificações do QUALITY_GATES.md
+5. **Gerenciar memória** — Ler/escrever nos armazenamentos de memória conforme MEMORY_MODEL.md
+6. **Rastrear estado** — Manter estado do workflow, status de tarefas, contexto da sessão
+7. **Reportar erros** — Escalar falhas conforme a tabela de tratamento de erros do KERNEL.md
+8. **Fornecer tools** — Expor E/S de arquivos, git, shell, busca via Tools Engine
 
-### 2.2 The Runtime MAY:
+### 2.2 O Runtime PODE:
 
-1. **Parallelize** — Execute independent tasks concurrently
-2. **Cache** — Cache context, memory queries, discovery results
-3. **Optimize** — Choose optimal AI model per task type
-4. **Extend** — Add custom tools beyond Tools Engine catalog
-5. **Persist** — Store session snapshots for resume capability
+1. **Paralelizar** — Executar tarefas independentes concorrentemente
+2. **Cachear** — Armazenar em cache contexto, consultas de memória, resultados de descoberta
+3. **Otimizar** — Escolher o modelo de IA ideal por tipo de tarefa
+4. **Estender** — Adicionar tools personalizadas além do catálogo da Tools Engine
+5. **Persistir** — Armazenar snapshots de sessão para capacidade de retomada
 
-### 2.3 The Runtime MUST NOT:
+### 2.3 O Runtime NÃO DEVE:
 
-1. **Bypass chain of command** — Never route work directly to specialists
-2. **Skip quality gates** — Never deliver without passing Gate 2+
-3. **Modify skills** — Never alter SKILL.md or workflow definitions
-4. **Override decisions** — Never override CEO/CTO/Chief decisions
-5. **Hardcode paths** — Always use Virtual Paths from Resource Resolver
+1. **Pular a cadeia de comando** — Nunca rotear trabalho diretamente para especialistas
+2. **Ignorar quality gates** — Nunca entregar sem passar pelo Gate 2+
+3. **Modificar skills** — Nunca alterar SKILL.md ou definições de workflow
+4. **Sobrescrever decisões** — Nunca sobrescrever decisões de CEO/CTO/Chief
+5. **Hardcodar caminhos** — Sempre usar Caminhos Virtuais do Resource Resolver
 
-## 3. AGENT SPAWNING INTERFACE
+## 3. INTERFACE DE CRIAÇÃO DE AGENTES
 
-### 3.1 Spawn Request
+### 3.1 Requisição de Criação
 
 ```json
 {
@@ -107,7 +107,7 @@ Response: { type, payload, status, errors }
 }
 ```
 
-### 3.2 Spawn Response
+### 3.2 Resposta da Criação
 
 ```json
 {
@@ -121,35 +121,35 @@ Response: { type, payload, status, errors }
 }
 ```
 
-## 4. TOOL INTERFACE
+## 4. INTERFACE DE TOOLS
 
-### 4.1 Tools Available to All Agents
+### 4.1 Tools Disponíveis para Todos os Agentes
 
-| Category | Tools |
+| Categoria | Tools |
 |----------|-------|
-| File I/O | read_file, write_file, edit_file, list_directory, find_files, search_content |
-| Code | execute_command, run_tests, run_linter, run_typecheck, run_build |
+| E/S de Arquivos | read_file, write_file, edit_file, list_directory, find_files, search_content |
+| Código | execute_command, run_tests, run_linter, run_typecheck, run_build |
 | Git | git_status, git_diff, git_log, git_branch, git_checkout, git_commit |
-| Memory | store_memory, retrieve_memory, search_memory |
+| Memória | store_memory, retrieve_memory, search_memory |
 | Docs | generate_readme, generate_api_docs, generate_adr, update_changelog |
-| Quality | run_security_scan, check_test_coverage, run_complexity_analysis |
+| Qualidade | run_security_scan, check_test_coverage, run_complexity_analysis |
 | Workflow | get_workflow_status, create_workflow, execute_workflow |
 
-### 4.2 Tool Permissions
+### 4.2 Permissões de Tools
 
-| Level | Agents | Tools |
-|-------|--------|-------|
-| Read | All | read_file, list_directory, find_files, search_content, git_status, git_diff, git_log |
-| Write | Chiefs | write_file, edit_file, git_commit, store_memory |
-| Execute | Chiefs | execute_command, run_tests, run_linter, run_build |
+| Nível | Agentes | Tools |
+|-------|---------|-------|
+| Leitura | Todos | read_file, list_directory, find_files, search_content, git_status, git_diff, git_log |
+| Escrita | Chiefs | write_file, edit_file, git_commit, store_memory |
+| Execução | Chiefs | execute_command, run_tests, run_linter, run_build |
 | Admin | Kernel, CEO, CTO | spawn_agent, kill_agent, install_dependencies |
 
 ## 5. EVENT BUS
 
-### 5.1 Events Emitted by Kernel
+### 5.1 Eventos Emitidos pelo Kernel
 
-| Event | Payload | Consumers |
-|-------|---------|-----------|
+| Evento | Payload | Consumidores |
+|--------|---------|-------------|
 | `session.started` | session_id, timestamp | Observability, Audit |
 | `workflow.created` | workflow_id, type | Workflow Engine, Audit |
 | `task.assigned` | task_id, agent, department | Execution Engine, Audit |
@@ -160,46 +160,46 @@ Response: { type, payload, status, errors }
 | `decision.made` | decision_id, type, rationale | Memory Engine, Audit |
 | `session.ended` | session_id, summary, learnings | Memory Engine, Learning Engine |
 
-### 5.2 Events Consumed by Runtime
+### 5.2 Eventos Consumidos pelo Runtime
 
-| Event | Action |
-|-------|--------|
-| `session.started` | Initialize observability, load context |
-| `task.assigned` | Spawn agent, monitor progress |
-| `task.completed` | Store output, trigger next step |
-| `task.failed` | Retry or escalate per error table |
-| `decision.made` | Store in memory |
-| `session.ended` | Persist memory, generate session report |
+| Evento | Ação |
+|--------|------|
+| `session.started` | Inicializar observabilidade, carregar contexto |
+| `task.assigned` | Criar agente, monitorar progresso |
+| `task.completed` | Armazenar output, acionar próximo passo |
+| `task.failed` | Repetir ou escalar conforme tabela de erros |
+| `decision.made` | Armazenar em memória |
+| `session.ended` | Persistir memória, gerar relatório da sessão |
 
-## 6. QUALITY GATE INTEGRATION
+## 6. INTEGRAÇÃO DE QUALITY GATE
 
-| Gate | When | Runtime Action |
-|------|------|---------------|
-| Gate 0 | Before any work | Validate request type, scope, departments |
-| Gate 1 | After plan generation | Validate architecture, security, dependencies |
-| Gate 2 | After implementation | Run automated checks + review + QA |
-| Gate 3 | Before release | Full test suite + security scan + docs check |
-| Gate 4 | After release | Health checks + error monitoring + user feedback |
+| Gate | Quando | Ação do Runtime |
+|------|--------|----------------|
+| Gate 0 | Antes de qualquer trabalho | Validar tipo de requisição, escopo, departamentos |
+| Gate 1 | Após geração do plano | Validar arquitetura, segurança, dependências |
+| Gate 2 | Após implementação | Executar verificações automatizadas + revisão + QA |
+| Gate 3 | Antes do release | Suite completa de testes + scan de segurança + verificação de docs |
+| Gate 4 | Após o release | Health checks + monitoramento de erros + feedback do usuário |
 
-## 7. ERROR HANDLING CONTRACT
+## 7. CONTRATO DE TRATAMENTO DE ERROS
 
-| Error Type | Retry | Escalate To | Runtime Action |
+| Tipo de Erro | Repetição | Escalar Para | Ação do Runtime |
 |------------|-------|-------------|----------------|
-| Agent timeout | 3x, exponential backoff | Secondary agent | Respawn with different agent |
-| Agent failure | 1x | Department Chief | Log error, escalate |
-| Validation failure | 0 | Chief | Return to agent with feedback |
-| Dependency failure | 3x | CTO | Block dependent tasks |
-| All paths exhausted | — | User | Notify with diagnosis |
+| Timeout de agente | 3x, backoff exponencial | Agente secundário | Recriar com agente diferente |
+| Falha de agente | 1x | Department Chief | Registrar erro, escalar |
+| Falha de validação | 0 | Chief | Retornar ao agente com feedback |
+| Falha de dependência | 3x | CTO | Bloquear tarefas dependentes |
+| Todos os caminhos esgotados | — | Usuário | Notificar com diagnóstico |
 
-## 8. MEMORY INTERFACE
+## 8. INTERFACE DE MEMÓRIA
 
-| Operation | Runtime Implementation |
+| Operação | Implementação no Runtime |
 |-----------|----------------------|
-| Store | Write markdown file with YAML frontmatter per MEMORY_MODEL.md |
-| Retrieve | Read by key or query by tags |
-| Search | Full-text search across memory stores |
-| Index | Rebuild search metadata |
-| Prune | Archive records older than retention period |
+| Armazenar | Escrever arquivo markdown com frontmatter YAML conforme MEMORY_MODEL.md |
+| Recuperar | Ler por chave ou consultar por tags |
+| Buscar | Busca em texto completo nos armazenamentos de memória |
+| Indexar | Reconstruir metadados de busca |
+| Podar | Arquivar registros mais antigos que o período de retenção |
 
 ## 9. VERSIONED CONTRACTS (v2.0.0)
 
@@ -240,24 +240,24 @@ check em ambos os lados. Incompatibilidade → erro tipado com guidance de upgra
 `internal/contracts/` é a única fonte de verdade dos contratos, carregada no boot
 de todo runtime (CLI, API, dashboard, plugins). Nenhum método fora do registry.
 
-## 10. COMPATIBILITY
+## 10. COMPATIBILIDADE
 
-| Version | Runtime Requirement | Breaking Changes |
+| Versão | Requisito do Runtime | Alterações Incompatíveis |
 |---------|-------------------|-----------------|
 | 1.0.0 | Floor inicial — todos os métodos migram como major 1, baseline de compatibilidade | — |
 | 2.0.0 | Versionamento por método (seção 9) ativo; métodos v1 formam o floor | Sem mudança de contrato para runtimes v1 (compatibilidade preservada via floor) |
 
-## RELATED
-- [KERNEL.md](KERNEL.md) — Kernel orchestration
-- [MEMORY_MODEL.md](MEMORY_MODEL.md) — Memory taxonomy
-- [QUALITY_GATES.md](QUALITY_GATES.md) — Quality gate definitions
-- [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md) — Virtual Path resolution
+## RELACIONADOS
+- [KERNEL.md](KERNEL.md) — Orquestração do Kernel
+- [MEMORY_MODEL.md](MEMORY_MODEL.md) — Taxonomia de memória
+- [QUALITY_GATES.md](QUALITY_GATES.md) — Definições de quality gates
+- [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md) — Resolução de Caminhos Virtuais
 - [ADR-7423](knowledge/architecture/adr/adr-7423-versioned-contracts.md) — Decisão de versionamento
 - [BRIDGE_ARCHITECTURE.md](knowledge/architecture/BRIDGE_ARCHITECTURE.md) — Referência: ponte Host↔OpenCode (padrão Vercel AI SDK) para futuro bridge Cosca
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | 2026-07-12 | Cosca Kernel | Initial runtime contract — formalized Kernel↔Runtime interface |
+| 1.0.0 | 2026-07-12 | Cosca Kernel | Contrato inicial de runtime — formalizada interface Kernel↔Runtime |
 | 2.0.0 | 2026-08-01 | Cosca Kernel | Versionamento por método (ADR-7423) — minor aditivo, major breaking, floor methods, manifesto |

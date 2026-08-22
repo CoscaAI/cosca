@@ -1,212 +1,212 @@
-# SKILL TEMPLATE — New Skill Creation Guide
+# MODELO DE SKILL — Guia de Criação de Novas Skills
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Skills Engine | **Last Updated**: 2026-07-11
 
-## Purpose
-Use this template when creating any new department skill, engine skill, workflow, or template. Follow the [CONVENTIONS.md](CONVENTIONS.md) contract exactly.
+## Propósito
+Use este modelo ao criar qualquer nova skill de departamento, skill de engine, workflow ou modelo. Siga exatamente o contrato do [CONVENTIONS.md](CONVENTIONS.md).
 
-All paths in this template use Virtual Path notation. Replace placeholders with actual values. Never use hardcoded paths. See [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md).
+Todos os caminhos neste modelo usam notação de Caminho Virtual. Substitua os placeholders pelos valores reais. Nunca use caminhos hardcoded. Veja [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md).
 
 ---
 
-## Department Skill Template
+## Modelo de Skill de Departamento
 
 ```markdown
-# DEPARTMENT NAME — Short Description
+# NOME DO DEPARTAMENTO — Descrição Curta
 
 > **Version**: 1.0.0 | **Status**: draft | **Owner**: [Department] Chief | **Last Updated**: YYYY-MM-DD
 
-## PURPOSE
-One paragraph describing why this department exists.
+## PROPÓSITO
+Um parágrafo descrevendo por que este departamento existe.
 
-## SCOPE
-What this department owns and is responsible for.
+## ESCOPO
+O que este departamento possui e é responsável.
 
-## OUT OF SCOPE
-What this department explicitly does NOT own.
+## FORA DO ESCOPO
+O que este departamento explicitamente NÃO possui.
 
-## RESPONSIBILITIES
-1. Responsibility 1
-2. Responsibility 2
+## RESPONSABILIDADES
+1. Responsabilidade 1
+2. Responsabilidade 2
 
-## DELEGATION
-- Task type → Target department
+## DELEGAÇÃO
+- Tipo de tarefa → Departamento alvo
 
-## SPECIALISTS
-| Specialist | Role |
+## ESPECIALISTAS
+| Especialista | Função |
 |-----------|------|
-| Name | Description |
+| Nome | Descrição |
 
-## DEPENDENCIES
-| Depends On | Why |
+## DEPENDÊNCIAS
+| Depende De | Por quê |
 |-----------|-----|
-| Department/Engine | Reason |
+| Departamento/Engine | Razão |
 
-## INPUTS
-| Input | From | Format |
+## ENTRADAS
+| Entrada | De | Formato |
 |-------|------|--------|
-| Name | Source | Type |
+| Nome | Fonte | Tipo |
 
-## OUTPUTS
-| Output | To | Format |
+## SAÍDAS
+| Saída | Para | Formato |
 |--------|-----|--------|
-| Name | Consumer | Type |
+| Nome | Consumidor | Tipo |
 
-## CONSTRAINTS
-- Constraint or standard that must be followed
+## RESTRIÇÕES
+- Restrição ou padrão que deve ser seguido
 
-## QUALITY CRITERIA
-- [ ] Criterion 1
-- [ ] Criterion 2
+## CRITÉRIOS DE QUALIDADE
+- [ ] Critério 1
+- [ ] Critério 2
 
-## ESCALATION
-| Issue | Escalate To |
+## ESCALAÇÃO
+| Problema | Escalar Para |
 |-------|-------------|
-| Type of issue | Target department |
+| Tipo de problema | Departamento alvo |
 
-## FORBIDDEN ACTIONS
-- Action 1
-- Action 2
+## AÇÕES PROIBIDAS
+- Ação 1
+- Ação 2
 
-## RELATED
-- [Related file](../path/to/file.md)
+## RELACIONADOS
+- [Arquivo relacionado](../path/to/file.md)
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | YYYY-MM-DD | Author | Initial version |
+| 1.0.0 | YYYY-MM-DD | Autor | Versão inicial |
 ```
 
 ---
 
-## Engine Skill Template
+## Modelo de Skill de Engine
 
 ```markdown
-# ENGINE NAME
+# NOME DA ENGINE
 
 > **Version**: 1.0.0 | **Status**: draft | **Owner**: [Engine] Engine | **Last Updated**: YYYY-MM-DD
 
-## PURPOSE
-One paragraph describing why this engine exists.
+## PROPÓSITO
+Um parágrafo descrevendo por que esta engine existe.
 
-## ACTIVATION
-When this engine is triggered (events, conditions).
+## ATIVAÇÃO
+Quando esta engine é disparada (eventos, condições).
 
-## SCOPE
-What this engine covers.
+## ESCOPO
+O que esta engine cobre.
 
-## OUT OF SCOPE
-What this engine does NOT cover.
+## FORA DO ESCOPO
+O que esta engine NÃO cobre.
 
-## PROCESS
-Step-by-step description of how the engine works.
+## PROCESSO
+Descrição passo a passo de como a engine funciona.
 
-## INPUTS
-| Input | From | Format |
+## ENTRADAS
+| Entrada | De | Formato |
 |-------|------|--------|
-| Name | Source | Type |
+| Nome | Fonte | Tipo |
 
-## OUTPUTS
-| Output | To | Format |
+## SAÍDAS
+| Saída | Para | Formato |
 |--------|-----|--------|
-| Name | Consumer | Type |
+| Nome | Consumidor | Tipo |
 
-## DEPENDENCIES
-| Engine | Why |
+## DEPENDÊNCIAS
+| Engine | Por quê |
 |--------|-----|
-| Name | Reason |
+| Nome | Razão |
 
-## CONSTRAINTS
-- Constraint 1
+## RESTRIÇÕES
+- Restrição 1
 
-## QUALITY CRITERIA
-- [ ] Criterion 1
+## CRITÉRIOS DE QUALIDADE
+- [ ] Critério 1
 
-## RELATED
-- [Related file](../path/to/file.md)
+## RELACIONADOS
+- [Arquivo relacionado](../path/to/file.md)
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | YYYY-MM-DD | Author | Initial version |
+| 1.0.0 | YYYY-MM-DD | Autor | Versão inicial |
 ```
 
 ---
 
-## Workflow Template
+## Modelo de Workflow
 
 ```markdown
 # WORKFLOW: workflow-name
 
 > **Version**: 1.0.0 | **Status**: draft | **Category**: [init|feature|bug|refactor|review|deploy|maintenance|security|performance] | **Last Updated**: YYYY-MM-DD
 
-## OBJECTIVE
-One paragraph.
+## OBJETIVO
+Um parágrafo.
 
-## INPUTS
-| Name | Type | Required | Description |
+## ENTRADAS
+| Nome | Tipo | Obrigatório | Descrição |
 |------|------|----------|-------------|
 
-## OUTPUTS
-| Name | Type | Description |
+## SAÍDAS
+| Nome | Tipo | Descrição |
 |------|------|-------------|
 
-## PRECONDITIONS
-1. Condition
+## PRÉ-CONDIÇÕES
+1. Condição
 
-## POSTCONDITIONS
-1. Condition
+## PÓS-CONDIÇÕES
+1. Condição
 
-## DEPENDENCIES
-| Workflow | Reason |
+## DEPENDÊNCIAS
+| Workflow | Razão |
 |----------|--------|
 
-## STEPS
-### Step 1: Name
-- **Chief**: Department
-- **Specialists**: Role(s)
-- **Task**: Description
-- **Output**: Expected result
+## PASSOS
+### Passo 1: Nome
+- **Chief**: Departamento
+- **Especialistas**: Função(ões)
+- **Tarefa**: Descrição
+- **Saída**: Resultado esperado
 
-## VALIDATION
-1. Check
+## VALIDAÇÃO
+1. Verificação
 
-## SUCCESS CRITERIA
-- [ ] Criterion
+## CRITÉRIOS DE SUCESSO
+- [ ] Critério
 
-## ERROR HANDLING
-| Failure | Action |
+## TRATAMENTO DE ERROS
+| Falha | Ação |
 |---------|--------|
 
-## RELATED
-- [Related file](../path/to/file.md)
+## RELACIONADOS
+- [Arquivo relacionado](../path/to/file.md)
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | YYYY-MM-DD | Author | Initial version |
+| 1.0.0 | YYYY-MM-DD | Autor | Versão inicial |
 ```
 
 ---
 
-## Template Scaffold Template
+## Modelo de Scaffold de Template
 
 ```markdown
 # TEMPLATE NAME
 
 > **Version**: 1.0.0 | **Status**: draft | **Last Updated**: YYYY-MM-DD
 
-## DOMAIN
-What type of application this template is for.
+## DOMÍNIO
+Que tipo de aplicação este template serve.
 
-## RECOMMENDED STACK
-| Layer | Technology |
+## STACK RECOMENDADA
+| Camada | Tecnologia |
 |-------|-----------|
 
-## MODULE STRUCTURE
+## ESTRUTURA DO MÓDULO
 ```
 project/
 ├── src/
@@ -214,36 +214,36 @@ project/
 └── README.md
 ```
 
-## KEY FEATURES
-- Feature 1
+## PRINCIPAIS FUNCIONALIDADES
+- Funcionalidade 1
 
-## ARCHITECTURE NOTES
-- Note 1
+## NOTAS DE ARQUITETURA
+- Nota 1
 
-## RELATED
-- [Related template](../template-name/TEMPLATE.md)
+## RELACIONADOS
+- [Template relacionado](../template-name/TEMPLATE.md)
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | YYYY-MM-DD | Author | Initial version |
+| 1.0.0 | YYYY-MM-DD | Autor | Versão inicial |
 ```
 
 ---
 
-## Checklist Before Submitting
+## Checklist Antes de Enviar
 
-- [ ] Metadata block present with version, status, owner, date
-- [ ] All mandatory sections present (per CONVENTIONS.md)
-- [ ] No duplicated content with existing files
-- [ ] Cross-references use relative paths
-- [ ] Tables properly formatted
-- [ ] HISTORY section populated
-- [ ] Added to COSCA_INDEX.md
-- [ ] Added to skills paths in opencode.jsonc (if department/engine)
-- [ ] Agent config created in opencode.jsonc (if department with agents)
+- [ ] Bloco de metadados presente com versão, status, proprietário, data
+- [ ] Todas as seções obrigatórias presentes (conforme CONVENTIONS.md)
+- [ ] Sem conteúdo duplicado com arquivos existentes
+- [ ] Referências cruzadas usam caminhos relativos
+- [ ] Tabelas formatadas corretamente
+- [ ] Seção HISTÓRICO preenchida
+- [ ] Adicionado ao COSCA_INDEX.md
+- [ ] Adicionado aos caminhos de skills no opencode.jsonc (se departamento/engine)
+- [ ] Configuração do agente criada no opencode.jsonc (se departamento com agentes)
 
 ---
 
-> **Enforced by**: Skills Engine | **Last reviewed**: 2026-07-10
+> **Aplicado por**: Skills Engine | **Última revisão**: 2026-07-10

@@ -1,175 +1,175 @@
-# ENTERPRISE REDUNDANCY MATRIX — Complete Failover Architecture
+# MATRIZ DE REDUNDÂNCIA EMPRESARIAL — Arquitetura Completa de Failover
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-07-12
 
-## PURPOSE
-No critical component in the Cosca ecosystem shall depend on a single point of failure. This matrix defines the complete redundancy, failover, and recovery strategy for every critical component.
+## PROPÓSITO
+Nenhum componente crítico no ecossistema Cosca deve depender de um único ponto de falha. Esta matriz define a estratégia completa de redundância, failover e recuperação para cada componente crítico.
 
 ---
 
-## REDUNDANCY LAYERS
+## CAMADAS DE REDUNDÂNCIA
 
 ```
-Layer 1: Agent Redundancy      (Primary → Secondary → Fallback)
-Layer 2: Provider Redundancy   (OpenAI → Anthropic → Local LLM)
-Layer 3: Storage Redundancy    (Primary path → Fallback path → In-memory)
-Layer 4: Engine Redundancy     (Primary Engine → Degraded Mode → Manual)
-Layer 5: Leadership Redundancy (Chief → Backup Chief → Council → Executive)
-Layer 6: Runtime Redundancy    (Primary Runtime → Secondary Runtime → CLI fallback)
+Camada 1: Redundância de Agentes      (Primário → Secundário → Fallback)
+Camada 2: Redundância de Providers    (OpenAI → Anthropic → LLM Local)
+Camada 3: Redundância de Armazenamento (Caminho primário → Caminho fallback → Em memória)
+Camada 4: Redundância de Engines      (Engine Primário → Modo Degradado → Manual)
+Camada 5: Redundância de Liderança    (Chief → Chief Backup → Conselho → Executivo)
+Camada 6: Redundância de Runtime      (Runtime Primário → Runtime Secundário → Fallback CLI)
 ```
 
 ---
 
-## LAYER 1: AGENT REDUNDANCY
+## CAMADA 1: REDUNDÂNCIA DE AGENTES
 
-| Agent Type | Primary | Secondary | Fallback | Activation |
+| Tipo de Agente | Primário | Secundário | Fallback | Ativação |
 |-----------|---------|-----------|----------|------------|
-| Backend Chief | Backend Chief | Architecture Chief (backend review) | CTO | After 3 failures |
-| Frontend Chief | Frontend Chief | UI/UX Chief (component review) | CTO | After 3 failures |
-| Database Chief | Database Chief | Backend Chief (schema review) | Architecture Chief | After 3 failures |
-| Security Chief | Security Chief | CTO (security review) | Architecture Chief | IMMEDIATE on critical |
-| QA Chief | QA Chief | Testing Chief (promoted) | CTO | After 2 failures |
-| Review Chief | Review Chief | Architecture Chief (architecture) + Security Chief (security) | CTO | After 3 failures |
-| Testing Chief | Testing Chief | QA Chief (oversight) | Backend/Frontend Chief | After 3 failures |
-| DevOps Chief | DevOps Chief | Infrastructure Chief | CTO | After 3 failures |
-| Infrastructure Chief | Infrastructure Chief | DevOps Chief | CTO | After 3 failures |
-| Any Specialist | Specialty Specialist | Chief (direct execution) | Secondary Specialist | After 2 failures |
+| Backend Chief | Backend Chief | Architecture Chief (revisão de backend) | CTO | Após 3 falhas |
+| Frontend Chief | Frontend Chief | UI/UX Chief (revisão de componentes) | CTO | Após 3 falhas |
+| Database Chief | Database Chief | Backend Chief (revisão de schema) | Architecture Chief | Após 3 falhas |
+| Security Chief | Security Chief | CTO (revisão de segurança) | Architecture Chief | IMEDIATO em crítico |
+| QA Chief | QA Chief | Testing Chief (promovido) | CTO | Após 2 falhas |
+| Review Chief | Review Chief | Architecture Chief (arquitetura) + Security Chief (segurança) | CTO | Após 3 falhas |
+| Testing Chief | Testing Chief | QA Chief (supervisão) | Backend/Frontend Chief | Após 3 falhas |
+| DevOps Chief | DevOps Chief | Infrastructure Chief | CTO | Após 3 falhas |
+| Infrastructure Chief | Infrastructure Chief | DevOps Chief | CTO | Após 3 falhas |
+| Qualquer Especialista | Especialista da Especialidade | Chief (execução direta) | Especialista Secundário | Após 2 falhas |
 
 ---
 
-## LAYER 2: PROVIDER REDUNDANCY
+## CAMADA 2: REDUNDÂNCIA DE PROVIDERS
 
-| Task Type | Primary Provider | Secondary Provider | Fallback Provider | Circuit Breaker |
+| Tipo de Tarefa | Provider Primário | Provider Secundário | Provider Fallback | Circuit Breaker |
 |-----------|-----------------|-------------------|-------------------|-----------------|
-| Strategic (CEO) | GPT-4o | Claude 3.5 Sonnet | — | 5 failures / 60s |
-| Planning (CTO) | GPT-4o | Claude 3.5 Sonnet | — | 5 failures / 60s |
-| Architecture | Claude 3.5 Sonnet | GPT-4o | — | 5 failures / 60s |
-| Code Generation | Claude 3.5 Sonnet | GPT-4o | Llama 3 70B | 10 failures / 120s |
-| Code Review | GPT-4o | Claude 3.5 Sonnet | — | 5 failures / 60s |
-| Security Audit | GPT-4o | Claude 3.5 Sonnet | — | 3 failures / 60s |
-| Testing | Claude 3.5 Sonnet | GPT-4o | Llama 3 70B | 10 failures / 120s |
-| Documentation | GPT-4o | Claude 3.5 Sonnet | Llama 3 70B | 10 failures / 120s |
-| Simple Tasks | GPT-4o-mini | Claude Haiku | Llama 3 70B | 20 failures / 120s |
-| Creative | GPT-4o | Claude 3.5 Sonnet | — | 5 failures / 60s |
+| Estratégico (CEO) | GPT-4o | Claude 3.5 Sonnet | — | 5 falhas / 60s |
+| Planejamento (CTO) | GPT-4o | Claude 3.5 Sonnet | — | 5 falhas / 60s |
+| Arquitetura | Claude 3.5 Sonnet | GPT-4o | — | 5 falhas / 60s |
+| Geração de Código | Claude 3.5 Sonnet | GPT-4o | Llama 3 70B | 10 falhas / 120s |
+| Revisão de Código | GPT-4o | Claude 3.5 Sonnet | — | 5 falhas / 60s |
+| Auditoria de Segurança | GPT-4o | Claude 3.5 Sonnet | — | 3 falhas / 60s |
+| Testes | Claude 3.5 Sonnet | GPT-4o | Llama 3 70B | 10 falhas / 120s |
+| Documentação | GPT-4o | Claude 3.5 Sonnet | Llama 3 70B | 10 falhas / 120s |
+| Tarefas Simples | GPT-4o-mini | Claude Haiku | Llama 3 70B | 20 falhas / 120s |
+| Criativo | GPT-4o | Claude 3.5 Sonnet | — | 5 falhas / 60s |
 
 ---
 
-## LAYER 3: STORAGE REDUNDANCY
+## CAMADA 3: REDUNDÂNCIA DE ARMAZENAMENTO
 
-| Storage Type | Primary Path | Fallback Path | Recovery |
+| Tipo de Armazenamento | Caminho Primário | Caminho Fallback | Recuperação |
 |-------------|-------------|---------------|----------|
-| Memory Stores | .cosca/memory/ | ${MEMORY_GLOBAL}/ | Restore from most recent backup |
-| Cosca Core (skills) | ${COSCA_HOME}/ | ${COSCA_HOME}_backup/ | Git restore from remote |
-| Project Config | .cosca/config.yml | .cosca/config.yml.bak | Auto-restore from backup |
-| Session State | .cosca/memory/short/ | In-memory cache | Lost on failure (acceptable for short memory) |
-| Audit Trail | .cosca/audit/ | ${AUDIT_HOME}_replica/ | Replay from replica |
-| Knowledge Base | knowledge/ | ${MEMORY_GLOBAL}/knowledge/ | Restore from global mirror |
+| Armazenamentos de Memória | .cosca/memory/ | ${MEMORY_GLOBAL}/ | Restaurar do backup mais recente |
+| Cosca Core (skills) | ${COSCA_HOME}/ | ${COSCA_HOME}_backup/ | Git restore do remoto |
+| Configuração do Projeto | .cosca/config.yml | .cosca/config.yml.bak | Restauração automática do backup |
+| Estado da Sessão | .cosca/memory/short/ | Cache em memória | Perdido em falha (aceitável para memória de curto prazo) |
+| Trilha de Auditoria | .cosca/audit/ | ${AUDIT_HOME}_replica/ | Replay da réplica |
+| Base de Conhecimento | knowledge/ | ${MEMORY_GLOBAL}/knowledge/ | Restaurar do espelho global |
 
 ---
 
-## LAYER 4: ENGINE REDUNDANCY
+## CAMADA 4: REDUNDÂNCIA DE ENGINES
 
-| Engine | Failure Mode | Degraded Behavior | Manual Override |
+| Engine | Modo de Falha | Comportamento Degradado | Sobrescrita Manual |
 |--------|-------------|-------------------|-----------------|
-| Discovery Engine | Cannot auto-detect | Manual stack specification | User provides stack info |
-| Context Engine | Cannot build context | Load from last known context | Kernel loads cached context |
-| Memory Engine | Cannot persist | In-memory only (session loss on end) | Manual memory export |
-| Workflow Engine | Cannot orchestrate | Linear execution only (no parallel) | Manual step execution |
-| Planning Engine | Cannot generate plan | Manual plan creation by CTO | CTO writes plan manually |
-| Execution Engine | Cannot dispatch | Sequential execution by Kernel | Kernel direct execution |
-| Review Engine | Cannot review | Manual review by Review Chief | Review Chief manual review |
-| Quality Engine | Cannot enforce gates | Gates logged as warnings only | QA Chief manual enforcement |
-| Resource Resolver | Cannot resolve paths | Hardcoded fallback paths | Manual path specification |
-| Secrets Engine | Cannot retrieve secrets | Agent blocked (secure by default) | Security Chief manual injection |
-| Policy Engine | Cannot evaluate | All policies enforced as errors (safe) | Manual policy override |
-| Benchmark Engine | Cannot run | Use last known scores | Manual benchmark estimation |
+| Discovery Engine | Não consegue detectar automaticamente | Especificação manual da stack | Usuário fornece informações da stack |
+| Context Engine | Não consegue construir contexto | Carregar do último contexto conhecido | Kernel carrega contexto em cache |
+| Memory Engine | Não consegue persistir | Apenas em memória (perda de sessão ao final) | Exportação manual de memória |
+| Workflow Engine | Não consegue orquestrar | Execução linear apenas (sem paralelo) | Execução manual de passos |
+| Planning Engine | Não consegue gerar plano | Criação manual de plano pelo CTO | CTO escreve plano manualmente |
+| Execution Engine | Não consegue despachar | Execução sequencial pelo Kernel | Execução direta pelo Kernel |
+| Review Engine | Não consegue revisar | Revisão manual pelo Review Chief | Review Chief faz revisão manual |
+| Quality Engine | Não consegue aplicar gates | Gates registrados apenas como avisos | QA Chief aplica manualmente |
+| Resource Resolver | Não consegue resolver caminhos | Caminhos fallback hardcoded | Especificação manual de caminhos |
+| Secrets Engine | Não consegue recuperar secrets | Agente bloqueado (seguro por padrão) | Security Chief injeta manualmente |
+| Policy Engine | Não consegue avaliar | Todas as policies aplicadas como erros (seguro) | Sobrescrita manual de policy |
+| Benchmark Engine | Não consegue executar | Usar últimos scores conhecidos | Estimativa manual de benchmark |
 
 ---
 
-## LAYER 5: LEADERSHIP REDUNDANCY
+## CAMADA 5: REDUNDÂNCIA DE LIDERANÇA
 
-| Role | Primary | Backup | Escalation | Activation |
+| Função | Primário | Backup | Escalação | Ativação |
 |------|---------|--------|------------|------------|
-| Kernel | Kernel | Bootstrap Engine | User notification | Bootstrap Phase 0 failure |
-| CEO | CEO | CTO | Executive Council | After 3 unresponsive cycles |
-| CTO | CTO | Architecture Chief | CEO | After 3 unresponsive cycles |
-| Product Chief | Product Chief | CTO | CEO | After 3 unresponsive cycles |
-| Architecture Chief | Architecture Chief | CTO | Architecture Council | After 3 unresponsive cycles |
-| Any Chief | Chief | CTO (interim) | Respective Council | After 3 unresponsive cycles |
+| Kernel | Kernel | Bootstrap Engine | Notificação ao Usuário | Falha na Fase 0 do Bootstrap |
+| CEO | CEO | CTO | Conselho Executivo | Após 3 ciclos sem resposta |
+| CTO | CTO | Architecture Chief | CEO | Após 3 ciclos sem resposta |
+| Product Chief | Product Chief | CTO | CEO | Após 3 ciclos sem resposta |
+| Architecture Chief | Architecture Chief | CTO | Architecture Council | Após 3 ciclos sem resposta |
+| Qualquer Chief | Chief | CTO (interino) | Conselho Respectivo | Após 3 ciclos sem resposta |
 
 ---
 
-## LAYER 6: RUNTIME REDUNDANCY
+## CAMADA 6: REDUNDÂNCIA DE RUNTIME
 
-| Runtime | Primary | Secondary | Fallback | Activation |
+| Runtime | Primário | Secundário | Fallback | Ativação |
 |---------|---------|-----------|----------|------------|
-| OpenCode | OpenCode Agent | CLI mode | Direct API | Runtime crash |
-| Claude Code | Claude Code | OpenCode | CLI mode | Runtime crash |
-| Custom Runtime | Custom Runtime | CLI fallback | Direct Kernel | Runtime crash |
+| OpenCode | OpenCode Agent | Modo CLI | API Direta | Falha no runtime |
+| Claude Code | Claude Code | OpenCode | Modo CLI | Falha no runtime |
+| Custom Runtime | Custom Runtime | Fallback CLI | Kernel Direto | Falha no runtime |
 
 ---
 
-## CIRCUIT BREAKER PATTERNS
+## PADRÕES DE CIRCUIT BREAKER
 
 ```
-State Machine:
-  CLOSED → (failures > threshold in window) → OPEN
-  OPEN → (timeout elapsed) → HALF_OPEN
-  HALF_OPEN → (success) → CLOSED
-  HALF_OPEN → (failure) → OPEN (reset timer)
+Máquina de Estados:
+  CLOSED → (falhas > limiar na janela) → OPEN
+  OPEN → (tempo esgotado) → HALF_OPEN
+  HALF_OPEN → (sucesso) → CLOSED
+  HALF_OPEN → (falha) → OPEN (resetar timer)
 ```
 
-| Resource | Failure Threshold | Window | Open Timeout | Half-Open Limit |
-|----------|------------------|--------|-------------|-----------------|
-| Provider API | 5 failures | 60s | 30s | 1 probe request |
-| Agent spawn | 10 failures | 120s | 60s | 1 agent |
-| Memory write | 10 failures | 60s | 30s | 1 write |
-| Engine call | 5 failures | 60s | 30s | 1 call |
-| Tool execution | 3 failures | 30s | 15s | 1 execution |
+| Recurso | Limiar de Falhas | Janela | Timeout Aberto | Limite Half-Open |
+|----------|------------------|--------|---------------|------------------|
+| Provider API | 5 falhas | 60s | 30s | 1 requisição de probe |
+| Spawn de agente | 10 falhas | 120s | 60s | 1 agente |
+| Escrita em memória | 10 falhas | 60s | 30s | 1 escrita |
+| Chamada de engine | 5 falhas | 60s | 30s | 1 chamada |
+| Execução de tool | 3 falhas | 30s | 15s | 1 execução |
 
 ---
 
-## HEALTH CHECK MATRIX
+## MATRIZ DE HEALTH CHECKS
 
-| Component | Check Type | Interval | Timeout | Failure Threshold |
-|-----------|-----------|----------|---------|-------------------|
-| Kernel | Heartbeat | 30s | 5s | 3 consecutive |
-| CEO | Responsiveness | 60s | 15s | 2 consecutive |
-| CTO | Responsiveness | 60s | 15s | 2 consecutive |
-| Chief | Responsiveness | 120s | 30s | 3 consecutive |
-| Engine | Operation test | 300s | 30s | 2 consecutive |
-| Provider | API ping | 60s | 10s | 5 in 5 min |
-| Memory Store | Read/write test | 300s | 10s | 2 consecutive |
-| Runtime | Health endpoint | 60s | 5s | 3 consecutive |
+| Componente | Tipo de Verificação | Intervalo | Timeout | Limiar de Falha |
+|-----------|-------------------|-----------|---------|-----------------|
+| Kernel | Heartbeat | 30s | 5s | 3 consecutivos |
+| CEO | Responsividade | 60s | 15s | 2 consecutivos |
+| CTO | Responsividade | 60s | 15s | 2 consecutivos |
+| Chief | Responsividade | 120s | 30s | 3 consecutivos |
+| Engine | Teste de operação | 300s | 30s | 2 consecutivos |
+| Provider | Ping de API | 60s | 10s | 5 em 5 min |
+| Armazenamento de Memória | Teste de leitura/escrita | 300s | 10s | 2 consecutivos |
+| Runtime | Endpoint de health | 60s | 5s | 3 consecutivos |
 
 ---
 
-## RECOVERY TIME OBJECTIVES (RTO)
+## OBJETIVOS DE TEMPO DE RECUPERAÇÃO (RTO)
 
-| Failure Scenario | RTO | RPO | Procedure |
+| Cenário de Falha | RTO | RPO | Procedimento |
 |-----------------|-----|-----|-----------|
-| Agent failure (with fallback) | < 30s | 0 | Automatic fallback activation |
-| Agent failure (escalation) | < 2 min | < 1 min | Chief takes over; context snapshot |
-| Provider failure (with failover) | < 10s | 0 | Automatic provider failover |
-| Memory store corruption | < 5 min | < 1 min | Restore from backup |
-| Engine failure (degraded mode) | < 1 min | 0 | Degraded mode activation |
-| Workflow interruption | < 2 min | Last checkpoint | Resume from last completed step |
-| Runtime crash | < 30s | Last session snapshot | Runtime restart + session restore |
-| Full system failure | < 15 min | < 5 min | DR snapshot restore |
-| Data breach | < 5 min | 0 | Automatic secret rotation + lockdown |
+| Falha de agente (com fallback) | < 30s | 0 | Ativação automática de fallback |
+| Falha de agente (escalação) | < 2 min | < 1 min | Chief assume; snapshot de contexto |
+| Falha de provider (com failover) | < 10s | 0 | Failover automático de provider |
+| Corrupção de armazenamento de memória | < 5 min | < 1 min | Restaurar do backup |
+| Falha de engine (modo degradado) | < 1 min | 0 | Ativação do modo degradado |
+| Interrupção de workflow | < 2 min | Último checkpoint | Retomar do último passo concluído |
+| Falha de runtime | < 30s | Último snapshot de sessão | Reinício do runtime + restauração de sessão |
+| Falha total do sistema | < 15 min | < 5 min | Restauração do snapshot de DR |
+| Vazamento de dados | < 5 min | 0 | Rotação automática de secrets + lockdown |
 
 ---
 
-## RELATED
-- [KERNEL.md](KERNEL.md) — Error handling and redundancy rules
-- [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — Provider failover configuration
-- [COUNCILS.md](councils/COUNCILS.md) — Leadership escalation to Councils
-- [Recovery Engine](engines/recovery/SKILL.md) — Automated recovery procedures
-- [Secrets Engine](engines/secrets/SKILL.md) — Credential rotation on breach
-- [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 4 post-release health checks
+## RELACIONADOS
+- [KERNEL.md](KERNEL.md) — Tratamento de erros e regras de redundância
+- [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — Configuração de failover de providers
+- [COUNCILS.md](councils/COUNCILS.md) — Escalação de liderança para Conselhos
+- [Recovery Engine](engines/recovery/SKILL.md) — Procedimentos de recuperação automatizados
+- [Secrets Engine](engines/secrets/SKILL.md) — Rotação de credenciais em caso de breach
+- [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 4 de health checks pós-release
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | 2026-07-12 | Cosca Kernel | Complete enterprise redundancy matrix — 6 layers, circuit breakers, health checks, RTO/RPO |
+| 1.0.0 | 2026-07-12 | Cosca Kernel | Matriz completa de redundância empresarial — 6 camadas, circuit breakers, health checks, RTO/RPO |

@@ -1,59 +1,59 @@
-# SECURITY ARCHITECTURE — Enterprise Cybersecurity Framework
+# ARQUITETURA DE SEGURANÇA — Framework de Cibersegurança Empresarial
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Security Chief | **Last Updated**: 2026-07-12
 
-## PURPOSE
-This document is the single source of truth for all cybersecurity policies, standards, and procedures in the Cosca ecosystem. It implements defense-in-depth across 8 security domains. Every agent, engine, and workflow must comply. No exception.
+## PROPÓSITO
+Este documento é a única fonte de verdade para todas as políticas, padrões e procedimentos de cibersegurança no ecossistema Cosca. Implementa defesa em profundidade em 8 domínios de segurança. Todo agente, engine e workflow deve cumprir. Sem exceção.
 
 ---
 
-## 1. SECURITY PRINCIPLES
+## 1. PRINCÍPIOS DE SEGURANÇA
 
-| Principle | Rule | Enforcement |
-|-----------|------|-------------|
-| **Zero Trust** | Never trust, always verify. Every request authenticated and authorized. | Identity Engine |
-| **Least Privilege** | Agents get minimum permissions needed. Elevated access requires justification + TTL. | Policy Engine + Identity Engine |
-| **Defense in Depth** | Multiple security layers. If one fails, others catch it. | All 8 domains below |
-| **Secure by Default** | New projects start with maximum security. Opt-out requires Security Council approval. | Security Baseline (project-init Step 7) |
-| **Shift Left** | Security at every stage: design → code → build → test → deploy → monitor. | Quality Gates 0-4 |
-| **Assume Breach** | Design for when (not if) a breach occurs. Isolate, detect, respond, recover. | Incident Response + Recovery Engine |
-| **Privacy by Design** | PII encrypted at rest and in transit. Data minimization. Right to erasure. | Compliance Engine |
-| **Never Trust the Model** | AI output validated before user-facing use. Prompt injection defenses. No secrets in prompts. | AI Council + Secrets Engine |
+| Princípio | Regra | Aplicação |
+|-----------|-------|-----------|
+| **Zero Trust** | Nunca confie, sempre verifique. Toda requisição autenticada e autorizada. | Identity Engine |
+| **Menor Privilégio** | Agentes recebem permissões mínimas necessárias. Acesso elevado requer justificativa + TTL. | Policy Engine + Identity Engine |
+| **Defesa em Profundidade** | Múltiplas camadas de segurança. Se uma falhar, outras pegam. | Todos os 8 domínios abaixo |
+| **Seguro por Padrão** | Novos projetos começam com segurança máxima. Saída requer aprovação do Security Council. | Security Baseline (project-init Passo 7) |
+| **Shift Left** | Segurança em cada estágio: design → código → build → test → deploy → monitorar. | Quality Gates 0-4 |
+| **Assumir Breach** | Projetar para quando (não se) um breach ocorrer. Isolar, detectar, responder, recuperar. | Incident Response + Recovery Engine |
+| **Privacidade por Design** | PII criptografado em repouso e em trânsito. Minimização de dados. Direito ao esquecimento. | Compliance Engine |
+| **Nunca Confiar no Modelo** | Saída de IA validada antes de uso em interface com o usuário. Defesas contra prompt injection. Sem secrets em prompts. | AI Council + Secrets Engine |
 
 ---
 
-## 2. SECURITY DOMAINS (8)
+## 2. DOMÍNIOS DE SEGURANÇA (8)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    SECURITY DOMAINS                          │
+│                    DOMÍNIOS DE SEGURANÇA                     │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Identity & Access    → Who are you? What can you do?     │
-│ 2. Data Protection      → Encryption, masking, retention    │
-│ 3. Application Security → OWASP, SAST, DAST, dependency     │
-│ 4. Infrastructure       → Network, containers, cloud        │
-│ 5. Supply Chain         → SBOM, signing, provenance         │
-│ 6. AI/ML Security       → Prompt injection, model poisoning │
-│ 7. Incident Response    → Detect, contain, eradicate, recover│
-│ 8. Compliance           → GDPR, SOC2, HIPAA, PCI-DSS        │
+│ 1. Identidade e Acesso     → Quem é você? O que pode fazer? │
+│ 2. Proteção de Dados       → Criptografia, mascaramento, retenção │
+│ 3. Segurança de Aplicação  → OWASP, SAST, DAST, dependências │
+│ 4. Infraestrutura          → Rede, containers, cloud │
+│ 5. Cadeia de Suprimentos   → SBOM, assinatura, procedência   │
+│ 6. Segurança de IA/ML      → Prompt injection, envenenamento de modelo │
+│ 7. Resposta a Incidentes   → Detectar, conter, erradicar, recuperar │
+│ 8. Conformidade            → GDPR, SOC2, HIPAA, PCI-DSS      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. DOMAIN 1: IDENTITY & ACCESS MANAGEMENT
+## 3. DOMÍNIO 1: GESTÃO DE IDENTIDADE E ACESSO
 
-### 3.1 Authentication Standards
-| Method | Use Case | Minimum Requirement |
+### 3.1 Padrões de Autenticação
+| Método | Caso de Uso | Requisito Mínimo |
 |--------|----------|-------------------|
-| API Keys | Service-to-service (agent-to-agent) | 256-bit random, rotated every 90 days |
-| JWT (Access) | User/agent sessions | RS256, 15 min TTL, no secrets in payload |
-| JWT (Refresh) | Session renewal | 256-bit random, 7 day TTL, single use, rotation on use |
-| OAuth 2.0 / OIDC | Third-party integration | PKCE required, state parameter validated |
-| mTLS | Critical service communication | Certificate pinning, rotation every 30 days |
-| Biometric | Mobile/desktop apps | Platform-native (FaceID, TouchID, Windows Hello) |
+| API Keys | Service-to-service (agent-to-agent) | 256-bit aleatório, rotacionado a cada 90 dias |
+| JWT (Access) | Sessões de usuário/agente | RS256, TTL de 15 min, sem secrets no payload |
+| JWT (Refresh) | Renovação de sessão | 256-bit aleatório, TTL de 7 dias, uso único, rotação ao usar |
+| OAuth 2.0 / OIDC | Integração com terceiros | PKCE obrigatório, parâmetro state validado |
+| mTLS | Comunicação entre serviços críticos | Certificate pinning, rotação a cada 30 dias |
+| Biométrico | Apps mobile/desktop | Nativo da plataforma (FaceID, TouchID, Windows Hello) |
 
-### 3.2 Authorization Model (RBAC + ABAC Hybrid)
+### 3.2 Modelo de Autorização (RBAC + ABAC Híbrido)
 ```
 RBAC Layer:
   Role → Permissions
@@ -65,102 +65,102 @@ ABAC Layer:
   Example: "Backend Chief CAN write_file ON src/api/ DURING business hours FROM approved IP"
 ```
 
-### 3.3 Identity Engine Enforcement
-| Check | When | Action on Failure |
+### 3.3 Aplicação da Identity Engine
+| Verificação | Quando | Ação em Caso de Falha |
 |-------|------|------------------|
-| Agent authentication | Every spawn | Block spawn, alert Security Chief |
-| Token validation | Every request | Return 401, log attempt |
-| Permission check | Every tool call | Deny tool, log attempt |
-| Tenant isolation | Every cross-tenant access | Block, alert immediately |
-| Session timeout | Every 15 min (access token) | Force re-auth, preserve workflow state |
-| Anomaly detection | Continuous | Escalate to Security Council |
+| Autenticação de agente | Cada criação | Bloquear criação, alertar Security Chief |
+| Validação de token | Cada requisição | Retornar 401, registrar tentativa |
+| Verificação de permissão | Cada chamada de tool | Negar tool, registrar tentativa |
+| Isolamento de tenant | Cada acesso cross-tenant | Bloquear, alertar imediatamente |
+| Timeout de sessão | Cada 15 min (access token) | Forçar re-autenticação, preservar estado do workflow |
+| Detecção de anomalias | Contínuo | Escalar para Security Council |
 
 ---
 
-## 4. DOMAIN 2: DATA PROTECTION
+## 4. DOMÍNIO 2: PROTEÇÃO DE DADOS
 
-### 4.1 Encryption Standards
-| Data State | Algorithm | Key Management |
+### 4.1 Padrões de Criptografia
+| Estado dos Dados | Algoritmo | Gerenciamento de Chaves |
 |-----------|-----------|---------------|
-| At Rest | AES-256-GCM | Envelope encryption (DEK + KEK), HSM-backed |
-| In Transit | TLS 1.3 | Certificate pinning, HSTS, forward secrecy |
-| In Memory | In-memory only (no swap) | mlock, encrypted swap disabled |
-| In Backups | AES-256-GCM | Separate backup key, offline master key |
+| Em Repouso | AES-256-GCM | Criptografia envelope (DEK + KEK), suportado por HSM |
+| Em Trânsito | TLS 1.3 | Certificate pinning, HSTS, sigilo encaminhado |
+| Em Memória | Apenas em memória (sem swap) | mlock, swap criptografado desabilitado |
+| Em Backups | AES-256-GCM | Chave de backup separada, chave mestra offline |
 
-### 4.2 Data Classification
-| Level | Examples | Storage | Encryption | Retention |
+### 4.2 Classificação de Dados
+| Nível | Exemplos | Armazenamento | Criptografia | Retenção |
 |-------|----------|---------|------------|-----------|
-| **P0 - Secrets** | API keys, passwords, tokens | Secrets Engine (vault) | AES-256-GCM + HSM | Rotated per policy |
-| **P1 - PII** | Emails, names, addresses, IPs | Encrypted DB column | AES-256-GCM | Per compliance + right-to-erasure |
-| **P2 - Confidential** | Source code, architecture docs, ADRs | Encrypted at rest | AES-256-GCM | Project lifetime |
-| **P3 - Internal** | Workflow logs, agent metrics | Standard storage | AES-256-GCM (optional) | 12 months |
-| **P4 - Public** | README, public docs, changelogs | Standard storage | None | Forever |
+| **P0 - Secrets** | API keys, senhas, tokens | Secrets Engine (vault) | AES-256-GCM + HSM | Rotação por política |
+| **P1 - PII** | E-mails, nomes, endereços, IPs | Coluna criptografada no BD | AES-256-GCM | Por conformidade + direito ao esquecimento |
+| **P2 - Confidencial** | Código-fonte, docs de arquitetura, ADRs | Criptografado em repouso | AES-256-GCM | Vida do projeto |
+| **P3 - Interno** | Logs de workflow, métricas de agentes | Armazenamento padrão | AES-256-GCM (opcional) | 12 meses |
+| **P4 - Público** | README, docs públicos, changelogs | Armazenamento padrão | Nenhum | Para sempre |
 
-### 4.3 Data Privacy Matrix
-| Regulation | Requirement | Cosca Enforcement |
-|-----------|------------|-----------------|
-| GDPR | Right to erasure, data portability, consent | Compliance Engine + Memory pruning |
-| CCPA | Right to know, right to delete, opt-out | Compliance Engine |
-| HIPAA | PHI encryption, access logging, BAA | Compliance Engine + Audit Engine |
-| PCI-DSS | Card data never stored, tokenization | Secrets Engine (PCI scope isolation) |
-| SOC2 | Security, availability, confidentiality | Full audit trail + Compliance reports |
+### 4.3 Matriz de Privacidade de Dados
+| Regulação | Requisito | Aplicação no Cosca |
+|-----------|----------|-----------------|
+| GDPR | Direito ao esquecimento, portabilidade de dados, consentimento | Compliance Engine + poda de memória |
+| CCPA | Direito de saber, direito de excluir, opt-out | Compliance Engine |
+| HIPAA | Criptografia de PHI, registro de acesso, BAA | Compliance Engine + Audit Engine |
+| PCI-DSS | Dados de cartão nunca armazenados, tokenização | Secrets Engine (isolamento de escopo PCI) |
+| SOC2 | Segurança, disponibilidade, confidencialidade | Trilha de auditoria completa + relatórios de conformidade |
 
 ---
 
-## 5. DOMAIN 3: APPLICATION SECURITY
+## 5. DOMÍNIO 3: SEGURANÇA DE APLICAÇÃO
 
-### 5.1 OWASP Top 10 (2021) — Cosca Coverage
-| # | Vulnerability | Cosca Defense |
+### 5.1 OWASP Top 10 (2021) — Cobertura do Cosca
+| # | Vulnerabilidade | Defesa do Cosca |
 |---|-------------|------------|
-| A01 | Broken Access Control | Identity Engine + RBAC/ABAC + permission check on every tool call |
-| A02 | Cryptographic Failures | Secrets Engine (never hardcoded), TLS 1.3, AES-256-GCM |
-| A03 | Injection | Parameterized queries only, input validation on all agent inputs, output encoding |
-| A04 | Insecure Design | Architecture Council review, threat modeling per feature |
-| A05 | Security Misconfiguration | Security Baseline (project-init Step 7), CSP headers, secure defaults |
-| A06 | Vulnerable Components | Dependency audit every 24h, SBOM generation, CVE scanning |
-| A07 | Auth Failures | MFA for admin, JWT best practices, brute-force protection |
-| A08 | Software & Data Integrity | Signed commits, SBOM verification, CI/CD pipeline integrity |
-| A09 | Logging & Monitoring Failures | Audit Engine (every action logged), Observability (anomaly detection) |
-| A10 | SSRF | Agent tool restrictions, network egress filtering, URL validation |
+| A01 | Controle de Acesso Quebrado | Identity Engine + RBAC/ABAC + verificação de permissão em cada chamada de tool |
+| A02 | Falhas Criptográficas | Secrets Engine (nunca hardcoded), TLS 1.3, AES-256-GCM |
+| A03 | Injeção | Queries parametrizadas apenas, validação de entrada em todas as entradas de agentes, codificação de saída |
+| A04 | Design Inseguro | Revisão do Architecture Council, modelagem de ameaças por feature |
+| A05 | Configuração Insegura de Segurança | Security Baseline (project-init Passo 7), cabeçalhos CSP, padrões seguros |
+| A06 | Componentes Vulneráveis | Auditoria de dependências a cada 24h, geração de SBOM, scan de CVE |
+| A07 | Falhas de Autenticação | MFA para admin, melhores práticas de JWT, proteção contra brute-force |
+| A08 | Integridade de Software e Dados | Commits assinados, verificação de SBOM, integridade de pipeline CI/CD |
+| A09 | Falhas de Logging e Monitoramento | Audit Engine (cada ação registrada), Observabilidade (detecção de anomalias) |
+| A10 | SSRF | Restrições de tools de agentes, filtragem de egresso de rede, validação de URL |
 
-### 5.2 Security Scanning Pipeline
+### 5.2 Pipeline de Scan de Segurança
 ```
-Commit → Pre-commit hooks (secrets scan, basic lint)
+Commit → Pre-commit hooks (scan de secrets, lint básico)
   ↓
-PR → SAST (static analysis), Dependency audit (CVE check)
+PR → SAST (análise estática), auditoria de dependências (verificação CVE)
   ↓
-Build → Container scan (Trivy), SBOM generation (CycloneDX)
+Build → Scan de container (Trivy), geração de SBOM (CycloneDX)
   ↓
-Test → DAST (dynamic analysis), Fuzz testing
+Test → DAST (análise dinâmica), testes de fuzz
   ↓
-Deploy → IaC scan (tfsec, checkov), Compliance check
+Deploy → Scan de IaC (tfsec, checkov), verificação de conformidade
   ↓
-Production → RASP, WAF, continuous monitoring
+Produção → RASP, WAF, monitoramento contínuo
 ```
 
-### 5.3 Secure Coding Standards
-| Language | Standard | Enforced By |
+### 5.3 Padrões de Código Seguro
+| Linguagem | Padrão | Aplicado Por |
 |----------|----------|-------------|
-| TypeScript/JavaScript | ESLint security plugin, no-eval, CSP headers | Pre-commit + CI |
+| TypeScript/JavaScript | Plugin de segurança ESLint, no-eval, cabeçalhos CSP | Pre-commit + CI |
 | Python | Bandit, safety, pip-audit | Pre-commit + CI |
 | Go | gosec, nancy | Pre-commit + CI |
 | Java/Kotlin | SpotBugs, OWASP Dependency Check | CI |
-| Infrastructure | tfsec, checkov, kubesec | CI + Pre-deploy |
+| Infraestrutura | tfsec, checkov, kubesec | CI + Pre-deploy |
 
 ---
 
-## 6. DOMAIN 4: INFRASTRUCTURE SECURITY
+## 6. DOMÍNIO 4: SEGURANÇA DE INFRAESTRUTURA
 
-### 6.1 Network Security
-| Layer | Control |
+### 6.1 Segurança de Rede
+| Camada | Controle |
 |-------|---------|
-| Perimeter | WAF, DDoS protection, IP allowlisting for admin |
-| Network | VPC isolation, private subnets, NAT gateways |
-| Service | mTLS between services, service mesh (Istio/Linkerd) |
-| Container | Non-root user, read-only filesystem, seccomp/AppArmor |
-| Egress | Allowlist outbound connections, block crypto mining |
+| Perímetro | WAF, proteção DDoS, allowlist de IP para admin |
+| Rede | Isolamento VPC, subnets privadas, NAT gateways |
+| Serviço | mTLS entre serviços, service mesh (Istio/Linkerd) |
+| Container | Usuário non-root, sistema de arquivos read-only, seccomp/AppArmor |
+| Egress | Allowlist de conexões de saída, bloqueio de mineração de criptomoedas |
 
-### 6.2 Container Security
+### 6.2 Segurança de Containers
 ```dockerfile
 # Secure Dockerfile pattern
 FROM node:20-alpine            # Minimal base image, pinned version
@@ -171,187 +171,209 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s CMD wget -q http://localhost:3000/health || exit 1
 ```
 
-### 6.3 Cloud Security Posture
-| Provider | Key Controls |
+### 6.3 Postura de Segurança em Cloud
+| Provedor | Principais Controles |
 |----------|-------------|
-| AWS | IAM least privilege, S3 block public access, CloudTrail enabled, KMS CMK |
-| GCP | IAM conditions, VPC Service Controls, Audit Logs, CMEK |
-| Azure | RBAC, NSG rules, Key Vault, Defender for Cloud |
+| AWS | IAM menor privilégio, S3 bloqueio de acesso público, CloudTrail habilitado, KMS CMK |
+| GCP | Condições IAM, VPC Service Controls, Audit Logs, CMEK |
+| Azure | RBAC, regras NSG, Key Vault, Defender for Cloud |
 
 ---
 
-## 7. DOMAIN 5: SUPPLY CHAIN SECURITY
+## 7. DOMÍNIO 5: SEGURANÇA DA CADEIA DE SUPRIMENTOS
 
 ### 7.1 SBOM (Software Bill of Materials)
 ```
-Every project generates SBOM in CycloneDX format:
-  - All direct dependencies with version + hash
-  - All transitive dependencies
-  - License information per dependency
-  - CVE status per dependency
-  - Generated on: every build
-  - Stored in: .cosca/security/sbom.json
+Todo projeto gera SBOM no formato CycloneDX:
+  - Todas as dependências diretas com versão + hash
+  - Todas as dependências transitivas
+  - Informações de licença por dependência
+  - Status de CVE por dependência
+  - Gerado em: cada build
+  - Armazenado em: .cosca/security/sbom.json
 ```
 
-### 7.2 Dependency Verification
-| Check | Frequency | Action on Failure |
+### 7.2 Verificação de Dependências
+| Verificação | Frequência | Ação em Caso de Falha |
 |-------|-----------|------------------|
-| CVE scan (critical) | Every commit + daily | Block merge, force upgrade |
-| CVE scan (high) | Daily | Block release, schedule fix |
-| License compliance | Every build | Warn if copyleft in proprietary project |
-| Version pinning | Every commit | Block unpinned versions |
-| Provenance verification | Every install | Block unsigned packages |
-| Typosquatting detection | Weekly | Alert Security Chief |
+| Scan de CVE (crítico) | Cada commit + diário | Bloquear merge, forçar atualização |
+| Scan de CVE (alto) | Diário | Bloquear release, agendar correção |
+| Conformidade de licença | Cada build | Aviso se copyleft em projeto proprietário |
+| Fixação de versão | Cada commit | Bloquear versões não fixadas |
+| Verificação de procedência | Cada instalação | Bloquear pacotes não assinados |
+| Detecção de typosquatting | Semanal | Alertar Security Chief |
 
-### 7.3 Signed Commits
+### 7.3 Commits Assinados
 ```
-All Cosca-generated commits must be:
-  - GPG signed (verified by GitHub/GitLab)
-  - Have verified author email
-  - Follow conventional commits format
-  - Include workflow ID in commit message footer
+Todos os commits gerados pelo Cosca devem ser:
+  - Assinados com GPG (verificados por GitHub/GitLab)
+  - Ter e-mail de autor verificado
+  - Seguir formato de commits convencionais
+  - Incluir ID do workflow no rodapé da mensagem do commit
 ```
 
 ---
 
-## 8. DOMAIN 6: AI/ML SECURITY
+## 8. DOMÍNIO 6: SEGURANÇA DE IA/ML
 
-### 8.1 Prompt Injection Defenses
-| Attack Vector | Defense |
+### 8.1 Defesas contra Prompt Injection
+| Vetor de Ataque | Defesa |
 |--------------|---------|
-| Direct injection ("ignore previous instructions") | Input sanitization, system prompt hardening, output validation |
-| Indirect injection (poisoned data in context) | Context validation, sandboxed execution |
-| Jailbreaking | Prompt template with role enforcement, input/output guardrails |
-| Data exfiltration via prompt | Output filtering, no secrets in context, token limit enforcement |
-| Model inversion | Rate limiting, output monitoring, differential privacy |
+| Injeção direta ("ignore instruções anteriores") | Higienização de entrada, fortalecimento do prompt do sistema, validação de saída |
+| Injeção indireta (dados envenenados no contexto) | Validação de contexto, execução em sandbox |
+| Jailbreaking | Template de prompt com imposição de papel, barreiras de entrada/saída |
+| Exfiltração de dados via prompt | Filtragem de saída, sem secrets no contexto, imposição de limite de tokens |
+| Inversão de modelo | Limitação de taxa, monitoramento de saída, privacidade diferencial |
 
-### 8.2 AI Output Validation
+### 8.2 Validação de Saída de IA
 ```
-Before AI output reaches user:
-  1. Validate format (JSON, code, text)
-  2. Scan for secrets (regex patterns)
-  3. Scan for malicious code (eval, exec, system calls)
-  4. Validate against expected schema
-  5. Sanitize for XSS if rendered in UI
-  6. Log all AI outputs for audit
+Antes que a saída de IA atinja o usuário:
+  1. Validar formato (JSON, código, texto)
+  2. Escanear secrets (padrões regex)
+  3. Escanear código malicioso (eval, exec, chamadas de sistema)
+  4. Validar contra schema esperado
+  5. Higienizar XSS se renderizado na UI
+  6. Registrar todas as saídas de IA para auditoria
 ```
 
-### 8.3 Model Security
-| Concern | Mitigation |
+### 8.3 Segurança de Modelos
+| Preocupação | Mitigação |
 |---------|-----------|
-| Model poisoning | Use only signed models from trusted sources |
-| Training data leakage | Data anonymization before training |
-| Adversarial inputs | Input validation, anomaly detection |
-| Model theft | API rate limiting, watermarking |
-| Cost abuse | Token budgets per agent, cost anomaly alerts |
+| Envenenamento de modelo | Usar apenas modelos assinados de fontes confiáveis |
+| Vazamento de dados de treinamento | Anonimização de dados antes do treinamento |
+| Entradas adversárias | Validação de entrada, detecção de anomalias |
+| Roubo de modelo | Limitação de taxa de API, marca d'água |
+| Abuso de custo | Orçamentos de tokens por agente, alertas de anomalia de custo |
 
 ---
 
-## 9. DOMAIN 7: INCIDENT RESPONSE
+## 9. DOMÍNIO 7: RESPOSTA A INCIDENTES
 
-### 9.1 Incident Severity Classification
-| Severity | Definition | Response Time | Escalation |
+### 9.1 Classificação de Severidade de Incidentes
+| Severidade | Definição | Tempo de Resposta | Escalação |
 |----------|-----------|---------------|------------|
-| **P0 - Critical** | Active breach, data exfiltration, system compromise | < 15 min | Executive Council + all hands |
-| **P1 - High** | Vulnerability exploitable, service down, secrets leaked | < 1 hour | Security Council |
-| **P2 - Medium** | Non-critical CVE, suspicious activity, policy violation | < 4 hours | Security Chief |
-| **P3 - Low** | Minor misconfiguration, outdated dependency | < 24 hours | Respective Chief |
+| **P0 - Crítico** | Breach ativo, exfiltração de dados, comprometimento do sistema | < 15 min | Conselho Executivo + todos |
+| **P1 - Alto** | Vulnerabilidade explorável, serviço fora do ar, secrets vazados | < 1 hora | Security Council |
+| **P2 - Médio** | CVE não crítico, atividade suspeita, violação de política | < 4 horas | Security Chief |
+| **P3 - Baixo** | Configuração incorreta menor, dependência desatualizada | < 24 horas | Chief Respectivo |
 
-### 9.2 Incident Response Playbook
+### 9.2 Playbook de Resposta a Incidentes
 ```
-DETECT → Alert from Monitoring Engine or Security scan
+DETECTAR → Alerta do Monitoring Engine ou scan de segurança
   ↓
-TRIAGE → Security Chief classifies severity (P0-P3)
+TRIAGE → Security Chief classifica severidade (P0-P3)
   ↓
-CONTAIN → Isolate affected system, rotate secrets, block attacker IP
+CONTER → Isolar sistema afetado, rotacionar secrets, bloquear IP do atacante
   ↓
-ERADICATE → Remove root cause, patch vulnerability, verify fix
+ERRADICAR → Remover causa raiz, corrigir vulnerabilidade, verificar correção
   ↓
-RECOVER → Restore from clean backup, verify integrity, resume service
+RECUPERAR → Restaurar de backup limpo, verificar integridade, retomar serviço
   ↓
-LEARN → Post-mortem documented in knowledge/incidents/
+APRENDER → Post-mortem documentado em knowledge/incidents/
   ↓
-IMPROVE → Update policies, add detection rules, harden defenses
+MELHORAR → Atualizar políticas, adicionar regras de detecção, fortalecer defesas
 ```
 
-### 9.3 Incident Response Team
-| Role | Primary | Secondary |
+### 9.3 Equipe de Resposta a Incidentes
+| Função | Primário | Secundário |
 |------|---------|-----------|
-| Incident Commander | Security Chief | CTO |
-| Technical Lead | DevOps Chief | Backend Chief |
-| Communications | CEO | Documentation Chief |
-| Legal/Compliance | Compliance Engine | Security Chief |
-| Forensics | Security Engineer (specialist) | AI Chief |
+| Comandante do Incidente | Security Chief | CTO |
+| Líder Técnico | DevOps Chief | Backend Chief |
+| Comunicação | CEO | Documentation Chief |
+| Jurídico/Conformidade | Compliance Engine | Security Chief |
+| Forense | Security Engineer (especialista) | AI Chief |
 
 ---
 
-## 10. DOMAIN 8: COMPLIANCE AUTOMATION
+## 10. DOMÍNIO 8: AUTOMAÇÃO DE CONFORMIDADE
 
-### 10.1 Continuous Compliance Monitoring
-| Framework | Checks | Frequency | Evidence |
+### 10.1 Monitoramento Contínuo de Conformidade
+| Framework | Verificações | Frequência | Evidência |
 |-----------|--------|-----------|----------|
-| SOC2 | Access reviews, change management, risk assessment | Monthly | Audit logs + Compliance Engine reports |
-| GDPR | Data inventory, consent records, DSR handling | Monthly | Data map + DSR log |
-| HIPAA | PHI access logs, encryption verification, BAA tracking | Weekly | Access logs + encryption status |
-| PCI-DSS | Card data scan, network segmentation, access control | Weekly | PCI scan results + network diagram |
-| ISO 27001 | ISMS review, control effectiveness, risk treatment | Quarterly | Control matrix + risk register |
+| SOC2 | Revisões de acesso, gestão de mudanças, avaliação de riscos | Mensal | Logs de auditoria + relatórios do Compliance Engine |
+| GDPR | Inventário de dados, registros de consentimento, tratamento de DSR | Mensal | Mapa de dados + log de DSR |
+| HIPAA | Logs de acesso a PHI, verificação de criptografia, rastreamento de BAA | Semanal | Logs de acesso + status de criptografia |
+| PCI-DSS | Scan de dados de cartão, segmentação de rede, controle de acesso | Semanal | Resultados do scan PCI + diagrama de rede |
+| ISO 27001 | Revisão do ISMS, efetividade dos controles, tratamento de riscos | Trimestral | Matriz de controles + registro de riscos |
 
-### 10.2 Audit Trail Requirements
+### 10.2 Requisitos de Trilha de Auditoria
 ```
-Every security-relevant event must be logged:
-  - Who (agent ID)
-  - What (action)
-  - When (timestamp with timezone)
-  - Where (resource, IP)
-  - Result (success/failure)
-  - Context (workflow ID, session ID)
+Todo evento relevante para segurança deve ser registrado:
+  - Quem (ID do agente)
+  - O quê (ação)
+  - Quando (timestamp com fuso horário)
+  - Onde (recurso, IP)
+  - Resultado (sucesso/falha)
+  - Contexto (ID do workflow, ID da sessão)
   
-  Logs must be:
-  - Immutable (append-only, no deletion)
-  - Tamper-evident (hash chain)
-  - Retained for minimum 1 year
-  - Searchable within 5 seconds
+  Logs devem ser:
+  - Imutáveis (append-only, sem exclusão)
+  - Anti-fraude (cadeia de hash)
+  - Mantidos por no mínimo 1 ano
+  - Pesquisáveis em até 5 segundos
 ```
 
 ---
 
-## 11. SECURITY COUNCIL AUTHORITY
+## 11. AUTORIDADE DO SECURITY COUNCIL
 
-### 11.1 Decisions Requiring Security Council Approval
-- New AI provider integration
-- Change to encryption standards
-- Secrets management policy changes
-- Third-party SDK/plugin approval
-- Penetration test scope and findings
-- Compliance framework adoption
-- Incident severity classification (P0/P1)
-- Security baseline changes
+### 11.1 Decisões Requerendo Aprovação do Security Council
+- Nova integração de provider de IA
+- Alteração em padrões de criptografia
+- Alterações em políticas de gerenciamento de secrets
+- Aprovação de SDK/plugin de terceiros
+- Escopo e descobertas de teste de penetração
+- Adoção de framework de conformidade
+- Classificação de severidade de incidente (P0/P1)
+- Alterações no security baseline
 
-### 11.2 Security Veto Power
-The Security Chief (or Security Council) can veto:
-- Any release with critical/high CVEs
-- Any deployment to production without security review
-- Any code merge with hardcoded secrets
-- Any third-party integration without security assessment
-- Any architecture change without threat model
+### 11.2 Poder de Veto do Security Chief
+O Security Chief (ou Security Council) pode vetar:
+- Qualquer release com CVEs críticos/alta
+- Qualquer deploy em produção sem revisão de segurança
+- Qualquer merge de código com secrets hardcoded
+- Qualquer integração com terceiros sem avaliação de segurança
+- Qualquer alteração arquitetural sem modelagem de ameaças
 
 ---
 
-## 12. SECURITY METRICS & REPORTING
+## 12. MÉTRICAS E RELATÓRIOS DE SEGURANÇA
 
-### 12.1 Key Security Metrics
-| Metric | Target | Measurement |
+### 12.1 Principais Métricas de Segurança
+| Métrica | Meta | Medição |
 |--------|--------|-------------|
-| Mean Time to Detect (MTTD) | < 1 hour (P0), < 24 hours (P1) | Incident timestamps |
-| Mean Time to Respond (MTTR) | < 4 hours (P0), < 48 hours (P1) | Incident resolution time |
-| Vulnerability remediation | Critical: 24h, High: 7d, Medium: 30d | CVE tracking |
-| Secrets in code | 0 (zero tolerance) | Pre-commit scan |
-| Dependency health | 0 critical/high CVEs | Daily audit |
-| Security review coverage | 100% of PRs | Review tracking |
-| Penetration test cadence | Quarterly | Test reports |
-| Security training | Annual for all agent types | Learning Engine |
+| Tempo Médio para Detectar (MTTD) | < 1 hora (P0), < 24 horas (P1) | Timestamps de incidentes |
+| Tempo Médio para Responder (MTTR) | < 4 horas (P0), < 48 horas (P1) | Tempo de resolução do incidente |
+| Remediação de vulnerabilidades | Crítico: 24h, Alto: 7d, Médio: 30d | Rastreamento de CVE |
+| Secrets no código | 0 (zero tolerância) | Scan de pre-commit |
+| Saúde das dependências | 0 CVEs críticos/altos | Auditoria diária |
+| Cobertura de revisão de segurança | 100% dos PRs | Rastreamento de revisões |
+| Frequência de teste de penetração | Trimestral | Relatórios de teste |
+| Treinamento de segurança | Anual para todos os tipos de agentes | Learning Engine |
 
-### 12.2 Security Dashboard
+### 12.3 Checklist de Segurança — Todo Projeto
+
+Antes de qualquer projeto ir para produção:
+- [ ] Security baseline aplicado (project-init Passo 7)
+- [ ] .gitignore cobre: .env, secrets, credenciais, tokens
+- [ ] Sem secrets hardcoded (verificado por scan)
+- [ ] Todas as dependências auditadas (0 CVEs críticos/altos)
+- [ ] Autenticação aplicada em todos os endpoints
+- [ ] Autorização verificada em todos os recursos protegidos
+- [ ] Limitação de taxa configurada
+- [ ] Cabeçalhos CSP definidos
+- [ ] HTTPS aplicado (HSTS)
+- [ ] Validação de entrada em todas as entradas externas
+- [ ] Codificação de saída em todas as saídas
+- [ ] Prevenção de SQL injection (queries parametrizadas)
+- [ ] Prevenção de XSS (codificação apropriada ao contexto)
+- [ ] Proteção CSRF em operações que alteram estado
+- [ ] Docker executando como usuário non-root
+- [ ] SBOM gerado e verificado
+- [ ] Modelagem de ameaças documentada (para features P0/P1)
+- [ ] Runbook de resposta a incidentes pronto
+- [ ] Trilha de auditoria configurada e testada
+- [ ] Teste de penetração aprovado (trimestral)
 ```
 ┌─────────────────────────────────────────────────────┐
 │              SECURITY POSTURE DASHBOARD               │
@@ -404,20 +426,20 @@ Before any project goes to production:
 
 ---
 
-## RELATED
-- [Security Chief](departments/security/SKILL.md) — Security strategy and oversight
-- [Secrets Engine](engines/secrets/SKILL.md) — Credential management
-- [Identity Engine](engines/identity/SKILL.md) — Auth and access control
-- [Compliance Engine](engines/compliance/SKILL.md) — Regulatory compliance
-- [Policy Engine](engines/policy/SKILL.md) — Security policies (POL-SEC-*)
-- [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 2.3 Security checks
-- [COUNCILS.md](councils/COUNCILS.md) — Security Council authority
-- [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) — Circuit breakers and recovery
-- [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — AI provider security
-- [project-init workflow](workflows/project-init.md) — Security Baseline (Step 7)
+## RELACIONADOS
+- [Security Chief](departments/security/SKILL.md) — Estratégia e supervisão de segurança
+- [Secrets Engine](engines/secrets/SKILL.md) — Gerenciamento de credenciais
+- [Identity Engine](engines/identity/SKILL.md) — Autenticação e controle de acesso
+- [Compliance Engine](engines/compliance/SKILL.md) — Conformidade regulatória
+- [Policy Engine](engines/policy/SKILL.md) — Políticas de segurança (POL-SEC-*)
+- [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 2.3 Verificações de segurança
+- [COUNCILS.md](councils/COUNCILS.md) — Autoridade do Security Council
+- [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) — Circuit breakers e recuperação
+- [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — Segurança de providers de IA
+- [project-init workflow](workflows/project-init.md) — Security Baseline (Passo 7)
 
-## HISTORY
+## HISTÓRICO
 
-| Version | Date | Author | Changes |
+| Versão | Data | Autor | Alterações |
 |---------|------|--------|---------|
-| 1.0.0 | 2026-07-12 | Cosca Kernel | Complete cybersecurity framework: 8 domains, Zero Trust, defense-in-depth, OWASP coverage, supply chain, AI security, incident response, compliance automation |
+| 1.0.0 | 2026-07-12 | Cosca Kernel | Framework completo de cibersegurança: 8 domínios, Zero Trust, defesa em profundidade, cobertura OWASP, cadeia de suprimentos, segurança de IA, resposta a incidentes, automação de conformidade |

@@ -1,81 +1,81 @@
-# QUALITY GATES — Canonical Definitions
+# GATES DE QUALIDADE — Definicoes Canonicas
 
-> **Version**: 1.1.0 | **Status**: active | **Owner**: QA Chief | **Last Updated**: 2026-07-30
+> **Versao**: 1.1.0 | **Status**: active | **Dono**: QA Chief | **Ultima Atualizacao**: 2026-07-30
 
-## Purpose
-Single source of truth for all quality gates, metrics, and thresholds. Referenced by KERNEL.md, Review Engine, Quality Engine, and all department chiefs. No other file should duplicate gate definitions.
+## PROPOSITO
+Fonte unica de verdade para todos os gates de qualidade, metricas e thresholds. Referenciado por KERNEL.md, Review Engine, Quality Engine e todos os chefes de departamento. Nenhum outro arquivo deve duplicar definicoes de gate.
 
 ---
 
-## Gate Architecture
+## Arquitetura de Gates
 
 ```
-Gate 0:   Pre-Work          →   Is the work request valid?
-Gate 0.5: Contrafactual     →   What if the opposite decision were made?
-Gate 1:   Pre-Impl          →   Is the plan sound?
-Gate 2:   Post-Impl         →   Does the code meet standards?
-Gate 3:   Pre-Release       →   Is the release safe?
-Gate 4:   Post-Release      →   Is production healthy?
+Gate 0:   Pre-Trabalho        →   A requisicao de trabalho e valida?
+Gate 0.5: Contrafactual       →   E se a decisao oposta tivesse sido tomada?
+Gate 1:   Pre-Implementacao   →   O plano e solido?
+Gate 2:   Pos-Implementacao   →   O codigo atende os padroes?
+Gate 3:   Pre-Release         →   O release e seguro?
+Gate 4:   Pos-Release         →   A producao esta saudavel?
 ```
 
 ---
 
-## Gate 0 — Pre-Work (Request Validation)
+## Gate 0 — Pre-Trabalho (Validacao de Requisicao)
 
-Triggered by Kernel before any work begins.
+Acionado pelo Kernel antes que qualquer trabalho comecce.
 
-| Check | Threshold | Severity | Automated |
-|-------|-----------|----------|-----------|
-| Request classification | Must be one of: feature, bug, refactor, architecture, docs, deploy, research, review | Error | Yes |
-| Scope defined | At least 1 sentence describing what needs to be done | Error | No |
-| Affected departments identified | At least 1 department mapped | Warn | Yes |
-| No conflicting active workflow | No other workflow touching same files/modules | Warn | No |
+| Verificacao | Threshold | Severidade | Automatizado |
+|-------------|-----------|------------|--------------|
+| Classificacao da requisicao | Deve ser um de: feature, bug, refactor, architecture, docs, deploy, research, review | Erro | Sim |
+| Escopo definido | Pelo menos 1 frase descrevendo o que precisa ser feito | Erro | Nao |
+| Departamentos afetados identificados | Pelo menos 1 departamento mapeado | Aviso | Sim |
+| Nenhum workflow ativo conflitante | Nenhum outro workflow tocando nos mesmos arquivos/modulos | Aviso | Nao |
 
 ---
 
-## Gate 0.5 — Contrafactual Decision Review (Pre-Decision Gate)
+## Gate 0.5 — Revisao de Decisao Contrafactual (Gate Pre-Decisao)
 
-> **Owner**: cosca-critic | **Mandatório para**: Decisões estratégicas P0/P1 | **Opcional para**: P2/P3
+> **Dono**: cosca-critic | **Obrigatorio para**: Decisoes estrategicas P0/P1 | **Opcional para**: P2/P3
 >
 > **Workflow completo**: [workflows/contrafactual-gate.md](workflows/contrafactual-gate.md)
 
-**Triggered by Kernel** after Capability Resolution (Step 6) and before Planning & DAG Generation (Step 7), when a strategic decision has been identified but not yet committed. The Kernel invokes cosca-critic to execute the gate.
+**Acionado pelo Kernel** apos Resolucao de Capacidade (Passo 6) e antes de Planejamento e Geracao de DAG (Passo 7), quando uma decisao estrategica foi identificada mas ainda nao commitada. O Kernel invoca cosca-critic para executar o gate.
 
-### Purpose
+### Proposito
 
-Antes de cristalizar qualquer decisão estratégica, o sistema deve pausar e perguntar: **"E se a decisão oposta tivesse sido tomada?"** — forçando comparação explícita de alternativas para prevenir viés de confirmação. Este gate implementa pensamento contrafactual como um passo mandatório no pipeline de decisão.
+Antes de cristalizar qualquer decisao estrategica, o sistema deve pausar e perguntar: **"E se a decisao oposta tivesse sido tomada?"** — forcando comparacao explicita de alternativas para prevenir vies de confirmacao. Este gate implementa pensamento contrafactual como um passo mandatorio no pipeline de decisao.
 
-### Checks
+### Verificacoes
 
-| Check | Threshold | Severity | Automated |
-|-------|-----------|----------|-----------|
-| Opposing decision (¬A) formulated | ¬A must be a real, viable alternative (not a strawman) | Error | No |
-| Evidence for ¬A collected | At least 2 sources of evidence supporting ¬A | Error | No |
-| 5 dimensions compared | Risk, Cost, Time, Knowledge Gain, Reversibility scored for both sides | Error | No |
-| Assumptions audited | At least 3 explicit assumptions identified and challenged | Warn | No |
-| Extreme scenarios tested | 10x scale, 100x scale, catastrophic failure, 6-month outlook | Warn | No |
-| Decision rationale documented | Explicit rationale why A was chosen over ¬A | Error | No |
-| Gate executed BEFORE decision | Timestamp proves gate ran pre-decision, not post-hoc | Error | Yes |
-| Evidence confidence weighted | Evidence strength classified per CONFIDENCE_MODEL.md | Warn | No |
-| Risks identified with mitigations | At least 1 risk documented per decision side | Warn | No |
+| Verificacao | Threshold | Severidade | Automatizado |
+|-------------|-----------|------------|--------------|
+| Decisao oposta (~A) formulada | ~A deve ser uma alternativa real e viavel (nao espantalho) | Erro | Nao |
+| Evidencias para ~A coletadas | Pelo menos 2 fontes de evidencia apoiando ~A | Erro | Nao |
+| 5 dimensoes comparadas | Risco, Custo, Tempo, Ganho de Conhecimento, Reversibilidade pontuados para ambos os lados | Erro | Nao |
+| Premissas auditadas | Pelo menos 3 premissas explicitas identificadas e desafiadas | Aviso | Nao |
+| Cenarios extremos testados | 10x escala, 100x escala, falha catastrofica, projecao 6 meses | Aviso | Nao |
+| Racional da decisao documentado | Racional explicito por que A foi escolhido sobre ~A | Erro | Nao |
+| Gate executado ANTES da decisao | Timestamp prova que o gate rodou pre-decisao, nao post-hoc | Erro | Sim |
+| Confianca das evidencias ponderada | Forca da evidencia classificada conforme CONFIDENCE_MODEL.md | Aviso | Nao |
+| Riscos identificados com mitigacoes | Pelo menos 1 risco documentado por lado da decisao | Aviso | Nao |
 
-### Outcome Rules
+### Regras de Resultado
 
-| Condition | Outcome | Action |
-|-----------|---------|--------|
-| Evidence for ¬A is irrelevant or weaker than A | **proceed** | Decision confirmed, documented rationale |
-| ¬A reveals significant unexamined risks | **escalate** | Deeper review required before proceeding |
-| ¬A demonstrates objectively better outcomes | **reject** | Flag for Don review — do NOT proceed |
-| Critical assumptions have low confidence | **escalate** | Validate assumptions first |
-| Insufficient evidence for both sides | **escalate** | Decision is premature |
+| Condicao | Resultado | Acao |
+|----------|-----------|------|
+| Evidencias para ~A sao irrelevantes ou mais fracas que A | **prosseguir** | Decisao confirmada, racional documentado |
+| ~A revela riscos significativos nao examinados | **escalar** | Revisao mais profunda necessaria antes de prosseguir |
+| ~A demonstra resultados objetivamente melhores | **rejeitar** | Sinalizar para revisao do Don — NAO prosseguir |
+| Premissas criticas tem baixa confianca | **escalar** | Validar premissas primeiro |
+| Evidencias insuficientes para ambos os lados | **escalar** | Decisao e prematura |
 
-### Output Format
+### Formato de Saida
 
 ```yaml
 contrafactual_gate:
   decision: "string"
-  decision_a: "the proposed decision"
-  decision_not_a: "the opposite"
+  decision_a: "a decisao proposta"
+  decision_not_a: "a decisao oposta"
   evidence_for_a: []
   evidence_for_not_a: []
   assumptions_challenged: []
@@ -90,208 +90,208 @@ contrafactual_gate:
     at_100x: "string"
     catastrophic_failure: "string"
     in_6_months: "string"
-  outcome: "proceed | escalate | reject"
+  outcome: "prosseguir | escalar | rejeitar"
   rationale: "string"
   confidence: 0.0
   risks_identified:
     - risk: "string"
-      severity: "baixa | média | alta | crítica"
+      severity: "baixa | media | alta | critica"
       mitigation: "string"
 ```
 
-### Skippable Conditions
+### Condicoes de Pulo
 
 O gate pode ser pulado (com aviso) quando:
-- A decisão é P2/P3 (operacional, baixo impacto)
-- A decisão é trivial e não admite oposição real (ex: "usar git" — não há ¬A viável)
-- O workflow é puramente mecânico (ex: rodar testes, formatar código)
+- A decisao e P2/P3 (operacional, baixo impacto)
+- A decisao e trivial e nao admite oposicao real (ex: "usar git" — nao ha ~A viavel)
+- O workflow e puramente mecanico (ex: rodar testes, formatar codigo)
 
-### Integration with KERNEL.md
+### Integracao com KERNEL.md
 
 ```
-Step 6: Capability Resolution
+Passo 6: Resolucao de Capacidade
          │
-         ├── Strategic decision (P0/P1)?
+         ├── Decisao estrategica (P0/P1)?
          │       │
-         │       ├── YES ──► [GATE 0.5: CONTRAFACTUAL] ──► proceed?
+         │       ├── SIM ──► [GATE 0.5: CONTRAFACTUAL] ──► prosseguir?
          │       │                                            │
-         │       │                                   proceed ─┴──► Step 7: Planning
-         │       │                                   escalate ──► Deeper review
-         │       │                                   reject ───► Don review
+         │       │                                   prosseguir ─┴──► Passo 7: Planejamento
+         │       │                                   escalar ──► Revisao mais profunda
+         │       │                                   rejeitar ──► Revisao do Don
          │       │
-         │       └── NO ──► Step 7 direct (P2/P3 or no decision needed)
+         │       └── NAO ──► Passo 7 direto (P2/P3 ou sem decisao necessaria)
 ```
 
-### Related
+### Relacionados
 
-- [Workflow: contrafactual-gate.md](workflows/contrafactual-gate.md) — Full workflow, steps, and example
-- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Gate owner and enforcement
-- [KERNEL.md §10](KERNEL.md) — Initialization Sequence (where gate is invoked)
-- [CONFIDENCE_MODEL.md](engines/evidence/CONFIDENCE_MODEL.md) — Evidence weighting model
-- [RISK_REGISTRY.md](memory/risk/RISK_REGISTRY.md) — Known risk registry
-
----
-
-## Gate 1 — Pre-Implementation (Plan Validation)
-
-Triggered by Planning Engine after Executive Plan generation.
-
-| Check | Threshold | Severity | Automated |
-|-------|-----------|----------|-----------|
-| Architecture review | Plan reviewed by Architecture Chief | Error | No |
-| Security review | Security implications assessed | Error | No |
-| Dependency check | No circular step dependencies in plan | Error | Yes |
-| Resource allocation | All required departments available | Warn | No |
-| Risk assessment | Top 3 risks identified with mitigations | Warn | No |
-| Success criteria | At least 1 measurable criterion defined | Error | Yes |
-| Estimation | Effort estimated (XS/S/M/L/XL) per step | Warn | Yes |
+- [Workflow: contrafactual-gate.md](workflows/contrafactual-gate.md) — Workflow completo, passos e exemplo
+- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Dono do gate e execucao
+- [KERNEL.md sec 10](KERNEL.md) — Sequencia de Inicializacao (onde o gate e invocado)
+- [CONFIDENCE_MODEL.md](engines/evidence/CONFIDENCE_MODEL.md) — Modelo de ponderacao de evidencias
+- [RISK_REGISTRY.md](memory/risk/RISK_REGISTRY.md) — Registro de riscos conhecidos
 
 ---
 
-## Gate 2 — Post-Implementation (Code Quality)
+## Gate 1 — Pre-Implementacao (Validacao do Plano)
 
-Triggered by Execution Engine after task completion, enforced by Review Engine + Quality Engine.
+Acionado pelo Planning Engine apos a geracao do Plano Executivo.
 
-### 2.1 — Architecture Compliance
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| Module boundaries respected | No cross-boundary violations | Error |
-| Dependency direction | Dependencies flow toward stable abstractions | Error |
-| ADR compliance | Code follows documented ADRs | Error |
-| Pattern consistency | Same pattern used for same problem type | Warn |
+| Verificacao | Threshold | Severidade | Automatizado |
+|-------------|-----------|------------|--------------|
+| Revisao de arquitetura | Plano revisado pelo Chefe de Arquitetura | Erro | Nao |
+| Revisao de seguranca | Implicacoes de seguranca avaliadas | Erro | Nao |
+| Verificacao de dependencias | Sem dependencias circulares entre passos | Erro | Sim |
+| Alocacao de recursos | Todos os departamentos necessarios disponiveis | Aviso | Nao |
+| Avaliacao de risco | Top 3 riscos identificados com mitigacoes | Aviso | Nao |
+| Criterios de sucesso | Pelo menos 1 criterio mensuravel definido | Erro | Sim |
+| Estimativa | Esforco estimado (XS/S/M/L/XL) por passo | Aviso | Sim |
 
-### 2.2 — Code Quality
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| SOLID principles | No detected violations | Error |
-| DRY principle | Duplication < 5% in changed files | Warn |
-| Function length | < 50 lines per function | Warn |
-| File length | < 300 lines per file | Warn |
-| Parameter count | < 5 per function | Warn |
-| Cyclomatic complexity | < 10 per function | Warn |
-| Cognitive complexity | < 15 per function | Warn |
-| Naming clarity | Descriptive, follows conventions | Warn |
-| Dead code | 0 instances | Error |
-| Commented-out code | 0 instances | Error |
-| Magic numbers | 0 instances, use named constants | Warn |
+---
 
-### 2.3 — Security
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| OWASP Top 10 | 0 violations | Error |
-| Hardcoded secrets | 0 instances | Error |
-| Input validation | All external inputs validated | Error |
-| Output encoding | All outputs properly encoded | Error |
-| SQL injection | Parameterized queries only | Error |
-| XSS prevention | Context-appropriate encoding | Error |
-| CSRF protection | Anti-CSRF tokens on state-changing ops | Error |
-| Authentication check | Protected endpoints enforce auth | Error |
-| Authorization check | Permission checks on protected resources | Error |
-| Dependency audit | 0 critical/high CVEs | Error |
+## Gate 2 — Pos-Implementacao (Qualidade do Codigo)
+
+Acionado pelo Execution Engine apos conclusao da tarefa, executado por Review Engine + Quality Engine.
+
+### 2.1 — Conformidade com Arquitetura
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Limites de modulo respeitados | Sem violacoes de limite | Erro |
+| Direcao de dependencia | Dependencias fluem para abestraoes estaveis | Erro |
+| Conformidade CDR | Codigo segue CDRs documentadas | Erro |
+| Consistencia de padroes | Mesmo padrao usado para mesmo tipo de problema | Aviso |
+
+### 2.2 — Qualidade do Codigo
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Principios SOLID | Sem violacoes detectadas | Erro |
+| Principe DRY | Duplicacao < 5% nos arquivos alterados | Aviso |
+| Tamanho de funcao | < 50 linhas por funcao | Aviso |
+| Tamanho de arquivo | < 300 linhas por arquivo | Aviso |
+| Contagem de parametros | < 5 por funcao | Aviso |
+| Complexidade ciclomatica | < 10 por funcao | Aviso |
+| Complexidade cognitiva | < 15 por funcao | Aviso |
+| Clareza de nomenclatura | Descritivo, segue convencoes | Aviso |
+| Codigo morto | 0 instancias | Erro |
+| Codigo comentado | 0 instancias | Erro |
+| Numeros magicos | 0 instancias, usar constantes nomeadas | Aviso |
+
+### 2.3 — Seguranca
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| OWASP Top 10 | 0 violacoes | Erro |
+| Segredos hardcoded | 0 instancias | Erro |
+| Validacao de entrada | Todas as entradas externas validadas | Erro |
+| Codificacao de saida | Todas as saidas adequadamente codificadas | Erro |
+| Injecao SQL | Apenas queries parametrizadas | Erro |
+| Prevencao XSS | Codificacao apropriada por contexto | Erro |
+| Protecao CSRF | Tokens anti-CSRF em operacoes que alteram estado | Erro |
+| Verificacao de autenticacao | Endpoints protegidos impoem autenticacao | Erro |
+| Verificacao de autorizacao | Verificacoes de permissao em recursos protegidos | Erro |
+| Auditoria de dependencias | 0 CVEs criticos/altos | Erro |
 
 ### 2.4 — Performance
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| N+1 queries | 0 instances | Error |
-| Missing indexes | 0 tables without proper indexes | Warn |
-| Lazy/eager loading | Correct strategy per use case | Warn |
-| Unnecessary allocations | No large objects in hot paths | Warn |
-| Synchronous blocking | No sync ops in async contexts | Warn |
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Queries N+1 | 0 instancias | Erro |
+| Indices ausentes | 0 tabelas sem indices adequados | Aviso |
+| Lazy/eager loading | Estrategia correta por caso de uso | Aviso |
+| Alocacoes desnecessarias | Sem objetos grandes em caminhos quentes | Aviso |
+| Bloqueio sincrono | Sem operacoes sincronas em contextos async | Aviso |
 
-### 2.5 — Testing
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| Line coverage | > 80% on changed code | Error |
-| Branch coverage | > 70% on changed code | Warn |
-| Happy path tested | Yes | Error |
-| Edge cases tested | At least 2 edge cases | Warn |
-| Error paths tested | At least 1 error path | Warn |
-| Test independence | No test depends on another | Error |
-| Test determinism | 0 flaky tests | Error |
-| Test execution time | < 5 min for unit tests | Warn |
+### 2.5 — Testes
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Cobertura de linha | > 80% no codigo alterado | Erro |
+| Cobertura de branch | > 70% no codigo alterado | Aviso |
+| Caminho feliz testado | Sim | Erro |
+| Casos limites testados | Pelo menos 2 casos limites | Aviso |
+| Caminhos de erro testados | Pelo menos 1 caminho de erro | Aviso |
+| Independencia de teste | Nenhum teste depende de outro | Erro |
+| Determinismo de teste | 0 testes instaveis | Erro |
+| Tempo de execucao de teste | < 5 min para testes unitarios | Aviso |
 
-### 2.6 — Documentation
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| API docs | All new/changed endpoints documented | Error |
-| ADR | Created if architecture decision made | Error |
-| README | Updated if project structure changed | Warn |
-| Changelog | Entry added for the change | Warn |
-| Code comments | Explain "why", not "what" | Warn |
-| TODOs/FIXMEs | 0 new instances without issue reference | Warn |
+### 2.6 — Documentacao
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Documentacao de API | Todos os endpoints novos/alterados documentados | Erro |
+| CDR | Criada se decisao de arquitetura tomada | Erro |
+| README | Atualizado se estrutura do projeto alterada | Aviso |
+| Changelog | Entrada adicionada para a mudanca | Aviso |
+| Comentarios de codigo | Explicam "por que", nao "o que" | Aviso |
+| TODOs/FIXMEs | 0 novas instancias sem referencia a issue | Aviso |
 
 ---
 
 ## Gate 3 — Pre-Release
 
-Triggered by Release Chief before deployment.
+Acionado pelo Release Chief antes do deploy.
 
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| All Gate 2 checks pass | 0 errors | Error |
-| QA sign-off | Obtained from QA Chief | Error |
-| All test suites pass | Unit, integration, E2E | Error |
-| Security scan | 0 critical/high findings | Error |
-| Performance benchmarks | Within acceptable range | Error |
-| Documentation complete | All Gate 2.6 items done | Error |
-| Release notes | Generated and reviewed | Warn |
-| Rollback plan | Documented and tested | Warn |
-| Monitoring configured | Alerts set for new endpoints | Warn |
-| Stakeholder notification | Relevant parties informed | Warn |
-
----
-
-## Gate 4 — Post-Release
-
-Triggered by Monitoring Chief after deployment.
-
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| Health checks | All endpoints healthy | Error |
-| Error rate | < 1% increase | Error |
-| Latency | < 10% degradation | Error |
-| User feedback | No critical reports in first 24h | Warn |
-| Memory/CPU | Within normal range | Warn |
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Todas as verificacoes Gate 2 passam | 0 erros | Erro |
+| Aprovacao QA | Obtida do QA Chief | Erro |
+| Todos os conjuntos de testes passam | Unitarios, integracao, E2E | Erro |
+| Escaneamento de seguranca | 0 achados criticos/altos | Erro |
+| Benchmarks de performance | Dentro da faixa aceitavel | Erro |
+| Documentacao completa | Todos os itens Gate 2.6 feitos | Erro |
+| Notas de release | Geradas e revisadas | Aviso |
+| Plano de rollback | Documentado e testado | Aviso |
+| Monitoramento configurado | Alertas configurados para novos endpoints | Aviso |
+| Notificacao de partes interesadas | Partes relevantes informadas | Aviso |
 
 ---
 
-## Quality Score Calculation
+## Gate 4 — Pos-Release
+
+Acionado pelo Monitoring Chief apos o deploy.
+
+| Verificacao | Threshold | Severidade |
+|-------------|-----------|------------|
+| Health checks | Todos os endpoints saudaveis | Erro |
+| Taxa de erro | < 1% de aumento | Erro |
+| Latencia | < 10% de degradacao | Erro |
+| Feedback do usuario | Sem relatorios criticos nas primeiras 24h | Aviso |
+| Memoria/CPU | Dentro da faixa normal | Aviso |
+
+---
+
+## Calculo da Nota de Qualidade
 
 ```
-OVERALL = (Architecture × 0.20) + (Code Quality × 0.20) + (Security × 0.25) + (Performance × 0.10) + (Testing × 0.15) + (Documentation × 0.10)
+OVERALL = (Arquitetura x 0.20) + (Qualidade do Codigo x 0.20) + (Seguranca x 0.25) + (Performance x 0.10) + (Testes x 0.15) + (Documentacao x 0.10)
 ```
 
-| Score Range | Grade | Action |
-|-------------|-------|--------|
-| 9.0 – 10.0 | A | Approved |
-| 7.0 – 8.9 | B | Approved with suggestions |
-| 5.0 – 6.9 | C | Changes requested |
-| 3.0 – 4.9 | D | Rejected, major rework needed |
-| 0.0 – 2.9 | F | Blocked, unsafe to proceed |
+| Faixa de Nota | Nota | Acao |
+|---------------|------|------|
+| 9.0 – 10.0 | A | Aprovado |
+| 7.0 – 8.9 | B | Aprovado com sugestoes |
+| 5.0 – 6.9 | C | Alteracoes solicitadas |
+| 3.0 – 4.9 | D | Rejeitado, retrabalho necessario |
+| 0.0 – 2.9 | F | Bloqueado, inseguro para prosseguir |
 
 ---
 
-## Related
+## RELACIONADOS
 
-- [CONSTITUTION.md](CONSTITUTION.md) — Part IV Step 7 reference
-- [Contrafactual Gate](workflows/contrafactual-gate.md) — Gate 0.5 full workflow and example
-- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Gate 0.5 enforcement
-- [Review Engine](engines/review/SKILL.md) — Enforces Gates 2.1–2.6
-- [Quality Engine](engines/quality/SKILL.md) — Metrics collection and reporting
-- [QA Chief](departments/qa/SKILL.md) — Gate sign-off authority
-- [Release Chief](departments/release/SKILL.md) — Gate 3 enforcement
-- [Monitoring Chief](departments/monitoring/SKILL.md) — Gate 4 enforcement
-- [KERNEL.md](KERNEL.md) — Gate 0 and Gate 0.5 enforcement
-
----
-
-## HISTORY
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.1.0 | 2026-07-30 | cosca-critic | Added Gate 0.5 — Contrafactual Decision Review (mandatory pre-decision gate for P0/P1) |
-| 1.0.0 | 2026-07-10 | QA Chief | Initial canonical quality gates |
+- [CONSTITUTION.md](CONSTITUTION.md) — Referencia Parte IV Passo 7
+- [Contrafactual Gate](workflows/contrafactual-gate.md) — Workflow completo e exemplo do Gate 0.5
+- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Execucao do Gate 0.5
+- [Review Engine](engines/review/SKILL.md) — Executa Gates 2.1–2.6
+- [Quality Engine](engines/quality/SKILL.md) — Coleta e relatorio de metricas
+- [QA Chief](departments/qa/SKILL.md) — Autoridade de aprovacao do gate
+- [Release Chief](departments/release/SKILL.md) — Execucao do Gate 3
+- [Monitoring Chief](departments/monitoring/SKILL.md) — Execucao do Gate 4
+- [KERNEL.md](KERNEL.md) — Execucao dos Gates 0 e 0.5
 
 ---
 
-> **Enforced by**: Review Engine + Quality Engine + cosca-critic + Release Chief | **Last reviewed**: 2026-07-30
+## HISTORICO
+
+| Versao | Data | Autor | Mudancas |
+|--------|------|-------|----------|
+| 1.1.0 | 2026-07-30 | cosca-critic | Adicionado Gate 0.5 — Revisao de Decisao Contrafactual (gate mandatorio pre-decisao para P0/P1) |
+| 1.0.0 | 2026-07-10 | QA Chief | Gates de qualidade canonicos iniciais |
+
+---
+
+> **Executado por**: Review Engine + Quality Engine + cosca-critic + Release Chief | **Ultima revisao**: 2026-07-30
