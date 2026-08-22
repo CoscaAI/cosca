@@ -58,3 +58,14 @@ cosca-forex/
 
 # Binários de teste órfãos (go test -c)
 *.test
+
+# Training runs — artefatos LoRA (binários pesados, regeneráveis)
+/checkpoints/
+/training/checkpoints/
+/training/data/
+
+# Dados de runtime/teste
+/data/
+
+# Logs na raiz
+/*.log
