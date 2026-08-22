@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.5.0] — 2026-08-22
+
+### Added
+- **Busca Semântica por Default** (ordem do Don): `DefaultEnableVectorSearch = true`
+  - Gargalo histórico resolvido pelo fast path int8 AVX2 (52,66 Mvec/s — limite físico da máquina)
+  - Doc de configuração já recomendava `vector_search: true`; motor de busca assumia default true
+  - Dependência de embeddings coberta pelo Ollama local (nomic-embed-text, 768 dims)
+- **Knowledge Base populado**: 550 documentos, 10.153 chunks, 10.153 vetores (0 falhas)
+  - Memória de agentes (1.218 arquivos), conhecimento e workflows versionados indexados
+  - Busca semântica provada por significado (queries PT-BR, scores 0.72–0.75)
+- **Windows Service**: `cosca-service.ps1` (Scheduled Task auto-start no logon) + `cosca-serve.bat`
+- **Training Pipeline**: pipeline LoRA destilação teacher→student (`training/*.py`, 5 módulos)
+
+### Fixed
+- **cosca-indexer**: fontes atualizadas da cópia morta (`.cosca/fallback/knowledge|workflows`)
+  para o cérebro versionado (`internal/embed/cosca/knowledge|workflows`)
+- **Ghost process**: restart da Scheduled Task não derrubava o cosca.exe órfão (porta presa,
+  PID file divergente) — procedimento de reinício limpo estabelecido
+- **Version drift interno**: inconsistência config(false) vs motor(true) vs doc(true) eliminada
+
+### Changed
+- `.gitignore`: artefatos de treino LoRA, dados de runtime e logs raiz silenciados
+
 ## [1.4.0-dev] — 2026-07-29
 
 ### Added

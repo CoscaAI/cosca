@@ -126,8 +126,8 @@ func TestDefaultFeatureFlags(t *testing.T) {
 	if DefaultEnableAutoUpdate != true {
 		t.Error("DefaultEnableAutoUpdate should be true")
 	}
-	if DefaultEnableVectorSearch != false {
-		t.Error("DefaultEnableVectorSearch should be false")
+	if DefaultEnableVectorSearch != true {
+		t.Error("DefaultEnableVectorSearch should be true")
 	}
 	if DefaultEnableWatch != true {
 		t.Error("DefaultEnableWatch should be true")

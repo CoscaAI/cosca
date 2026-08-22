@@ -36,7 +36,7 @@ function Start-CoscaServe {
         -RestartCount 3 `
         -RestartInterval (New-TimeSpan -Minutes 1)
 
-    $principalDef = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
+    $principalDef = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
 
     if ($existing) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
 
@@ -105,7 +105,7 @@ function Install-CoscaService {
         -RestartCount 3 `
         -RestartInterval (New-TimeSpan -Minutes 1)
 
-    $principalDef = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
+    $principalDef = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
 
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }

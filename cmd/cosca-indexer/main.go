@@ -137,8 +137,10 @@ func main() {
 		log.Warn().Err(err).Msg("agent memory directory not found")
 	}
 
-	// 2. Knowledge files (.cosca/framework/knowledge/**/*.md, *.yaml)
-	knowledgeDir := filepath.Join(projectRoot, ".cosca", "fallback", "knowledge")
+	// 2. Knowledge files (internal/embed/cosca/knowledge/**/*.md, *.yaml).
+	// Fonte versionada (o cérebro) — a cópia antiga em .cosca/fallback/knowledge
+	// é resquício do sync morto e NÃO deve ser indexada.
+	knowledgeDir := filepath.Join(projectRoot, "internal", "embed", "cosca", "knowledge")
 	if _, err := os.Stat(knowledgeDir); err == nil {
 		err = filepath.Walk(knowledgeDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -163,8 +165,8 @@ func main() {
 		}
 	}
 
-	// 3. Workflow files (.cosca/framework/workflows/*.md)
-	workflowDir := filepath.Join(projectRoot, ".cosca", "fallback", "workflows")
+	// 3. Workflow files (internal/embed/cosca/workflows/*.md) — fonte versionada.
+	workflowDir := filepath.Join(projectRoot, "internal", "embed", "cosca", "workflows")
 	if entries, err := os.ReadDir(workflowDir); err == nil {
 		for _, entry := range entries {
 			if entry.IsDir() {

@@ -26,7 +26,7 @@ var (
 	// Version is the current semantic version of Cosca.
 	// Follows Semantic Versioning 2.0.0 (https://semver.org).
 	// Overridable via ldflags at build time: -X 'pkg/cosca.Version=x.y.z'
-	Version = "1.4.0-dev"
+	Version = "1.5.0"
 )
 
 // =============================================================================
@@ -36,7 +36,7 @@ var (
 const (
 	// ReleaseChannel indicates the stability of this build.
 	// Possible values: "stable", "beta", "alpha", "dev".
-	ReleaseChannel = "dev"
+	ReleaseChannel = "stable"
 
 	// Codename is the human-readable codename for this release.
 	Codename = "Nova"

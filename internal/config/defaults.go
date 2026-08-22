@@ -164,7 +164,14 @@ const (
 	// DefaultEnableAutoUpdate enables auto-update checks by default.
 	DefaultEnableAutoUpdate = true
 	// DefaultEnableVectorSearch enables vector search by default.
-	DefaultEnableVectorSearch = false
+	// true desde 2026-08-22 (ordem do Don): o gargalo histórico foi resolvido
+	// pelo fast path int8 AVX2 (docs/reports/performance-int8-fastpath-2026-08-17.md,
+	// 52.66 Mvec/s no limite físico da máquina), a doc de configuração já
+	// recomendava vector_search: true e o motor de busca (internal/search)
+	// sempre assumiu default true. O Ollama local (nomic-embed-text) cobre a
+	// dependência de embeddings. Sem conteúdo indexado a flag é inofensiva —
+	// o vetor store vazio simplesmente não contribui resultados.
+	DefaultEnableVectorSearch = true
 	// DefaultEnableGraphSearch enables graph search by default.
 	DefaultEnableGraphSearch = false
 	// DefaultEnableWatch enables file watching by default.
