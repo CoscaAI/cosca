@@ -1,0 +1,69 @@
+syntax = "proto3";
+package cosca.v1;
+option go_package = "github.com/CoscaAI/cosca/api/grpc/pb;cospb";
+
+service KnowledgeService {
+  rpc Search(SearchRequest) returns (SearchResponse);
+  rpc Index(IndexRequest) returns (IndexResponse);
+  rpc Stats(StatsRequest) returns (StatsResponse);
+  rpc Sync(SyncRequest) returns (SyncResponse);
+}
+
+message SearchRequest {
+  string query = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  repeated string types = 4;
+  string path_filter = 5;
+  double min_score = 6;
+}
+
+message SearchResponse {
+  repeated SearchResult results = 1;
+  int32 total = 2;
+  double duration_ms = 3;
+  repeated Facet facets = 4;
+}
+
+message SearchResult {
+  string id = 1;
+  string title = 2;
+  string snippet = 3;
+  double score = 4;
+  string type = 5;
+  string path = 6;
+}
+
+message Facet {
+  string name = 1;
+  map<string, int32> counts = 2;
+}
+
+message IndexRequest {
+  string path = 1;
+  bool recursive = 2;
+}
+
+message IndexResponse {
+  int32 documents_indexed = 1;
+  int32 chunks_indexed = 2;
+  repeated string errors = 3;
+}
+
+message StatsRequest {}
+message StatsResponse {
+  int32 document_count = 1;
+  int32 chunk_count = 2;
+  int32 entity_count = 3;
+  int32 vector_count = 4;
+  int64 db_size_bytes = 5;
+  double uptime_seconds = 6;
+}
+
+message SyncRequest {}
+message SyncResponse {
+  int32 added = 1;
+  int32 updated = 2;
+  int32 removed = 3;
+  repeated string errors = 4;
+}

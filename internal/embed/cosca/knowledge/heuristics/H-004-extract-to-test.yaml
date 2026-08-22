@@ -1,0 +1,26 @@
+# heuristics/H-004-extract-to-test.yaml
+id: H-004
+title: "Monolito é o inimigo da cobertura — extrair, depois testar"
+domain: refactoring
+type: pattern
+severity: high
+source_agents: [cosca-kernel, cosca-testing, cosca-performance]
+description: >
+  Funções grandes (monolitos) são intrinsecamente difíceis de testar porque
+  misturam múltiplas responsabilidades. O CLI do Cosca travou em 68.5% de
+  cobertura porque runServe (699 linhas) engolia .env, resolução de diretório,
+  CORS, engines, servers e shutdown numa única função. Extrair 3 funções de
+  10-15 linhas cada (loadDotEnv, resolveDataDir, configureCORSFromEnv) destravou
+  todo o resto: CLI foi de 68.5% para 71.5%, runServe de 0.5% para 61.8%.
+  O padrão vencedor não é "escrever mais testes" — é identificar blocos
+  extraíveis → extrair → testar.
+evidence:
+  - "2026-07-29: Kernel L19 — 'Extrair-para-testar (não testar-para-cobrir) [...] Extrair 3 funções de 15 linhas cada destravou todo o resto.'"
+  - "2026-07-29: runServe refactor — internal/cli/serve.go: 3 funções extraídas, coverage saltou de 0.5% para 61.8%"
+  - "2026-07-28: Testing agent — 'State machine testing requires transition graph coverage' — mesmo princípio: isolar comportamentos"
+  - "2026-07-29: Coverage audit — chat.go (11.6%), config.go edit (30%), doctor.go checks (55-58%) são próximos candidatos"
+action: "Identificar funções >100 linhas → identificar blocos de responsabilidade única → extrair como funções independentes → testar cada uma com table-driven tests → testar função original como integração."
+related: [H-001, H-016]
+tags: [refactoring, testing, coverage, monolith, extract-function, table-driven-tests]
+confidence: 0.90
+created: 2026-07-29

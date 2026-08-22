@@ -1,0 +1,17 @@
+timestamp,task_id,agent,value,threshold,alert,complexity,decision_path
+2026-07-30T17:43:53Z,F0-cosca-chat,cosca-kernel,3.2,5.0,false,simple,direct
+2026-07-30T18:07:28Z,F1-provider-layer,cosca-kernel,2.8,5.0,false,simple,direct
+2026-07-30T18:30:22Z,F2-tool-system,cosca-kernel,4.1,5.0,false,simple,direct
+2026-07-30T18:39:53Z,F3-agent-engine,cosca-kernel,8.5,30.0,false,complex,DAG-eval
+2026-07-30T18:55:41Z,F3.5-4-engine-tests,cosca-kernel,6.2,30.0,false,complex,DAG-eval
+2026-07-30T19:07:25Z,F5-cli-commands,cosca-kernel,12.4,30.0,false,complex,DAG-eval
+2026-07-30T19:10:00Z,F4.5-memory-integration,cosca-kernel,7.8,30.0,false,moderate,DAG-eval
+2026-07-30T19:21:49Z,F6-extensibility,cosca-kernel,15.2,30.0,false,complex,DAG-eval
+2026-07-30T19:43:06Z,F6-mcp-tests,cosca-kernel,5.9,30.0,false,moderate,DAG-eval
+2026-07-30T19:43:06Z,F6-mcp-deadlock-fix,cosca-kernel,1.8,5.0,false,simple,direct
+2026-07-30T19:45:31Z,F6-mcp-plugin-cli,cosca-kernel,2.1,5.0,false,simple,direct
+2026-07-30T19:48:17Z,F6-agent-skill-cli,cosca-kernel,1.9,5.0,false,simple,direct
+2026-07-30T19:50:19Z,F6-session-cli,cosca-kernel,2.4,5.0,false,simple,direct
+2026-07-30T19:52:19Z,F6-completion-config-cli,cosca-kernel,1.7,5.0,false,simple,direct
+2026-07-30T19:54:00Z,F6-config-tests,cosca-kernel,1.5,5.0,false,simple,direct
+2026-07-30T20:33:38Z,F7-memorize-workflow,cosca-kernel,22.8,30.0,false,complex,DAG-eval

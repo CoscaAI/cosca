@@ -1,0 +1,24 @@
+# heuristics/H-006-wildcard-permissions.yaml
+id: H-006
+title: "Permissões coringa (.* ou /**) violam least privilege e criam superfície de ataque"
+domain: security
+type: anti-pattern
+severity: critical
+source_agents: [cosca-kernel, cosca-security]
+description: >
+  Permissões como `read: ".*"`, `glob: ".*"`, `grep: ".*"`, ou `task: ".*"`
+  permitem que qualquer subagente leia qualquer arquivo do sistema.
+  No opencode.json, paths de permissão também podem ficar stale — apontando
+  para diretórios de outros usuários. O princípio é: kernel só orquestra
+  (nunca implementa), permissões de execução restritas ao workspace,
+  permissões de leitura restritas ao workspace + /tmp mínimo.
+evidence:
+  - "2026-07-29: Kernel L12 — 'glob/grep/read/task com .* violam least privilege — qualquer subagente pode ler qualquer arquivo do sistema'"
+  - "2026-07-29: Kernel L12 — 'opencode.json permission paths estavam stale — apontavam para diretório de outro usuário (henrique) em outro path'"
+  - "2026-07-29: Kernel L12 — 'edit/write não precisam de acesso a /tmp/opencode — só bash e read precisam para compilações temporárias'"
+  - "2026-07-29: Runtime security audit — 3 breaches críticas identificadas e corrigidas"
+action: "Restringir todas as permissões ao workspace. Substituir wildcards (.*) por paths específicos. Revisar periodicamente paths de permissão contra usuário atual. Kernel nunca deve ter permissão write/edit irrestrita."
+related: [H-001, H-005, H-020]
+tags: [security, permissions, least-privilege, opencode-config, wildcard, anti-pattern]
+confidence: 0.92
+created: 2026-07-29

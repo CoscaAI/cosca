@@ -1,0 +1,88 @@
+# COSCA — LICENÇA DE DIREITOS AUTORAIS
+
+> **Copyright © 2026 CoscaAI. Todos os direitos reservados.**
+> **Repositório oficial (chave de autenticidade)**: `https://github.com/CoscaAI`
+> **Versão da licença**: 1.0.0 | **Data**: 2026-07-31
+
+---
+
+## 1. TITULARIDADE
+
+O software Cosca (incluindo, sem limitação, o código-fonte Go, o frontend Next.js, a documentação, os arquivos de configuração, o framework `.cosca/`, os agentes, os engines, as especificações de conhecimento, os templates e qualquer artefato gerado pelo runtime — coletivamente, "o Software") é propriedade exclusiva da **CoscaAI**.
+
+O repositório `https://github.com/CoscaAI` é a **única fonte canônica e autenticada** do Software. Qualquer cópia, distribuição ou derivação que não possa demonstrar origem nesse repositório é presumida não autorizada.
+
+## 2. CHAVE DE SEGURANÇA E AUTENTICIDADE
+
+A **chave de segurança** que autentica o Software é o próprio repositório oficial da CoscaAI. A autenticidade é verificada por três fatores, cumulativos:
+
+| Fator | Verificação |
+|-------|-------------|
+| **F1 — Módulo Go** | `go.mod` declara o módulo `github.com/CoscaAI/cosca` (match exato, nunca prefixo) |
+| **F2 — Manifesto** | `.cosca/manifest.yaml` declara `identity: cosca-kernel` e `module: github.com/CoscaAI/cosca` |
+| **F3 — Build** | O binário foi compilado a partir do repositório oficial (versão + commit hash rastreáveis via ldflags) |
+
+Um Software que falhe em qualquer um dos fatores **não é autenticado** e não goza de nenhuma licença de uso.
+
+O comando `cosca license verify` executa a verificação das três chaves e reporta o estado de autenticidade.
+
+## 3. LICENÇA DE USO
+
+### 3.1 O que é permitido
+
+Sujeito à verificação de autenticidade (Seção 2) e à titularidade (Seção 1), é permitido:
+
+- **Uso operacional** do Software em projetos do titular ou com autorização escrita;
+- **Execução** do binário compilado para fins de operação do próprio sistema Cosca;
+- **Auditoria** do comportamento do Software para fins de segurança e conformidade;
+- **Contribuições** ao repositório oficial por meio de pull requests, sujeitas às políticas da CoscaAI.
+
+### 3.2 O que é PROIBIDO
+
+É **estritamente proibido**, sem autorização escrita prévia da CoscaAI:
+
+- **Reprodução ou distribuição** do Software, no todo ou em parte, por qualquer meio;
+- **Modificação ou criação de trabalhos derivados**, incluindo forks não oficiais;
+- **Remoção ou alteração** de avisos de direitos autorais, marca d'água ou metadados de autenticidade;
+- **Engenharia reversa, descompilação ou extração** de segredos comerciais embutidos;
+- **Revenda, sublicenciamento ou aluguel** do Software;
+- **Uso do nome "Cosca" ou "CoscaAI"** para produtos não autorizados;
+- **Distribuição do Software com o aviso de autenticidade removido** ou falsificado;
+- **Uso comercial** do Software sem licença comercial da CoscaAI.
+
+## 4. PROTEÇÃO DA CHAVE
+
+A chave de autenticidade (o repositório oficial) é protegida pelos seguintes mecanismos:
+
+1. **Verificação de módulo**: o runtime recusa sincronizar o framework (sync) em projetos que não declarem o módulo oficial — a proteção `IsSelfProject` impede a distribuição do framework fora do repositório canônico.
+2. **Manifesto de identidade**: `.cosca/manifest.yaml` vincula o runtime ao projeto oficial.
+3. **Rastreabilidade de build**: versão e commit hash são embutidos no binário, permitindo verificar a origem de qualquer artefato.
+4. **Marca d'água de autenticidade**: este documento e os metadados de licença acompanham o Software em toda distribuição autorizada.
+
+Qualquer tentativa de remover, falsificar ou contornar a chave de autenticidade constitui violação de direitos autorais e pode ensejar responsabilidade civil e criminal.
+
+## 5. MARCAS E PROPRIEDADE INTELECTUAL
+
+"Cosca", "CoscaAI", o logotipo Cosca e os nomes dos agentes (Kernel, CEO, CTO, Chiefs, Specialists) são marcas da CoscaAI. Nenhuma licença de uso de marcas é concedida por esta licença.
+
+O **Cosca Knowledge Lifecycle (CKL)**, o **Operational Rest Cycle (ORC)**, o **Evidence Counter**, o **Promotion Engine**, a **epistemologia de conhecimento** e o **tratamento de conhecimento como código** são conceitos e implementações proprietárias protegidos por direitos autorais.
+
+## 6. ISENÇÃO DE GARANTIA
+
+O SOFTWARE É FORNECIDO "NO ESTADO EM QUE SE ENCONTRA", SEM GARANTIA DE QUALQUER TIPO, EXPRESSA OU IMPLÍCITA, INCLUINDO, MAS NÃO SE LIMITANDO A, GARANTIAS DE COMERCIABILIDADE, ADEQUAÇÃO A UM FIM ESPECÍFICO E NÃO VIOLAÇÃO.
+
+## 7. LIMITAÇÃO DE RESPONSABILIDADE
+
+EM NENHUMA HIPÓTESE A COSCAAI, SEUS TITULARES OU COLABORADORES SERÃO RESPONSÁVEIS POR QUAISQUER DANOS DIRETOS, INDIRETOS, INCIDENTAIS, ESPECIAIS, CONSEQUENCIAIS OU PUNITIVOS, INCLUINDO PERDA DE LUCROS, DADOS OU USO, DECORRENTES DO USO OU IMPOSSIBILIDADE DE USO DO SOFTWARE.
+
+## 8. JURISDIÇÃO
+
+Esta licença é regida pelas leis da jurisdição da CoscaAI, sem consideração a conflitos de disposições legais. Qualquer disputa será resolvida nos tribunais competentes.
+
+## 9. CONTATO
+
+Para licenciamento comercial, autorização de uso ou esclarecimentos: via repositório oficial `https://github.com/CoscaAI`.
+
+---
+
+> **Este documento é a licença oficial do Software Cosca. Qualquer uso, cópia ou distribuição não autorizada constitui violação de direitos autorais.**

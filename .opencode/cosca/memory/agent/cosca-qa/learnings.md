@@ -1,0 +1,40 @@
+# cosca-qa — Semantic Learnings
+
+> Auto-evolution memory. Search before acting. Record after learning.
+
+## Active Learnings
+
+### 2026-07-28 — Quality Gates Definition (1ª Task Real)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-qa |
+| **Task** | Definir quality gates G0–G9 para a plataforma Cosca (Onda 2, Fase 1) |
+| **Technique** | Level 2 — Multi-layered quality audit: bug registry cross-validation (5 bugs registrados → 8 bugs totais após code-to-docs analysis), gate definition per artifact type, Wave 2 task acceptance criteria validation |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Confidence (domínio primário)** | **≥ 0.50** (sugerido — baseline era 0.25, subida justificada por: auditoria completa de 8 bugs com classificação QA, definição de 10 gates concretos, validação de 9 tasks com critérios verificáveis) |
+| **Tags** | #quality #gates #bug-audit #acceptance-criteria #wave-2 #classification #rejection-criteria |
+| **Related** | G0–G9 pipeline gates, CONSTITUTION P1/P2/P6, QUALITY_GATES.md (ciclo de vida), onda-2-plan.md, bug INDEX 3.1.0 |
+| **Learned** | 1) Bug registry formal subestimava bugs reais: 5 documentados vs 8 existentes (3 encontrados via code-to-docs cross-validation). 2) Acceptance criteria precisam ser verificáveis: critérios subjetivos ("profundidade analítica") devem ser substituídos por thresholds objetivos. 3) G0–G9 devem ser sequenciais e automatizados — G0–G5 no CI, G6–G9 semi-automatizados. 4) Critério de rejeição automática para security scan (G4) é inegociável — P1 manda. 5) Coverage piso de 70% é realista para o baseline atual (~78%); 80% no diff é enforcing progressivo. 6) Doc-code validator é o mecanismo mais crítico para prevenir o drift docs↔código (bug-008). 7) Onda 2: 8 tasks aprovados, 1 com ressalvas (cosca-critic), 1 executando (cosca-qa). |
+| **What worked well** | Cross-referencing bug INDEX com código real via `grep` e leitura de source (runtime.go, state.go, metrics.go). Uso do learnings do cosca-runtime como fonte de bugs não registrados. Classificação por severidade QA (blocker/critical/major/minor/trivial) + owner sugerido. Definição de acceptance criteria por tipo de artefato com tabelas de gates aplicáveis. |
+| **What was difficult** | Identificar os 3 bugs não registrados exigiu ler o learnings do cosca-runtime (não estavam no INDEX). A definição de thresholds de rejeição automática exigiu balancear rigidez (security) com pragmatismo (coverage pode ter exceção justificada). A validação dos critérios da Onda 2 exigiu ler o documento completo de 702 linhas do plano. |
+| **Improvement points** | 1) Criar um script `qa-audit.sh` que automatize a cross-validation bug registry vs código. 2) Integrar o quality gate validator ao CI (cosca-devops deve referenciar este documento). 3) Implementar rastreamento de flaky tests (métrica ainda desconhecida). 4) Auditoria de zero-state safety em todos os initializers (padrão do bug-005 pode se repetir). |
+| **Next** | Level 3: Validar execução concreta dos gates após CI implementado pelo cosca-devops. Medir bug density pós-Onda 2. Definir SLAs por categoria de teste (unit < 5min, integration < 15min, E2E < 30min). Implementar flaky test detection (>1 falha em 10 runs = flaky). |
+
+---
+
+## Seed Knowledge (Legacy)
+
+### 2026-07-27 — Quality Baseline
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-qa |
+| **Task** | Quality standards definition |
+| **Technique** | Test pyramid validation — unit > integration > E2E |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #quality #test-pyramid #coverage #acceptance |
+| **Related** | Test strategies, coverage thresholds, bug density |
+| **Learned** | Coverage > 80% target. Bug density tracking needed. Acceptance criteria must be verifiable. |
+| **Next** | Level 2: Define SLAs per test category, implement flaky test detection |

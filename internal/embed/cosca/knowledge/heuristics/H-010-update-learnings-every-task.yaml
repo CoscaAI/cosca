@@ -1,0 +1,26 @@
+# heuristics/H-010-update-learnings-every-task.yaml
+id: H-010
+title: "Agentes devem atualizar learnings.md após TODA tarefa significativa"
+domain: memory
+type: anti-pattern
+severity: high
+source_agents: [cosca-kernel, cosca-semantic-memory, cosca-memory-chief, cosca-governance]
+description: >
+  O Kernel se autoavaliou como Level 1 por weeks enquanto executava tarefas
+  Level 3 todos os dias. A causa raiz: learnings.md tinha apenas seed data —
+  nunca foi atualizado após trabalho real. O mesmo padrão se repete:
+  75% dos agentes (41/55) são template-only seeds sem execution history.
+  A métrica de confiança e o capability profile ficam desatualizados,
+  levando a decisões de alocação incorretas (ex: não ativar um agente
+  que já é Level 3 porque o perfil diz Level 1).
+evidence:
+  - "2026-07-28: Kernel L8 — 'Self-assessment accuracy is critical. Kernel reported Level 1 but performed Level 3 tasks all day'"
+  - "2026-07-28: Kernel L8 — 'Root cause: learnings.md had only seed data — never updated after real work'"
+  - "2026-07-28: Semantic-memory — 'Only 3 of 55 agents have recorded failures — negative memory is severely underutilized'"
+  - "2026-07-28: Governance audit — 53/54 capability profiles are template-identical (Level 1 seed, 0.25 confidence)"
+  - "2026-07-28: Memory-chief — '22 agents are active (L2+), 31 are seed (L1)'"
+action: "Incluir 'atualizar learnings.md' como último passo obrigatório de toda task delegation. Criar CI check que detecta agents com capability-profile.md desatualizado (última task > perfil)."
+related: [H-009, H-018, H-019]
+tags: [memory, learnings, self-assessment, capability-profile, auto-evolution, anti-pattern, staleness]
+confidence: 0.90
+created: 2026-07-29

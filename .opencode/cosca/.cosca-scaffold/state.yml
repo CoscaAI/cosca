@@ -1,0 +1,48 @@
+# Cosca Project State
+# Auto-generated and updated by Cosca Kernel — do not edit manually
+# 
+# Tracks the current state of the project across sessions
+
+# Version: 1.0.0
+
+project:
+  name: "Cosca"
+  initialized: "2026-07-10"
+  last_session: "2026-08-22"
+  total_sessions: 1
+
+# Current status
+status:
+  active_workflows: []
+  pending_tasks: []
+  active_branch: null
+  last_commit: null
+
+# Quality snapshot (updated per session)
+quality:
+  last_score: null
+  last_score_date: null
+  test_coverage: null
+  vulnerabilities_critical: null
+  vulnerabilities_high: null
+
+# Recent activity
+recent:
+  features: []
+  fixes: []
+  refactors: []
+  deployments: []
+
+# Open issues (tracked within Cosca)
+issues:
+  open: []
+  in_progress: []
+  blocked: []
+
+# Session history (last 10)
+sessions:
+  - id: null
+    date: null
+    duration: null
+    tasks_completed: 0
+    agent_used: null

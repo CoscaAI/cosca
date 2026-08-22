@@ -1,0 +1,60 @@
+# Cosca runtime (NOT versioned)
+# .cosca/framework/ is the local sync of internal/embed/cosca/ (versioned)
+# .cosca/memory/ is project-specific runtime data (NOT versioned)
+# .cosca/fallback/ was the old sync target — now dead, replaced by .cosca/framework/
+.cosca/*
+!.cosca/framework/
+
+
+# Accidental .cosca dirs in subdirectories (created by tests running cosca with CWD in subdirs)
+# NOTE: `*/**/.cosca/` (NOT `**/.cosca/`) — requires >=1 parent dir so the root
+# .cosca/ (whose .cosca/framework/ subdirectory IS versioned) is never excluded at the root.
+*/**/.cosca/
+
+# Archived (unused/regenerable — moved out of the working tree by Don's order)
+/archived/
+
+# External reference clones (mining — never versioned; they carry their own .git)
+/eigen/
+
+# Build artifacts & binaries (anchored to root — do NOT ignore internal/embed/cosca/)
+/cosca
+/cosca-indexer
+bin/
+build/
+dist/
+*.db
+*.db-wal
+*.db-shm
+
+# Root-owned artifacts (from sudo executions)
+.config/
+
+# Secrets
+.env
+*.env
+!.env.example
+
+# OS
+.DS_Store
+
+# Go module cache (never versioned)
+/go/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+scripts/voice/venv/
+.venv/*
+/models
+
+# Node.js (TypeScript SDK)
+node_modules/
+
+# Build cache
+.cache/
+cosca-forex/
+
+# Binários de teste órfãos (go test -c)
+*.test

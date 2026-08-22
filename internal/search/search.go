@@ -1,0 +1,757 @@
+// Package search provides the hybrid search engine for the Cosca Knowledge Engine.
+// It combines FTS5 full-text search, vector similarity search, and graph traversal
+// into a unified search pipeline with re-ranking.
+package search
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/CoscaAI/cosca/internal/graph"
+	"github.com/CoscaAI/cosca/internal/ranking"
+	"github.com/CoscaAI/cosca/internal/sqlite"
+	"github.com/CoscaAI/cosca/internal/vector"
+	"github.com/rs/zerolog/log"
+)
+
+// ResultType categorizes search results.
+type ResultType string
+
+// Predefined search result types.
+const (
+	ResultDocument  ResultType = "document"
+	ResultChunk     ResultType = "chunk"
+	ResultEntity    ResultType = "entity"
+	ResultCode      ResultType = "code_block"
+	ResultKnowledge ResultType = "knowledge"
+)
+
+// SearchResult represents a single search result from the hybrid engine.
+//
+//nolint:revive // Stutter name preserved for API compatibility — used as search.SearchResult externally.
+type SearchResult struct {
+	ID           string            `json:"id"`
+	Type         ResultType        `json:"type"`
+	Score        float64           `json:"score"`
+	Title        string            `json:"title"`
+	Content      string            `json:"content"`
+	Snippet      string            `json:"snippet"`
+	Highlighted  string            `json:"highlighted,omitempty"`
+	DocumentID   string            `json:"document_id,omitempty"`
+	DocumentPath string            `json:"document_path,omitempty"`
+	Heading      string            `json:"heading,omitempty"`
+	SectionType  string            `json:"section_type,omitempty"`
+	EntityType   string            `json:"entity_type,omitempty"`
+	Language     string            `json:"language,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	Rank         int               `json:"rank"`
+	Source       string            `json:"source"` // "fts", "vector", "graph"
+}
+
+// SearchResults holds the complete set of search results.
+//
+//nolint:revive // Stutter name preserved for API compatibility — used as search.SearchResults externally.
+type SearchResults struct {
+	Results     []SearchResult            `json:"results"`
+	TotalCount  int                       `json:"total_count"`
+	Query       string                    `json:"query"`
+	Facets      map[string]map[string]int `json:"facets,omitempty"`
+	Duration    time.Duration             `json:"duration_ms"`
+	Suggestions []string                  `json:"suggestions,omitempty"`
+}
+
+// SearchParams defines parameters for a hybrid search query.
+//
+//nolint:revive // Stutter name preserved for API compatibility — used as search.SearchParams externally.
+type SearchParams struct {
+	// Query is the search query string.
+	Query string
+
+	// Limit is the maximum number of results (default: 20).
+	Limit int
+
+	// Offset is the number of results to skip (default: 0).
+	Offset int
+
+	// Types restricts results to specific entity/document types.
+	Types []string
+
+	// Path restricts results to a specific path prefix.
+	Path string
+
+	// Tags restricts results to those with specific metadata tags.
+	Tags map[string]string
+
+	// Since restricts results to items updated after this time.
+	Since time.Time
+
+	// EnableFTS enables full-text search (default: true).
+	EnableFTS bool
+
+	// EnableVector enables vector search (default: true).
+	EnableVector bool
+
+	// EnableGraph enables graph traversal (default: false).
+	EnableGraph bool
+
+	// EnableFacets enables faceted result counting (default: false).
+	EnableFacets bool
+
+	// MinScore filters results below this score threshold.
+	MinScore float64
+
+	// CandidateIDs (layered search, L3) restricts the vector layer to these
+	// lexical candidates instead of a full brute-force scan. IDs are FTS-style
+	// ("chunks_fts_<rowid>"); chunk hits are resolved to vector-store IDs and
+	// the rest contribute nothing. Empty = full vector scan.
+	CandidateIDs []string
+
+	// CandidatePool is the number of recent vectors scored alongside
+	// CandidateIDs (hybrid-first recency pool). Ignored when CandidateIDs is
+	// empty. When <= 0, no recency pool is added.
+	CandidatePool int
+}
+
+// DefaultSearchParams returns sensible defaults.
+func DefaultSearchParams() SearchParams {
+	return SearchParams{
+		Limit:        20,
+		EnableFTS:    true,
+		EnableVector: true,
+		EnableGraph:  false,
+		EnableFacets: false,
+	}
+}
+
+// Engine is the hybrid search engine combining FTS5, vector, and graph search.
+type Engine struct {
+	fts       *sqlite.FTSClient
+	vecStore  vector.Store
+	graph     *graph.Graph
+	ranker    *ranking.Ranker
+	embedFunc func(ctx context.Context, text string) (*EmbeddingRequest, error)
+
+	// MetricsSink, quando definido, recebe as métricas do caminho real de cada
+	// busca vetorial (campanha de performance — FASE 1: descobrir quantos
+	// vetores chegam de fato ao kernel). Nil-safe: sem sink, custo zero.
+	MetricsSink func(vector.SearchMetrics)
+}
+
+// EmbeddingRequest mirrors a simplified embedding result for the search engine.
+type EmbeddingRequest struct {
+	Vector []float64
+}
+
+// NewEngine creates a new hybrid search engine.
+func NewEngine(
+	ftsClient *sqlite.FTSClient,
+	vecStore vector.Store,
+	g *graph.Graph,
+	ranker *ranking.Ranker,
+	embedFunc func(ctx context.Context, text string) (*EmbeddingRequest, error),
+) *Engine {
+	return &Engine{
+		fts:       ftsClient,
+		vecStore:  vecStore,
+		graph:     g,
+		ranker:    ranker,
+		embedFunc: embedFunc,
+	}
+}
+
+// Search performs a hybrid search across all available indexes.
+func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResults, error) {
+	start := time.Now()
+
+	if params.Query == "" && len(params.Types) == 0 && params.Path == "" {
+		return nil, fmt.Errorf("query or filter required")
+	}
+	if params.Limit <= 0 {
+		params.Limit = 20
+	}
+	// Pagination hard caps (M9b — DoS hardening, last line of defense).
+	// REST and gRPC layers also clamp, but no caller may force unbounded
+	// result materialization at the engine boundary.
+	const (
+		maxEngineLimit  = 100
+		maxEngineOffset = 1000
+	)
+	if params.Limit > maxEngineLimit {
+		params.Limit = maxEngineLimit
+	}
+	if params.Offset < 0 {
+		params.Offset = 0
+	}
+	if params.Offset > maxEngineOffset {
+		params.Offset = maxEngineOffset
+	}
+
+	results := &SearchResults{
+		Query:    params.Query,
+		Duration: 0,
+	}
+
+	var allResults []SearchResult
+	seen := make(map[string]bool)
+
+	// Phase 1: FTS5 Search
+	if params.EnableFTS && params.Query != "" {
+		ftsResults, err := e.searchFTS(params)
+		if err != nil {
+			log.Warn().Err(err).Msg("fts search failed")
+		} else {
+			for _, r := range ftsResults {
+				if !seen[r.ID] {
+					r.Source = "fts"
+					allResults = append(allResults, r)
+					seen[r.ID] = true
+				}
+			}
+		}
+	}
+
+	// Phase 2: Vector Search
+	if params.EnableVector && params.Query != "" && e.embedFunc != nil {
+		vecResults, err := e.searchVector(ctx, params)
+		if err != nil {
+			log.Warn().Err(err).Msg("vector search failed")
+		} else {
+			for _, r := range vecResults {
+				if !seen[r.ID] {
+					r.Source = "vector"
+					allResults = append(allResults, r)
+					seen[r.ID] = true
+				}
+			}
+		}
+	}
+
+	// Phase 3: Graph Traversal
+	if params.EnableGraph && e.graph != nil && params.Query != "" {
+		graphResults, err := e.searchGraph(params)
+		if err != nil {
+			log.Warn().Err(err).Msg("graph search failed")
+		} else {
+			for _, r := range graphResults {
+				if !seen[r.ID] {
+					r.Source = "graph"
+					allResults = append(allResults, r)
+					seen[r.ID] = true
+				}
+			}
+		}
+	}
+
+	// Phase 4: Re-rank — only when results come from multiple sources.
+	// Single-source results (FTS-only or vector-only) keep their raw scores.
+	hasFTS := params.EnableFTS && params.Query != ""
+	hasVector := params.EnableVector && params.Query != "" && e.embedFunc != nil
+	hasGraph := params.EnableGraph && e.graph != nil && params.Query != ""
+	sourceCount := 0
+	if hasFTS {
+		sourceCount++
+	}
+	if hasVector {
+		sourceCount++
+	}
+	if hasGraph {
+		sourceCount++
+	}
+	if sourceCount > 1 && params.Query != "" && e.ranker != nil {
+		rankables := e.toRankables(allResults)
+		ranked := e.ranker.Rank(rankables, params.Query)
+		allResults = e.fromRankables(ranked)
+	} else {
+		// Sort by score descending (preserves raw vector/BM25 scores)
+		sort.Slice(allResults, func(i, j int) bool {
+			return allResults[i].Score > allResults[j].Score
+		})
+	}
+
+	// Apply offset and limit
+	totalCount := len(allResults)
+	if params.Offset > 0 && params.Offset < len(allResults) {
+		allResults = allResults[params.Offset:]
+	}
+	if len(allResults) > params.Limit {
+		allResults = allResults[:params.Limit]
+	}
+
+	// Assign ranks
+	for i := range allResults {
+		allResults[i].Rank = i + 1 + params.Offset
+	}
+
+	results.Results = allResults
+	results.TotalCount = totalCount
+	results.Duration = time.Since(start)
+
+	// Phase 5: Facets
+	if params.EnableFacets {
+		results.Facets = e.computeFacets(allResults)
+	}
+
+	// Phase 6: Suggestions
+	if params.Query != "" {
+		results.Suggestions = e.generateSuggestions(params.Query)
+	}
+
+	log.Debug().
+		Str("query", params.Query).
+		Int("results", len(allResults)).
+		Int("total", totalCount).
+		Dur("duration", results.Duration).
+		Msg("search completed")
+
+	return results, nil
+}
+
+// searchFTS performs full-text search using FTS5.
+func (e *Engine) searchFTS(params SearchParams) ([]SearchResult, error) {
+	tableNames := resolveFTSTables(params.Types)
+
+	ftsParams := sqlite.FTSSearchParams{
+		Query:      params.Query,
+		TableNames: tableNames,
+		Limit:      params.Limit * 2, // fetch more for re-ranking
+		MaxSnippet: 250,
+	}
+
+	ftsResults, _, err := e.fts.Search(ftsParams)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]SearchResult, 0, len(ftsResults))
+	for _, fts := range ftsResults {
+		result := SearchResult{
+			ID:          fmt.Sprintf("%s_%d", fts.TableName, fts.RowID),
+			Type:        ftsTableToResultType(fts.TableName),
+			Score:       fts.Rank,
+			Title:       fts.Title,
+			Content:     truncateContent(fts.Content, 500),
+			Snippet:     fts.Snippet,
+			Highlighted: fts.Highlighted,
+			DocumentID:  fts.DocumentID,
+			Heading:     fts.Heading,
+			SectionType: fts.SectionType,
+			EntityType:  fts.EntityType,
+			Metadata:    make(map[string]string),
+		}
+
+		if fts.Language != "" {
+			result.Language = fts.Language
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata["language"] = fts.Language
+		}
+		if fts.DocType != "" {
+			if result.Metadata == nil {
+				result.Metadata = make(map[string]string)
+			}
+			result.Metadata["doc_type"] = fts.DocType
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// searchVector performs vector similarity search.
+func (e *Engine) searchVector(ctx context.Context, params SearchParams) ([]SearchResult, error) {
+	// Get embedding for query
+	embReq, err := e.embedFunc(ctx, params.Query)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+
+	searchLimit := params.Limit * 3
+
+	var vecResults []vector.SearchResult
+
+	// Hybrid-first (L3 bounded): when lexical candidates exist, restrict the
+	// vector scan to the resolved chunk candidates + a recency pool instead of
+	// the full O(N) brute force. Falls back to the full scan when the store
+	// does not support candidate search or no chunk candidates resolved.
+	candidateIDs := e.resolveChunkCandidates(params.CandidateIDs)
+	var m vector.SearchMetrics
+	if len(candidateIDs) > 0 {
+		if ms, ok := e.vecStore.(vector.MetricsSearcher); ok {
+			var err error
+			start := time.Now()
+			vecResults, m, err = ms.SearchWithMetrics(embReq.Vector, searchLimit, candidateIDs, params.CandidatePool, params.Tags)
+			m.Latency = time.Since(start)
+			e.emitMetrics(m)
+			if err != nil {
+				return nil, fmt.Errorf("candidate vector search: %w", err)
+			}
+			return e.vectorResults(vecResults, params)
+		}
+		if cs, ok := e.vecStore.(vector.CandidateSearcher); ok {
+			var err error
+			start := time.Now()
+			vecResults, err = cs.SearchWithCandidates(embReq.Vector, searchLimit, candidateIDs, params.CandidatePool, params.Tags)
+			m.Latency = time.Since(start)
+			e.emitMetrics(m)
+			if err != nil {
+				return nil, fmt.Errorf("candidate vector search: %w", err)
+			}
+			return e.vectorResults(vecResults, params)
+		}
+	}
+
+	start := time.Now()
+	// Sem candidatos: preenche as métricas reais quando o store expõe a
+	// superfície instrumentada (full-scan do índice ou SQL com filtro).
+	if ms, ok := e.vecStore.(vector.MetricsSearcher); ok {
+		var err error
+		vecResults, m, err = ms.SearchWithMetrics(embReq.Vector, searchLimit, nil, 0, params.Tags)
+		m.Latency = time.Since(start)
+		e.emitMetrics(m)
+		if err != nil {
+			return nil, fmt.Errorf("vector search: %w", err)
+		}
+		return e.vectorResults(vecResults, params)
+	}
+	if len(params.Tags) > 0 {
+		vecResults, err = e.vecStore.SearchWithFilter(embReq.Vector, searchLimit, params.Tags)
+	} else {
+		vecResults, err = e.vecStore.Search(embReq.Vector, searchLimit)
+	}
+	m.Latency = time.Since(start)
+	e.emitMetrics(m)
+	if err != nil {
+		return nil, fmt.Errorf("vector search: %w", err)
+	}
+
+	return e.vectorResults(vecResults, params)
+}
+
+// emitMetrics forwards the raw vector-store metrics to the sink, if any.
+func (e *Engine) emitMetrics(m vector.SearchMetrics) {
+	if e.MetricsSink != nil {
+		e.MetricsSink(m)
+	}
+}
+
+// resolveChunkCandidates translates FTS-style candidate IDs
+// ("chunks_fts_<rowid>") into vector-store chunk IDs. Non-chunk candidates
+// (documents, entities, code blocks, knowledge) have no vector rows and are
+// dropped — they still reach the final ranking through mergeRanked.
+func (e *Engine) resolveChunkCandidates(candidates []string) []string {
+	if len(candidates) == 0 || e.fts == nil {
+		return nil
+	}
+	var rowids []int64
+	for _, id := range candidates {
+		table, rowid, ok := parseFTSID(id)
+		if ok && table == "chunks_fts" {
+			rowids = append(rowids, rowid)
+		}
+	}
+	if len(rowids) == 0 {
+		return nil
+	}
+	resolved, err := e.fts.ResolveChunkIDs(rowids)
+	if err != nil {
+		log.Warn().Err(err).Msg("resolve chunk candidates failed")
+		return nil
+	}
+	out := make([]string, 0, len(resolved))
+	seen := make(map[string]bool, len(resolved))
+	for _, id := range resolved {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// parseFTSID splits an FTS result id of the form "<table>_<rowid>" (the table
+// name itself may contain underscores, so the last separator wins).
+func parseFTSID(id string) (string, int64, bool) {
+	i := strings.LastIndex(id, "_")
+	if i <= 0 || i == len(id)-1 {
+		return "", 0, false
+	}
+	rowid, err := strconv.ParseInt(id[i+1:], 10, 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return id[:i], rowid, true
+}
+
+// vectorResults converts raw vector store results into search results.
+func (e *Engine) vectorResults(vecResults []vector.SearchResult, params SearchParams) ([]SearchResult, error) {
+	results := make([]SearchResult, 0, len(vecResults))
+	for _, vr := range vecResults {
+		result := SearchResult{
+			ID:         vr.ID,
+			Type:       detectResultType(vr),
+			Score:      vr.Score,
+			Content:    truncateContent(vr.Content, 500),
+			DocumentID: vr.DocumentID,
+			Metadata:   vr.Metadata,
+			Snippet:    generateSnippet(vr.Content, params.Query, 200),
+		}
+		if vr.EntityID != "" {
+			result.EntityType = vr.Metadata["entity_type"]
+			if name := vr.Metadata["name"]; name != "" {
+				result.Title = name
+			}
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+// searchGraph performs graph-based search (finds nodes connected to query context).
+func (e *Engine) searchGraph(params SearchParams) ([]SearchResult, error) {
+	// Find nodes matching the query by name
+	var matchedNodes []*graph.Node
+
+	if e.graph != nil {
+		for _, node := range e.graph.FilterNodes("") {
+			if strings.Contains(strings.ToLower(node.Name), strings.ToLower(params.Query)) {
+				matchedNodes = append(matchedNodes, node)
+			}
+		}
+	}
+
+	results := make([]SearchResult, 0, len(matchedNodes))
+	for _, node := range matchedNodes {
+		result := SearchResult{
+			ID:         node.ID,
+			Type:       ResultEntity,
+			Score:      0.5, // base score for graph matches
+			Title:      node.Name,
+			EntityType: node.Type,
+			Metadata:   make(map[string]string),
+		}
+
+		if desc, ok := node.Metadata["description"].(string); ok {
+			result.Content = truncateContent(desc, 500)
+			result.Snippet = generateSnippet(desc, params.Query, 200)
+		}
+
+		// Boost score by graph centrality (number of connections)
+		if neighbors, err := e.graph.GetNeighbors(node.ID); err == nil {
+			boost := 0.1 * float64(len(neighbors))
+			if boost > 0.5 {
+				boost = 0.5
+			}
+			result.Score += boost
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// computeFacets computes faceted counts for results.
+func (e *Engine) computeFacets(results []SearchResult) map[string]map[string]int {
+	facets := make(map[string]map[string]int)
+
+	// Type facet
+	typeCounts := make(map[string]int)
+	for _, r := range results {
+		typeCounts[string(r.Type)]++
+	}
+	facets["type"] = typeCounts
+
+	// Entity type facet
+	entityCounts := make(map[string]int)
+	for _, r := range results {
+		if r.EntityType != "" {
+			entityCounts[r.EntityType]++
+		}
+	}
+	if len(entityCounts) > 0 {
+		facets["entity_type"] = entityCounts
+	}
+
+	// Language facet
+	langCounts := make(map[string]int)
+	for _, r := range results {
+		if r.Language != "" {
+			langCounts[r.Language]++
+		}
+	}
+	if len(langCounts) > 0 {
+		facets["language"] = langCounts
+	}
+
+	// Source facet
+	sourceCounts := make(map[string]int)
+	for _, r := range results {
+		sourceCounts[r.Source]++
+	}
+	facets["source"] = sourceCounts
+
+	return facets
+}
+
+// generateSuggestions generates query suggestions.
+func (e *Engine) generateSuggestions(query string) []string {
+	// Simple suggestion: add common suffixes
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil
+	}
+
+	suggestions := []string{
+		query + " agent",
+		query + " skill",
+		query + " workflow",
+		query + " template",
+	}
+
+	return suggestions
+}
+
+// ── Rankable adapter ───────────────────────────────────────────────────────
+
+type searchResultRankable struct {
+	result SearchResult
+}
+
+func (r *searchResultRankable) ID() string          { return r.result.ID }
+func (r *searchResultRankable) Content() string     { return r.result.Content + " " + r.result.Title }
+func (r *searchResultRankable) Score() float64      { return r.result.Score }
+func (r *searchResultRankable) Timestamp() int64    { return 0 }
+func (r *searchResultRankable) ReferenceCount() int { return 0 }
+func (r *searchResultRankable) GraphDistance() int  { return 0 }
+
+func (e *Engine) toRankables(results []SearchResult) []ranking.Rankable {
+	rankables := make([]ranking.Rankable, len(results))
+	for i, r := range results {
+		rankables[i] = &searchResultRankable{result: r}
+	}
+	return rankables
+}
+
+func (e *Engine) fromRankables(rankables []ranking.Rankable) []SearchResult {
+	results := make([]SearchResult, len(rankables))
+	for i, r := range rankables {
+		results[i] = r.(*searchResultRankable).result
+		results[i].Rank = i + 1
+	}
+	return results
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+func ftsTableToResultType(table string) ResultType {
+	switch table {
+	case "documents_fts":
+		return ResultDocument
+	case "chunks_fts":
+		return ResultChunk
+	case "entities_fts":
+		return ResultEntity
+	case "code_blocks_fts":
+		return ResultCode
+	case "knowledge_fts":
+		return ResultKnowledge
+	default:
+		return ResultDocument
+	}
+}
+
+func detectResultType(vr vector.SearchResult) ResultType {
+	if vr.EntityID != "" {
+		return ResultEntity
+	}
+	if vr.ChunkID != "" {
+		return ResultChunk
+	}
+	if vr.DocumentID != "" {
+		return ResultDocument
+	}
+	return ResultDocument
+}
+
+func resolveFTSTables(types []string) []string {
+	if len(types) == 0 {
+		return nil // search all
+	}
+
+	tableMap := map[string]string{
+		"document":   "documents_fts",
+		"doc":        "documents_fts",
+		"chunk":      "chunks_fts",
+		"entity":     "entities_fts",
+		"code":       "code_blocks_fts",
+		"code_block": "code_blocks_fts",
+		"knowledge":  "knowledge_fts",
+	}
+
+	var tables []string
+	for _, t := range types {
+		if table, ok := tableMap[t]; ok {
+			tables = append(tables, table)
+		}
+	}
+
+	return tables
+}
+
+func truncateContent(content string, maxLen int) string {
+	if len(content) <= maxLen {
+		return content
+	}
+	return content[:maxLen-3] + "..."
+}
+
+func generateSnippet(content, query string, maxLen int) string {
+	if content == "" || query == "" {
+		return truncateContent(content, maxLen)
+	}
+
+	lowerContent := strings.ToLower(content)
+	lowerQuery := strings.ToLower(query)
+
+	// Find the first occurrence of any query term
+	pos := strings.Index(lowerContent, lowerQuery)
+	if pos < 0 {
+		// Try individual terms
+		for _, term := range strings.Fields(lowerQuery) {
+			pos = strings.Index(lowerContent, term)
+			if pos >= 0 {
+				break
+			}
+		}
+	}
+
+	if pos < 0 {
+		return truncateContent(content, maxLen)
+	}
+
+	// Extract context around the match
+	start := pos - maxLen/3
+	if start < 0 {
+		start = 0
+	}
+	end := pos + len(query) + maxLen/3
+	if end > len(content) {
+		end = len(content)
+	}
+
+	snippet := content[start:end]
+	if start > 0 {
+		snippet = "..." + snippet
+	}
+	if end < len(content) {
+		snippet = snippet + "..."
+	}
+
+	return snippet
+}

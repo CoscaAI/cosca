@@ -1,0 +1,1169 @@
+package orchestration
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/contenttrust"
+	"github.com/CoscaAI/cosca/internal/stallwatch"
+)
+
+// ─── Executor Configuration ──────────────────────────────────────────────────
+
+// ExecutorConfig configures the executor's retry and timeout behaviour.
+type ExecutorConfig struct {
+	// MaxRetries is the maximum number of retry attempts on transient errors.
+	// Default: 3.
+	MaxRetries int
+
+	// RetryDelay is the base duration to wait between retries. The actual
+	// delay grows exponentially: delay * 2^(attempt-1).
+	// Default: 2s.
+	RetryDelay time.Duration
+
+	// Timeout is the maximum duration for a single chat call (including
+	// all retries). The aggregate timeout for the entire Execute run is
+	// proportional to MaxRetries. Default: 5m.
+	Timeout time.Duration
+
+	// MaxToolRounds is the maximum number of tool-call rounds the executor
+	// will loop through. Each round is: LLM → tools → follow-up LLM.
+	// The loop stops early when the LLM stops requesting tools.
+	// Default: 5.
+	MaxToolRounds int
+}
+
+// DefaultExecutorConfig returns sensible default configuration.
+func DefaultExecutorConfig() ExecutorConfig {
+	return ExecutorConfig{
+		MaxRetries:    3,
+		RetryDelay:    2 * time.Second,
+		Timeout:       5 * time.Minute,
+		MaxToolRounds: 5,
+	}
+}
+
+// ─── Executor ────────────────────────────────────────────────────────────────
+
+// Executor runs agents against LLM providers. It handles prompt construction,
+// retry with exponential backoff, tool-call detection, and both synchronous
+// and streaming execution modes.
+type Executor struct {
+	provider         chat.ChatProvider
+	config           ExecutorConfig
+	toolExecutor     *ToolExecutor // optional: executes tool calls returned by LLMs
+	lastAttemptCount int64         // atomic: number of attempts used by last chatWithRetry
+
+	// stalls optionally records provider stall/retry events so a run can be
+	// compared with a healthy one (timeouts, retries, recoveries). May be nil.
+	stalls *stallwatch.Collector
+}
+
+// SetStallCollector attaches (or detaches, with nil) the stall-event collector
+// used to record provider stalls and retries during chat calls.
+func (e *Executor) SetStallCollector(c *stallwatch.Collector) {
+	e.stalls = c
+}
+
+// recordStall writes a single stall/retry/recovery event when a collector is
+// attached. It never affects control flow — observability only.
+func (e *Executor) recordStall(spec stallwatch.WatchSpec, action stallwatch.Action, waited time.Duration, attempt int, errMsg string) {
+	if e.stalls == nil {
+		return
+	}
+	e.stalls.Add(stallwatch.Event{
+		Timestamp: time.Now().UTC(),
+		Operation: spec.Name,
+		Provider:  spec.Provider,
+		Model:     spec.Model,
+		Waited:    waited,
+		Attempt:   attempt,
+		Action:    action,
+		Error:     errMsg,
+	})
+}
+
+// NewExecutor creates an Executor backed by the given ChatProvider.
+// toolExecutor is optional — pass nil if tool execution is not needed.
+func NewExecutor(provider chat.ChatProvider, config ExecutorConfig, toolExecutor *ToolExecutor) *Executor {
+	if config.MaxRetries <= 0 {
+		config.MaxRetries = 3
+	}
+	if config.RetryDelay <= 0 {
+		config.RetryDelay = 2 * time.Second
+	}
+	if config.Timeout <= 0 {
+		config.Timeout = 5 * time.Minute
+	}
+	if config.MaxToolRounds <= 0 {
+		config.MaxToolRounds = 5
+	}
+	return &Executor{provider: provider, config: config, toolExecutor: toolExecutor}
+}
+
+// ─── Synchronous Execution ───────────────────────────────────────────────────
+
+// Execute runs the agent with the given prompt and pipeline context. It
+// builds the messages, calls the LLM with retry, and enriches the
+// PipelineContext with the response.
+func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineContext, error) {
+	logger := log.Ctx(ctx).With().Str("stage", "executor").Str("request_id", pc.RequestID).Logger()
+
+	// 1. Extract the augmented prompt from Data (set by context-builder
+	//    stage), falling back to the raw prompt.
+	augmentedPrompt := pc.Data.AugmentedPrompt
+	if augmentedPrompt == "" {
+		augmentedPrompt = pc.Prompt
+	}
+
+	// 2. Read resolved agent information from the pipeline context.
+	agentName := pc.Data.ResolvedAgent
+	agentRole := pc.Data.AgentRole
+	agentDept := pc.Data.AgentDepartment
+	agentDesc := pc.Data.AgentDescription
+
+	if agentName == "" {
+		agentName = "COSCA KERNEL"
+	}
+	if agentRole == "" {
+		agentRole = agentName
+	}
+
+	// 3. Build the system prompt from agent metadata and any
+	//    knowledge / memory context.
+	systemContent := e.buildSystemPrompt(agentName, agentRole, agentDept, agentDesc, pc.Data)
+
+	// 4. Build the message list.
+	messages := []chat.Message{
+		{Role: chat.RoleSystem, Content: systemContent},
+		{Role: chat.RoleUser, Content: augmentedPrompt},
+	}
+
+	// 5. Build ChatOptions with tools derived from agent capabilities.
+	opts := e.buildChatOptions(pc.Data)
+
+	// 5.5 ── MODO DETERMINÍSTICO: a IA é o último recurso ─────────────
+	// Se o conhecimento (knowledge.db) já responde com precisão, o Cosca
+	// responde SEM chamar o LLM. O motor é opcional — a inteligência está
+	// na casa, não no motor (L427: "antes de chamar a LLM, consulte o
+	// Cosca"). O conhecimento veio do context builder (já validado).
+	if det := deterministicResponse(pc.Data); det != "" {
+		logger.Info().Msg("executor: resposta DETERMINÍSTICA (sem LLM) — conhecimento indexado respondeu")
+		pc = pc.WithLLMResponse(det)
+		pc = pc.WithExecutorDeterministic(true)
+		return pc, nil
+	}
+
+	// 6. Call provider.Chat() with retry.
+	response, err := e.chatWithRetry(ctx, messages, opts)
+	if err != nil {
+		info := safeError("chat_completion_failed", err)
+		logger.Error().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("chat completion failed after retries")
+		// Record fallback if retries were used (even though call ultimately failed).
+		if atomic.LoadInt64(&e.lastAttemptCount) > 1 {
+			pc = pc.WithExecutorFallback(true)
+		}
+		return pc, safePublicError("executor: chat failed", "chat_completion_failed", err)
+	}
+
+	// Record whether a fallback (retry) was used.
+	if atomic.LoadInt64(&e.lastAttemptCount) > 1 {
+		pc = pc.WithExecutorFallback(true)
+	}
+
+	// 7. Parse response: extract content and tool calls.
+	content, toolCalls := e.parseResponse(response)
+
+	// 8. Store results in the pipeline context.
+	pc = pc.WithLLMResponse(content)
+	pc = pc.WithLLMModel(response.Model)
+	pc = pc.WithLLMUsage(response.Usage)
+
+	if len(toolCalls) > 0 {
+		pc = pc.WithToolCalls(toolCalls)
+
+		// Diagnostic: confirm toolExecutor wiring in the serve path.
+		logger.Info().
+			Bool("tool_executor_wired", e.toolExecutor != nil).
+			Int("tool_call_count", len(toolCalls)).
+			Strs("tool_names", toolCallNames(toolCalls)).
+			Msg("executor: tool calls detected (diagnostic)")
+
+		if e.toolExecutor != nil {
+			roundMessages := make([]chat.Message, len(messages))
+			copy(roundMessages, messages)
+
+			for round := 0; round < e.config.MaxToolRounds && len(toolCalls) > 0; round++ {
+				logger.Info().
+					Int("round", round+1).
+					Int("tool_call_count", len(toolCalls)).
+					Strs("tool_names", toolCallNames(toolCalls)).
+					Msg("tool calls detected in response")
+
+				toolResults, toolErr := e.toolExecutor.ExecuteAll(ctx, toolCalls)
+				if toolErr != nil {
+					info := safeError("tool_calls_failed", toolErr)
+					logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("some tool calls failed")
+				}
+				pc = pc.WithToolResults(toolResults)
+
+				roundMessages = append(roundMessages, chat.Message{
+					Role:      chat.RoleAssistant,
+					Content:   content,
+					ToolCalls: toolCalls,
+				})
+				for _, tr := range toolResults {
+					toolContent := tr.Content
+					if tr.Error != "" {
+						toolContent = fmt.Sprintf("Tool execution error: %s\nTool output:\n%s", tr.Error, toolContent)
+					}
+					roundMessages = append(roundMessages, chat.Message{
+						Role:       chat.RoleTool,
+						Content:    contenttrust.Envelope(contenttrust.Default(contenttrust.OriginTool, toolContent, tr.Name)),
+						ToolCallID: tr.ToolCallID,
+					})
+				}
+
+				followUpResponse, followUpErr := e.chatWithRetry(ctx, roundMessages, opts)
+				if followUpErr != nil {
+					info := safeError("follow_up_chat_failed", followUpErr)
+					logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("follow-up chat after tool calls failed, returning semantic knowledge")
+					// ── Fallback: model cannot complete the tool round
+					// trip (common with coding models via ollama). Prefer
+					// the SEMANTIC knowledge (knowledge.db) that the context
+					// builder already injected — that is how the Cosca
+					// awakens. Tool results (codebase matches) are the
+					// fallback of the fallback.
+					if content = formatKnowledgeFallback(pc.Data.KnowledgeResults); content == "" {
+						content = formatToolResultsFallback(toolResults)
+					}
+					pc = pc.WithLLMResponse(content)
+					break
+				}
+
+				content, toolCalls = e.parseResponse(followUpResponse)
+				pc = pc.WithLLMResponse(content)
+				pc = pc.WithLLMModel(followUpResponse.Model)
+				pc = pc.WithLLMUsage(followUpResponse.Usage)
+				response = followUpResponse
+
+				// ── Fallback: model returned empty follow-up ────────────
+				// Some coding models (qwen2.5-coder via ollama) do not
+				// understand structured tool-call round trips and answer
+				// with an empty message. Prefer semantic knowledge first.
+				if strings.TrimSpace(content) == "" && len(toolCalls) == 0 {
+					logger.Warn().Msg("follow-up returned empty — using semantic knowledge as final response")
+					if content = formatKnowledgeFallback(pc.Data.KnowledgeResults); content == "" {
+						content = formatToolResultsFallback(toolResults)
+					}
+					pc = pc.WithLLMResponse(content)
+				}
+			}
+		}
+	}
+
+	logger.Debug().
+		Str("agent", agentName).
+		Str("model", response.Model).
+		Int("prompt_tokens", response.Usage.PromptTokens).
+		Int("completion_tokens", response.Usage.CompletionTokens).
+		Msg("execution complete")
+
+	return pc, nil
+}
+
+// ─── Streaming Execution ─────────────────────────────────────────────────────
+
+// ExecuteStream runs the agent in streaming mode. It sets up the messages,
+// opens a ChatStream, and forwards chunks to the eventCh channel. The method
+// returns immediately after starting the background streaming goroutine and
+// closes eventCh when the stream ends or the context is cancelled.
+func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventCh chan<- StreamEvent) (PipelineContext, error) {
+	logger := log.Ctx(ctx).With().Str("stage", "executor_stream").Str("request_id", pc.RequestID).Logger()
+
+	// 1. Extract the augmented prompt.
+	augmentedPrompt := pc.Data.AugmentedPrompt
+	if augmentedPrompt == "" {
+		augmentedPrompt = pc.Prompt
+	}
+
+	// 2. Read resolved agent information.
+	agentName := pc.Data.ResolvedAgent
+	agentRole := pc.Data.AgentRole
+	agentDept := pc.Data.AgentDepartment
+	agentDesc := pc.Data.AgentDescription
+
+	if agentName == "" {
+		agentName = "COSCA KERNEL"
+	}
+	if agentRole == "" {
+		agentRole = agentName
+	}
+
+	// 3. Build the system prompt.
+	systemContent := e.buildSystemPrompt(agentName, agentRole, agentDept, agentDesc, pc.Data)
+
+	// 4. Build the message list.
+	messages := []chat.Message{
+		{Role: chat.RoleSystem, Content: systemContent},
+		{Role: chat.RoleUser, Content: augmentedPrompt},
+	}
+
+	// 5. Build ChatOptions with stream=true.
+	opts := e.buildChatOptions(pc.Data)
+	opts.Stream = true
+
+	// 6. Open the chat stream. This is the only synchronous I/O; the rest
+	//    runs in the background goroutine.
+	stream, err := e.provider.ChatStream(ctx, messages, opts)
+	if err != nil {
+		info := safeError("chat_stream_open_failed", err)
+		e.emitEvent(eventCh, StreamEvent{
+			Type:    StreamEventError,
+			Content: safeErrorMessage(info.Code), Metadata: safeErrorEvent(info.Code, err),
+		})
+		// The caller owns eventCh until a background reader is started. Do
+		// not close it here: ExecuteStream may still emit the startup error.
+		return pc, safePublicError("executor: chat stream failed", "chat_stream_open_failed", err)
+	}
+
+	// 7. Emit progress event to signal the start of streaming.
+	e.emitEvent(eventCh, StreamEvent{
+		Type:    StreamEventProgress,
+		Content: fmt.Sprintf("Starting streaming execution with agent %s", agentName),
+		Metadata: map[string]interface{}{
+			"agent":  agentName,
+			"role":   agentRole,
+			"model":  e.provider.Model(),
+			"stream": true,
+		},
+	})
+
+	// 8. Start the background reader goroutine.
+	go e.readStream(ctx, stream, eventCh, logger)
+
+	return pc, nil
+}
+
+// ─── Stream Reader (background goroutine) ────────────────────────────────────
+
+// readStream reads chunks from the ChatStream and forwards them as
+// StreamEvent values on eventCh. It handles stage transitions, accumulates
+// the full response, and closes eventCh when the stream ends.
+func (e *Executor) readStream(ctx context.Context, stream chat.ChatStream, eventCh chan<- StreamEvent, logger zerolog.Logger) {
+	defer func() {
+		if err := stream.Close(); err != nil {
+			info := safeError("stream_close_failed", err)
+			logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("error closing chat stream")
+		}
+		close(eventCh)
+	}()
+
+	var (
+		fullContent  strings.Builder
+		toolCalls    []chat.ToolCall
+		toolCallMu   sync.Mutex
+		chunkCount   int
+		currentStage string
+	)
+
+	for {
+		// Check context cancellation before blocking on Recv.
+		select {
+		case <-ctx.Done():
+			e.emitEvent(eventCh, StreamEvent{
+				Type:    StreamEventError,
+				Content: safeErrorMessage("stream_cancelled"), Metadata: safeErrorEvent("stream_cancelled", ctx.Err()),
+			})
+			return
+		default:
+		}
+
+		chunk, err := stream.Recv()
+		if err != nil {
+			// Stream exhausted or broken.
+			e.emitEvent(eventCh, StreamEvent{
+				Type:    StreamEventError,
+				Content: safeErrorMessage("stream_read_failed"), Metadata: safeErrorEvent("stream_read_failed", err),
+			})
+			return
+		}
+
+		// A nil chunk with no choices means the stream is done.
+		if chunk == nil || len(chunk.Choices) == 0 {
+			return
+		}
+
+		chunkCount++
+
+		for _, choice := range chunk.Choices {
+			// --- Stage transition detection ---
+			// Look for marker patterns like "[STAGE: name]" in the delta content.
+			if newStage := e.detectStageTransition(choice.Delta.Content); newStage != "" && newStage != currentStage {
+				currentStage = newStage
+				e.emitEvent(eventCh, StreamEvent{
+					Type:    StreamEventStageTransition,
+					Content: fmt.Sprintf("Entering stage: %s", currentStage),
+					Metadata: map[string]interface{}{
+						"stage": currentStage,
+					},
+				})
+			}
+
+			// --- Text delta ---
+			if choice.Delta.Content != "" {
+				fullContent.WriteString(choice.Delta.Content)
+				e.emitEvent(eventCh, StreamEvent{
+					Type:    StreamEventChunk,
+					Content: choice.Delta.Content,
+					Metadata: map[string]interface{}{
+						"index":       choice.Index,
+						"chunk_count": chunkCount,
+					},
+				})
+			}
+
+			// --- Tool call deltas ---
+			if len(choice.Delta.ToolCalls) > 0 {
+				toolCallMu.Lock()
+				for _, tc := range choice.Delta.ToolCalls {
+					// Merge with existing tool calls by ID.
+					merged := false
+					for i, existing := range toolCalls {
+						if existing.ID == tc.ID {
+							toolCalls[i].Function.Name += tc.Function.Name
+							toolCalls[i].Function.Arguments += tc.Function.Arguments
+							merged = true
+							break
+						}
+					}
+					if !merged {
+						toolCalls = append(toolCalls, tc)
+					}
+				}
+				toolCallMu.Unlock()
+			}
+
+			// --- Finish reason — stream complete ---
+			if choice.FinishReason != "" {
+				result := fullContent.String()
+
+				e.emitEvent(eventCh, StreamEvent{
+					Type: StreamEventProgress,
+					Content: fmt.Sprintf("Stream complete. Reason: %s. Total chunks: %d, Response length: %d chars",
+						choice.FinishReason, chunkCount, len(result)),
+					Metadata: map[string]interface{}{
+						"finish_reason":  string(choice.FinishReason),
+						"chunk_count":    chunkCount,
+						"content_length": len(result),
+					},
+				})
+
+				// Store tool calls if any were accumulated.
+				if len(toolCalls) > 0 {
+					e.emitEvent(eventCh, StreamEvent{
+						Type:    StreamEventProgress,
+						Content: fmt.Sprintf("Tool calls detected: %d", len(toolCalls)),
+						Metadata: map[string]interface{}{
+							"tool_calls": toolCalls,
+						},
+					})
+				}
+
+				return
+			}
+		}
+
+		// Emit periodic progress for long streams.
+		if chunkCount%50 == 0 {
+			e.emitEvent(eventCh, StreamEvent{
+				Type:    StreamEventProgress,
+				Content: fmt.Sprintf("Streaming in progress... %d chunks received", chunkCount),
+				Metadata: map[string]interface{}{
+					"chunk_count": chunkCount,
+				},
+			})
+		}
+	}
+}
+
+// ─── Prompt Building ─────────────────────────────────────────────────────────
+
+// buildSystemPrompt constructs a system prompt from agent metadata and any
+// contextual knowledge retrieved earlier in the pipeline.
+func (e *Executor) buildSystemPrompt(agentName, agentRole, agentDept, agentDesc string, data PipelineData) string {
+	var sb strings.Builder
+
+	// Agent identity.
+	fmt.Fprintf(&sb, "You are %s", agentName)
+	if agentRole != "" && agentRole != agentName {
+		fmt.Fprintf(&sb, ", %s", agentRole)
+	}
+	if agentDept != "" {
+		fmt.Fprintf(&sb, " from the %s department", agentDept)
+	}
+	sb.WriteString(".\n")
+
+	if agentDesc != "" {
+		fmt.Fprintf(&sb, "\nYour purpose: %s\n", agentDesc)
+	}
+
+	// Knowledge context injected by the knowledge-retrieval stage.
+	if knowledge, ok := data.Extra["knowledge_context"].(string); ok && knowledge != "" {
+		sb.WriteString("\n--- RELEVANT KNOWLEDGE ---\n")
+		sb.WriteString(knowledge)
+		sb.WriteString("\n--- END KNOWLEDGE ---\n")
+	}
+
+	// Memory context injected by the memory-retrieval stage.
+	if data.MemoryContext != "" {
+		sb.WriteString("\n--- RELEVANT MEMORY ---\n")
+		sb.WriteString(data.MemoryContext)
+		sb.WriteString("\n--- END MEMORY ---\n")
+	}
+
+	// General instructions.
+	sb.WriteString("\nProvide a thorough, well-reasoned response. ")
+	sb.WriteString("Use the available context above when relevant. ")
+	sb.WriteString("If you need to use tools, call them as needed.")
+
+	return sb.String()
+}
+
+// ─── Chat Options ────────────────────────────────────────────────────────────
+
+// buildChatOptions constructs ChatOptions by deriving tool definitions from
+// the agent's capabilities stored in the pipeline context.
+func (e *Executor) buildChatOptions(data PipelineData) chat.ChatOptions {
+	opts := chat.DefaultChatOptions()
+
+	// Derive tools from agent context.
+	tools := e.deriveTools(data)
+	if len(tools) > 0 {
+		opts.Tools = tools
+	}
+
+	return opts
+}
+
+// deriveTools produces tool definitions based on agent role and skills.
+// This is a best-effort derivation; actual tool schemas would be loaded
+// from a skill registry in a full implementation.
+func (e *Executor) deriveTools(data PipelineData) []chat.ToolDefinition {
+	// Collect hints from context data.
+	agentRole := data.AgentRole
+	agentDept := data.AgentDepartment
+
+	var tools []chat.ToolDefinition
+	seen := make(map[string]bool)
+
+	// Map agent roles/departments to common tool categories.
+	toolHints := e.toolHintsForRole(agentRole, agentDept)
+
+	for _, hint := range toolHints {
+		if seen[hint.Name] {
+			continue
+		}
+		seen[hint.Name] = true
+		tools = append(tools, chat.ToolDefinition{
+			Type: "function",
+			Function: chat.FunctionDef{
+				Name:        hint.Name,
+				Description: hint.Description,
+				Parameters:  hint.Parameters,
+			},
+		})
+	}
+
+	return tools
+}
+
+// toolHint is a lightweight tool descriptor used for capability derivation.
+type toolHint struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
+}
+
+// toolHintsForRole returns tool hints based on the agent's role and
+// department. This is a simplified mapping; a full implementation would
+// load tool schemas from a skill/capability registry.
+func (e *Executor) toolHintsForRole(role, dept string) []toolHint {
+	roleLower := strings.ToLower(role)
+	deptLower := strings.ToLower(dept)
+
+	var hints []toolHint
+
+	if strings.Contains(roleLower, "backend") || strings.Contains(deptLower, "backend") {
+		hints = append(hints, toolHint{
+			Name:        "read_file",
+			Description: "Read the contents of a file",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}}},
+		})
+		hints = append(hints, toolHint{
+			Name:        "write_file",
+			Description: "Write content to a file",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}, "content": map[string]any{"type": "string"}}},
+		})
+	}
+
+	if strings.Contains(roleLower, "frontend") || strings.Contains(deptLower, "frontend") {
+		hints = append(hints, toolHint{
+			Name:        "read_file",
+			Description: "Read the contents of a file",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}}},
+		})
+	}
+
+	if strings.Contains(roleLower, "database") || strings.Contains(deptLower, "database") {
+		hints = append(hints, toolHint{
+			Name:        "execute_sql",
+			Description: "Execute a SQL query against the database",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"query": map[string]any{"type": "string"}}},
+		})
+	}
+
+	if strings.Contains(roleLower, "test") || strings.Contains(deptLower, "testing") || strings.Contains(deptLower, "qa") {
+		hints = append(hints, toolHint{
+			Name:        "run_tests",
+			Description: "Run the test suite",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"filter": map[string]any{"type": "string"}}},
+		})
+	}
+
+	if strings.Contains(roleLower, "devops") || strings.Contains(deptLower, "devops") {
+		hints = append(hints, toolHint{
+			Name:        "execute_command",
+			Description: "Execute a shell command",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"command": map[string]any{"type": "string"}}},
+		})
+	}
+
+	if strings.Contains(roleLower, "security") || strings.Contains(deptLower, "security") {
+		hints = append(hints, toolHint{
+			Name:        "scan_vulnerabilities",
+			Description: "Scan code for security vulnerabilities",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}}},
+		})
+	}
+
+	// File operations are useful for almost all agents.
+	hints = append(hints, toolHint{
+		Name:        "search_codebase",
+		Description: "Search the codebase for patterns or content",
+		Parameters:  map[string]any{"type": "object", "properties": map[string]any{"query": map[string]any{"type": "string"}}},
+	})
+
+	return hints
+}
+
+// ─── Retry Logic ─────────────────────────────────────────────────────────────
+
+// chatAttemptResult carries the outcome of a single non-cooperative attempt.
+type chatAttemptResult struct {
+	resp *chat.ChatResponse
+	err  error
+}
+
+// runChatAttempt executes provider.Chat in a goroutine and selects on the
+// deadline — closing the L324 debt: a provider that IGNORES context
+// cancellation (the "loading forever" case) no longer blocks the worker until
+// it decides to answer; the worker reclaims control at the deadline and treats
+// it as a stall. The channel is buffered (1) so a late-returning goroutine
+// never blocks on send.
+func (e *Executor) runChatAttempt(attemptCtx, parentCtx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error) {
+	done := make(chan chatAttemptResult, 1)
+	go func() {
+		resp, err := e.provider.Chat(attemptCtx, messages, opts)
+		done <- chatAttemptResult{resp: resp, err: err}
+	}()
+
+	select {
+	case r := <-done:
+		return r.resp, r.err
+	case <-attemptCtx.Done():
+		// Deadline fired while the provider was still running: it does not
+		// respect cancellation. Reclaim control now — non-cooperative stall.
+		return nil, stallwatch.ErrAttemptTimedOut
+	case <-parentCtx.Done():
+		// Parent cancelled — not a stall.
+		return nil, parentCtx.Err()
+	}
+}
+
+// chatWithRetry calls provider.Chat with exponential backoff retry on
+// transient errors. It respects the configured MaxRetries, RetryDelay, and
+// the context deadline.
+func (e *Executor) chatWithRetry(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error) {
+	var lastErr error
+	var attemptCount int64
+
+	for attempt := 0; attempt <= e.config.MaxRetries; attempt++ {
+		attemptCount++
+		// Check context before each attempt.
+		if err := ctx.Err(); err != nil {
+			atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
+			return nil, safeContextError("chat_context_cancelled", err)
+		}
+
+		// Create a per-attempt context with the configured timeout.
+		attemptCtx, cancel := context.WithTimeout(ctx, e.config.Timeout)
+		start := time.Now()
+		response, err := e.runChatAttempt(attemptCtx, ctx, messages, opts)
+		waited := time.Since(start)
+		cancel()
+
+		spec := stallwatch.WatchSpec{
+			Name:      "llm.chat",
+			Provider:  e.provider.Name(),
+			Model:     e.provider.Model(),
+			Timeout:   e.config.Timeout,
+			Retryable: isTransientError,
+		}
+
+		if err == nil {
+			if attemptCount > 1 {
+				e.recordStall(spec, stallwatch.ActionRecovered, waited, int(attemptCount-1), "")
+			}
+			atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
+			return response, nil
+		}
+
+		lastErr = err
+
+		// A deadline exceeded (cooperative or non-cooperative) means the
+		// provider stopped responding — a stall.
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, stallwatch.ErrAttemptTimedOut) {
+			e.recordStall(spec, stallwatch.ActionStall, waited, int(attemptCount-1), err.Error())
+		}
+
+		// Don't retry if this is the last attempt.
+		if attempt == e.config.MaxRetries {
+			break
+		}
+
+		// Only retry on transient errors (including non-cooperative stalls,
+		// which are always retryable: ErrAttemptTimedOut is the watchdog's
+		// own signal, not a provider verdict).
+		if !isTransientError(err) && !errors.Is(err, stallwatch.ErrAttemptTimedOut) {
+			info := safeError("chat_completion_failed", err)
+			log.Ctx(ctx).Warn().
+				Str("error_code", info.Code).
+				Str("error_hash", info.Hash).
+				Int("error_length", info.Length).
+				Int("attempt", attempt+1).
+				Msg("non-transient chat error, not retrying")
+			e.recordStall(spec, stallwatch.ActionFailed, waited, int(attemptCount-1), err.Error())
+			break
+		}
+
+		// Exponential backoff.
+		delay := e.config.RetryDelay * time.Duration(int64(math.Pow(2, float64(attempt))))
+
+		e.recordStall(spec, stallwatch.ActionRetry, waited, int(attemptCount-1), "")
+
+		info := safeError("chat_retryable_failure", err)
+		log.Ctx(ctx).Warn().
+			Str("error_code", info.Code).
+			Str("error_hash", info.Hash).
+			Int("error_length", info.Length).
+			Int("attempt", attempt+1).
+			Int("max_retries", e.config.MaxRetries).
+			Dur("retry_delay", delay).
+			Msg("transient chat error, retrying")
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
+			return nil, safeContextError("chat_context_cancelled", ctx.Err())
+		case <-timer.C:
+		}
+	}
+
+	atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
+	if e.stalls != nil {
+		e.recordStall(stallwatch.WatchSpec{Name: "llm.chat", Provider: e.provider.Name(), Model: e.provider.Model(), Timeout: e.config.Timeout}, stallwatch.ActionFailed, 0, int(attemptCount-1), "chat retries exhausted")
+	}
+	return nil, safeContextError("chat_completion_failed", lastErr)
+}
+
+// isTransientError returns true when the error is likely recoverable with a
+// retry (timeouts, rate limits, server errors, network failures).
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	transientMarkers := []string{
+		"timeout",
+		"deadline exceeded",
+		"rate limit",
+		"rate exceeded",
+		"too many requests",
+		"service unavailable",
+		"503",
+		"server error",
+		"internal server error",
+		"bad gateway",
+		"gateway timeout",
+		"connection reset",
+		"connection refused",
+		"temporary failure",
+		"retry",
+		"throttled",
+		"too busy",
+		"busy",
+		"capacity",
+		"overloaded",
+		"eof",
+		"broken pipe",
+	}
+
+	for _, marker := range transientMarkers {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ─── Response Parsing ────────────────────────────────────────────────────────
+
+// parseResponse extracts the assistant's text content and any tool calls
+// from a ChatResponse. Handles both standard OpenAI tool_calls format and
+// Ollama-style JSON-encoded tool calls in the content field.
+func (e *Executor) parseResponse(response *chat.ChatResponse) (string, []chat.ToolCall) {
+	if response == nil || len(response.Choices) == 0 {
+		return "", nil
+	}
+
+	choice := response.Choices[0]
+	content := choice.Message.Content
+	toolCalls := choice.Message.ToolCalls
+
+	if len(toolCalls) == 0 && strings.TrimSpace(content) != "" {
+		parsedTools := e.tryParseContentTools(content)
+		if len(parsedTools) > 0 {
+			// A "response" wrapper resolves to final text; anything else
+			// resolves to tool calls.
+			if parsedTools[0].Content != "" {
+				return parsedTools[0].Content, nil
+			}
+			return "", parsedTools[0].ToolCalls
+		}
+	}
+
+	return content, toolCalls
+}
+
+type parsedContentResult struct {
+	Content   string
+	ToolCalls []chat.ToolCall
+}
+
+func (e *Executor) tryParseContentTools(content string) []parsedContentResult {
+	parts := e.extractJSONBlocks(content)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	var results []parsedContentResult
+	for _, part := range parts {
+		var toolCallData map[string]interface{}
+		if err := json.Unmarshal([]byte(part), &toolCallData); err != nil {
+			continue
+		}
+
+		toolName, _ := toolCallData["name"].(string)
+		if toolName == "" {
+			continue
+		}
+
+		// ── Special tool: response ─────────────────────────────────────
+		// Some coding models (qwen2.5-coder via ollama) never emit plain
+		// text — they wrap final answers in {"name":"response","arguments":
+		// {"message":"..."}}. Treat that as the final text response instead
+		// of a tool call (the executor has no "response" tool).
+		if toolName == "response" {
+			if args, ok := toolCallData["arguments"].(map[string]interface{}); ok {
+				if msg, ok := args["message"].(string); ok && msg != "" {
+					results = append(results, parsedContentResult{Content: msg})
+					continue
+				}
+			}
+		}
+
+		var argsStr string
+		if args, ok := toolCallData["arguments"]; ok {
+			switch v := args.(type) {
+			case string:
+				argsStr = v
+			case map[string]interface{}:
+				argsBytes, err := json.Marshal(v)
+				if err == nil {
+					argsStr = string(argsBytes)
+				}
+			}
+		}
+
+		if argsStr == "" {
+			argsStr = "{}"
+		}
+
+		tc := chat.ToolCall{
+			ID:   fmt.Sprintf("parsed-%s", uuid.New().String()[:8]),
+			Type: "function",
+			Function: chat.FunctionCall{
+				Name:      toolName,
+				Arguments: argsStr,
+			},
+		}
+
+		results = append(results, parsedContentResult{ToolCalls: []chat.ToolCall{tc}})
+	}
+
+	return results
+}
+
+func (e *Executor) extractJSONBlocks(content string) []string {
+	var blocks []string
+
+	trimmed := strings.TrimSpace(content)
+
+	// ── Fast path: content is a raw JSON tool call (no code fence) ─────
+	// Some models (e.g. qwen2.5-coder via ollama) return the tool call as
+	// bare JSON in the content instead of a structured tool_call or a
+	// ```json fence. Detect and extract it directly.
+	if strings.HasPrefix(trimmed, "{") {
+		var probe map[string]interface{}
+		if json.Unmarshal([]byte(trimmed), &probe) == nil {
+			if _, ok := probe["name"].(string); ok {
+				return []string{trimmed}
+			}
+		}
+	}
+
+	remaining := content
+	for {
+		start := strings.Index(remaining, "```json")
+		if start < 0 {
+			start = strings.Index(remaining, "```")
+			if start < 0 {
+				break
+			}
+		}
+
+		inner := remaining[start:]
+		if strings.HasPrefix(inner, "```json") {
+			inner = inner[7:]
+		} else if strings.HasPrefix(inner, "```") {
+			inner = inner[3:]
+		} else {
+			remaining = remaining[start+3:]
+			continue
+		}
+
+		end := strings.Index(inner, "```")
+		if end < 0 {
+			break
+		}
+
+		block := strings.TrimSpace(inner[:end])
+		if strings.HasPrefix(block, "{") {
+			var test map[string]interface{}
+			if json.Unmarshal([]byte(block), &test) == nil {
+				if _, ok := test["name"].(string); ok {
+					blocks = append(blocks, block)
+				}
+			}
+		}
+
+		remaining = inner[end+3:]
+	}
+
+	return blocks
+}
+
+// ─── Stage Detection ─────────────────────────────────────────────────────────
+
+// detectStageTransition scans text for a stage-marker pattern like
+// "[STAGE: name]" and returns the stage name if found.
+func (e *Executor) detectStageTransition(text string) string {
+	const prefix = "[STAGE:"
+	const suffix = "]"
+
+	start := strings.Index(text, prefix)
+	if start < 0 {
+		return ""
+	}
+	start += len(prefix)
+	end := strings.Index(text[start:], suffix)
+	if end < 0 {
+		return ""
+	}
+	return strings.TrimSpace(text[start : start+end])
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// emitEvent is a non-blocking send on the event channel. If the channel is
+// full or the context is done the event is silently dropped (best-effort).
+func (e *Executor) emitEvent(eventCh chan<- StreamEvent, ev StreamEvent) {
+	// Use a short timeout to avoid blocking indefinitely if the consumer
+	// is slow or has stopped reading.
+	timer := time.NewTimer(100 * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case eventCh <- ev:
+	case <-timer.C:
+	}
+}
+
+// toolCallNames extracts the function names from a slice of tool calls.
+func toolCallNames(toolCalls []chat.ToolCall) []string {
+	names := make([]string, len(toolCalls))
+	for i, tc := range toolCalls {
+		names[i] = tc.Function.Name
+	}
+	return names
+}
+
+// formatToolResultsFallback builds a readable final response from tool
+// deterministicResponse tenta responder SEM LLM a partir do conhecimento já
+// validado (knowledge.db via context builder). Retorna "" quando o
+// conhecimento NÃO responde com precisão suficiente — aí o motor é chamado.
+//
+// A IA externa é o último recurso, não o primeiro (L427). O Cosca consulta
+// primeiro: memória → conhecimento → regras. Só quando nada resolve, chama
+// o motor para compor a resposta.
+func deterministicResponse(data PipelineData) string {
+	kr := data.KnowledgeResults
+	if kr == nil || len(kr.Results) == 0 {
+		return ""
+	}
+
+	// Precisa de pelo menos um resultado DIRECT (o artefato exato da
+	// pergunta, ex.: CARRO_PROTOCOL.md para "como tá o carro?").
+	var direct *KnowledgeSearchResult
+	for i := range kr.Results {
+		r := &kr.Results[i]
+		if r.Score >= 0.6 && r.Snippet != "" {
+			direct = r
+			break
+		}
+	}
+	if direct == nil {
+		return ""
+	}
+
+	// Monta a resposta composta: o conhecimento validado, sem gerar texto
+	// novo com LLM (SEARCH_PROTOCOL §28 — resposta construída dos resultados).
+	title := direct.Title
+	if title == "" {
+		title = direct.DocumentPath
+	}
+	snippet := direct.Snippet
+	if snippet == "" {
+		snippet = truncateString(direct.Content, 300)
+	}
+	if title == "" && snippet == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Conhecimento da casa (resposta determinística):\n")
+	if title != "" {
+		b.WriteString("• " + title + "\n")
+	}
+	if snippet != "" {
+		b.WriteString("  " + snippet + "\n")
+	}
+	if len(kr.Results) > 1 {
+		b.WriteString(fmt.Sprintf("\n+%d resultado(s) relacionado(s) no conhecimento indexado.", len(kr.Results)-1))
+	}
+	return b.String()
+}
+
+// formatKnowledgeFallback builds a readable response from the SEMANTIC
+// knowledge (knowledge.db) injected by the context builder. This is the
+// Cosca's memory — the awakening source. Returns "" when there is no
+// knowledge to present.
+func formatKnowledgeFallback(kr *KnowledgeSearchResults) string {
+	if kr == nil || len(kr.Results) == 0 {
+		return ""
+	}
+	var parts []string
+	for i, r := range kr.Results {
+		if i >= 5 {
+			break
+		}
+		title := r.Title
+		if title == "" {
+			title = r.DocumentPath
+		}
+		snippet := r.Snippet
+		if snippet == "" {
+			snippet = truncateString(r.Content, 300)
+		}
+		if snippet == "" {
+			continue
+		}
+		if title != "" {
+			parts = append(parts, fmt.Sprintf("• %s: %s", title, snippet))
+		} else {
+			parts = append(parts, fmt.Sprintf("• %s", snippet))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n")
+}
+
+// formatToolResultsFallback builds a readable final response from tool
+// results when the model returns an empty follow-up message.
+func formatToolResultsFallback(results []*ToolCallResult) string {
+	var parts []string
+	for _, r := range results {
+		if r == nil {
+			continue
+		}
+		content := r.Content
+		if content == "" {
+			content = r.Error
+		}
+		if content == "" {
+			continue
+		}
+		parts = append(parts, content)
+	}
+	if len(parts) == 0 {
+		return "Ferramenta executada (sem saída textual)."
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// GenerateRequestID creates a unique request identifier for pipeline use.
+func GenerateRequestID() string {
+	return uuid.New().String()
+}
