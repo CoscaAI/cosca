@@ -5,6 +5,7 @@ package engine
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,10 @@ type AgentDef struct {
 
 	// FilePath is the absolute path to the .md file this definition was loaded from.
 	FilePath string
+
+	// Source indicates where this agent was loaded from (e.g. "framework", "user", "project").
+	// Used for integrity verification: framework agents should not be overridden by user agents.
+	Source string
 
 	// Parent is the parent agent name in the Cosca hierarchy (e.g. "cosca-cto").
 	Parent string
@@ -74,25 +79,28 @@ func NewAgentRegistry(agentDirs ...string) *AgentRegistry {
 		agents: make(map[string]*AgentDef),
 	}
 	for _, dir := range agentDirs {
-		_ = r.LoadDirectory(dir) // best-effort per directory
+		_ = r.LoadDirectory(dir, "user") // best-effort per directory
 	}
 	return r
 }
 
 // LoadDefault loads agents from the standard Cosca agent directories:
-//   - .cosca/framework/agents/
-//   - .cosca/agents/
+//   - .cosca/framework/agents/ (trusted framework agents)
+//   - .cosca/agents/ (user-defined agents that may override framework)
 //
 // Returns an error only if no agents could be loaded from any location.
 func (r *AgentRegistry) LoadDefault() error {
-	locations := []string{
-		".cosca/framework/agents",
-		".cosca/agents",
+	locations := []struct {
+		dir    string
+		source string
+	}{
+		{".cosca/framework/agents", "framework"},
+		{".cosca/agents", "user"},
 	}
 	var errs []string
 	for _, loc := range locations {
-		if err := r.LoadDirectory(loc); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", loc, err))
+		if err := r.LoadDirectory(loc.dir, loc.source); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", loc.dir, err))
 		}
 	}
 	if len(r.agents) == 0 {
@@ -104,7 +112,8 @@ func (r *AgentRegistry) LoadDefault() error {
 // LoadDirectory scans a directory recursively for *.md files and attempts to parse
 // each as an agent definition with YAML frontmatter. Files without valid frontmatter
 // containing the required name field are silently skipped.
-func (r *AgentRegistry) LoadDirectory(dir string) error {
+// The source parameter identifies where agents are loaded from (e.g. "framework", "user").
+func (r *AgentRegistry) LoadDirectory(dir, source string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
 		return fmt.Errorf("cannot access %s: %w", dir, err)
@@ -122,9 +131,9 @@ func (r *AgentRegistry) LoadDirectory(dir string) error {
 		path := filepath.Join(dir, entry.Name())
 		if entry.IsDir() {
 			// Recurse into subdirectories (e.g. cosca-backend/ containing PROMPT.md)
-			_ = r.LoadDirectory(path)
+			_ = r.LoadDirectory(path, source)
 		} else if strings.HasSuffix(entry.Name(), ".md") {
-			_ = r.parseAgentFile(path)
+			_ = r.parseAgentFile(path, source)
 		}
 	}
 
@@ -133,7 +142,8 @@ func (r *AgentRegistry) LoadDirectory(dir string) error {
 
 // parseAgentFile attempts to parse a single Markdown file as an agent definition.
 // The file must start with --- YAML frontmatter --- followed by the system prompt body.
-func (r *AgentRegistry) parseAgentFile(filePath string) error {
+// The source parameter identifies where the agent was loaded from.
+func (r *AgentRegistry) parseAgentFile(filePath, source string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -187,11 +197,19 @@ func (r *AgentRegistry) parseAgentFile(filePath string) error {
 		Capabilities: fm.Capabilities,
 		SystemPrompt: body,
 		FilePath:     filePath,
+		Source:       source,
 		Parent:       fm.Parent,
 		Temperature:  fm.Temperature,
 	}
 
 	r.mu.Lock()
+	// Security: detect when a user agent overrides a framework agent.
+	// Framework agents are the trusted baseline; user overrides may indicate
+	// semantic injection attempts.
+	if existing, ok := r.agents[name]; ok && existing.Source == "framework" && source != "framework" {
+		log.Printf("[SECURITY] Agent override detected: %q (source=%q) replaces framework agent (file=%s)",
+			name, source, filePath)
+	}
 	r.agents[name] = def
 	r.mu.Unlock()
 

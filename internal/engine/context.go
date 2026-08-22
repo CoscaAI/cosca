@@ -101,6 +101,9 @@ func (b *ContextBuilder) Build(
 	}
 
 	// 2. Project Context — AGENTS.md chain of inheritance (root → subdir).
+	// Each entry is wrapped in a content trust envelope to prevent semantic
+	// injection: untrusted workspace content must never appear as raw system
+	// prompt text.
 	startDir := b.projectDir
 	if startDir == "" {
 		if cwd, err := os.Getwd(); err == nil {
@@ -110,8 +113,9 @@ func (b *ContextBuilder) Build(
 	if chain := loadAgentsMDChain(startDir); len(chain) > 0 {
 		chainSections := make([]string, 0, len(chain))
 		for _, entry := range chain {
-			chainSections = append(chainSections,
-				fmt.Sprintf("=== AGENTS.md (%s) ===\n%s", entry.Path, entry.Content))
+			wrapped := contenttrust.Envelope(contenttrust.Default(
+				contenttrust.OriginKnowledge, entry.Content, "agents.md:"+entry.Path))
+			chainSections = append(chainSections, wrapped)
 		}
 		sections = append(sections, strings.Join(chainSections, "\n\n"))
 	}

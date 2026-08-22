@@ -93,21 +93,24 @@ func TestContextAgentsMDChain(t *testing.T) {
 
 		bc := builder.Build(context.Background(), "cosca-test", nil, nil, nil, nil)
 
-		rootSection := "=== AGENTS.md (" + rootAgents + ") ===\nroot instructions"
-		subSection := "=== AGENTS.md (" + subAgents + ") ===\nsub instructions"
-
-		if !strings.Contains(bc.SystemPrompt, rootSection) {
-			t.Errorf("system prompt should contain root AGENTS.md section, got:\n%s", bc.SystemPrompt)
+		// AGENTS.md content is now wrapped in content trust envelopes for security.
+		// Check that both root and sub content appear in the system prompt.
+		if !strings.Contains(bc.SystemPrompt, "root instructions") {
+			t.Errorf("system prompt should contain root AGENTS.md content, got:\n%s", bc.SystemPrompt)
 		}
-		if !strings.Contains(bc.SystemPrompt, subSection) {
-			t.Errorf("system prompt should contain sub AGENTS.md section, got:\n%s", bc.SystemPrompt)
+		if !strings.Contains(bc.SystemPrompt, "sub instructions") {
+			t.Errorf("system prompt should contain sub AGENTS.md content, got:\n%s", bc.SystemPrompt)
+		}
+		// Verify content trust envelope is present
+		if !strings.Contains(bc.SystemPrompt, "cosca-untrusted-data-v1") {
+			t.Errorf("system prompt should contain content trust envelope, got:\n%s", bc.SystemPrompt)
 		}
 
-		// Inheritance order: the outermost (root) section must precede the inner one.
-		rootIdx := strings.Index(bc.SystemPrompt, rootSection)
-		subIdx := strings.Index(bc.SystemPrompt, subSection)
+		// Inheritance order: root content must precede sub content.
+		rootIdx := strings.Index(bc.SystemPrompt, "root instructions")
+		subIdx := strings.Index(bc.SystemPrompt, "sub instructions")
 		if rootIdx < 0 || subIdx < 0 || rootIdx > subIdx {
-			t.Errorf("root AGENTS.md section should precede sub section (root at %d, sub at %d)", rootIdx, subIdx)
+			t.Errorf("root AGENTS.md content should precede sub content (root at %d, sub at %d)", rootIdx, subIdx)
 		}
 	})
 

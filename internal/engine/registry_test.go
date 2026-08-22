@@ -169,7 +169,7 @@ func TestLoadDirectory(t *testing.T) {
 		f.Close()
 
 		r := NewAgentRegistry()
-		err = r.LoadDirectory(f.Name())
+		err = r.LoadDirectory(f.Name(), "test")
 		if err == nil {
 			t.Error("expected error for non-directory path")
 		}
@@ -497,7 +497,7 @@ func TestAgentDefFields(t *testing.T) {
 
 		// Manually parse to check edge case
 		r := NewAgentRegistry()
-		err := r.parseAgentFile(p)
+		err := r.parseAgentFile(p, "test")
 		if err != nil {
 			t.Fatalf("parseAgentFile failed: %v", err)
 		}

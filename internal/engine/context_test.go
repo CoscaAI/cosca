@@ -72,8 +72,9 @@ func TestContextBuild(t *testing.T) {
 		if !strings.HasPrefix(bc.SystemPrompt, "You are a test agent. Be helpful.") {
 			t.Errorf("SystemPrompt = %q", bc.SystemPrompt)
 		}
-		if !strings.Contains(bc.SystemPrompt, "=== AGENTS.md (") {
-			t.Errorf("SystemPrompt deveria incluir o contexto AGENTS.md: %q", bc.SystemPrompt)
+		// AGENTS.md content is now wrapped in content trust envelopes for security.
+		if !strings.Contains(bc.SystemPrompt, "cosca-untrusted-data-v1") {
+			t.Errorf("SystemPrompt deveria incluir o contexto AGENTS.md (content trust envelope): %q", bc.SystemPrompt)
 		}
 		if bc.ContextLimit != DefaultMaxTokens {
 			t.Errorf("ContextLimit = %d", bc.ContextLimit)
@@ -90,8 +91,9 @@ func TestContextBuild(t *testing.T) {
 		if strings.Contains(bc.SystemPrompt, "You are a test agent") {
 			t.Errorf("expected no agent persona for empty name, got %q", bc.SystemPrompt)
 		}
-		if !strings.Contains(bc.SystemPrompt, "=== AGENTS.md (") {
-			t.Errorf("expected AGENTS.md project context, got %q", bc.SystemPrompt)
+		// AGENTS.md content is now wrapped in content trust envelopes for security.
+		if !strings.Contains(bc.SystemPrompt, "cosca-untrusted-data-v1") {
+			t.Errorf("expected AGENTS.md project context (content trust envelope), got %q", bc.SystemPrompt)
 		}
 	})
 
@@ -103,8 +105,9 @@ func TestContextBuild(t *testing.T) {
 		if strings.Contains(bc.SystemPrompt, "You are a test agent") {
 			t.Errorf("expected no agent persona for unknown agent, got %q", bc.SystemPrompt)
 		}
-		if !strings.Contains(bc.SystemPrompt, "=== AGENTS.md (") {
-			t.Errorf("expected AGENTS.md project context, got %q", bc.SystemPrompt)
+		// AGENTS.md content is now wrapped in content trust envelopes for security.
+		if !strings.Contains(bc.SystemPrompt, "cosca-untrusted-data-v1") {
+			t.Errorf("expected AGENTS.md project context (content trust envelope), got %q", bc.SystemPrompt)
 		}
 	})
 

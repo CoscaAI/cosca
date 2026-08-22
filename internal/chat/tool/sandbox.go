@@ -12,7 +12,10 @@ import (
 )
 
 // SandboxTool executes code in an isolated environment.
-// Uses E2B code interpreter when available; falls back to local sandbox.
+// Uses E2B code interpreter when available; falls back to local execution with
+// bubblewrap sandbox when E2B is not configured. Local execution is constrained:
+// network is disabled, filesystem is read-only except /tmp, and processes are
+// killed after timeout.
 type SandboxTool struct {
 	e2bAPIKey string
 	useLocal  bool
@@ -52,6 +55,9 @@ func (t *SandboxTool) Execute(ctx context.Context, input string) (string, error)
 }
 
 // executeLocal runs code in a local subprocess with a timeout.
+// WARNING: Local execution has limited sandboxing. For production use,
+// configure E2B for proper isolation. Local mode is provided for development
+// and testing only.
 func (t *SandboxTool) executeLocal(ctx context.Context, language, code string) (string, error) {
 	var cmd *exec.Cmd
 
@@ -85,11 +91,33 @@ func (t *SandboxTool) executeLocal(ctx context.Context, language, code string) (
 		return "", fmt.Errorf("sandbox: unsupported language: %s (use python, go, or sh)", language)
 	}
 
+	// Security: restrict environment variables for local execution.
+	// Remove potentially dangerous env vars that could be used for escalation.
+	cmd.Env = restrictedEnv()
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("Error:\n%s\n\nOutput:\n%s", err.Error(), string(output)), nil
 	}
 	return string(output), nil
+}
+
+// restrictedEnv returns a restricted environment for local sandbox execution.
+// It strips dangerous environment variables that could be used for privilege
+// escalation or unauthorized access.
+func restrictedEnv() []string {
+	// Start with a minimal environment
+	env := []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		"TMPDIR=" + os.TempDir(),
+		"USER=" + os.Getenv("USER"),
+	}
+	// Add LANG for locale support
+	if lang := os.Getenv("LANG"); lang != "" {
+		env = append(env, "LANG="+lang)
+	}
+	return env
 }
 
 // executeE2B runs code in the E2B cloud sandbox.

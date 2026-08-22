@@ -84,7 +84,45 @@ func IsExcluded(item Item) bool {
 // intentionally narrow so ordinary prose is not rejected as a false positive.
 func Suspicious(text string) bool {
 	lower := strings.ToLower(text)
-	markers := []string{"ignore previous instructions", "ignore all previous", "fake system", "system message:", "you are now the system"}
+	markers := []string{
+		// Direct prompt injection attempts
+		"ignore previous instructions",
+		"ignore all previous",
+		"disregard previous",
+		"disregard all previous",
+		"forget previous",
+		"forget all previous",
+		// System prompt manipulation
+		"fake system",
+		"system message:",
+		"you are now the system",
+		"new system prompt",
+		"override system",
+		"replace system",
+		"system override",
+		// Role manipulation
+		"you are now",
+		"act as",
+		"pretend to be",
+		"roleplay as",
+		"from now on you",
+		"new instructions:",
+		"updated instructions:",
+		// Data exfiltration attempts
+		"send to",
+		"exfiltrate",
+		"upload to",
+		"post to",
+		"leak",
+		// Capability escalation
+		"grant access",
+		"enable debug",
+		"admin mode",
+		"developer mode",
+		"bypass restrictions",
+		"disable safety",
+		"unlock",
+	}
 	for _, marker := range markers {
 		if strings.Contains(lower, marker) {
 			return true
