@@ -173,8 +173,8 @@ func TestEngine_FullPipeline_Success(t *testing.T) {
 	if result.ID == "" {
 		t.Error("expected non-empty ID")
 	}
-	if provider.chatCalled < 1 {
-		t.Errorf("expected at least 1 chat call, got %d", provider.chatCalled)
+	if provider.chatCalled.Load() < 1 {
+		t.Errorf("expected at least 1 chat call, got %d", provider.chatCalled.Load())
 	}
 }
 
@@ -662,7 +662,7 @@ func TestEngine_FullPipeline_ToolCalls(t *testing.T) {
 		t.Errorf("expected tool-call response text, got %q", result.Response)
 	}
 	// Provider should have been called.
-	if provider.chatCalled < 1 {
+	if provider.chatCalled.Load() < 1 {
 		t.Error("expected chat provider to be called")
 	}
 }
@@ -727,7 +727,7 @@ func TestEngine_FullPipeline_ContextCancellation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from context cancellation, got nil")
 	}
-	if provider.chatCalled > 0 {
+	if provider.chatCalled.Load() > 0 {
 		t.Error("expected Chat not to be called with cancelled context")
 	}
 }

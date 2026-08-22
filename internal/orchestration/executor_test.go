@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ type mockChatProvider struct {
 	// Controllable responses.
 	chatResponse *chat.ChatResponse
 	chatErr      error
-	chatCalled   int
+	chatCalled   atomic.Int64
 
 	// chatFn overrides the Chat method when set (allows dynamic behaviour).
 	chatFn func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error)
@@ -35,7 +36,7 @@ func newMockChatProvider(name, model string) *mockChatProvider {
 }
 
 func (m *mockChatProvider) Chat(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error) {
-	m.chatCalled++
+	m.chatCalled.Add(1)
 	if m.chatFn != nil {
 		return m.chatFn(ctx, messages, opts)
 	}
@@ -202,8 +203,8 @@ func TestExecute_Success(t *testing.T) {
 		t.Error("expected LLMUsage to be set")
 	}
 
-	if provider.chatCalled != 1 {
-		t.Errorf("expected 1 chat call, got %d", provider.chatCalled)
+	if provider.chatCalled.Load() != 1 {
+		t.Errorf("expected 1 chat call, got %d", provider.chatCalled.Load())
 	}
 }
 
@@ -566,8 +567,8 @@ func TestChatWithRetry_SuccessFirstAttempt(t *testing.T) {
 	if resp == nil {
 		t.Fatal("expected response")
 	}
-	if provider.chatCalled != 1 {
-		t.Errorf("expected 1 call, got %d", provider.chatCalled)
+	if provider.chatCalled.Load() != 1 {
+		t.Errorf("expected 1 call, got %d", provider.chatCalled.Load())
 	}
 }
 

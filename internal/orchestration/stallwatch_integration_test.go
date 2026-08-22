@@ -2,6 +2,7 @@ package orchestration
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,11 +14,11 @@ import (
 // events when the provider stops responding (deadline exceeded) and recovers
 // on a later attempt — the "loading forever" case, now observable.
 func TestStallCollectorRecordsProviderStall(t *testing.T) {
-	attempts := 0
+	attempts := atomic.Int32{}
 	provider := newMockChatProvider("test", "test-model")
 	provider.chatFn = func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error) {
-		attempts++
-		if attempts <= 2 {
+		n := attempts.Add(1)
+		if n <= 2 {
 			// Provider stops responding: wait for the attempt deadline.
 			<-ctx.Done()
 			return nil, ctx.Err()

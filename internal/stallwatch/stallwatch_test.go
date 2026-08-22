@@ -53,10 +53,10 @@ func TestWatchDetectsStallAndRetries(t *testing.T) {
 		Timeout: 10 * time.Millisecond, MaxRetries: 2, RetryDelay: time.Millisecond}
 
 	// First two attempts stall, third succeeds.
-	attempts := 0
+	var attempts atomic.Int32
 	err := w.Watch(context.Background(), spec, func(ctx context.Context) error {
-		attempts++
-		if attempts <= 2 {
+		n := attempts.Add(1)
+		if n <= 2 {
 			return blockingFn(ctx)
 		}
 		return nil
@@ -64,8 +64,8 @@ func TestWatchDetectsStallAndRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
-	if attempts != 3 {
-		t.Fatalf("attempts = %d, want 3", attempts)
+	if attempts.Load() != 3 {
+		t.Fatalf("attempts = %d, want 3", attempts.Load())
 	}
 
 	events := c.Events()
