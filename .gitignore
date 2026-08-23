@@ -74,3 +74,5 @@ cosca-forex/
 
 # Logs na raiz
 /*.log
+
+# Transient runtime auto-backups (Don policy: lixo transitorio).cosca/backups/
