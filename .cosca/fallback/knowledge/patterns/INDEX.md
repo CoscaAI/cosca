@@ -75,12 +75,13 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`ai-products-patterns.md`](ai-products-patterns.md) | AI Product Patterns (34 produtos/empresas de IA: Mistral open-weight/MoE, Grok real-time, Pi persona; Midjourney/Ideogram/Recraft/Leonardo/Magnific imagem+design+vector+upscale, Runway/Luma vídeo+3D, Synthasia/HeyGen avatar+lipsync, Suno música, Imgs curadoria; Copy.ai/Jasper/MarketMuse/QuillBot/Rephrase/Speechify escrita; Fireflies/Krisp/Vidyo meeting intelligence; Gamma/SlidesAI/Uizard/Looka/Durable/Taskade produtividade; DoNotPay/AdCreative/InVideo/OpusClub consumer; Claude Artifacts artefato vivo) | 0.70 | 2026-08-23 |
 | [`generative-media-patterns.md`](generative-media-patterns.md) | Generative Media Patterns (30 patterns: PCG Sceelix — dataflow graph engine, schema reflexivo, atributos+gramática, shape grammar BoxScope, terreno camadas+Perlin multi-oitava, seed/cache determinismo, componentes serializáveis; 3D Gaussian Splatting — gaussianas 3D, ativação inversa, SH view-dependent, SfM→semeadura, densificação adaptativa, rasterização diferenciável, LR por-propriedade; imagem ComfyUI — node graph declarativo, execução+ cache assinatura, ModelPatcher, LoRA patch, condicionamento/CFG, sampler/denoise, API assíncrona; áudio AudioCraft — codec discreto→LM, interleaving codebooks, fusão condicionamento, CFG empacotado, janelas+KV-cache, pós-processamento, BaseGenModel) | 0.90 | 2026-08-23 |
 | [`unreal-integration-patterns.md`](unreal-integration-patterns.md) | Unreal Engine Integration Patterns (22 patterns: PCG grafo espacial data-driven+seed, PCGData átomo de mundo, regras reconfiguráveis, runtime vs cook; World Partition células+streaming+Data Layers; Gameplay Framework GameMode/GameState/Controller+Pawn/Character+Actor Component; AI Framework AIController+Behavior Tree+Blackboard, Perception, GAS abilities/attributes/effects, animação/Control Rig; Data Assets+Blueprint/C+++UInterface; ponte Cosca↔Unreal — agente como ACoscaAgentPawn (corpo) dirigido pela mente Cosca, loop percebe→decide→age→estado, WebSocket bridge) | 0.78 | 2026-08-23 |
+| [`mining-map-world-vivo.md`](mining-map-world-vivo.md) | Mapa de Mineração do Mundo Vivo — 10 camadas tecnológicas (Procedural World, Character/3D, Game AI, Agent Memory, Vision, Spatial AI, VFX, Audio, Destruction, Simulation), template REPO→UTILITY por projeto, top projetos por camada com license+stars, gaps identificados, ordem de mineração recomendada, prioridade: projetos que resolveram "IA→operacional" (professor) | 0.82 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 38 |
+| Total patterns | 39 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |

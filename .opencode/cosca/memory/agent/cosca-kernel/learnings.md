@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Mapa de Mineração do Mundo Vivo (orientação do professor)
+
+### 2026-08-23 — Mapa de Mineração (professor) — 10 camadas + template REPO→UTILITY
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | O Don compartilhou orientação do professor sobre o que estudar/minerar. Professor propôs 10 camadas tecnológicas + template REPO→UTILITY por projeto + prioridade em "projetos que resolveram IA→operacional". Executar: mapear as 10 camadas, cruzar com o que já temos, identificar gaps, produzir mapa operacional. |
+| **Technique** | Level 3 — Strategy mining. Produzi `mining-map-world-vivo.md` (10 camadas, template, gaps, ordem de mineração). |
+| **Level** | 3 |
+| **Outcome** | success (strategy) |
+| **Confidence** | 0.82 (mining strategy domain) |
+| **Tags** | #mining #strategy #professor #10layers #operational-tools #gaps |
+| **Related** | .cosca/fallback/knowledge/patterns/mining-map-world-vivo.md |
+| **Learned** | 1) **Tese do professor é CORRETA e alinhada ao objetivo:** "Quais capacidades dar ao agente pra construir, perceber, modificar o mundo?" — o Cosca já é o cérebro; faltam ferramentas OPERACIONAIS (não "qual a melhor IA"). 2) **10 camadas** mapeadas: Procedural World (1), Character/3D (2), Game AI (3), Agent Memory (4), Vision (5), Spatial AI (6), VFX (7), Audio (8), Destruction (9), Simulation (10). 3) **Gaps críticos identificados** (zero coberto no caderno): Vision (SAM/CLIP), Spatial AI (scene graphs neurais), VFX (Taichi), áudio espacial, multi-agent com memória/relações (Microverse). 4) **Template REPO→UTILITY** é o framework certo de enriquecimento (REPO→PAPER→MODEL→LICENSE→DEPS→BENCHMARK→INTEGRATION→PLUGIN→UTILITY). 5) **Prioridade do professor bate:** os 10 top "operacionais" (ComfyUI ✓, AutoGPT, MemGPT, LangGraph, Gaussian Splatting ✓, TripoSR, SAM2, Taichi, AudioCraft ✓, Qwen3-TTS) — deles, 4 já mineramos (ComfyUI, Gaussian, AudioCraft, PCG). 6) **Ordem de mineração recomendada:** Vision→Spatial AI→VFX→Audio espacial→Multi-agent→Destruição→Simulação→City/Terrain. 7) **Fraco no GitHub:** queries específicas (game destruction, AI director, NPC memory, text-to-3D-asset) retornam resultados fracos — os projetos de referência são conhecidos por outra via (comunidade, papers, não busca exata). |
+| **Next** | Quando o NVMe de 2TB chegar, executar a mineração por camada na ordem acima, aplicando o template REPO→UTILITY a cada âncora. Começar com Vision (SAM/CLIP) — é o que mais destrava o agente "enxergar" o mundo. |
+
+---
+
 ## Session: 2026-08-23 — Mineração Unreal Engine (o runtime do "viver no jogo")
 
 ### 2026-08-23 — Mineração Unreal Engine (arquitetura) — o agente vivo no mundo
