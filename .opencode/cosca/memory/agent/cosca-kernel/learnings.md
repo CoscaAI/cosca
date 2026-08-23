@@ -526,3 +526,17 @@
 | **Related** | .opencode/cosca/memory/agent/cosca-{cto,product,memory-chief,paradigm,ceo,evolution,release,uiux}/ |
 | **Learned** | (1) 7/8 agentes ativados com sucesso: cto (0.72), product (0.65), memory-chief (0.62), ceo (0.77), evolution (0.72), release (0.75), uiux (0.50). (2) cosca-paradigm tem activation gate legitimo — requer 3 meses de Confidence Model data (previsao Out/2026). O framework esta plantado em seed, a porta se abre automaticamente. (3) Cross-agent synthesis: cto encontrou 2 P0 gaps (sandbox cgroups, gRPC auth) + tripla superficie de API; ceo validou que sao os mesmos 3 gargalos reais; release descobriu versao stale (hardcoded 1.0.0-rc.1) e repo errado no goreleaser. (4) Resultado: 54/55 agentes ativos (98%), 1 gated (paradigm). Meta 55/55 alcancada conceitualmente — paradigma desbloqueia em Out/2026. |
 | **Next** | Consolidar relatorios da Onda 6 em sessao unificada. Iniciar execucao dos P0 gaps identificados: (1) sandbox cgroups v2 + seccomp, (2) gRPC auth interceptors, (3) abstração de handlers REST/gRPC/MCP, (4) fix version string + goreleaser repo. |
+
+### 2026-08-23 — Primeiro Cubo no Unreal (Hito Histórico)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Fazer o Cosca spawnar entidade visível no UE5.8 via WebSocket. |
+| **Technique** | Level 4 — Debugging profundo: 5+ bugs encadeados (IMPLEMENT_MODULE, engine GUID, TCHAR vs UTF-8, BINARY frames, StaticMesh nullptr). |
+| **Level** | 4 |
+| **Outcome** | success (cubo visível no mundo!) |
+| **Confidence** | 0.95 |
+| **Tags** | #unreal #living-world #milestone #first-entity #debugging |
+| **Related** | CoscaRuntime plugin, websocket.go, CoscaWorldSubsystem.cpp |
+| **Learned** | (1) **StaticMeshActor sem mesh = nada visível**: criar o ator não basta, precisa atribuir `SetStaticMesh()` com mesh do engine (`/Engine/BasicShapes/Cube.Cube`). (2) **Material verde falhou**: cubo padrão do engine não expõe parâmetro `BaseColor` para `UMaterialInstanceDynamic`. Para colorir, usar material custom ou `Color` parameter. (3) **Ordem correta**: Spawn → SetMobility(Movable) → SetStaticMesh → SetTransform → CreateMaterial → SetMaterial → ENTITY_CREATED. (4) **Plano do professor (16 etapas)**: Actors/Components → Meshes → Asset Import → Materials → Transforms → Instanced Meshes → PCG → World Partition → Niagara → Chaos → MetaSounds → Pawn/Character → AI → Gameplay Events → Save/Load → Cosca↔Unreal Sync. (5) **Próximo hito**: parar de usar cubo como solução genérica, construir pipeline real: AssetRequest → Blender → Unreal Asset → Entity → WorldModel. |
+| **Next** | Aplicar plano do professor. Próximo vertical slice: asset real (não cubo), pipeline Blender→Unreal completo. |

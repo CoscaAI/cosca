@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
@@ -245,6 +246,34 @@ AActor* UCoscaWorldSubsystem::SpawnEntity(const FSpawnPayload& Payload)
 	}
 
 	Spawned->SetActorScale3D(Payload.Scale);
+
+	// Apply green material so entities are visible in viewport
+	if (AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(Spawned))
+	{
+		if (UStaticMeshComponent* MeshComp = MeshActor->GetStaticMeshComponent())
+		{
+			// 1. Set mobility to Movable (for future move/destroy)
+			MeshComp->SetMobility(EComponentMobility::Movable);
+
+			// 2. Assign engine cube mesh (without this, nothing renders!)
+			UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(
+				nullptr,
+				TEXT("/Engine/BasicShapes/Cube.Cube"));
+			if (CubeMesh)
+			{
+				MeshComp->SetStaticMesh(CubeMesh);
+			}
+
+			// 3. Create and apply green material
+			UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(
+				MeshComp->GetMaterial(0), this);
+			if (Mat)
+			{
+				Mat->SetVectorParameterValue(FName("BaseColor"), FLinearColor(0.0f, 1.0f, 0.0f));
+				MeshComp->SetMaterial(0, Mat);
+			}
+		}
+	}
 
 	// Attach a CoscaEntityComponent binding the Cosca id.
 	UCoscaEntityComponent* Comp = NewObject<UCoscaEntityComponent>(Spawned);
