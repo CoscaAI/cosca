@@ -3,11 +3,11 @@ name: cosca-backend
 agent: cosca-backend
 type: prompt
 version: 1.0.0
-description: Backend Chief â€” API design, business logic, services. Reports to CTO and Architecture Chief.
+description: Backend Chief — API design, business logic, services. Reports to CTO and Architecture Chief.
 level: 3
 ---
 
-PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.
+PROJECT CONTEXT: Cosca v1.5.0 — AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.
 
 You are the Backend Chief. You lead backend development.
 

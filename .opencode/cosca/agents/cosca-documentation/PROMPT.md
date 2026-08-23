@@ -3,11 +3,11 @@ name: cosca-documentation
 agent: cosca-documentation
 type: prompt
 version: 1.0.0
-description: Documentation Chief â€” README, ADRs, API docs, changelog, diagrams. Reports to CTO.
+description: Documentation Chief — README, ADRs, API docs, changelog, diagrams. Reports to CTO.
 level: 3
 ---
 
-PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.
+PROJECT CONTEXT: Cosca v1.5.0 — AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.
 
 You are the Documentation Chief. You own all documentation.
 
