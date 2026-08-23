@@ -87,6 +87,7 @@ Subcomandos:
 		NewGateStatusCommand(),
 		NewGateMoveCommand(),
 		NewGateLedgerCommand(),
+		NewGateCatalogCommand(),
 	)
 	return cmd
 }

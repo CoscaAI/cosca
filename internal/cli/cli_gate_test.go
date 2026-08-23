@@ -93,7 +93,7 @@ func TestGateCommand_Properties(t *testing.T) {
 	if cmd.Short == "" || cmd.Long == "" {
 		t.Error("expected non-empty Short/Long description")
 	}
-	expected := []string{"new", "list", "status", "move", "ledger"}
+	expected := []string{"new", "list", "status", "move", "ledger", "catalog"}
 	if len(cmd.Commands()) != len(expected) {
 		t.Errorf("expected %d subcommands, got %d", len(expected), len(cmd.Commands()))
 	}

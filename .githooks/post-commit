@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# post-commit — reindexa o knowledge base quando o framework muda.
+# post-commit — reindexa o knowledge base quando o framework muda e valida o
+# catálogo (.opencode/cosca) via `cosca gate catalog --check --summary`.
 #
 # Conectado via `git config core.hooksPath .githooks`. Roda em background
 # (setsid) para não travar o commit; o hash-check do indexador pula arquivos
 # inalterados, então só os .md/.yaml alterados são re-embeddados.
+#
+# Catálogo: quando algo em .opencode/cosca/ muda no último commit, roda
+# `cosca gate catalog --check --summary`. Se falhar (drift), imprime a
+# orientação de re-gerar o snapshot — MAS NUNCA trava o commit (post-commit
+# sempre retorna 0). A esteira avisa, não bloqueia.
 #
 # Windows: o git-for-windows executa hooks SEM extensão (este arquivo) via
 # bash embutido e NÃO invoca post-commit.cmd sozinho. Quando detectamos
@@ -23,7 +29,19 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 FRAMEWORK_DIR="$REPO_ROOT/internal/embed/cosca"
+COSCA_BIN="${COSCA_BIN:-/home/cosca/.cosca/bin/cosca}"
 
+# --- Catálogo (.opencode/cosca) — generate-and-diff ---
+CATALOG_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^\.opencode/cosca/' | head -100 || true)"
+if [ -n "$CATALOG_CHANGED" ]; then
+  if [ -x "$COSCA_BIN" ]; then
+    if ! (cd "$REPO_ROOT" && "$COSCA_BIN" gate catalog --check --summary >/tmp/cosca-catalog.log 2>&1); then
+      echo "catálogo desatualizado — rode cosca gate catalog --generate e commite" >&2
+    fi
+  fi
+fi
+
+# --- Framework internal/embed/cosca (embeddings) ---
 # Só faz sentido se o framework existir
 [ -d "$FRAMEWORK_DIR" ] || exit 0
 
@@ -31,7 +49,6 @@ FRAMEWORK_DIR="$REPO_ROOT/internal/embed/cosca"
 CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^internal/embed/cosca/.*\.(md|yaml)$' | head -100 || true)"
 [ -n "$CHANGED" ] || exit 0
 
-COSCA_BIN="${COSCA_BIN:-/home/cosca/.cosca/bin/cosca}"
 [ -x "$COSCA_BIN" ] || exit 0
 
 # Desacopla do git (o hook não espera nem bloqueia o commit)
