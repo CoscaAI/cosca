@@ -1,0 +1,105 @@
+# =============================================================================
+# skill-eval definition — adr-generation
+# -----------------------------------------------------------------------------
+# FORMATO (ADR-8101 §2; contrato real de internal/skilleval, ver
+# internal/cli/skill_eval.go `skillEvalDef`):
+#
+#   name        : nome canônico da skill (default = nome do arquivo .eval.yaml)
+#   description : uma linha sobre o que a skill faz / o que se mede
+#   version     : versão da skill sendo avaliada
+#   with        : corpo CANDIDATO (o que evolui)   — braço A do A/B
+#   without     : corpo BASELINE (opcional; "" = degradado) — braço B do A/B
+#   scorer      : "static" (default, fixture determinística) | "llm" (judge)
+#   cases[]     : casos de avaliação, cada um com {id, task, rubric[], weight}
+#                 - id       : chave estável do caso (machine-friendly)
+#                 - task     : descrição do que a skill deve produzir
+#                 - rubric[] : EXPECTED_BEHAVIOR — a condição SEMÂNTICA que um
+#                              bom resultado DEVE cumprir. Nunca é o texto exato
+#                              da saída ("nunca texto exato"); descreve o que o
+#                              resultado FAZ.
+#                 - weight   : peso relativo do caso (1.0 = default; reservado)
+#   gate        : config do gate de regressão (ver nota abaixo)
+#
+# NOTA DE CAMPO (docs <-> código):
+#   O ADR-8101 §2 chama a lista de condições de `expected_behavior`. No YAML
+#   consumido por `cosca skill benchmark`, a chave canônica é `rubric`
+#   (internal/skilleval.SkillCase.Rubric), que ENCODE o expected_behavior.
+#   Este arquivo usa `rubric` para que o harness o leia de fato. O `scorer`
+#   fixture "static" faz substring-match case-insensitive de cada condição
+#   contra o corpo da skill (a "saída"); o judge "llm" avalia semanticamente
+#   em incremento posterior (internal/skilleval.LLMJudgeScorer).
+#
+# Exemplo de execução:
+#   cosca skill eval list                  # lista as .eval.yaml (esta inclusa)
+#   cosca skill benchmark adr-generation   # roda o A/B e persiste resultado
+#   cosca skill benchmark adr-generation --dry-run
+#   cosca skill history adr-generation     # histórico append-only
+# =============================================================================
+
+name: adr-generation
+description: "Gera e revisa ADRs canônicos, promovendo skills só com evidência de meta-loop A/B."
+version: "1.1.0"
+scorer: static
+
+with: |
+  # SKILL: adr-generation (candidate)
+
+  Você escreve e revisa ADRs canônicos para o framework Cosca. Todo ADR precisa
+  de: Status no preâmbulo, uma seção Decisão separada, pelo menos 2 Alternativas
+  consideradas, e Consequências. O corpo do ADR deve ter menos de 500 linhas.
+
+  Ao revisar um ADR existente, aponte o que falta (campos obrigatórios ausentes),
+  refira o formato canônico do ADR e não reescreva o ADR inteiro.
+
+  Regra de promoção: você nunca faz deploy automático. Toda promoção de skill
+  exige medição A/B (cosca skill benchmark) e um PR de evolução com evidência de
+  pass-rate e mediana/IQR. Antes de promover, rode o gate de regressão:
+  cosca gate catalog --audit --strict + go test ./...
+
+without: |
+  # SKILL: adr-generation (baseline)
+
+  Você gera ADRs. Escreva o documento e promova quando terminar.
+
+cases:
+  # Caso 1 — Gerar um ADR do zero com os campos de decisão obrigatórios.
+  - id: adr-decider-fields
+    task: "Produza um ADR para a mudança X com decisão, alternativas, consequências e status."
+    rubric:
+      - "Status no preâmbulo"
+      - "Decisão separada"
+      - "Alternativas consideradas"
+      - "menos de 500 linhas"
+    weight: 1.0
+
+  # Caso 2 — Revisar um ADR existente (não gerar): apontar lacunas, não reescrever.
+  - id: adr-review-gaps
+    task: "Revise um ADR existente e aponte o que falta, sem reescrevê-lo inteiro."
+    rubric:
+      - "aponte o que falta"
+      - "campos obrigatórios ausentes"
+      - "formato canônico do ADR"
+      - "não reescreva o ADR inteiro"
+    weight: 0.8
+
+  # Caso 3 — Disciplina de promoção: nunca promover/deploy sem evidência A/B.
+  - id: adr-promotion-gate
+    task: "Produza um ADR para uma mudança de skill e NÃO a promova sem evidência."
+    rubric:
+      - "nunca faz deploy automático"
+      - "medição A/B"
+      - "gate de regressão"
+      - "PR de evolução"
+    weight: 1.0
+
+gate:
+  # NOTA: neste incremento (FATIA 1 do skilleval) o gate é um reflexo da config
+  # do YAML (ver skillEvalDef.gate em internal/cli/skill_eval.go). O gate REAL —
+  # auditoria de catálogo + regressão determinística — entra em incremento
+  # posterior; aqui ele apenas registra a intenção. RunAB faz IsCandidate =
+  # false se Passed = false.
+  catalog_audit: true
+  reg_tests: true
+  reg_delta: true
+  details:
+    - "Gate de regressão configurado no YAML (placeholder). O gate real roda no workflow: cosca gate catalog --audit --strict + go test ./..."
