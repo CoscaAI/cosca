@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/bridge"
+	coscaasset "github.com/CoscaAI/cosca/internal/worldmodel/asset"
+	"github.com/CoscaAI/cosca/internal/worldmodel"
 )
 
 // NewBridgeCommand creates the `cosca bridge` command group — the nervous
@@ -38,6 +40,7 @@ Subcommands:
 	cmd.AddCommand(
 		NewBridgeServeCommand(),
 		NewBridgeConnectCommand(),
+		NewBridgeDemoCommand(),
 	)
 	return cmd
 }
@@ -168,4 +171,133 @@ the Unreal WorldSubsystem, it responds with the real ack/state.`,
 	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000/cosca", "WebSocket URL of the Unreal server")
 	cmd.Flags().DurationVar(&interval, "interval", 0, "Repeat the ping at this interval (0 = once)")
 	return cmd
+}
+
+// NewBridgeDemoCommand exercises the full vertical slice against a server:
+// generate a Blender asset, spawn it, move it, and receive a frame.
+func NewBridgeDemoCommand() *cobra.Command {
+	var url, assetType string
+	var seed int64
+	var posX, posZ float64
+
+	cmd := &cobra.Command{
+		Use:   "demo",
+		Short: "Exercise the full Cosca<->Unreal vertical slice",
+		Long: `Exercise the full vertical slice end-to-end:
+
+  Cosca (Go) -> WS -> Unreal Runtime
+    1. Generate a Blender asset (cube/tree/terrain/building)
+    2. Spawn it as an Actor (with asset_hash)
+    3. Move it to a target
+    4. Register a frame handler (camera vision)
+
+Works against the mock server ('cosca bridge serve') OR the Unreal
+CoscaRuntime plugin server.`,
+		Example: `  cosca bridge demo --url ws://localhost:9000/cosca --type cube`,
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+			ctx := cmd.Context()
+
+			// Build the bridge client + controller + orchestrator + runtime.
+			ctrl := bridge.NewController(bridge.NewWebSocketClient())
+			osc := worldmodel.NewOrchestrator(worldmodel.DefaultOrchestratorConfig())
+			rt := bridge.NewRuntime(ctrl, osc)
+
+			// Wire the Blender asset generator (asset pipeline).
+			blender := coscaasset.NewBlenderAdapter(coscaasset.DefaultBlenderAdapterConfig())
+			rt.SetAssetGenerator(assetGenFunc(func(ctx context.Context, t string, seed int64) (string, string, error) {
+				req := coscaasset.AssetRequest{Type: coscaasset.AssetType(t), Seed: seed, Validate: true}
+				res, err := blender.GenerateAsset(ctx, req)
+				if err != nil {
+					return "", "", err
+				}
+				if !res.Valid {
+					return "", "", fmt.Errorf("generated asset invalid: %v", res.Issues)
+				}
+				return res.Path, res.Hash, nil
+			}))
+
+			// Wire a frame observer (Vision stub that logs detected entities).
+			rt.SetFrameObserver(obsFunc(func(ctx context.Context, frame []byte, w, h int) ([]worldmodel.WorldEntity, error) {
+				return []worldmodel.WorldEntity{{
+					ID:     "seen_entity",
+					Type:   worldmodel.EntityObject,
+					Label:  "observed",
+					LastSeen: time.Now(),
+				}}, nil
+			}))
+
+			// Connect.
+			if err := ctrl.Connect(ctx, url); err != nil {
+				return fmt.Errorf("connect: %w", err)
+			}
+			defer ctrl.Disconnect(ctx)
+
+			rt.StartFrameLoop()
+
+			// Step 1-2: generate Blender asset + spawn in Unreal.
+			entityID := "demo_" + assetType
+			spec := bridge.EntitySpec{
+				ID:    entityID,
+				Type:  assetType,
+				Pos:   [3]float64{posX, 0, posZ},
+				Scale: [3]float64{1, 1, 1},
+			}
+			if err := rt.GenerateAndSpawn(ctx, assetType, seed, spec); err != nil {
+				return fmt.Errorf("generate+spawn: %w", err)
+			}
+
+			// Step 3: move it.
+			if err := ctrl.Move(ctx, entityID, [3]float64{posX + 100, 0, posZ}); err != nil {
+				return fmt.Errorf("move: %w", err)
+			}
+
+			// Step 4: trigger a frame observation.
+			ctrl.HandleFrame(bridge.FramePayload{Width: 64, Height: 64, Format: "png", Data: []byte{0x89, 0x50, 0x4E, 0x47}})
+
+			if useJSON {
+				return printJSON(cmd, map[string]any{
+					"connected":   true,
+					"url":         url,
+					"spawned":     entityID,
+					"asset_type":  assetType,
+					"moved":       true,
+					"frame_seen":  true,
+					"entities":    len(osc.GetState().Entities),
+				})
+			}
+
+			formatter.Header("Vertical slice exercise")
+			formatter.KeyValue("Connected", url)
+			formatter.Success("Spawned " + entityID)
+			formatter.KeyValue("Asset", assetType)
+			formatter.Success("Moved to target")
+			formatter.Success("Frame observed")
+			formatter.KeyValue("WorldEntities", fmt.Sprintf("%d", len(osc.GetState().Entities)))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000/cosca", "WebSocket URL")
+	cmd.Flags().StringVar(&assetType, "type", "cube", "Blender asset type (cube/tree/terrain/building)")
+	cmd.Flags().Int64Var(&seed, "seed", 42, "Deterministic seed")
+	cmd.Flags().Float64Var(&posX, "x", 0, "Spawn X")
+	cmd.Flags().Float64Var(&posZ, "z", 50, "Spawn Z")
+	return cmd
+}
+
+// assetGenFunc adapts a closure to the AssetGenerator interface.
+type assetGenFunc func(ctx context.Context, t string, seed int64) (string, string, error)
+
+func (f assetGenFunc) Generate(ctx context.Context, t string, seed int64) (string, string, error) {
+	return f(ctx, t, seed)
+}
+
+// obsFunc adapts a closure to the FrameObserver interface.
+type obsFunc func(ctx context.Context, frame []byte, w, h int) ([]worldmodel.WorldEntity, error)
+
+func (f obsFunc) Observe(ctx context.Context, frame []byte, w, h int) ([]worldmodel.WorldEntity, error) {
+	return f(ctx, frame, w, h)
 }

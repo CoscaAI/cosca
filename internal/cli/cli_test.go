@@ -103,6 +103,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"terminal",
 		"project",
 		"asset",
+		"bridge",
 		"task",
 		"model",
 		"gpu",
