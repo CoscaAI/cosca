@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Camada Spatial AI (Gap #2 do mining map)
+
+### 2026-08-23 — Spatial AI Layer — o agente entende o espaço
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Gap #2 do mining-map-world-vivo.md: minar a camada Spatial AI (SLAM, NeRF, reconstrução 3D, raciocínio espacial) seguindo o template do professor. |
+| **Technique** | Level 3 — Mining por camada. Busquei GitHub (stars/license) + produção de `spatial-ai-layer-patterns.md` (7 projetos, pipeline espacial, template completo). |
+| **Level** | 3 |
+| **Outcome** | success (spatial) |
+| **Confidence** | 0.83 (spatial domain) |
+| **Tags** | #mining #spatial #slam #nerf #reconstruction #3d |
+| **Related** | .cosca/fallback/knowledge/patterns/spatial-ai-layer-patterns.md |
+| **Learned** | 1) **Pipeline espacial do agente mapeado**: câmera → ORB-SLAM3/MASt3R-SLAM (localização) → Instant-NGP/Meshroom (reconstrução 3D) → Spatial Reasoning VLM (relações). 2) **Licenças**: ORB-SLAM3 (GPL ⚠️), NICE-SLAM/Spatial Reasoning (Apache ✅), NeRF (MIT ✅), Instant-NGP/Meshroom (Custom ⚠️), MASt3R-SLAM (verificar). 3) **Prioridade**: ORB-SLAM3 primeiro (GPS do agente, CPU, funciona sem GPU) → MASt3R-SLAM (se estável) → Instant-NGP (scanner 3D) → Spatial Reasoning → NICE-SLAM → Meshroom. 4) **Cada projeto = uma capacidade**: ORB-SLAM3="GPS", Instant-NGP="scanner", Meshroom="fotogrametrista", Spatial Reasoning="inteligência espacial". 5) **O agente com Spatial AI sabe onde está e como é o mundo ao redor** — é a camada que conecta visão (o que vê) a ação (onde ir, o que fazer). |
+| **Next** | Continuar com as 3 camadas restantes: VFX (#7), Audio espacial (#8), Destruction/Simulation. Depois, quando o NVMe chegar, instalar ORB-SLAM3+Instant-NGP como primeiro módulo espacial. |
+
+---
+
 ## Session: 2026-08-23 — Camada Vision (Gap #1 do mining map)
 
 ### 2026-08-23 — Vision Layer — o agente enxerga o mundo

@@ -77,12 +77,13 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`unreal-integration-patterns.md`](unreal-integration-patterns.md) | Unreal Engine Integration Patterns (22 patterns: PCG grafo espacial data-driven+seed, PCGData átomo de mundo, regras reconfiguráveis, runtime vs cook; World Partition células+streaming+Data Layers; Gameplay Framework GameMode/GameState/Controller+Pawn/Character+Actor Component; AI Framework AIController+Behavior Tree+Blackboard, Perception, GAS abilities/attributes/effects, animação/Control Rig; Data Assets+Blueprint/C+++UInterface; ponte Cosca↔Unreal — agente como ACoscaAgentPawn (corpo) dirigido pela mente Cosca, loop percebe→decide→age→estado, WebSocket bridge) | 0.78 | 2026-08-23 |
 | [`mining-map-world-vivo.md`](mining-map-world-vivo.md) | Mapa de Mineração do Mundo Vivo — 10 camadas tecnológicas (Procedural World, Character/3D, Game AI, Agent Memory, Vision, Spatial AI, VFX, Audio, Destruction, Simulation), template REPO→UTILITY por projeto, top projetos por camada com license+stars, gaps identificados, ordem de mineração recomendada, prioridade: projetos que resolveram "IA→operacional" (professor) | 0.82 | 2026-08-23 |
 | [`vision-layer-patterns.md`](vision-layer-patterns.md) | Camada 5 Vision — 6 projetos (SAM2: segmentação, CLIP: visão→linguagem, GroundingDINO: detecção grounded, DINOv2: features visuais, YOLO: detecção real-time, Depth Anything V2: profundidade monocular), pipeline visual do agente (frame→detect→segment→classificar→profundidade→memória), template REPO→UTILITY completo, prioridade de instalação | 0.85 | 2026-08-23 |
+| [`spatial-ai-layer-patterns.md`](spatial-ai-layer-patterns.md) | Camada 6 Spatial AI — 7 projetos (ORB-SLAM3: localização clássica, NICE-SLAM: SLAM neural, Instant-NGP: scanner 3D, NeRF: base conceitual, Meshroom: fotogrametria completa, MASt3R-SLAM: SLAM moderno, Spatial Reasoning VLM: raciocínio espacial), pipeline espacial (câmera→localizar→mapeiar 3D→entender relações), template REPO→UTILITY | 0.83 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 40 |
+| Total patterns | 41 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |
