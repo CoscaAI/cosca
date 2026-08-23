@@ -77,6 +77,28 @@ func (c *Controller) SetFrameHandler(fn func(frame FramePayload)) {
 	c.onFrame = fn
 }
 
+// HandleFrame routes an incoming frame to the registered handler.
+// It is called by the client's OnMessage wiring and can be invoked directly
+// (e.g. in tests or when a frame arrives out-of-band).
+func (c *Controller) HandleFrame(frame FramePayload) {
+	c.mu.Lock()
+	fn := c.onFrame
+	c.mu.Unlock()
+	if fn != nil {
+		fn(frame)
+	}
+}
+
+// HandleState routes an incoming state snapshot to the registered handler.
+func (c *Controller) HandleState(snap StateSnapshot) {
+	c.mu.Lock()
+	fn := c.onState
+	c.mu.Unlock()
+	if fn != nil {
+		fn(snap)
+	}
+}
+
 // SetStateHandler registers the handler for incoming state syncs.
 func (c *Controller) SetStateHandler(fn func(state StateSnapshot)) {
 	c.mu.Lock()
