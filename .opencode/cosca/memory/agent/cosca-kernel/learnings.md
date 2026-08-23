@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Implementation Plan (Living World)
+
+### 2026-08-23 — Implementation Plan — de mineração para execução
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | O Don mudou de modo: MINING → IMPLEMENTATION PLANNING. Produzir plano executável para "Cosca Living World" preservando arquitetura existente. |
+| **Technique** | Level 4 — Architecture + Planning. Auditoria completa (32 packages, 92 CLI, 52 REST, 0 testes, 0 C/C++), gap matrix, arquitetura, 7 fases, vertical slice. |
+| **Level** | 4 |
+| **Outcome** | success (planning) |
+| **Confidence** | 0.88 (architecture domain) |
+| **Tags** | #architecture #planning #living-world #implementation #gap-matrix |
+| **Related** | .cosca/fallback/knowledge/patterns/implementation-plan.md |
+| **Learned** | 1) **O Cosca já tem MUITA infraestrutura**: node graph, scene graph, ECS, procgen, media, orchestration, memory, knowledge, search, plugins, deliberation, CLI (92 cmds), API (52 endpoints). O que falta são ADAPTERS e INTERFACES. 2) **Zero test coverage** em todos os 32 packages — é o maior risco de qualidade. 3) **Zero dependências de vision/audio/spatial/physics** — todo ML é via API providers. Isso é uma FORÇA — integração via subprocessos/APIs, não bibliotecas C++ embutidas. 4) **Arquitetura definida**: Cosca = cognition, Unreal = body, Adapters = nervous system. Provider interfaces (VisionProvider, SpatialProvider, etc.) + Adapter pattern (CLIP, SAM, Whisper, etc. via subprocesso Python). 5) **World Model tipos**: WorldEntity, SpatialObservation, SpatialRelation, WorldState, ClimateState. 6) **7 fases**: Foundation (2-3d) → Vision (5-7d) → Spatial (5-7d) → VFX (3-5d) → Audio (4-6d) → Destruction (3-4d) → Simulation (3-4d) → Multi-Agent (5-7d). Total: 30-43 dias. 7) **Vertical slice**: câmera → frame → vision → spatial observation → world model → deliberate → action → Unreal. Critério: <2s latência total. 8) **Hardware do Don é suficiente**: Ryzen 7 5700X3D, 32GB, RX 6700 XT (12GB VRAM). |
+| **Next** | Esperar aprovação do Don para FASE 0 (Foundation). Começar por worldmodel/types.go + providers/ + adapters/ + bridge/. Sem dependências externas. |
+
+---
+
 ## Session: 2026-08-23 — Camadas Destruction (#9) e Simulation (#10) — as últimas
 
 ### 2026-08-23 — Destruction + Simulation — o mundo é modificável e evolui
