@@ -355,6 +355,44 @@ type PhysicsResult struct {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Destruction
+// ──────────────────────────────────────────────────────────────
+
+// Material represents physical material properties.
+type Material struct {
+	Name        string  `json:"name"`         // "concrete", "glass", "wood", "metal"
+	Density     float64 `json:"density"`      // kg/m³
+	Hardness    float64 `json:"hardness"`     // 0.0 - 1.0
+	FractureType string `json:"fracture_type"` // "voronoi", "markov", "cutoff"
+	Toughness   float64 `json:"toughness"`    // resistance to fracture
+}
+
+// Fragment represents a piece broken off from a mesh.
+type Fragment struct {
+	ID           string    `json:"id"`
+	Position     Vec3      `json:"position"`
+	Rotation     Quat      `json:"rotation"`
+	Velocity     Vec3      `json:"velocity"`
+	AngularVel   Vec3      `json:"angular_velocity"`
+	Mass         float64   `json:"mass"`          // kg
+	Volume       float64   `json:"volume"`        // m³
+	BoundingSphereRadius float64 `json:"bounding_radius"`
+	Mesh         *Mesh     `json:"mesh,omitempty"` // fragment geometry
+	Timestamp    time.Time `json:"timestamp"`
+}
+
+// Debris represents secondary destruction effects (dust, sound, particles).
+type Debris struct {
+	Type      string    `json:"type"`      // "dust", "spark", "sound", "particle"
+	Position  Vec3      `json:"position"`
+	Velocity  Vec3      `json:"velocity"`
+	Lifetime  float64   `json:"lifetime"`  // seconds
+	Size      float64   `json:"size"`      // meters
+	Density   float64   `json:"density"`   // 0.0 - 1.0
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// ──────────────────────────────────────────────────────────────
 // Simulation
 // ──────────────────────────────────────────────────────────────
 
