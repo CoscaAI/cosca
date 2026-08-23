@@ -5,11 +5,17 @@
 //
 //   skill evolve <name>   Roda RunGEPA sobre o corpo da skill, aplica os
 //                         guardrails (tamanho, preservação semântica,
-//                         estrutura, cache "só nova sessão") e, se tudo OK,
-//                         cria um BRANCH evolve/<skill>-<timestamp> com a skill
+//                         estrutura, cache "só nova sessão") e o gate de
+//                         regressão anti-overfit (SplitEval 50/25/25 +
+//                         RegressionGate no holdout) e, se tudo OK, cria um
+//                         BRANCH evolve/<skill>-<timestamp> com a skill
 //                         evoluída (Apply) + um commit local. JAMAIS faz
 //                         push/merge/auto-deploy — o resultado fica como
 //                         "candidato a PR" para revisão humana.
+//
+// FATIA 3.2 (bounded): promoção exige guardrails E CheckRegression.Passed
+// (não regredir >0.02 no holdout) E o A/B IsCandidate. O holdout NUNCA treina:
+// ele só gate.
 //
 // Flags:
 //   --no-llm              caminho determinístico: StaticMutator + StaticScorer
@@ -30,6 +36,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,6 +70,13 @@ type skillEvolveOptions struct {
 	maxLines   int
 	maxGrowth  float64
 	now        func() time.Time
+
+	// Test seams (deterministic). When `mutator` is non-nil, the evolve engine
+	// is overridden by these two instead of the --no-llm static pair, so a test
+	// can exercise the promotion gate with a body that regresses on the holdout
+	// without an LLM.
+	mutator skilleval.Mutator
+	scorer  skilleval.Scorer
 }
 
 // NewSkillEvolveCommand creates the `cosca skill evolve <name>` subcommand.
@@ -152,7 +166,7 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 	// and gate, otherwise fall back to the deterministic default case set.
 	cases, gate := resolveEvolveEvaluation(coscaDir, name)
 
-	scorer, mutator := resolveEvolveEngine(opts.noLLM)
+	scorer, mutator := resolveEvolveEngine(opts)
 
 	evaluate := func(ctx context.Context, body string) (*skilleval.SkillBenchmark, error) {
 		return skilleval.RunAB(ctx, scorer, staticRunner(body), staticRunner(base.Body), cases, opts.trials, gate)
@@ -173,14 +187,25 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 		best = base
 	}
 
+	// ── FATIA 3.2 (bounded): split + holdout regression gate ──
+	// After GEPA finds the best variant, split the dataset deterministically
+	// (SplitEval 50/25/25) and run CheckRegression of the candidate vs baseline
+	// ONLY on the disjoint holdout. The holdout NEVER trains — it is a pure
+	// gate, so a candidate that looks good on train/val but regresses on the
+	// help is caught here. evaluateHoldoutGate always returns a PromotionResult
+	// (fail-closed on a split/gate error), so the CLI can surface a verdict.
+	regResult := evaluateHoldoutGate(ctx, name, cases, base.Body, best.Body, scorer, opts.trials)
+
 	if useJSON {
 		return printJSON(cmd, map[string]interface{}{
-			"skill":      name,
-			"iterations": result.Iterations,
-			"score":      result.Score,
-			"candidate":  result.Candidate,
-			"body":       best.Body,
-			"dry_run":    opts.dryRun,
+			"skill":           name,
+			"iterations":      result.Iterations,
+			"score":           result.Score,
+			"candidate":       result.Candidate,
+			"body":            best.Body,
+			"dry_run":         opts.dryRun,
+			"regression_gate": regResult.Gate,
+			"reg_delta":       round4(regResult.RegDelta),
 		})
 	}
 
@@ -197,7 +222,7 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 
 	if opts.dryRun {
 		printEvolveDryRun(formatter, name, result, best, base,
-			sizeReport, similarity, semOK, structReport, cacheReport)
+			sizeReport, similarity, semOK, structReport, cacheReport, regResult)
 		return nil
 	}
 
@@ -224,6 +249,18 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 		return nil
 	}
 
+	if !result.Candidate {
+		formatter.Warning("evolve: o A/B não confirmou evidência robusta de melhoria (IsCandidate=false). Nenhum branch/PR criado.")
+		printPromotionGate(formatter, regResult)
+		return nil
+	}
+
+	if !regResult.Gate.Passed {
+		formatter.Error(fmt.Sprintf("skill evolve %q: falhou no gate de regressão no holdout (RegDelta). Nenhum branch/PR criado.", name))
+		printPromotionGate(formatter, regResult)
+		return fmt.Errorf("skill evolve %q: regression gate failed on holdout: %s", name, strings.Join(regResult.Gate.Details, "; "))
+	}
+
 	// Promoção via PR: nunca auto-deploy. Só cria o branch e o commit local.
 	newContent := best.Apply()
 	if err := promoteViaPR(cwd, mdPath, newContent, sessionName, name, result); err != nil {
@@ -235,6 +272,7 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 	formatter.KeyValue("Iterations", fmt.Sprintf("%d", result.Iterations))
 	formatter.KeyValue("Score", fmt.Sprintf("%.4f", result.Score))
 	formatter.KeyValue("Similarity", fmt.Sprintf("%.3f", similarity))
+	formatter.KeyValue("Holdout regression", fmt.Sprintf("passed=%v reg_delta=%.4f", regResult.Gate.Passed, regResult.RegDelta))
 	formatter.Warning("JAMAIS auto-deploy: revise o diff e a PR antes de merge/push.")
 	return nil
 }
@@ -242,8 +280,20 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 // resolveEvolveEngine picks the scorer + mutator. With --no-llm it is the
 // deterministic static pair; otherwise the LLM pair (which today degrades to a
 // no-op, since the provider is not wired — see MutatorLLM / LLMJudgeScorer).
-func resolveEvolveEngine(noLLM bool) (scorer skilleval.Scorer, mutator skilleval.Mutator) {
-	if noLLM {
+//
+// When opts.mutator is non-nil (a test seam), it overrides the engine entirely:
+// the test injects a deterministic scorer + mutator so it can drive the
+// promotion gate with a body that regresses on the holdout — still LLM-free.
+func resolveEvolveEngine(opts skillEvolveOptions) (scorer skilleval.Scorer, mutator skilleval.Mutator) {
+	if opts.mutator != nil {
+		if opts.scorer != nil {
+			scorer = opts.scorer
+		} else {
+			scorer = skilleval.StaticScorer{}
+		}
+		return scorer, opts.mutator
+	}
+	if opts.noLLM {
 		scorer = skilleval.StaticScorer{}
 		mutator = skilleval.MutatorStatic(evolveStaticMutate)
 		return scorer, mutator
@@ -276,14 +326,18 @@ func resolveEvolveEvaluation(coscaDir, name string) ([]skilleval.SkillCase, func
 }
 
 // defaultEvolveCases is the fallback evaluation used when the skill has no
-// `.eval.yaml`: a single case whose rubric rewards the marker token that the
-// deterministic static mutator always introduces.
+// `.eval.yaml`. It has enough cases to yield a 50/25/25 split with a non-empty
+// holdout (SplitEval requires MinSplitCases = 3), so the FATIA 3.2 regression
+// gate can always grade the candidate against the baseline on the holdout.
+// Every case rewards the marker token that the deterministic static mutator
+// always introduces, so the candidate arm scores strictly better than the
+// baseline arm on both the full set and the holdout — no live LLM needed.
 func defaultEvolveCases() []skilleval.SkillCase {
-	return []skilleval.SkillCase{{
-		ID:     "evolve",
-		Task:   "a skill evoluída preserva o sinal de evolução",
-		Rubric: []string{evolveDefaultRubricToken},
-	}}
+	return []skilleval.SkillCase{
+		{ID: "evolve-1", Task: "a skill evoluída preserva o sinal de evolução", Rubric: []string{evolveDefaultRubricToken}},
+		{ID: "evolve-2", Task: "a skill mantém o propósito da baseline", Rubric: []string{evolveDefaultRubricToken}},
+		{ID: "evolve-3", Task: "a skill introduz o marcador de evolução", Rubric: []string{evolveDefaultRubricToken}},
+	}
 }
 
 // resolveSkillMarkdownPath resolves the on-disk SKILL.md (or legacy .md) for a
@@ -337,11 +391,13 @@ func promoteViaPR(repoDir, mdPath, newContent, branch, name string, result *skil
 }
 
 // printEvolveDryRun renders the dry-run preview: GEPA summary, the four
-// guardrail verdicts, and the diff (via go-diff) of what the mutation produces.
-// Nothing is written to disk and no branch/commit is created.
+// guardrail verdicts, the holdout regression gate verdict, and the diff (via
+// go-diff) of what the mutation produces. Nothing is written to disk and no
+// branch/commit is created.
 func printEvolveDryRun(formatter *OutputFormatter, name string, result *skilleval.GEPAResult,
 	best, base *skilleval.Genome, sizeReport skilleval.GuardrailReport,
-	similarity float64, semOK bool, structReport, cacheReport skilleval.GuardrailReport) {
+	similarity float64, semOK bool, structReport, cacheReport skilleval.GuardrailReport,
+	regResult *skilleval.PromotionResult) {
 
 	formatter.Header(fmt.Sprintf("skill evolve (dry-run) — %s", name))
 	formatter.KeyValue("Iterations", fmt.Sprintf("%d", result.Iterations))
@@ -351,6 +407,7 @@ func printEvolveDryRun(formatter *OutputFormatter, name string, result *skilleva
 	formatter.KeyValue("Semantic guardrail", fmt.Sprintf("%s (%.3f)", yesNo(semOK), similarity))
 	formatter.KeyValue("Structural guardrail", yesNo(structReport.OK))
 	formatter.KeyValue("Cache guardrail", yesNo(cacheReport.OK))
+	printPromotionGate(formatter, regResult)
 
 	if best.Body != base.Body {
 		formatter.Println("")
@@ -362,6 +419,53 @@ func printEvolveDryRun(formatter *OutputFormatter, name string, result *skilleva
 		formatter.Warning("Nenhuma mudança de corpo foi adotada; sem diff.")
 	}
 	formatter.Warning("dry-run: nenhum branch/commit criado; nada foi alterado no disco.")
+}
+
+// evaluateHoldoutGate runs the FATIA 3.2 split + holdout regression gate. It
+// returns a non-nil PromotionResult even on error (fail-closed): a dataset that
+// cannot be split, or a gate that cannot be graded, yields a GateResult with
+// Passed=false so a promotion can NEVER silently skip the anti-overfit gate.
+func evaluateHoldoutGate(ctx context.Context, name string, cases []skilleval.SkillCase,
+	baselineBody, candidateBody string, scorer skilleval.Scorer, trials int) *skilleval.PromotionResult {
+
+	pr, err := skilleval.NewPromotionGate(
+		skilleval.DefaultRegressionThreshold,
+		skilleval.DefaultSplitRatio,
+		skilleval.DefaultPromotionSeed,
+	).Evaluate(ctx, name, cases, baselineBody, candidateBody, scorer, trials)
+	if err != nil {
+		return &skilleval.PromotionResult{
+			Gate: &skilleval.GateResult{
+				CatalogAudit: true,
+				RegTests:     true, // a gate was attempted (grading the holdout)
+				RegDelta:     false,
+				Passed:       false, // fail closed: no holdout evidence => no promotion
+				Details:      []string{fmt.Sprintf("skill %q: regression gate unavailable: %s", name, err.Error())},
+			},
+		}
+	}
+	return pr
+}
+
+// printPromotionGate renders the holdout regression gate verdict (Passed,
+// RegDelta, and the human-readable holdout deltas from Details) so the user can
+// see whether the candidate cleared the anti-overfit holdout check.
+func printPromotionGate(formatter *OutputFormatter, pr *skilleval.PromotionResult) {
+	if pr == nil || pr.Gate == nil {
+		formatter.KeyValue("Holdout regression", "unavailable")
+		return
+	}
+	formatter.KeyValue("Holdout regression", fmt.Sprintf("passed=%v reg_delta=%.4f", pr.Gate.Passed, pr.RegDelta))
+	for _, d := range pr.Gate.Details {
+		formatter.Println("  " + d)
+	}
+}
+
+// round4 rounds v to 4 decimal places so JSON output is stable and free of
+// float noise (e.g. -0.30000000000000004). It uses math.Round so negative
+// values round correctly (half away from zero).
+func round4(v float64) float64 {
+	return math.Round(v*10000) / 10000
 }
 
 // sanitizeBranchName ensures a skill name can be embedded in a git branch name
