@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Camada Vision (Gap #1 do mining map)
+
+### 2026-08-23 — Vision Layer — o agente enxerga o mundo
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Gap #1 do mining-map-world-vivo.md: minar a camada Vision (SAM/CLIP/GroundingDINO/etc) seguindo o template do professor (REPO→UTILITY). |
+| **Technique** | Level 3 — Mining por camada. Busquei GitHub (stars/license) + produção de `vision-layer-patterns.md` (6 projetos, pipeline visual, template completo). |
+| **Level** | 3 |
+| **Outcome** | success (vision) |
+| **Confidence** | 0.85 (vision domain) |
+| **Tags** | #mining #vision #sam2 #clip #groundingdino #dinov2 #yolo #depth |
+| **Related** | .cosca/fallback/knowledge/patterns/vision-layer-patterns.md |
+| **Learned** | 1) **Pipeline visual do agente mapeado**: frame → YOLO (rápido/alertas) → GroundingDINO (busca linguagem) → SAM2 (segmentação) → CLIP (classificação) → Depth Anything (profundidade) → DINOv2 (features/memória). 2) **Licenças favoráveis**: CLIP (MIT ✅), SAM2/GroundingDINO/DINOv2/DepthAnything (Apache ✅), YOLO (AGPL ⚠️ — licença paga pra comercial). 3) **Prioridade de instalação**: CLIP primeiro (MIT, leve, versátil) → SAM2 → GroundingDINO → Depth Anything → DINOv2 → YOLO. 4) **Cada projeto = uma capacidade do agente**: SAM2="olho que segmenta", CLIP="dicionário visual", GroundingDINO="ponteiro linguístico", DepthAnything="senso de profundidade", DINOv2="cérebro visual", YOLO="detector rápido". 5) **O agente com visão é 10x mais poderoso**: sem ela, ele é cego no mundo; com ela, enxerga, entende, e age com base no que vê. |
+| **Next** | Continuar com as outras 4 camadas gap: Spatial AI (#6), VFX (#7), Audio espacial (#8), Multi-agent (#3). Depois, quando o NVMe chegar, instalar CLIP+SAM2 como primeiro módulo de visão. |
+
+---
+
 ## Session: 2026-08-23 — Mapa de Mineração do Mundo Vivo (orientação do professor)
 
 ### 2026-08-23 — Mapa de Mineração (professor) — 10 camadas + template REPO→UTILITY
