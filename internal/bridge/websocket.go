@@ -50,9 +50,8 @@ func (c *WebSocketClient) Connect(ctx context.Context, url string) error {
 	defer c.mu.Unlock()
 
 	conn, _, err := websocket.Dial(ctx, url, &websocket.DialOptions{
-		HTTPClient:   http.DefaultClient,
-		CompressionMode: websocket.CompressionDisabled,
-		Subprotocols: []string{"cosca"},
+		HTTPClient:        http.DefaultClient,
+		CompressionMode:   websocket.CompressionDisabled,
 	})
 	if err != nil {
 		return fmt.Errorf("websocket dial %s: %w", url, err)
@@ -169,8 +168,10 @@ func (c *WebSocketClient) readLoop() {
 
 	for {
 		ctx := context.Background()
-		var msg Message
-		if err := wsjson.Read(ctx, conn, &msg); err != nil {
+		// Read raw WebSocket frame (not wsjson.Read) because the Unreal
+		// WebSocketNetworking plugin sends responses as BINARY frames.
+		_, data, err := conn.Read(ctx)
+		if err != nil {
 			// Connection closed or error — mark disconnected
 			c.mu.Lock()
 			c.connected = false
@@ -178,6 +179,12 @@ func (c *WebSocketClient) readLoop() {
 			c.mu.Unlock()
 			close(c.inbox)
 			return
+		}
+
+		var msg Message
+		if err := json.Unmarshal(data, &msg); err != nil {
+			// Bad JSON — skip
+			continue
 		}
 
 		c.mu.Lock()

@@ -35,7 +35,7 @@ Subcommands:
   serve    Run a mock WebSocket server (local dev, no Unreal needed)
   connect  Connect to the Unreal server and test the handshake`,
 		Example: `  cosca bridge serve --port 9000
-  cosca bridge connect --url ws://localhost:9000/cosca`,
+  cosca bridge connect --url ws://localhost:9000`,
 	}
 	cmd.AddCommand(
 		NewBridgeServeCommand(),
@@ -101,8 +101,8 @@ report the ack. Verifies the Cosca↔Unreal protocol end-to-end.
 
 If the server is the mock ('cosca bridge serve'), it echoes 'pong'. If it is
 the Unreal WorldSubsystem, it responds with the real ack/state.`,
-		Example: `  cosca bridge connect --url ws://localhost:9000/cosca
-  cosca bridge connect --url ws://localhost:9000/cosca --interval 1s --json`,
+		Example: `  cosca bridge connect --url ws://localhost:9000
+  cosca bridge connect --url ws://localhost:9000 --interval 1s --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			formatter := GetFormatter(cmd)
@@ -168,7 +168,7 @@ the Unreal WorldSubsystem, it responds with the real ack/state.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000/cosca", "WebSocket URL of the Unreal server")
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000", "WebSocket URL of the Unreal server")
 	cmd.Flags().DurationVar(&interval, "interval", 0, "Repeat the ping at this interval (0 = once)")
 	return cmd
 }
@@ -193,7 +193,7 @@ func NewBridgeDemoCommand() *cobra.Command {
 
 Works against the mock server ('cosca bridge serve') OR the Unreal
 CoscaRuntime plugin server.`,
-		Example: `  cosca bridge demo --url ws://localhost:9000/cosca --type cube`,
+		Example: `  cosca bridge demo --url ws://localhost:9000 --type cube`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			formatter := GetFormatter(cmd)
@@ -280,7 +280,7 @@ CoscaRuntime plugin server.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000/cosca", "WebSocket URL")
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000", "WebSocket URL")
 	cmd.Flags().StringVar(&assetType, "type", "cube", "Blender asset type (cube/tree/terrain/building)")
 	cmd.Flags().Int64Var(&seed, "seed", 42, "Deterministic seed")
 	cmd.Flags().Float64Var(&posX, "x", 0, "Spawn X")

@@ -131,21 +131,37 @@ void UCoscaWorldSubsystem::OnSocketClosed()
 
 void UCoscaWorldSubsystem::OnPacketReceived(void* Data, int32 DataSize)
 {
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] OnPacketReceived: %d bytes"), DataSize);
 	if (DataSize <= 0)
 	{
 		return;
 	}
-	// libwebsocket prepends a 4-byte size header when bPrependSize=true.
-	int32 Offset = (DataSize > 4) ? 4 : 0;
-	const uint8* Bytes = (const uint8*)Data + Offset;
-	int32 JsonLen = DataSize - Offset;
+	// Raw JSON from WebSocket client.
+	// libwebsocket may prepend a 4-byte size header; detect and strip it.
+	const uint8* Bytes = (const uint8*)Data;
+	int32 JsonLen = DataSize;
+	if (DataSize > 4 && Bytes[0] != '{' && Bytes[0] != '"' && Bytes[0] != '[')
+	{
+		Bytes += 4;
+		JsonLen = DataSize - 4;
+	}
 
-	FString Json(JsonLen, (const TCHAR*)Bytes);
+	// Convert UTF-8 bytes to FString correctly (TCHAR is 2 bytes on Windows).
+	FUTF8ToTCHAR Converter((const ANSICHAR*)Bytes, JsonLen);
+	FString Json(Converter.Length(), Converter.Get());
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] Received JSON: %s"), *Json);
+
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Json);
 	TSharedPtr<FJsonObject> Obj;
 	if (FJsonSerializer::Deserialize(Reader, Obj) && Obj.IsValid())
 	{
-		HandleCommand(MessageFromJson(Obj));
+		FCoscaMessage Msg = MessageFromJson(Obj);
+		UE_LOG(LogCosca, Log, TEXT("[Cosca] Parsed command: type=%d id=%s"), (int32)Msg.Type, *Msg.Id);
+		HandleCommand(Msg);
+	}
+	else
+	{
+		UE_LOG(LogCosca, Error, TEXT("[Cosca] Failed to parse JSON: %s"), *Json);
 	}
 }
 
@@ -324,13 +340,13 @@ void UCoscaWorldSubsystem::SendToCosca(const FCoscaMessage& Message)
 		return;
 	}
 	FString Json = MessageToJson(Message);
-	int32 Len = Json.Len();
+	// Convert FString to UTF-8 before sending (TCHAR is 2 bytes on Windows,
+	// but WebSocket JSON must be UTF-8 encoded).
+	FTCHARToUTF8 Converter(*Json);
+	int32 Utf8Len = Converter.Length();
 	TArray<uint8> Out;
-	for (int32 i = 0; i < 4; ++i)
-	{
-		Out.Add((uint8)((Len >> (8 * i)) & 0xFF));
-	}
-	Out.Append((const uint8*)GetData(Json), Len);
+	Out.Append((const uint8*)Converter.Get(), Utf8Len);
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] Sending to client: %s"), *Json);
 	ClientSocket->Send(Out.GetData(), Out.Num(), false);
 }
 
