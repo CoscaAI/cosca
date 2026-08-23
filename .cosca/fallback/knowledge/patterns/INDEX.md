@@ -83,12 +83,14 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`destruction-layer-patterns.md`](destruction-layer-patterns.md) | Camada 9 Destruction — 5 projetos (MuJoCo: simulação alta fidelidade, Box2D: física 2D, matter-js: física web, Bullet: física 3D alternativa, PhysX/Jolt: produção), pipeline destruição (mundo→MuJoCo→PhysX→PCG reconstrói→loop) | 0.81 | 2026-08-23 |
 | [`simulation-layer-patterns.md`](simulation-layer-patterns.md) | Camada 10 Simulation — 6 projetos (Mesa: framework ABM completo, MuJoCo: física+simulação, NetLogo: prototipagem, ABCE: economia, Climate: clima+erosão, Crowd: multidão), pipeline simulação (Mesa→clima→economia→multidão→comportamento emergente) | 0.79 | 2026-08-23 |
 | [`implementation-plan.md`](implementation-plan.md) | Cosca Living World — Implementation Plan: auditoria completa (32 packages, 92 CLI, 52 REST), gap matrix (6 gaps), arquitetura (Cosca=cognition, Unreal=body, Adapters=nervous system), 7 fases (Foundation→Vision→Spatial→VFX→Audio→Destruction→Simulation→Multi-Agent), vertical slice (camera→vision→spatial→world model→decide→action), riscos, recursos (30-43 dias), critérios de sucesso | 0.88 | 2026-08-23 |
+| [`unreal-integration-map.md`](unreal-integration-map.md) | Unreal Engine Integration Map — inspeção da instalação UE_5.8 (32 tecnologias: C++ API, Blueprint, Gameplay Framework, Actors/Components, World/Subsystems, World Partition, Enhanced Input, GAS, AI Controller, Behavior Trees, Mass Entity, NavMesh, Perception, Chaos, Niagara, MetaSounds, PCG, Python API, Remote Control, WebSocket/HTTP, UDP/TCP, Subsystems, Data Assets, Serialization, SaveGame, Plugins, Headless, Automation, Functional, External Process, Unreal↔Blender, External AI). 12 descobertas verificadas no disco. 14 respostas (Unreal=SERVIDOR WebSocket, UCoscaWorldSubsystem, Cosca=cerébro/Unreal=corpo, contrato JSON/WS+GameplayTags, Chaos executa/Cosca decide). Sem arquitetura paralela | 0.92 | 2026-08-23 |
+| [`unreal-implementation-plan.md`](unreal-implementation-plan.md) | Unreal Implementation Plan — vertical slice mínimo Cosca↔Unreal: 2 peças novas (WebSocketClient no Cosca + plugin CoscaRuntime no Unreal), reusa interface Client + contrato do internal/bridge, 8 etapas (E1-E8), estratégia de teste, esforço (~6-9 dias), princípios (Cosca=cerébro/corpo, decisão vs execução física, reconcile com ack) | 0.90 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 46 |
+| Total patterns | 48 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |
@@ -96,7 +98,7 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | AI/Generation patterns | 1 |
 | Enterprise Platform patterns | 19 |
 | Agent patterns | 4 |
-| Confidence range | 0.85 – 0.96 |
+| Confidence range | 0.78 – 0.96 |
 | Average confidence | ~0.92 |
 
 ## Confidence & Usage Tracking
