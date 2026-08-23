@@ -171,3 +171,38 @@ func TestWebSocketClientNotConnected(t *testing.T) {
 		t.Error("Send without connect should fail")
 	}
 }
+
+func TestServeMockRoundTrip(t *testing.T) {
+	// Start the real mock server via Listen + ServeMock
+	listener, err := Listen(0) // port 0 = random
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer listener.Close()
+
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
+	go ServeMock(listener)
+
+	url := "ws://127.0.0.1:" + port + "/cosca"
+	client := NewWebSocketClient()
+	ctx := context.Background()
+
+	if err := client.Connect(ctx, url); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	defer client.Disconnect(ctx)
+
+	// Send a ping and expect a pong back
+	err = client.Send(ctx, Message{Type: MessagePing})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	msg, err := client.Receive(ctx)
+	if err != nil {
+		t.Fatalf("Receive: %v", err)
+	}
+	if msg.Type != MessagePong {
+		t.Errorf("expected pong, got %v", msg.Type)
+	}
+}
