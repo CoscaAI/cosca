@@ -183,6 +183,16 @@ type AudioEvent struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
+// SpatialAudio represents spatial audio analysis results.
+type SpatialAudio struct {
+	Direction   Vec3    `json:"direction"`    // direction vector
+	Distance    float64 `json:"distance"`     // estimated distance (meters)
+	Intensity   float64 `json:"intensity"`    // 0.0 - 1.0
+	Spatializer string  `json:"spatializer"`  // "hrtf", "ambisonics", "binaural"
+}
+
+
+
 // ──────────────────────────────────────────────────────────────
 // Climate and environment
 // ──────────────────────────────────────────────────────────────
