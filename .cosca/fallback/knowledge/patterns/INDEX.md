@@ -79,12 +79,13 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`vision-layer-patterns.md`](vision-layer-patterns.md) | Camada 5 Vision — 6 projetos (SAM2: segmentação, CLIP: visão→linguagem, GroundingDINO: detecção grounded, DINOv2: features visuais, YOLO: detecção real-time, Depth Anything V2: profundidade monocular), pipeline visual do agente (frame→detect→segment→classificar→profundidade→memória), template REPO→UTILITY completo, prioridade de instalação | 0.85 | 2026-08-23 |
 | [`spatial-ai-layer-patterns.md`](spatial-ai-layer-patterns.md) | Camada 6 Spatial AI — 7 projetos (ORB-SLAM3: localização clássica, NICE-SLAM: SLAM neural, Instant-NGP: scanner 3D, NeRF: base conceitual, Meshroom: fotogrametria completa, MASt3R-SLAM: SLAM moderno, Spatial Reasoning VLM: raciocínio espacial), pipeline espacial (câmera→localizar→mapeiar 3D→entender relações), template REPO→UTILITY | 0.83 | 2026-08-23 |
 | [`vfx-layer-patterns.md`](vfx-layer-patterns.md) | Camada 7 VFX — 7 projetos (Taichi: motor simulação completo, PhysX: física indústria, Jolt: física leve, PBD: cloth/soft bodies, SPlisHSPlasH: fluidos SPH, bevy_hanabi: partículas GPU referência, PixelFlow: fluid dynamics simples), pipeline VFX (mundo→Taichi→física→cloth→partículas), Taichi como âncora principal (★26k, Apache-2.0) | 0.80 | 2026-08-23 |
+| [`audio-layer-patterns.md`](audio-layer-patterns.md) | Camada 8 Audio — 8 projetos (whisper.cpp: STT rápido, Coqui TTS: TTS+voice cloning, Bark: TTS expressivo, Whisper: STT padrão, faster-whisper: STT 4x, AudioCraft: música+ambiente, SenseVoice: entendimento áudio, YuE: música com letra), pipeline audio (STT→entender→TTS→falar→ambiente→música) | 0.84 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 42 |
+| Total patterns | 43 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |

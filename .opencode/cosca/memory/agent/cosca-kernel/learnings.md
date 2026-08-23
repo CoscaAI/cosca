@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Camada Audio (Gap #4 do mining map)
+
+### 2026-08-23 — Audio Layer — o mundo tem som
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Gap #4 do mining-map-world-vivo.md: minar a camada Audio (STT, TTS, música, entendimento sonoro) seguindo o template do professor. |
+| **Technique** | Level 3 — Mining por camada. Busquei GitHub (stars/license) + produção de `audio-layer-patterns.md` (8 projetos, pipeline audio, template completo). |
+| **Level** | 3 |
+| **Outcome** | success (audio) |
+| **Confidence** | 0.84 (audio domain) |
+| **Tags** | #mining #audio #stt #tts #whisper #coqui #audiocraft #music |
+| **Related** | .cosca/fallback/knowledge/patterns/audio-layer-patterns.md |
+| **Learned** | 1) **Pipeline audio mapeado**: STT (Whisper/whisper.cpp) → entender (SenseVoice) → TTS (Coqui/Bark) → falar → ambiente (AudioCraft) → música (YuE). 2) **whisper.cpp é o repo mais estrelado** (★53k!) — STT que roda em CPU sem dependências. 3) **Licenças favoráveis**: Whisper/whisper.cpp/faster-whisper/Bark/AudioCraft/SenseVoice (MIT ✅), Coqui (MPL ✅), YuE (Apache ✅). 4) **Cada projeto = uma capacidade**: Whisper="ouvidos", Coqui="voz", Bark="emoção", AudioCraft="compositor", SenseVoice="cérebro auditivo". 5) **O mundo sem som é mudo** — com som, o agente ouve, fala, e o ambiente tem vida sonora. É a camada que completa a imersão sensorial (visão + som). |
+| **Next** | Últimas camadas: Destruction (#9) e Simulation (#10). Depois, quando o NVMe chegar, instalar whisper.cpp+Coqui TTS+AudioCraft como primeiro módulo audio. |
+
+---
+
 ## Session: 2026-08-23 — Camada VFX (Gap #3 do mining map)
 
 ### 2026-08-23 — VFX Layer — o mundo é vivo
