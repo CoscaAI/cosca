@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/CoscaAI/cosca/internal/worldmodel"
 )
 
 // ──────────────────────────────────────────────────────────────
@@ -331,5 +333,97 @@ func TestAssetMetadataStructure(t *testing.T) {
 	}
 	if len(metadata.Materials) != 2 {
 		t.Errorf("materials: got %d, want 2", len(metadata.Materials))
+	}
+}
+
+// ──────────────────────────────────────────────────────────────
+// Bridge interface compliance tests
+// ──────────────────────────────────────────────────────────────
+
+// Compile-time assertion that BlenderAssetProvider satisfies worldmodel.AssetProvider.
+var _ worldmodel.AssetProvider = (*BlenderAssetProvider)(nil)
+
+func TestBlenderAssetProviderImplementsInterface(t *testing.T) {
+	config := DefaultBlenderAdapterConfig()
+	adapter := NewBlenderAdapter(config)
+	provider := NewBlenderAssetProvider(adapter)
+
+	if provider == nil {
+		t.Fatal("provider is nil")
+	}
+}
+
+func TestBlenderAssetProviderGenerate(t *testing.T) {
+	config := BlenderAdapterConfig{
+		BlenderPath: detectBlenderPath(),
+		WorkDir:     t.TempDir(),
+		Timeout:     30,
+		ScriptsDir:  "../../scripts/blender",
+	}
+	adapter := NewBlenderAdapter(config)
+	provider := NewBlenderAssetProvider(adapter)
+
+	ctx := context.Background()
+	if _, err := adapter.GetVersion(ctx); err != nil {
+		t.Skipf("Blender not installed, skipping: %v", err)
+	}
+
+	req := worldmodel.AssetRequest{
+		Type:     "cube",
+		Format:   "glb",
+		Seed:     7,
+		Validate: true,
+	}
+
+	result, err := provider.GenerateAsset(ctx, req)
+	if err != nil {
+		t.Fatalf("GenerateAsset via bridge: %v", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if !result.Valid {
+		t.Errorf("expected valid asset, got issues: %v", result.Issues)
+	}
+	if result.Provenance.Tool != "blender" {
+		t.Errorf("tool: got %v, want blender", result.Provenance.Tool)
+	}
+}
+
+func TestBlenderAssetProviderValidate(t *testing.T) {
+	config := BlenderAdapterConfig{
+		BlenderPath: detectBlenderPath(),
+		WorkDir:     t.TempDir(),
+		Timeout:     30,
+		ScriptsDir:  "../../scripts/blender",
+	}
+	adapter := NewBlenderAdapter(config)
+	provider := NewBlenderAssetProvider(adapter)
+
+	ctx := context.Background()
+	if _, err := adapter.GetVersion(ctx); err != nil {
+		t.Skipf("Blender not installed, skipping: %v", err)
+	}
+
+	// Generate a cube first
+	req := worldmodel.AssetRequest{Type: "cube", Format: "glb", Seed: 7}
+	gen, err := provider.GenerateAsset(ctx, req)
+	if err != nil {
+		t.Fatalf("GenerateAsset: %v", err)
+	}
+
+	// Validate the generated file
+	res, err := provider.ValidateAsset(ctx, gen.Path)
+	if err != nil {
+		t.Fatalf("ValidateAsset via bridge: %v", err)
+	}
+	if res == nil {
+		t.Fatal("validation result is nil")
+	}
+	if !res.Valid {
+		t.Errorf("expected valid asset, got issues: %v", res.Issues)
+	}
+	if res.Stats.Vertices == 0 {
+		t.Error("expected non-zero vertices")
 	}
 }

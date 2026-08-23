@@ -361,3 +361,142 @@ func TestActionResultStructure(t *testing.T) {
 		t.Errorf("method: got %v, want voronoi", action.Metadata["method"])
 	}
 }
+
+// ──────────────────────────────────────────────────────────────
+// Asset pipeline tests (mock AssetProvider)
+// ──────────────────────────────────────────────────────────────
+
+// mockAssetProvider is a test double for AssetProvider.
+type mockAssetProvider struct {
+	generate func(ctx context.Context, req AssetRequest) (*AssetResult, error)
+	validate func(ctx context.Context, path string) (*AssetValidationResult, error)
+}
+
+func (m *mockAssetProvider) GenerateAsset(ctx context.Context, req AssetRequest) (*AssetResult, error) {
+	if m.generate != nil {
+		return m.generate(ctx, req)
+	}
+	return &AssetResult{ID: "mock_asset", Valid: true, Type: req.Type}, nil
+}
+
+func (m *mockAssetProvider) ValidateAsset(ctx context.Context, path string) (*AssetValidationResult, error) {
+	if m.validate != nil {
+		return m.validate(ctx, path)
+	}
+	return &AssetValidationResult{Valid: true}, nil
+}
+
+func TestGenerateAssetNoProvider(t *testing.T) {
+	config := DefaultOrchestratorConfig()
+	orch := NewOrchestrator(config)
+	ctx := context.Background()
+
+	_, err := orch.GenerateAsset(ctx, AssetRequest{Type: "cube"})
+	if err == nil {
+		t.Error("GenerateAsset without provider should fail")
+	}
+}
+
+func TestGenerateAssetWithProvider(t *testing.T) {
+	config := DefaultOrchestratorConfig()
+	config.Asset = &AssetPipelineConfig{
+		Provider: &mockAssetProvider{
+			generate: func(ctx context.Context, req AssetRequest) (*AssetResult, error) {
+				return &AssetResult{
+					ID:     "asset_xyz",
+					Type:   req.Type,
+					Path:   "/tmp/asset.glb",
+					Hash:   "sha256:abc",
+					Valid:  true,
+					Format: "glb",
+					Provenance: AssetProvenance{
+						Tool:  "blender",
+						Seed:  req.Seed,
+					},
+				}, nil
+			},
+		},
+	}
+	orch := NewOrchestrator(config)
+	ctx := context.Background()
+
+	result, err := orch.GenerateAsset(ctx, AssetRequest{Type: "tree", Seed: 42})
+	if err != nil {
+		t.Fatalf("GenerateAsset: %v", err)
+	}
+	if result.ID != "asset_xyz" {
+		t.Errorf("id: got %v, want asset_xyz", result.ID)
+	}
+	if !result.Valid {
+		t.Error("expected valid asset")
+	}
+}
+
+func TestGenerateAssetRegistersEntity(t *testing.T) {
+	config := DefaultOrchestratorConfig()
+	config.Asset = &AssetPipelineConfig{
+		Provider: &mockAssetProvider{
+			generate: func(ctx context.Context, req AssetRequest) (*AssetResult, error) {
+				return &AssetResult{
+					ID:     "asset_001",
+					Type:   req.Type,
+					Path:   "/tmp/asset.glb",
+					Hash:   "sha256:abc",
+					Valid:  true,
+					Format: "glb",
+					Provenance: AssetProvenance{
+						Tool: "blender",
+					},
+				}, nil
+			},
+		},
+	}
+	orch := NewOrchestrator(config)
+	ctx := context.Background()
+
+	_, err := orch.GenerateAsset(ctx, AssetRequest{Type: "tree", Seed: 42})
+	if err != nil {
+		t.Fatalf("GenerateAsset: %v", err)
+	}
+
+	// The generated asset should now be a persistent world entity
+	state := orch.GetState()
+	if len(state.Entities) != 1 {
+		t.Fatalf("entities: got %d, want 1 (asset registered)", len(state.Entities))
+	}
+	if state.Entities[0].ID != "asset_001" {
+		t.Errorf("entity id: got %v, want asset_001", state.Entities[0].ID)
+	}
+	if state.Entities[0].Metadata["tool"] != "blender" {
+		t.Errorf("entity metadata tool: got %v, want blender", state.Entities[0].Metadata["tool"])
+	}
+}
+
+func TestGenerateAssetDoesNotRegisterInvalid(t *testing.T) {
+	config := DefaultOrchestratorConfig()
+	config.Asset = &AssetPipelineConfig{
+		Provider: &mockAssetProvider{
+			generate: func(ctx context.Context, req AssetRequest) (*AssetResult, error) {
+				// Invalid asset (Not valid) should NOT be registered
+				return &AssetResult{
+					ID:    "asset_bad",
+					Type:  req.Type,
+					Valid: false,
+					Issues: []string{"empty mesh"},
+				}, nil
+			},
+		},
+	}
+	orch := NewOrchestrator(config)
+	ctx := context.Background()
+
+	_, err := orch.GenerateAsset(ctx, AssetRequest{Type: "tree"})
+	if err != nil {
+		t.Fatalf("GenerateAsset: %v", err)
+	}
+
+	state := orch.GetState()
+	if len(state.Entities) != 0 {
+		t.Errorf("entities: got %d, want 0 (invalid asset not registered)", len(state.Entities))
+	}
+}

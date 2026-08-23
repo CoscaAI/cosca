@@ -24,6 +24,7 @@ package worldmodel
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -39,8 +40,14 @@ type OrchestratorConfig struct {
 	Audio        *AudioPipelineConfig        `json:"audio,omitempty"`
 	Destruction  *DestructionPipelineConfig  `json:"destruction,omitempty"`
 	Simulation   *SimulationPipelineConfig   `json:"simulation,omitempty"`
+	Asset        *AssetPipelineConfig        `json:"asset,omitempty"`
 	MaxEntities  int                          `json:"max_entities"`
 	UpdateRate   float64                      `json:"update_rate"` // Hz
+}
+
+// AssetPipelineConfig configures the asset pipeline.
+type AssetPipelineConfig struct {
+	Provider AssetProvider `json:"-"`
 }
 
 // Pipeline config types (aliases for sub-package configs)
@@ -399,4 +406,44 @@ func (o *Orchestrator) InjectEvent(event WorldEvent) {
 // UpdateClimate updates the climate state.
 func (o *Orchestrator) UpdateClimate(climate ClimateState) {
 	o.state.Climate = climate
+}
+
+// GenerateAsset delegates asset generation to the configured AssetProvider.
+// If no provider is configured, it returns an error.
+func (o *Orchestrator) GenerateAsset(ctx context.Context, req AssetRequest) (*AssetResult, error) {
+	if o.config.Asset == nil || o.config.Asset.Provider == nil {
+		return nil, fmt.Errorf("no asset provider configured")
+	}
+	result, err := o.config.Asset.Provider.GenerateAsset(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register the spawned asset as a world entity so it appears in the world.
+	if result.Valid && result.Path != "" {
+		o.registerAssetEntity(result)
+	}
+
+	return result, nil
+}
+
+// registerAssetEntity adds a generated asset to the world state as a persistent entity.
+// This is the bridge between asset creation and the living world: the asset
+// becomes a real object the agent can perceive and interact with.
+func (o *Orchestrator) registerAssetEntity(result *AssetResult) {
+	entity := WorldEntity{
+		ID:         result.ID,
+		Type:       EntityObject,
+		Label:      fmt.Sprintf("asset_%s", result.Type),
+		Metadata: map[string]string{
+			"asset_path":   result.Path,
+			"asset_hash":   result.Hash,
+			"asset_format": result.Format,
+			"tool":         result.Provenance.Tool,
+		},
+		Confidence: 1.0,
+		Persistent: true,
+		LastSeen:   time.Now(),
+	}
+	o.mergeEntities([]WorldEntity{entity})
 }
