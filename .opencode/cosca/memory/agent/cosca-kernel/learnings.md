@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Mineração ruflo
+
+### 2026-08-23 — Mineração ruvnet/ruflo (5 batedores paralelos)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar https://github.com/ruvnet/ruflo (ordem do Don) |
+| **Technique** | Level 3 — Mining: clone shallow + recon (39 itens, TS+Rust monorepo, 45+ plugins) + 5 subagentes `general` paralelos (filões: swarm, memória/agentdb, federação, meta-harness/hooks, plugin/capability). Agregação em `ruflo-patterns.md` (35 padrões) + INDEX (34 total) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.85 (mining/orchestration domain) |
+| **Tags** | #mining #ruflo #swarm #agentdb #federation #metaharness #capability-inventory #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/ruflo-patterns.md |
+| **Learned** | 1) Ruflo é um **meta-harness**: axioma "Agent = Model + Harness" — o modelo escreve, o harness dá ferramentas/memória/loops/sandboxes/controles. 2) 5 lições estruturais para o Cosca: (a) **a memória é o único estado durável** e router/swarm/loop são funções aprendidas sobre ela; (b) **memória imutável/auditável** (invalida, não sobrescreve — `supersedes`/`validUntil`, não UPDATE destrutivo) + face legível↔vetorial sincronizada + escopo triplo project/local/user; (c) **federação zero-trust** (A2A agent-card, signed manifest, challenge-response handshake com capability negotiation, JCS-canonical envelope anti-replay, PII transform por trust-level, trust ladder + PEP/PDP default-deny, circuit breaker com orçamento/anti-oáculo); (d) **harness degradável** (removable + graceful degradation envelope `{degraded,reason}` — todo adaptador retorna isso, CI "roda sem X"); (e) **capability inventory data-only** (brain sem import da registry, 5 fatos registered/configured/reachable/healthy/authorized) + **baseline monotônico** (só decresce no CI). 3) Padrões de memória mais transferíveis: **reforço de confiança** (boost +0.03/acesso, decay -0.005/hora, EWC p/ não esquecer) + **pattern mining EMA/pruning** — é como uma biblioteca de padrões de agente se comporta. 4) "Use when native X is wrong" (ADR-112) é o elo entre inventário grande e uso real. 5) Padrão transversal: **fallback degradado explícito** (`degraded:true`) é a postura do harness — nunca mentir que funcionou. |
+| **Next** | Levar os 5 padrões de maior valor ao Conselho: (1) memória imutável + trust model p/ cosca-memory-chief, (2) federação zero-trust p/ integrations/messaging, (3) capability brain + baseline monotônico no gate de catálogo, (4) harness degradável p/ adaptadores, (5) reforço de confiança + EWC p/ self-evolving. |
+
+---
+
 ## Session: 2026-08-22 — Assinatura Machine-Bound (DPAPI + nonce consent-to-content)
 
 ### 2026-08-22 — Implementação da assinatura machine-bound via DPAPI (decisão Opção B)

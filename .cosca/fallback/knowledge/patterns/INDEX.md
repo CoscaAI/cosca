@@ -70,18 +70,19 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`kubernetes-org-patterns.md`](kubernetes-org-patterns.md) | Kubernetes Org Patterns (27 patterns: CRI sandbox gRPC plugável+feature handshake, sandbox lifecycle idempotente, spec declarativa de isolamento, ExecSync bounded/assert stream, VPA decaying histogram+estimador em banda+anti-thrash, CA simulação de capacidade+eviction PDB-aware, KEP estados+graduação, OWNERS 2 fases, SIG/WG charter+OARP, escada de contribuidor, triage lifecycle, RFC2119+super-majority, kube-state-metrics state->metrics+cardinalidade allowlist+health one-hot+sharding) | 0.90 | 2026-08-22 |
 | [`google-agent-patterns.md`](google-agent-patterns.md) | Google Agent Patterns (14 patterns: agent como estrutura de dados+clone, transfer enum-restrito, agent loop por processors, event-sourcing+rewind, InvocationContext resumável, plugins hooks lifecycle, workflow trigger-buffer+scheduler; skills frontmatter mínimo+Use/Don't-use, progressive disclosure, disambiguation, composição+fallback, guardrails em content, anti-alucinação por MCP, ecossistema instalável) | 0.88 | 2026-08-22 |
 | [`anthropics-skills-patterns.md`](anthropics-skills-patterns.md) | Anthropic/Claude Patterns (21 patterns: hooks contrato eventos+exit-code, permissões 3 estados+managed-settings, memória sessão lock+TTL, revisão git-baseline, feedback async rewake, loop auto-referencial pela promise, trust-model anti-prompt-injection; skills frontmatter validável, progressive disclosure 3 níveis, roteador por domínio, descrição anti-undertrigger, scripts caixa-preta, marketplace .skill, meta-loop A/B; SDK query/ClaudeSDKClient, full-duplex multiplexado, can_use_tool, hooks tipados, tools in-process MCP, SessionStore protocol, batcher mirror) | 0.90 | 2026-08-22 |
+| [`ruflo-patterns.md`](ruflo-patterns.md) | Ruflo Patterns (35 patterns: swarm topology+anti-drift, closed-loop learned routing, weighted semantic matching, DAG scheduling+rollback, graceful failure contract, cache-aware loop heartbeat, capability brain data-only+5 fatos, memória imutável invalida-não-sobrescreve, SmartRetrieval 5 fases (RRF/MMR/recency), hybrid search 3 braços+signals, reforço de confiança boost/decay/EWC, pattern mining EMA/pruning, registry degradável, ponte legível↔vetorial+escopo triplo, federação A2A card+signed manifest+challenge handshake+JCS envelope+PII transform+trust ladder+cicruit breaker, meta-harness degradável+hooks membrana+skill-as-tool pin-version+self-introspection+envelope uniforme+mint/evolve/flywheel, baseline monotônico+witness manifest+drift catalog+contrato plugin) | 0.90 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 33 |
+| Total patterns | 34 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |
 | Integration patterns | 2 |
 | AI/Generation patterns | 1 |
-| Enterprise Platform patterns | 18 |
+| Enterprise Platform patterns | 19 |
 | Agent patterns | 4 |
 | Confidence range | 0.85 – 0.96 |
 | Average confidence | ~0.92 |
