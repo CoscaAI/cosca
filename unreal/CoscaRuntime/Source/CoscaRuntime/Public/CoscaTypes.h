@@ -28,6 +28,7 @@ enum class ECoscaMessageType : uint8
 	Spawn        UMETA(DisplayName = "Spawn"),
 	Destroy      UMETA(DisplayName = "Destroy"),
 	Modify       UMETA(DisplayName = "Modify"),
+	ImportMesh   UMETA(DisplayName = "ImportMesh"),
 	Weather      UMETA(DisplayName = "Weather"),
 	Time         UMETA(DisplayName = "Time"),
 	Ping         UMETA(DisplayName = "Ping"),
@@ -68,6 +69,23 @@ struct FActionPayload
 	UPROPERTY(BlueprintReadWrite) FString Action;
 	// action-specific params, e.g. {"target": [x,y,z]}
 	UPROPERTY(BlueprintReadWrite) TMap<FString, FString> Params;
+};
+
+// ImportMesh command payload (Cosca -> Unreal)
+USTRUCT(BlueprintType)
+struct FImportMeshPayload
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite) FString EntityId;
+	// Path to GLB/FBX file on disk
+	UPROPERTY(BlueprintReadWrite) FString MeshPath;
+	// Semantic type (for future reference)
+	UPROPERTY(BlueprintReadWrite) FString Type;
+	// Position/Rotation/Scale in world space
+	UPROPERTY(BlueprintReadWrite) FVector Position = FVector::ZeroVector;
+	UPROPERTY(BlueprintReadWrite) FQuat Rotation = FQuat::Identity;
+	UPROPERTY(BlueprintReadWrite) FVector Scale = FVector::OneVector;
 };
 
 // Envelope for all Cosca<->Unreal messages.

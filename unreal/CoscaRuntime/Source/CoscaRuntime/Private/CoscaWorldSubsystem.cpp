@@ -5,6 +5,8 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
@@ -195,6 +197,15 @@ void UCoscaWorldSubsystem::HandleCommand(const FCoscaMessage& Message)
 		HandleDestroy(Message.EntityId);
 		break;
 	}
+	case ECoscaMessageType::ImportMesh:
+	{
+		FImportMeshPayload Payload;
+		if (ParseImportMesh(Message.Payload, Payload))
+		{
+			ImportMesh(Payload);
+		}
+		break;
+	}
 	case ECoscaMessageType::Ping:
 	default:
 	{
@@ -351,6 +362,171 @@ void UCoscaWorldSubsystem::HandleAction(const FActionPayload& Payload)
 	}
 }
 
+// ---- Import Mesh (GLB/FBX → StaticMesh → Spawn) ----
+
+bool UCoscaWorldSubsystem::ParseImportMesh(const FString& JsonStr, FImportMeshPayload& Payload)
+{
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonStr);
+	TSharedPtr<FJsonObject> Obj;
+	if (!FJsonSerializer::Deserialize(Reader, Obj) || !Obj.IsValid())
+	{
+		return false;
+	}
+
+	Payload.EntityId = Obj->GetStringField(TEXT("entity_id"));
+	Payload.MeshPath = Obj->GetStringField(TEXT("mesh_path"));
+	Payload.Type = Obj->GetStringField(TEXT("type"));
+
+	const TArray<TSharedPtr<FJsonValue>>* PosArr;
+	if (Obj->TryGetArrayField(TEXT("position"), PosArr) && PosArr->Num() == 3)
+	{
+		Payload.Position.X = (*PosArr)[0]->AsNumber();
+		Payload.Position.Y = (*PosArr)[1]->AsNumber();
+		Payload.Position.Z = (*PosArr)[2]->AsNumber();
+	}
+
+	const TArray<TSharedPtr<FJsonValue>>* ScaleArr;
+	if (Obj->TryGetArrayField(TEXT("scale"), ScaleArr) && ScaleArr->Num() == 3)
+	{
+		Payload.Scale.X = (*ScaleArr)[0]->AsNumber();
+		Payload.Scale.Y = (*ScaleArr)[1]->AsNumber();
+		Payload.Scale.Z = (*ScaleArr)[2]->AsNumber();
+	}
+
+	return true;
+}
+
+AActor* UCoscaWorldSubsystem::ImportMesh(const FImportMeshPayload& Payload)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] ImportMesh: entity=%s asset=%s"), *Payload.EntityId, *Payload.MeshPath);
+
+	// Check if already exists
+	if (AActor* Existing = FindEntity(Payload.EntityId))
+	{
+		Existing->SetActorLocationAndRotation(Payload.Position, Payload.Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+		return Existing;
+	}
+
+	// ── AssetID → Registry ──
+	// Payload.MeshPath is now the AssetID (e.g. "tree_modern_001")
+	// Registry maps it to a UE content path (e.g. "/Game/Cosca/Imported/tree_modern_001")
+	FString ContentPath;
+	
+	if (Payload.MeshPath.StartsWith(TEXT("/Game/")))
+	{
+		// Already a content path (backward compatibility)
+		ContentPath = Payload.MeshPath;
+	}
+	else
+	{
+		// It's an AssetID — read the registry
+		ContentPath = ResolveAssetID(Payload.MeshPath);
+		if (ContentPath.IsEmpty())
+		{
+			UE_LOG(LogCosca, Error, TEXT("[Cosca] ImportMesh: asset_id '%s' not found in registry"), *Payload.MeshPath);
+			FCoscaMessage Ack;
+			Ack.Type = ECoscaMessageType::Error;
+			Ack.EntityId = Payload.EntityId;
+			Ack.Payload = TEXT("{\"error\":\"asset_not_found\",\"asset_id\":\"") + Payload.MeshPath + TEXT("\"}");
+			SendToCosca(Ack);
+			return nullptr;
+		}
+	}
+
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] ImportMesh: resolved to %s"), *ContentPath);
+
+	// Load the static mesh
+	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *ContentPath);
+	if (!Mesh)
+	{
+		// Fallback: try to use engine cube if asset not found
+		Mesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+		if (Mesh)
+		{
+			UE_LOG(LogCosca, Warning, TEXT("[Cosca] ImportMesh: asset '%s' not found, using fallback cube"), *Payload.MeshPath);
+		}
+		else
+		{
+			UE_LOG(LogCosca, Error, TEXT("[Cosca] ImportMesh: could not load mesh from %s and fallback failed"), *ContentPath);
+			FCoscaMessage Ack;
+			Ack.Type = ECoscaMessageType::Error;
+			Ack.EntityId = Payload.EntityId;
+			Ack.Payload = TEXT("{\"error\":\"mesh_load_failed\",\"content_path\":\"") + ContentPath + TEXT("\"}");
+			SendToCosca(Ack);
+			return nullptr;
+		}
+	}
+
+	// Spawn actor with imported mesh
+	AStaticMeshActor* MeshActor = World->SpawnActor<AStaticMeshActor>(
+		AStaticMeshActor::StaticClass(), Payload.Position, Payload.Rotation.Rotator());
+	if (!MeshActor)
+	{
+		UE_LOG(LogCosca, Error, TEXT("[Cosca] ImportMesh: failed to spawn actor"));
+		return nullptr;
+	}
+
+	// Configure mesh component
+	UStaticMeshComponent* MeshComp = MeshActor->GetStaticMeshComponent();
+	MeshComp->SetMobility(EComponentMobility::Movable);
+	MeshComp->SetStaticMesh(Mesh);
+	MeshActor->SetActorScale3D(Payload.Scale);
+
+	EntityMap.Add(Payload.EntityId, MeshActor);
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] ImportMesh: spawned %s with asset %s → %s"), *Payload.EntityId, *Payload.MeshPath, *ContentPath);
+
+	FCoscaMessage Ack;
+	Ack.Type = ECoscaMessageType::Pong;
+	Ack.EntityId = Payload.EntityId;
+	SendToCosca(Ack);
+	return MeshActor;
+}
+
+// ── Asset Registry ──
+
+FString UCoscaWorldSubsystem::ResolveAssetID(const FString& AssetId)
+{
+	// Read the asset registry JSON from Content/Cosca/asset_registry.json
+	FString RegistryPath = FPaths::ProjectContentDir() + TEXT("Cosca/asset_registry.json");
+	
+ FString Json;
+	if (!FFileHelper::LoadFileToString(Json, *RegistryPath))
+	{
+		UE_LOG(LogCosca, Warning, TEXT("[Cosca] Asset registry not found at %s"), *RegistryPath);
+		return TEXT("");
+	}
+
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Json);
+	TSharedPtr<FJsonObject> Root;
+	if (!FJsonSerializer::Deserialize(Reader, Root) || !Root.IsValid())
+	{
+		UE_LOG(LogCosca, Error, TEXT("[Cosca] Failed to parse asset registry"));
+		return TEXT("");
+	}
+
+	TSharedPtr<FJsonObject> Assets = Root->GetObjectField(TEXT("assets"));
+	if (!Assets.IsValid())
+	{
+		return TEXT("");
+	}
+
+	TSharedPtr<FJsonObject> Asset = Assets->GetObjectField(AssetId);
+	if (!Asset.IsValid())
+	{
+		return TEXT("");
+	}
+
+	FString UEPath = Asset->GetStringField(TEXT("ue_asset"));
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] Resolved asset_id '%s' → %s"), *AssetId, *UEPath);
+	return UEPath;
+}
+
 AActor* UCoscaWorldSubsystem::FindEntity(const FString& EntityId) const
 {
 	if (const TWeakObjectPtr<AActor>* Found = EntityMap.Find(EntityId))
@@ -416,6 +592,7 @@ ECoscaMessageType UCoscaWorldSubsystem::TypeFromString(const FString& S)
 	if (S == TEXT("spawn")) return ECoscaMessageType::Spawn;
 	if (S == TEXT("destroy")) return ECoscaMessageType::Destroy;
 	if (S == TEXT("modify")) return ECoscaMessageType::Modify;
+	if (S == TEXT("import_mesh")) return ECoscaMessageType::ImportMesh;
 	if (S == TEXT("weather")) return ECoscaMessageType::Weather;
 	if (S == TEXT("time")) return ECoscaMessageType::Time;
 	if (S == TEXT("pong")) return ECoscaMessageType::Pong;

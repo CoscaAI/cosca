@@ -43,6 +43,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Cosca")
 	bool DestroyEntity(const FString& EntityId);
 
+	// Import a GLB/FBX mesh and spawn it in the world.
+	UFUNCTION(BlueprintCallable, Category = "Cosca")
+	AActor* ImportMesh(const FImportMeshPayload& Payload);
+
 	// Move an Actor to a target (uses NavMesh pathfinding).
 	UFUNCTION(BlueprintCallable, Category = "Cosca")
 	bool MoveEntity(const FString& EntityId, const FVector& Target);
@@ -53,6 +57,9 @@ public:
 
 	// Find an Actor by Cosca entity id.
 	AActor* FindEntity(const FString& EntityId) const;
+
+	// Resolve an AssetID to a UE content path via the asset registry.
+	FString ResolveAssetID(const FString& AssetId);
 
 	// ---- Tick ----
 	virtual void Tick(float DeltaTime) override;
@@ -82,6 +89,7 @@ private:
 	// Parse a JSON payload into a struct
 	bool ParseSpawn(const FString& Json, FSpawnPayload& Out);
 	bool ParseAction(const FString& Json, FActionPayload& Out);
+	bool ParseImportMesh(const FString& Json, FImportMeshPayload& Out);
 
 	// JSON envelope helpers
 	FCoscaMessage MessageFromJson(const TSharedPtr<FJsonObject>& Obj);
