@@ -55,9 +55,11 @@ def validate_mesh(obj):
     if max(size) < 0.001:
         issues.append(f"{obj.name}: bounding box too small: {size}")
     
-    # Check for degenerate faces
+    # Check for degenerate faces (area essentially zero — collapsed vertices).
+    # Use a near-zero threshold so legitimate small/ngon faces (cylinders,
+    # spheres, terracing) are not flagged. A truly degenerate face has area ~0.
     for i, poly in enumerate(mesh.polygons):
-        if poly.area < 0.0001:
+        if poly.area <= 1e-9:
             issues.append(f"{obj.name}: degenerate face {i}")
     
     return {

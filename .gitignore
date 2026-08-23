@@ -24,6 +24,7 @@
 
 # External reference clones (mining — never versioned; they carry their own .git)
 /eigen/
+.cosca/fallback/knowledge/blender-repo/
 
 # Build artifacts & binaries (anchored to root — do NOT ignore internal/embed/cosca/)
 /cosca
@@ -76,3 +77,4 @@ cosca-forex/
 /*.log
 
 # Transient runtime auto-backups (Don policy: lixo transitorio).cosca/backups/
+.cosca/assets/
