@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,9 +13,17 @@ import (
 // writeFile creates a file (and parent dirs) under root with the given content.
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
+	writeFileBytes(t, root, rel, []byte(content))
+}
+
+// writeFileBytes creates a file (and parent dirs) under root with raw BYTES.
+// Used for the mojibake test cases where the content MUST be byte-exact and
+// must not depend on the test file's own encoding.
+func writeFileBytes(t *testing.T, root, rel string, data []byte) {
+	t.Helper()
 	full := filepath.Join(root, filepath.FromSlash(rel))
 	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
-	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(full, data, 0o644))
 }
 
 // writeManifest generates the canonical snapshot for the current live tree and
@@ -179,6 +188,26 @@ func TestAuditInvariants_Scenarios(t *testing.T) {
 			wantPass: true,
 			wantKind: "",
 		},
+		{
+			name: "mojibake (travesao duplo-codificado) => achado",
+			setup: func(t *testing.T, root string) {
+				// â€" = C3 A2 E2 82 AC E2 80 9D — em dash re-encoded as corrupt UTF-8.
+				writeFileBytes(t, root, "agents/cosca-ai/INDEX.md",
+					[]byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9d, '\n'})
+			},
+			wantPass: false,
+			wantKind: KindMojibake,
+		},
+		{
+			name: "a sole e legitimo (ambito) => nao e mojibake",
+			setup: func(t *testing.T, root string) {
+				// "âmbito" — C3 A2 is a legit PT â, never followed by E2 80/82.
+				writeFileBytes(t, root, "engines/audit/INDEX.md",
+					[]byte{0xc3, 0xa2, 'm', 'b', 'i', 't', 'o', '\n'})
+			},
+			wantPass: true,
+			wantKind: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,6 +228,122 @@ func TestAuditInvariants_Scenarios(t *testing.T) {
 					}
 				}
 				assert.True(t, found, "esperava violação do tipo %q, obtido %+v", tt.wantKind, rep.Violations)
+			}
+		})
+	}
+}
+
+// TestCheckMojibake exercises Invariant D (detection of double-encoded UTF-8).
+// It asserts the detector catches the known corrupt sequences (em dash, quotes,
+// ellipsis, nbsp, ê-variant) and does NOT flag a lone `â` ("âmbito").
+func TestCheckMojibake(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   []byte
+		wantFound int     // number of mojibake violations expected
+		wantOffs  []int   // byte offsets of each finding (in order)
+		wantRegex string  // substring expected in the detail
+	}{
+		{
+			name:      "em dash duplo-codificado (â€\")",
+			content:   append([]byte("auto "), []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9d}...), // "auto â€\""
+			wantFound: 1,
+			wantOffs:  []int{5},
+			wantRegex: "travessão",
+		},
+		{
+			name:      "aposto duplo-codificado (â€™)",
+			content:   []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x99},
+			wantFound: 1,
+			wantOffs:  []int{0},
+			wantRegex: "apóstrofo",
+		},
+		{
+			name:      "aspas duplo-codificadas (â€œ)",
+			content:   []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9c},
+			wantFound: 1,
+			wantOffs:  []int{0},
+			wantRegex: "aspas",
+		},
+		{
+			name:      "reticências duplo-codificadas (â€¦)",
+			content:   []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0xa6},
+			wantFound: 1,
+			wantOffs:  []int{0},
+			wantRegex: "reticências",
+		},
+		{
+			name:      "nbsp duplo-codificado (â\u00a0)",
+			content:   []byte{0xc3, 0xa2, 0xc2, 0xa0},
+			wantFound: 1,
+			wantOffs:  []int{0},
+			wantRegex: "nbsp",
+		},
+		{
+			name:      "ê-variante (â†\u201d)",
+			content:   []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x9d},
+			wantFound: 1,
+			wantOffs:  []int{0},
+			wantRegex: "travessão",
+		},
+		{
+			name:      "dois hits consecutivos => offsets corretos",
+			content:   []byte("x"), // x + em-dash + nbsp
+			wantFound: 2,
+			wantOffs:  []int{1, 9},
+			wantRegex: "mojibake",
+		},
+		{
+			name:      "a sole (ambito) => não é mojibake",
+			content:   []byte{0xc3, 0xa2, 'm', 'b', 'i', 't', 'o'},
+			wantFound: 0,
+			wantOffs:  nil,
+			wantRegex: "",
+		},
+		{
+			name:      "sem mojibake => nada",
+			content:   []byte("conteúdo são e limpo, com travessão — correto"),
+			wantFound: 0,
+			wantOffs:  nil,
+			wantRegex: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build the "dois hits" content explicitly: x + em-dash + nbsp.
+			data := tt.content
+			if tt.name == "dois hits consecutivos => offsets corretos" {
+				data = append([]byte{'x'},
+					0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9d, // â€" (em-dash) at offset 1
+					0xc3, 0xa2, 0xc2, 0xa0, // â (nbsp) at offset 9
+				)
+			}
+
+			rep := &Report{Mode: ModeAudit, Violations: []Violation{}, Stats: Stats{}}
+			scanMojibake(data, "doc.md", rep)
+
+			assert.Equal(t, tt.wantFound, rep.Stats.Mojibakes, "Mojibakes count")
+			count := 0
+			for _, v := range rep.Violations {
+				if v.Kind == KindMojibake {
+					count++
+				}
+			}
+			assert.Equal(t, tt.wantFound, count, "mojibake violations")
+			assert.Equal(t, tt.wantFound, len(rep.Violations), "total violations")
+
+			if tt.wantFound > 0 {
+				require.NotEmpty(t, rep.Violations)
+				assert.Contains(t, rep.Violations[0].Detail, tt.wantRegex)
+				assert.Equal(t, "doc.md", rep.Violations[0].Path)
+			}
+			if tt.wantOffs != nil {
+				for i, want := range tt.wantOffs {
+					require.Less(t, i, len(rep.Violations), "missing violation %d", i)
+					got := rep.Violations[i].Detail
+					assert.Contains(t, got, fmt.Sprintf("no byte %d", want))
+				}
 			}
 		})
 	}

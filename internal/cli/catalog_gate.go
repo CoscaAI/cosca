@@ -75,13 +75,15 @@ DUAS OPERAÇÕES ORTOGONAIS:
                       invariantes A/B/C. Se houver drift, falha e orienta rodar
                       'cosca gate catalog --generate' + commitar.
 
-  --audit             AUDITORIA DOS 3 INVARIANTES como débito NÃO-BLOQUEANTE:
+  --audit             AUDITORIA DOS 4 INVARIANTES como débito NÃO-BLOQUEANTE:
                         A. INDEX.md      coluna de agents/skills/engines/departments
                                          sem INDEX.md.
                         B. frontmatter   SKILL.md/PROMPT.md sem name/description
                                          (ou level fora de 1-5).
                         C. cross-refs    link relativo em *.md apontando para alvo
                                          inexistente.
+                        D. mojibake      sequências UTF-8 duplo-codificadas
+                                         (â€/Â ) em *.md — encoding corrompido.
                       Reporta contagens + exemplos e faz exit 0 (a menos que use
                       --strict). A dívida vira backlog visível, não trava a esteira.
 
@@ -121,7 +123,7 @@ Exemplos:
 
 	cmd.Flags().BoolVar(&generate, "generate", false, "regenerar o snapshot canônico .opencode/cosca/catalog.manifest (em vez de checar)")
 	cmd.Flags().BoolVar(&check, "check", false, "verificar DRIFT do snapshot (default; exit non-zero em drift)")
-	cmd.Flags().BoolVar(&audit, "audit", false, "auditar os 3 invariantes como débito não-bloqueante (em vez de checar drift)")
+	cmd.Flags().BoolVar(&audit, "audit", false, "auditar os 4 invariantes como débito não-bloqueante (em vez de checar drift)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "com --audit: tornar achados bloqueantes (exit 1)")
 	cmd.Flags().BoolVar(&summary, "summary", false, "imprimir 1 linha curta de resumo (p/ hook)")
 	return cmd
@@ -147,7 +149,7 @@ func runCatalogGenerate(cmd *cobra.Command, formatter *OutputFormatter, useJSON 
 	}
 	formatter.Success(fmt.Sprintf("Snapshot canônico gerado ✓ — %s", catalog.ManifestFileName))
 	formatter.KeyValue("Arquivo", manifestPath)
-	formatter.KeyValue("Regras", "check = DRIFT do snapshot | audit = A: INDEX.md | B: name/description/level | C: cross-refs")
+	formatter.KeyValue("Regras", "check = DRIFT do snapshot | audit = A: INDEX.md | B: name/description/level | C: cross-refs | D: mojibake")
 	return nil
 }
 
@@ -287,6 +289,7 @@ func printAuditReport(formatter *OutputFormatter, rep *catalog.Report) {
 	formatter.KeyValue("SKILL/PROMPT examinados", fmt.Sprintf("%d", rep.Stats.Prompts))
 	formatter.KeyValue("Colunas de catálogo", fmt.Sprintf("%d", rep.Stats.Columns))
 	formatter.KeyValue("Links relativos", fmt.Sprintf("%d", rep.Stats.Links))
+	formatter.KeyValue("Sequências mojibake", fmt.Sprintf("%d", rep.Stats.Mojibakes))
 
 	if rep.Pass {
 		return
@@ -321,6 +324,8 @@ func kindLabel(kind string) string {
 		return "cross-referência quebrada"
 	case catalog.KindManifestDrift:
 		return "drift do snapshot"
+	case catalog.KindMojibake:
+		return "mojibake (encoding corrompido)"
 	default:
 		return kind
 	}

@@ -16,6 +16,12 @@
 //                              .opencode/cosca MUST point at an existing file
 //                              (http/https/mailto/tel/ftp/data/#/anchor/schemes
 //                              are ignored). This closes the dangling-ref gap.
+//   Invariant D (mojibake):    every *.md under .opencode/cosca MUST be clean
+//                              UTF-8. No double-encoded (mojibake) sequences
+//                              from re-encoded em dashes/quotes/nbsp. A lone
+//                              `â` (C3 A2) is NOT a finding — it is a legit
+//                              PT char ("âmbito"); only the `â€` quote/dash
+//                              chains are reported.
 //
 // CheckDrift  — generate-and-diff: `--generate` writes the canonical snapshot
 // (catalog.manifest), the list of expected INDEX paths plus the canonical
@@ -39,6 +45,7 @@ package catalog
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -91,6 +98,7 @@ const (
 	KindFrontmatter   = "frontmatter"
 	KindDanglingLink  = "dangling-link"
 	KindManifestDrift = "manifest-drift"
+	KindMojibake      = "mojibake"
 )
 
 // Report modes.
@@ -110,11 +118,12 @@ type Violation struct {
 
 // Stats summarizes what the gate inspected.
 type Stats struct {
-	MdFiles  int `json:"md_files"`  // *.md files traversed (not checked)
-	Prompts  int `json:"prompts"`   // SKILL.md/PROMPT.md files examined
-	Columns  int `json:"columns"`   // catalog columns discovered
-	Links    int `json:"links"`     // relative links resolved
-	Manifest bool `json:"manifest"` // snapshot present?
+	MdFiles   int  `json:"md_files"`   // *.md files traversed (not checked)
+	Prompts   int  `json:"prompts"`    // SKILL.md/PROMPT.md files examined
+	Columns   int  `json:"columns"`    // catalog columns discovered
+	Links     int  `json:"links"`      // relative links resolved
+	Manifest  bool `json:"manifest"`   // snapshot present?
+	Mojibakes int  `json:"mojibake"`   // mojibake sequences detected
 }
 
 // Report is the outcome of a drift check or an invariant audit.
@@ -504,6 +513,106 @@ func outOfTreeReference(dir, dest, root string) bool {
 	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel)
 }
 
+// ---- Invariant D (mojibake) ------------------------------------------------
+
+// mojibakePatterns are the known double-encoded UTF-8 sequences (mojibake) left
+// behind when a UTF-8 document is re-read/mis-encoded once too many times. Each
+// entry carries the corrupt BYTE pattern (the detector matches raw bytes, never
+// the console/display), a short label of the corrupt token and the intended
+// character it was meant to be. All patterns share the `â` (C3 A2) lead byte
+// followed by a re-encoded quote/dash/ellipsis/nbsp — never a lone `â` (which is
+// legitimate in Portuguese: "âmbito").
+//
+// Common prefix (the `â€` motif) decodes as:
+//
+//	C3 A2            = â  (U+00E2)
+//	E2 82 AC         = €  (U+20AC)
+//	E2 80 XX         = re-encoded punctuation/dash/ellipsis
+//
+// A variant replaces the euro (E2 82 AC) with `†` (E2 80 A0), and a 4-byte
+// pattern covers the re-encoded non-breaking space.
+var mojibakePatterns = []mojibakePattern{
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9d}, label: "â€\u201d", orig: "travessão —"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x99}, label: "â€™", orig: "apóstrofo ’"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x9c}, label: "â€œ", orig: "aspas “"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x98}, label: "â€˜", orig: "aspas ‘"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0xa6}, label: "â€¦", orig: "reticências …"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x93}, label: "â€“", orig: "travessão –"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x82, 0xac, 0xe2, 0x80, 0x94}, label: "â€”", orig: "travessão —"},
+	// ê-variante: the re-encoded char after `â` is † (E2 80 A0) instead of €.
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x9d}, label: "â†\u201d", orig: "travessão —"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x99}, label: "â†™", orig: "apóstrofo ’"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x9c}, label: "â†œ", orig: "aspas “"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x98}, label: "â†˜", orig: "aspas ‘"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0xa6}, label: "â†¦", orig: "reticências …"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x93}, label: "â†“", orig: "travessão –"},
+	{bytes: []byte{0xc3, 0xa2, 0xe2, 0x80, 0xa0, 0xe2, 0x80, 0x94}, label: "â†”", orig: "travessão —"},
+	// Re-encoded non-breaking space.
+	{bytes: []byte{0xc3, 0xa2, 0xc2, 0xa0}, label: "â\u00a0", orig: "espaço não quebrável (nbsp)"},
+}
+
+// mojibakePattern is a known corrupt byte sequence plus its human labels.
+type mojibakePattern struct {
+	bytes []byte
+	label string // the visible corrupt token (for the report detail)
+	orig  string // the intended character the bytes were meant to be
+}
+
+// checkMojibake runs Invariant D over every *.md under root: it reads the raw
+// BYTES and reports one `mojibake` violation per occurrence of a known
+// double-encoded sequence. It is deliberately byte-based (never console-decoded)
+// so it is deterministic and cross-platform. A lone C3 A2 ("â") is NOT a
+// finding — only the recognized `â€`/`Â ` chains are flagged.
+func checkMojibake(root string, rep *Report) error {
+	return filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // best-effort: skip unreadable entries
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(p) != ".md" {
+			return nil
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		rel := toSlash(relPath(root, p))
+		scanMojibake(data, rel, rep)
+		return nil
+	})
+}
+
+// scanMojibake scans data for every known mojibake byte pattern, appending a
+// `mojibake` violation per occurrence and incrementing Stats.Mojibakes. The
+// offset is the absolute byte index of the sequence start (deterministic,
+// cross-platform; output never depends on a console codepage).
+func scanMojibake(data []byte, rel string, rep *Report) {
+	for i := 0; i < len(data); {
+		matched := false
+		for _, pat := range mojibakePatterns {
+			if bytes.HasPrefix(data[i:], pat.bytes) {
+				rep.Stats.Mojibakes++
+				rep.Violations = append(rep.Violations, Violation{
+					Kind:   KindMojibake,
+					Path:   rel,
+					Detail: fmt.Sprintf("sequência mojibake %s (bytes %x) no byte %d — era %s",
+						pat.label, pat.bytes, i, pat.orig),
+				})
+				// Skip past the whole sequence so overlapping re-scans are
+				// impossible and counts stay exact.
+				i += len(pat.bytes)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			i++
+		}
+	}
+}
+
 // ---- Cross-reference link resolution --------------------------------------
 
 var (
@@ -697,11 +806,12 @@ func CheckDrift(root string) (*Report, error) {
 	return rep, nil
 }
 
-// AuditInvariants evaluates the three catalog invariants (INDEX presence,
-// frontmatter, cross-references) WITHOUT the manifest drift diff. Findings are
-// code-smell / debt candidates. Pass is true when there are zero findings. The
-// CLI decides whether findings are blocking (--strict) or merely advisory (the
-// default). The manifest snapshot is NOT required by this operation.
+// AuditInvariants evaluates the four catalog invariants (INDEX presence,
+// frontmatter, cross-references, mojibake) WITHOUT the manifest drift diff.
+// Findings are code-smell / debt candidates. Pass is true when there are zero
+// findings. The CLI decides whether findings are blocking (--strict) or merely
+// advisory (the default). The manifest snapshot is NOT required by this
+// operation.
 func AuditInvariants(root string) (*Report, error) {
 	rep := &Report{Root: root, Mode: ModeAudit, Violations: []Violation{}}
 	cols, err := collectColumns(root)
@@ -720,6 +830,10 @@ func AuditInvariants(root string) (*Report, error) {
 	}
 	// Invariant C: cross-references.
 	if err := checkCrossReferences(root, rep); err != nil {
+		return nil, err
+	}
+	// Invariant D: mojibake / double-encoded UTF-8.
+	if err := checkMojibake(root, rep); err != nil {
 		return nil, err
 	}
 
