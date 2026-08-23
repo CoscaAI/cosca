@@ -13,6 +13,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/results"
 	"github.com/CoscaAI/cosca/internal/search"
 )
 
@@ -23,6 +24,10 @@ import (
 // engine.
 type KnowledgeAdapter struct {
 	engine *knowledge.Engine
+	// degradedReason, quando não vazio, marca as operações bem-sucedidas como
+	// Degraded (paridade D6) — ex.: backend opcional offline/fallback de
+	// provider. Não é um error; a operação teve efeito.
+	degradedReason string
 }
 
 // NewKnowledgeAdapter creates a new KnowledgeAdapter backed by the given
@@ -30,6 +35,13 @@ type KnowledgeAdapter struct {
 // searches are performed.
 func NewKnowledgeAdapter(engine *knowledge.Engine) *KnowledgeAdapter {
 	return &KnowledgeAdapter{engine: engine}
+}
+
+// SetDegraded marca o adapter como degradado com o motivo informado. Operações
+// bem-sucedidas passam a reportar Degraded=true no envelope (aditivo; as
+// assinaturas legadas `(*T, error)` continuam inalteradas).
+func (a *KnowledgeAdapter) SetDegraded(reason string) {
+	a.degradedReason = reason
 }
 
 // Search implements orchestration.KnowledgeSearcher. It converts orchestration
@@ -45,6 +57,14 @@ func (a *KnowledgeAdapter) Search(ctx context.Context, params orchestration.Know
 	}
 
 	return toOrchSearchResults(sr), nil
+}
+
+// SearchResult é a forma com envelope (paridade D6): converte o resultado de
+// Search em `*results.Result`, expondo sucesso/dados/degradado na fronteira
+// sem ambiguidade de `nil/error`. Aditivo — Search continua disponível.
+func (a *KnowledgeAdapter) SearchResult(ctx context.Context, params orchestration.KnowledgeSearchParams) *results.Result {
+	data, err := a.Search(ctx, params)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // ── Mapping: orchestration → search ────────────────────────────────────────

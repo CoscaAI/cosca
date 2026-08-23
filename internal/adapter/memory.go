@@ -6,6 +6,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/results"
 )
 
 // MemoryAdapter adapts a memory.MemoryEngine to implement both the
@@ -18,11 +19,22 @@ import (
 // orchestration layer — all type mapping happens here, in the adapter.
 type MemoryAdapter struct {
 	engine *memory.MemoryEngine
+	// degradedReason, quando não vazio, marca as operações bem-sucedidas como
+	// Degraded (paridade D6) — ex.: backend opcional offline/fallback. Não é
+	// um error; a operação teve efeito.
+	degradedReason string
 }
 
 // NewMemoryAdapter creates a new MemoryAdapter backed by the given memory engine.
 func NewMemoryAdapter(engine *memory.MemoryEngine) *MemoryAdapter {
 	return &MemoryAdapter{engine: engine}
+}
+
+// SetDegraded marca o adapter como degradado com o motivo informado. Operações
+// bem-sucedidas passam a reportar Degraded=true no envelope (aditivo; as
+// assinaturas legadas `(*T, error)` continuam inalteradas).
+func (a *MemoryAdapter) SetDegraded(reason string) {
+	a.degradedReason = reason
 }
 
 // ── MemoryRetriever implementation ────────────────────────────────────────
@@ -41,6 +53,13 @@ func (a *MemoryAdapter) Search(ctx context.Context, query string, opts orchestra
 	return toOrchMemoryRecords(records), nil
 }
 
+// SearchResult é a forma com envelope (paridade D6) de Search. Aditivo — Search
+// continua disponível.
+func (a *MemoryAdapter) SearchResult(ctx context.Context, query string, opts orchestration.MemorySearchOptions) *results.Result {
+	data, err := a.Search(ctx, query, opts)
+	return adapterResult(data, err, a.degradedReason)
+}
+
 // Retrieve fetches a specific memory record by ID from the given layer.
 // The layer string is converted to a memory.MemoryLayer before delegation.
 func (a *MemoryAdapter) Retrieve(ctx context.Context, id, layer string) (*orchestration.MemoryRecord, error) {
@@ -52,6 +71,13 @@ func (a *MemoryAdapter) Retrieve(ctx context.Context, id, layer string) (*orches
 	}
 
 	return toOrchMemoryRecord(record), nil
+}
+
+// RetrieveResult é a forma com envelope (paridade D6) de Retrieve. Aditivo —
+// Retrieve continua disponível.
+func (a *MemoryAdapter) RetrieveResult(ctx context.Context, id, layer string) *results.Result {
+	data, err := a.Retrieve(ctx, id, layer)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // ── MemoryStorer implementation ───────────────────────────────────────────
@@ -68,6 +94,13 @@ func (a *MemoryAdapter) Store(ctx context.Context, record orchestration.MemoryRe
 	}
 
 	return toOrchMemoryRecord(persisted), nil
+}
+
+// StoreResult é a forma com envelope (paridade D6) de Store. Aditivo — Store
+// continua disponível.
+func (a *MemoryAdapter) StoreResult(ctx context.Context, record orchestration.MemoryRecord) *results.Result {
+	data, err := a.Store(ctx, record)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // ── Compile-time interface checks ─────────────────────────────────────────

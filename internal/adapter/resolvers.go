@@ -3,6 +3,7 @@ package adapter
 import (
 	"github.com/CoscaAI/cosca/internal/agents"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/results"
 	"github.com/CoscaAI/cosca/internal/skills"
 )
 
@@ -13,12 +14,20 @@ import (
 // orchestration engine with identical agent resolution behaviour.
 type AgentResolverAdapter struct {
 	mgr *agents.Manager
+	// degradedReason, quando não vazio, marca as operações bem-sucedidas como
+	// Degraded (paridade D6).
+	degradedReason string
 }
 
 // NewAgentResolverAdapter creates a new AgentResolverAdapter backed by the
 // given agent manager.
 func NewAgentResolverAdapter(mgr *agents.Manager) *AgentResolverAdapter {
 	return &AgentResolverAdapter{mgr: mgr}
+}
+
+// SetDegraded marca o adapter como degradado com o motivo informado.
+func (a *AgentResolverAdapter) SetDegraded(reason string) {
+	a.degradedReason = reason
 }
 
 // Get returns an agent by name as an orchestration.AgentInfo.
@@ -33,6 +42,12 @@ func (a *AgentResolverAdapter) Get(name string) (*orchestration.AgentInfo, error
 		Department:  agent.Department,
 		Description: agent.Description,
 	}, nil
+}
+
+// GetResult é a forma com envelope (paridade D6) de Get. Aditivo.
+func (a *AgentResolverAdapter) GetResult(name string) *results.Result {
+	data, err := a.Get(name)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // Search finds agents matching a query string.
@@ -53,6 +68,12 @@ func (a *AgentResolverAdapter) Search(query string) ([]orchestration.AgentInfo, 
 	return infos, nil
 }
 
+// SearchResult é a forma com envelope (paridade D6) de Search. Aditivo.
+func (a *AgentResolverAdapter) SearchResult(query string) *results.Result {
+	data, err := a.Search(query)
+	return adapterResult(data, err, a.degradedReason)
+}
+
 // Compile-time check: AgentResolverAdapter implements AgentResolver.
 var _ orchestration.AgentResolver = (*AgentResolverAdapter)(nil)
 
@@ -61,12 +82,20 @@ var _ orchestration.AgentResolver = (*AgentResolverAdapter)(nil)
 // REST API so both entry points use identical skill resolution behaviour.
 type SkillResolverAdapter struct {
 	mgr *skills.Manager
+	// degradedReason, quando não vazio, marca as operações bem-sucedidas como
+	// Degraded (paridade D6).
+	degradedReason string
 }
 
 // NewSkillResolverAdapter creates a new SkillResolverAdapter backed by the
 // given skill manager.
 func NewSkillResolverAdapter(mgr *skills.Manager) *SkillResolverAdapter {
 	return &SkillResolverAdapter{mgr: mgr}
+}
+
+// SetDegraded marca o adapter como degradado com o motivo informado.
+func (a *SkillResolverAdapter) SetDegraded(reason string) {
+	a.degradedReason = reason
 }
 
 // Get returns a skill by name as an orchestration.SkillInfo.
@@ -80,6 +109,12 @@ func (a *SkillResolverAdapter) Get(name string) (*orchestration.SkillInfo, error
 		Description: s.Description,
 		Category:    s.Category,
 	}, nil
+}
+
+// GetResult é a forma com envelope (paridade D6) de Get. Aditivo.
+func (a *SkillResolverAdapter) GetResult(name string) *results.Result {
+	data, err := a.Get(name)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // Search finds skills matching a query string.
@@ -97,6 +132,12 @@ func (a *SkillResolverAdapter) Search(query string) ([]orchestration.SkillInfo, 
 		})
 	}
 	return infos, nil
+}
+
+// SearchResult é a forma com envelope (paridade D6) de Search. Aditivo.
+func (a *SkillResolverAdapter) SearchResult(query string) *results.Result {
+	data, err := a.Search(query)
+	return adapterResult(data, err, a.degradedReason)
 }
 
 // List returns all available skills.
