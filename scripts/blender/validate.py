@@ -29,9 +29,13 @@ def validate_mesh(obj):
     if len(mesh.uv_layers) == 0:
         issues.append(f"{obj.name}: no UV layers")
     
-    # Check normals
-    if len(mesh.polygons) > 0:
-        mesh.calc_normals()
+    # Check normals (auto-calculated in Blender 4.1+, validate normal presence via polygons)
+    if len(mesh.polygons) > 0 and not mesh.has_custom_normals:
+        # Check that at least one normal is valid
+        for poly in mesh.polygons:
+            if poly.normal.length < 0.5:
+                issues.append(f"{obj.name}: degenerate normals on face {poly.index}")
+                break
     
     # Check for n-gons (faces with > 4 vertices)
     for i, poly in enumerate(mesh.polygons):
@@ -39,7 +43,8 @@ def validate_mesh(obj):
             issues.append(f"{obj.name}: n-gon face {i} with {len(poly.vertices)} vertices")
     
     # Check bounding box
-    bbox = [obj.matrix_world @ bpy.mathutils.Vector(corner) for corner in obj.bound_box]
+    from mathutils import Vector
+    bbox = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
     min_co = [min(v[i] for v in bbox) for i in range(3)]
     max_co = [max(v[i] for v in bbox) for i in range(3)]
     size = [max_co[i] - min_co[i] for i in range(3)]
@@ -131,17 +136,21 @@ def validate_asset(filepath):
         material_stats.append(result)
         all_issues.extend(result['issues'])
     
-    # Overall stats
+    # Overall stats — in Cosca AssetMetadata format
     total_vertices = sum(m['vertices'] for m in mesh_stats)
     total_faces = sum(m['faces'] for m in mesh_stats)
-    
+
     stats = {
+        'vertices': total_vertices,
+        'faces': total_faces,
+        'materials': [m['name'] for m in material_stats],
+        'textures': [],
+        'lod_levels': 1,
+        'has_collision': False,
         'object_count': len([o for o in bpy.context.scene.objects if o.type == 'MESH']),
-        'total_vertices': total_vertices,
-        'total_faces': total_faces,
-        'material_count': len(bpy.data.materials),
+        'bounding_box': None,
         'meshes': mesh_stats,
-        'materials': material_stats,
+        'material_details': material_stats,
     }
     
     return {

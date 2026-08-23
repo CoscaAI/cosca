@@ -255,24 +255,60 @@ func TestComputeFileHashSameInput(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Integration tests (no Blender required)
+// Integration tests (require Blender installed)
 // ──────────────────────────────────────────────────────────────
 
 func TestBlenderAdapterIntegration(t *testing.T) {
 	config := BlenderAdapterConfig{
-		BlenderPath: "blender",
+		BlenderPath: detectBlenderPath(),
 		WorkDir:     t.TempDir(),
-		Timeout:     10,
+		Timeout:     30,
 		ScriptsDir:  "../../scripts/blender",
 	}
 
 	adapter := NewBlenderAdapter(config)
 
-	// Test GetVersion (will fail if Blender not installed)
+	// Verify Blender is actually available; skip otherwise
 	ctx := context.Background()
-	_, err := adapter.GetVersion(ctx)
-	if err != nil {
+	if _, err := adapter.GetVersion(ctx); err != nil {
 		t.Skipf("Blender not installed, skipping integration test: %v", err)
+	}
+
+	// Full vertical slice: generate a cube, then validate it
+	req := AssetRequest{
+		Type:     "cube",
+		Format:   FormatGLB,
+		Seed:     42,
+		Validate: true,
+		Params: map[string]any{
+			"size": 1.0,
+		},
+	}
+
+	result, err := adapter.GenerateAsset(ctx, req)
+	if err != nil {
+		t.Fatalf("GenerateAsset: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if result.Path == "" {
+		t.Error("result.Path should not be empty")
+	}
+	if result.Hash == "" {
+		t.Error("result.Hash should not be empty")
+	}
+	if !result.Valid {
+		t.Errorf("expected valid asset, got issues: %v", result.Issues)
+	}
+	if result.Provenance.Tool != "blender" {
+		t.Errorf("provenance.tool: got %v, want blender", result.Provenance.Tool)
+	}
+
+	// Verify the file exists
+	if _, err := os.Stat(result.Path); err != nil {
+		t.Errorf("generated file missing: %v", err)
 	}
 }
 

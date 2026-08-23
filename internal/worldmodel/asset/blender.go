@@ -149,11 +149,56 @@ type BlenderAdapterConfig struct {
 // DefaultBlenderAdapterConfig returns sensible defaults.
 func DefaultBlenderAdapterConfig() BlenderAdapterConfig {
 	return BlenderAdapterConfig{
-		BlenderPath: "blender",
+		BlenderPath: detectBlenderPath(),
 		WorkDir:     os.TempDir(),
 		Timeout:     60,
 		ScriptsDir:  "scripts/blender",
 	}
+}
+
+// detectBlenderPath finds the Blender executable on the system.
+// Falls back to "blender" (relying on PATH) if not found in standard locations.
+func detectBlenderPath() string {
+	// Check PATH first
+	if _, err := exec.LookPath("blender"); err == nil {
+		return "blender"
+	}
+
+	// Windows standard install locations
+	bases := []string{
+		os.Getenv("ProgramFiles"),
+		os.Getenv("ProgramFiles(x86)"),
+	}
+	for _, base := range bases {
+		if base == "" {
+			continue
+		}
+		found := findBlenderInDir(base)
+		if found != "" {
+			return found
+		}
+	}
+
+	return "blender"
+}
+
+// findBlenderInDir recursively searches a base directory for blender.exe.
+func findBlenderInDir(base string) string {
+	root := filepath.Join(base, "Blender Foundation")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		exe := filepath.Join(root, entry.Name(), "blender.exe")
+		if _, err := os.Stat(exe); err == nil {
+			return exe
+		}
+	}
+	return ""
 }
 
 // BlenderAdapter wraps Blender for asset operations.
@@ -186,7 +231,7 @@ func (a *BlenderAdapter) GenerateAsset(ctx context.Context, req AssetRequest) (*
 	}
 
 	// Build script args
-	scriptPath := filepath.Join(a.config.ScriptsDir, "generate.py")
+	scriptPath := a.scriptPath("generate.py")
 	args := []string{
 		"--background",
 		"--factory-startup",
@@ -230,10 +275,11 @@ func (a *BlenderAdapter) GenerateAsset(ctx context.Context, req AssetRequest) (*
 	var issues []string
 	if req.Validate {
 		validation, err := a.ValidateAsset(ctx, outputPath)
-		if err == nil {
-			valid = validation.Valid
-			issues = validation.Issues
+		if err != nil {
+			return nil, fmt.Errorf("validate generated asset: %w", err)
 		}
+		valid = validation.Valid
+		issues = validation.Issues
 	} else {
 		valid = true
 	}
@@ -259,7 +305,7 @@ func (a *BlenderAdapter) GenerateAsset(ctx context.Context, req AssetRequest) (*
 
 // ValidateAsset checks if an asset file is valid.
 func (a *BlenderAdapter) ValidateAsset(ctx context.Context, assetPath string) (*ValidationResult, error) {
-	scriptPath := filepath.Join(a.config.ScriptsDir, "validate.py")
+	scriptPath := a.scriptPath("validate.py")
 
 	timeout := 30 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -279,8 +325,14 @@ func (a *BlenderAdapter) ValidateAsset(ctx context.Context, assetPath string) (*
 	}
 
 	// Parse validation output
+	// Blender prints log lines (INFO:, version, "Blender quit") around the JSON
+	// payload, so extract the balanced JSON object first.
+	data := extractJSON(stdout.Bytes())
+	if data == nil {
+		return nil, fmt.Errorf("no JSON found in validation output: %s", stdout.String())
+	}
 	var result ValidationResult
-	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("parse validation: %w", err)
 	}
 
@@ -291,7 +343,7 @@ func (a *BlenderAdapter) ValidateAsset(ctx context.Context, assetPath string) (*
 func (a *BlenderAdapter) ExportAsset(ctx context.Context, scene string, format ExportFormat) (string, error) {
 	outputPath := filepath.Join(a.config.WorkDir, fmt.Sprintf("export_%d.%s", time.Now().UnixNano(), format))
 
-	scriptPath := filepath.Join(a.config.ScriptsDir, "export.py")
+	scriptPath := a.scriptPath("export.py")
 
 	timeout := 60 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -337,6 +389,74 @@ func (a *BlenderAdapter) GetVersion(ctx context.Context) (string, error) {
 // ──────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────
+
+// scriptPath resolves the absolute path to a Blender Python script.
+// It tries the configured ScriptsDir, then falls back to searching
+// upward from the process working directory until it finds the
+// project root (containing go.mod) or the scripts/ directory.
+func (a *BlenderAdapter) scriptPath(name string) string {
+	// Try configured ScriptsDir directly
+	if a.config.ScriptsDir != "" {
+		p := filepath.Join(a.config.ScriptsDir, name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+		if abs, err := filepath.Abs(p); err == nil {
+			if _, err := os.Stat(abs); err == nil {
+				return abs
+			}
+		}
+	}
+
+	// Search upward for project root (go.mod) or scripts/ dir
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		candidates := []string{
+			filepath.Join(dir, "scripts", "blender", name),
+			filepath.Join(dir, "go.mod"),
+		}
+		for _, cand := range candidates {
+			if _, err := os.Stat(cand); err == nil {
+				if filepath.Base(cand) == "go.mod" {
+					return filepath.Join(dir, "scripts", "blender", name)
+				}
+				return cand
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return ""
+}
+
+// extractJSON extracts the first valid JSON object from raw output.
+// Blender prints log lines (INFO:, version, "Blender quit") around the
+// JSON payload, so we must find the balanced JSON object.
+func extractJSON(raw []byte) []byte {
+	start := bytes.IndexByte(raw, '{')
+	if start < 0 {
+		return nil
+	}
+	depth := 0
+	for i := start; i < len(raw); i++ {
+		switch raw[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return raw[start : i+1]
+			}
+		}
+	}
+	return nil
+}
 
 func computeFileHash(filepath string) (string, error) {
 	data, err := os.ReadFile(filepath)
