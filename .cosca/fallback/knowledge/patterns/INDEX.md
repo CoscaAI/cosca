@@ -80,12 +80,14 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`spatial-ai-layer-patterns.md`](spatial-ai-layer-patterns.md) | Camada 6 Spatial AI — 7 projetos (ORB-SLAM3: localização clássica, NICE-SLAM: SLAM neural, Instant-NGP: scanner 3D, NeRF: base conceitual, Meshroom: fotogrametria completa, MASt3R-SLAM: SLAM moderno, Spatial Reasoning VLM: raciocínio espacial), pipeline espacial (câmera→localizar→mapeiar 3D→entender relações), template REPO→UTILITY | 0.83 | 2026-08-23 |
 | [`vfx-layer-patterns.md`](vfx-layer-patterns.md) | Camada 7 VFX — 7 projetos (Taichi: motor simulação completo, PhysX: física indústria, Jolt: física leve, PBD: cloth/soft bodies, SPlisHSPlasH: fluidos SPH, bevy_hanabi: partículas GPU referência, PixelFlow: fluid dynamics simples), pipeline VFX (mundo→Taichi→física→cloth→partículas), Taichi como âncora principal (★26k, Apache-2.0) | 0.80 | 2026-08-23 |
 | [`audio-layer-patterns.md`](audio-layer-patterns.md) | Camada 8 Audio — 8 projetos (whisper.cpp: STT rápido, Coqui TTS: TTS+voice cloning, Bark: TTS expressivo, Whisper: STT padrão, faster-whisper: STT 4x, AudioCraft: música+ambiente, SenseVoice: entendimento áudio, YuE: música com letra), pipeline audio (STT→entender→TTS→falar→ambiente→música) | 0.84 | 2026-08-23 |
+| [`destruction-layer-patterns.md`](destruction-layer-patterns.md) | Camada 9 Destruction — 5 projetos (MuJoCo: simulação alta fidelidade, Box2D: física 2D, matter-js: física web, Bullet: física 3D alternativa, PhysX/Jolt: produção), pipeline destruição (mundo→MuJoCo→PhysX→PCG reconstrói→loop) | 0.81 | 2026-08-23 |
+| [`simulation-layer-patterns.md`](simulation-layer-patterns.md) | Camada 10 Simulation — 6 projetos (Mesa: framework ABM completo, MuJoCo: física+simulação, NetLogo: prototipagem, ABCE: economia, Climate: clima+erosão, Crowd: multidão), pipeline simulação (Mesa→clima→economia→multidão→comportamento emergente) | 0.79 | 2026-08-23 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 43 |
+| Total patterns | 45 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |

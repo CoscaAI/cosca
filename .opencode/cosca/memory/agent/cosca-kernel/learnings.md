@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Camadas Destruction (#9) e Simulation (#10) — as últimas
+
+### 2026-08-23 — Destruction + Simulation — o mundo é modificável e evolui
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Últimos gaps do mining-map-world-vivo.md: Destruction (#9) e Simulation (#10). Produzi `destruction-layer-patterns.md` (5 projetos) e `simulation-layer-patterns.md` (6 projetos). |
+| **Technique** | Level 3 — Mining por camada. Busquei GitHub (stars/license) + produção de 2 docs seguindo template do professor. |
+| **Level** | 3 |
+| **Outcome** | success (destruction+simulation) |
+| **Confidence** | 0.80 (destruction+simulation domain) |
+| **Tags** | #mining #destruction #simulation #mujoco #mesa #physics #ecosystem #crowd |
+| **Related** | .cosca/fallback/knowledge/patterns/destruction-layer-patterns.md, simulation-layer-patterns.md |
+| **Learned** | 1) **Destruction layer**: MuJoCo (★14.6k, Apache) é o motor de simulação física de alta fidelidade (ragdoll, veículos, soft bodies). Box2D (★10.3k, MIT) para 2D. Bullet (★13k, zlib) alternativa. PhysX/Jolt já na VFX. 2) **Simulation layer**: Mesa (★3.8k, Apache) é o framework ABM completo (agentes+ambiente+scheduling). ABCE para economia. NetLogo para prototipagem. Climate/Crowd como capacidades emergentes. 3) **O mundo com Destruction+Simulation é VIVO** — o agente pode destruir (MuJoCo/PhysX), o mundo pode evoluir (Mesa: agentes+clima+economia+multidão), e o PCG reconstrói após destruição. É o loop completo: gerar→destruir→evoluir→reconstruir. 4) **As 10 camadas estão MINERADAS** — o mining-map-world-vivo.md está completo com todas as camadas cobertas. |
+| **Next** | Todas as 10 camadas do mining map estão completas. O caderno tem 45 padrões. Próximo passo: quando o NVMe de 2TB chegar, executar a instalação na ordem recomendada (Vision > Spatial AI > VFX > Audio > Multi-agent > Destruction > Simulation). |
+
+---
+
 ## Session: 2026-08-23 — Camada Audio (Gap #4 do mining map)
 
 ### 2026-08-23 — Audio Layer — o mundo tem som
