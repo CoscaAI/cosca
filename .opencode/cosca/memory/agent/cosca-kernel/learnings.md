@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Camada VFX (Gap #3 do mining map)
+
+### 2026-08-23 — VFX Layer — o mundo é vivo
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Gap #3 do mining-map-world-vivo.md: minar a camada VFX (partículas, fluidos, cloth, destruição, física) seguindo o template do professor. |
+| **Technique** | Level 3 — Mining por camada. Busquei GitHub (stars/license) + produção de `vfx-layer-patterns.md` (7 projetos, pipeline VFX, template completo). |
+| **Level** | 3 |
+| **Outcome** | success (vfx) |
+| **Confidence** | 0.80 (vfx domain) |
+| **Tags** | #mining #vfx #taichi #physics #particles #fluids #cloth |
+| **Related** | .cosca/fallback/knowledge/patterns/vfx-layer-patterns.md |
+| **Learned** | 1) **Pipeline VFX do mundo mapeado**: mundo → Taichi (motor principal: fluidos+partículas+cloth+destruição) → PhysX/Jolt (física: colisões+ragdoll) → PBD (cloth) → Partículas GPU (efeitos). 2) **Taichi é o âncora** (★26k, Apache-2.0, Python, motor completo) — é o coração da "vida" do mundo. 3) **Licenças favoráveis**: Taichi (Apache ✅), PhysX (BSD ✅), Jolt (MIT ✅), PBD (MIT ✅), SPlisHSPlasH (MIT ✅), bevy_hanabi (Apache ✅), PixelFlow (MIT ✅). Todas as 7 são compatíveis com Cosca. 4) **Cada projeto = uma capacidade**: Taichi="motor de vida", PhysX="física padrão", Jolt="física leve", PBD="cloth/flexibilidade", SPlisHSPlasH="fluidos altos", bevy_hanabi="referência de partículas". 5) **O mundo sem VFX é estático** — com VFX, ele tem vento, fogo, água, poeira, destruição. É a camada que separa "cenário" de "mundo vivo". |
+| **Next** | Continuar com as 2 camadas restantes: Audio espacial (#8) e Destruction/Simulation (#9/#10). Depois, quando o NVMe chegar, instalar Taichi+PBD como primeiro módulo VFX. |
+
+---
+
 ## Session: 2026-08-23 — Camada Spatial AI (Gap #2 do mining map)
 
 ### 2026-08-23 — Spatial AI Layer — o agente entende o espaço
