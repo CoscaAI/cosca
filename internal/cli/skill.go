@@ -51,6 +51,7 @@ for particular domains.
 		NewSkillBenchmarkCommand(),
 		NewSkillHistoryCommand(),
 		NewSkillEvalCommand(),
+		NewSkillEvolveCommand(),
 	)
 
 	return cmd
