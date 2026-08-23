@@ -32,5 +32,5 @@
 | Chaos testing pre-production | 8 | 88% | 0.82 |
 
 ## Related
-- [Learning Engine](../SKILL.md)
+- [Learning Engine](./SKILL.md)
 - [Memory Chief](../../departments/memory/SKILL.md)

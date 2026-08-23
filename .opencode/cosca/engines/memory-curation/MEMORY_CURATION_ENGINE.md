@@ -474,4 +474,4 @@ After each cycle, the engine generates a report:
 
 ---
 
-> **Related**: [CONSTITUTION.md](../CONSTITUTION.md) P7 | [CONFIDENCE_MODEL.md](../evidence/CONFIDENCE_MODEL.md) | [LEARNING_PROTOCOL.md](../memory/LEARNING_PROTOCOL.md) | [AGENT_DNA.md](../AGENT_DNA.md)
+> **Related**: [CONSTITUTION.md](../../CONSTITUTION.md) P7 | [CONFIDENCE_MODEL.md](../evidence/CONFIDENCE_MODEL.md) | [LEARNING_PROTOCOL.md](../../memory/LEARNING_PROTOCOL.md) | [AGENT_DNA.md](../../AGENT_DNA.md)

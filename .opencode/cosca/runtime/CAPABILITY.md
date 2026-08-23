@@ -116,7 +116,7 @@ capability:
 | `slo` | Object | Yes | Duration percentiles, availability, failure rate |
 | `provider` | Object | Yes | Primary, secondary, and verification providers |
 
-Refer to [capabilities/CAPABILITY_TEMPLATE.md](capabilities/CAPABILITY_TEMPLATE.md) for the complete capability contract template.
+Refer to [capabilities/CAPABILITY_TEMPLATE.md](../capabilities/CAPABILITY_TEMPLATE.md) for the complete capability contract template.
 
 ---
 
@@ -805,15 +805,15 @@ Each provider has defined limits on how many capabilities they can serve simulta
 
 The complete inventory of all 64 capabilities across 12 categories is maintained in:
 
-> **[capabilities/CAPABILITY_CATALOG.md](capabilities/CAPABILITY_CATALOG.md)**
+> **[capabilities/CAPABILITY_CATALOG.md](../capabilities/CAPABILITY_CATALOG.md)**
 
 This section defines the **architecture** of how capabilities work. The catalog defines the **inventory** of what capabilities exist. Both are binding.
 
 | Artifact | Location | Purpose |
 |----------|----------|---------|
 | Capability Architecture | This section (KERNEL.md §2) | How capabilities work |
-| Capability Contract Template | [capabilities/CAPABILITY_TEMPLATE.md](capabilities/CAPABILITY_TEMPLATE.md) | Standard contract format |
-| Capability Inventory | [capabilities/CAPABILITY_CATALOG.md](capabilities/CAPABILITY_CATALOG.md) | Complete registry of 64 capabilities |
-| Capability Engine | [engines/capability/SKILL.md](engines/capability/SKILL.md) | Resolution and orchestration implementation |
+| Capability Contract Template | [capabilities/CAPABILITY_TEMPLATE.md](../capabilities/CAPABILITY_TEMPLATE.md) | Standard contract format |
+| Capability Inventory | [capabilities/CAPABILITY_CATALOG.md](../capabilities/CAPABILITY_CATALOG.md) | Complete registry of 64 capabilities |
+| Capability Engine | [engines/capability/SKILL.md](../engines/capability/SKILL.md) | Resolution and orchestration implementation |
 
 

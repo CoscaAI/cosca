@@ -28,5 +28,5 @@
 | Duplication Rate | 6.1% | 5.3% | 4.2% | < 3% |
 
 ## Related
-- [Evolution Engine](../SKILL.md)
+- [Evolution Engine](./SKILL.md)
 - [Technical Debt Chief](../../departments/technical-debt/SKILL.md)

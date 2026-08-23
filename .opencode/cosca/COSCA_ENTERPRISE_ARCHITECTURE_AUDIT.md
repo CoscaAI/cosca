@@ -1,6 +1,6 @@
 # Cosca ENTERPRISE ARCHITECTURE AUDIT — Relatório Completo
 
-> **⚠️ DEPRECATED — 2026-07-28**: Esta auditoria cobre o framework v2.0 (94 arquivos, 26 departments). O framework atual está em v3.0.1 (883+ arquivos, 41 departments, 30+ engines, 43 skills, 54 agents). Consulte [COSCA_ENTERPRISE_EVOLUTION_v3.md](COSCA_ENTERPRISE_EVOLUTION_v3.md) e [COSCA_INDEX.md](COSCA_INDEX.md) para dados atualizados.
+> **⚠️ DEPRECATED — 2026-07-28**: Esta auditoria cobre o framework v2.0 (94 arquivos, 26 departments). O framework atual está em v3.0.1 (883+ arquivos, 41 departments, 30+ engines, 43 skills, 54 agents). Consulte [COSCA_ENTERPRISE_EVOLUTION.md](COSCA_ENTERPRISE_EVOLUTION.md) e [COSCA_INDEX.md](COSCA_INDEX.md) para dados atualizados.
 >
 > **Versão**: 1.0.0 | **Data**: 2026-07-12 | **Auditor**: Cosca Kernel  
 > **Escopo**: 100% da pasta `/cosca` — 94 arquivos em 40 diretórios  

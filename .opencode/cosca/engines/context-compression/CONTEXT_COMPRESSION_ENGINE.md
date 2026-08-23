@@ -311,4 +311,4 @@ The cognitive state is the INDEX, not the ARCHIVE. It tells you WHERE to look, n
 
 ---
 
-> **Related**: [MEMORY_CURATION_ENGINE.md](../engines/memory-curation/MEMORY_CURATION_ENGINE.md) — also reduces memory footprint | [platform-evolution-v1.4.0.md](../memory/roadmap/platform-evolution-v1.4.0.md) — roadmap item #9 | [session.md](../memory/context/session.md) — current verbose format being compressed
+> **Related**: [MEMORY_CURATION_ENGINE.md](../memory-curation/MEMORY_CURATION_ENGINE.md) — also reduces memory footprint | [platform-evolution-v1.4.0.md](../../memory/roadmap/platform-evolution-v1.4.0.md) — roadmap item #9 | [session.md](../../memory/context/session.md) — current verbose format being compressed

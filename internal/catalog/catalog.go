@@ -389,6 +389,22 @@ func checkFrontmatter(root string, rep *Report) error {
 
 // checkCrossReferences runs Invariant C over every *.md under root: each
 // relative link must resolve to an existing file or directory.
+//
+// FALSE-POSITIVE FILTERING: a relative link is intentionally NOT reported when
+// it falls into one of the following documented categories (see
+// falsePositiveLink / outOfTreeReference):
+//
+//  1. Links inside fenced code blocks (```) or inline code spans (`...`).
+//     These are illustrative snippets (Go generics, template examples, rule
+//     tables) — e.g. `[name](data T)` in a quick-start. They never point at a
+//     real file on disk.
+//  2. Placeholder/illustrative destinations used as examples in docs and
+//     templates (../path, ../path/to/file.md, ../template-name/TEMPLATE.md,
+//     img.png, path, ...). These intentionally reference a conceptual target.
+//  3. Out-of-catalog references that CLIMB ABOVE the audit root (e.g.
+//     ../../../.github/workflows/ci.yml, or links into internal/embed/cosca/...).
+//     These target the monorepo, NOT the .opencode/cosca tree, and are valid
+//     cross-tree references. The root is always passed in explicitly.
 func checkCrossReferences(root string, rep *Report) error {
 	return filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -407,10 +423,39 @@ func checkCrossReferences(root string, rep *Report) error {
 		}
 		rel := toSlash(relPath(root, p))
 		dir := filepath.Dir(p)
-		for _, m := range linkRe.FindAll(data, -1) {
-			dest := linkRe.ReplaceAllString(string(m), "$1")
+		checkFileLinks(dir, rel, string(data), root, rep)
+		return nil
+	})
+}
+
+// checkFileLinks scans a single markdown file for relative links and reports
+// those that dangle. It is line-aware so links inside fenced code blocks and
+// inline code spans are skipped, and it applies the false-positive filters.
+func checkFileLinks(dir, rel, content, root string, rep *Report) {
+	inFence := false
+	for _, rawLine := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(rawLine)
+		// A fenced code block opens/closes with ``` (optionally followed by a
+		// language tag). While inside a fence every link is illustrative.
+		if strings.HasPrefix(line, "```") {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		// Strip inline code spans (backtick-delimited) so `[text](dest)` inside
+		// a code span is ignored. The link must be real prose, not a snippet.
+		stripped := inlineCodeRe.ReplaceAllString(rawLine, "")
+		for _, m := range linkRe.FindAllString(stripped, -1) {
+			dest := linkRe.ReplaceAllString(m, "$1")
 			target, ok := cleanLinkDest(dest)
 			if !ok {
+				continue
+			}
+			// Filter documented false positives: placeholder examples and
+			// cross-tree (out-of-root) references.
+			if falsePositiveLink(target) || outOfTreeReference(dir, target, root) {
 				continue
 			}
 			rep.Stats.Links++
@@ -422,8 +467,41 @@ func checkCrossReferences(root string, rep *Report) error {
 				})
 			}
 		}
-		return nil
-	})
+	}
+}
+
+// falsePositiveLink reports whether a link destination is a known
+// illustrative/placeholder reference. These are NARROW exact matches so a real
+// broken link can never be hidden by this filter. They are authored in the
+// docs/templates on purpose and point at a conceptual, non-existent target.
+func falsePositiveLink(dest string) bool {
+	switch strings.TrimSpace(dest) {
+	case "../path",
+		"../path/to/file.md",
+		"../template-name/TEMPLATE.md",
+		"img.png",
+		"path",
+		"data T":
+		return true
+	}
+	return false
+}
+
+// outOfTreeReference reports whether a (cleaned) link destination resolves to a
+// path that CLIMBS ABOVE the audit root. Such links target the monorepo (e.g.
+// ../../../.github/workflows/ci.yml) or another tree (internal/embed/cosca/...)
+// rather than the .opencode/cosca catalog, so they are valid cross-tree
+// references and must NOT be reported as dangling.
+func outOfTreeReference(dir, dest, root string) bool {
+	absTarget := filepath.Clean(filepath.Join(dir, filepath.FromSlash(dest)))
+	absRoot := filepath.Clean(root)
+	rel, err := filepath.Rel(absRoot, absTarget)
+	if err != nil {
+		return true
+	}
+	// The target is outside the root when the relative path climbs up (starts
+	// with "..") or is a totally different absolute path.
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel)
 }
 
 // ---- Cross-reference link resolution --------------------------------------
@@ -432,6 +510,10 @@ var (
 	// linkRe matches [text](destination). The separator empty-char class
 	// matches the destination up to the closing paren.
 	linkRe = regexp.MustCompile(`\[[^\]]*\]\(([^)]*)\)`)
+	// inlineCodeRe matches a single backtick-delimited inline code span. Links
+	// inside inline code (e.g. `[name](data T)`) are illustrative snippets and
+	// must be skipped by the link resolver.
+	inlineCodeRe = regexp.MustCompile("`[^`]*`")
 	// kebabRe validates kebab-case identifiers (name frontmatter).
 	kebabRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 )

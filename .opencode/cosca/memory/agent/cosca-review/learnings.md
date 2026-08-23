@@ -58,3 +58,16 @@
 | **Related** | BUG-U01, Restart(), validTransitions, state.go:106 |
 | **Learned** | Definir um mapa de transições válidas (validTransitions) não garante que o código de produção as execute. A transição Stopped→Uninitialized existe no mapa (state.go:106) mas Restart() chama Stop()→Start() sem nunca executar essa transição. O state machine é "declarative" (mapa de regras) mas o uso é "imperative" (chamadas manuais) — o gap entre definição e enforcement é onde bugs nascem. Solução: wrapper methods que encapsulam sequências de transições (ex: `RestartSequence()`) em vez de deixar cada caller compor as transições manualmente. |
 | **Next** | Propor TransitionSequence pattern como ADR. |
+
+### 2026-08-22 — Review: DPAPI machine-bound key (Opção B)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-review |
+| **Task** | Revisão crítica de arquitetura+segurança do mecanismo de assinatura machine-bound via DPAPI |
+| **Technique** | Gate por severidade (CRÍTICO/ALTO/MÉDIO/BAIXO) + verificação empírica (go build/vet/test -race) + triangulação de ameaça (agente=mesmo usuário/máquina satisfaz DPAPI) + cross-ref dos "Next" em learnings de outras squads |
+| **Level** | 3 |
+| **Outcome** | approved_with_conditions |
+| **Tags** | #dpapi #ed25519 #machine-bound #identity-gate #crypto #code-review #threat-model #ptty |
+| **Related** | #kernel-key #M1 #M3 #M4 #M5 #M6 #M7 #passphrase-removal #opte-B |
+| **Learned** | 1) DPAPI correct: go vet+build limpos confirmam `unsafe.Slice(Data, Size)` com `uint32` (IntegerType), `LocalFree` é o free correto e o bloco é copiado ANTES do defer (sem UAF); escopo CurrentUser + UI_FORBIDDEN corretos. 2) A MÉTRICA crítica: o fator "máquina" (DPAPI) é satisfeito por QUALQUER processo do mesmo usuário na mesma máquina — logo NÃO distingue Don de subagente; quem distingue é só o TTY. Descobri que `--rekey`/`--init` NÃO gateiam o Don (só máquina) → rotação de identidade sem consentimento = ALTO (é o achado nº 1). 3) M3 bloqueia pipes (IsTerminal=false) mas NÃO ptys (script/expect) — a fraqueza do consent-to-content. 4) TOCTOU consentChallenge→Sign (double scan). 5) docs embed (CLI_PROTOCOL/MANUAL_DO_DON/DON_PROTOCOL) e comment em memory_register.go:64-65 continuam citando `--passphrase-stdin`/`COSCA_KERNEL_PASSPHRASE`/3-fatores. 6) fallback dpapi_other é AES-GCM com KDF de 1000-iter SHA-256 + machine-id público → binding real é o 0600/local, não cripto. 7) `git -C root push` sem scope + `opendev_user` hardcoded no askpass. |
+| **Next** | (1) Verificar se o Don aprovou gatear `--rekey`/`--init`; (2) medir se 8-hex é suficiente ou precisa 16; (3) check para ver se subagente consegue exec `cosca-check` dentro da jaula (é o que fecha o ALTO). |

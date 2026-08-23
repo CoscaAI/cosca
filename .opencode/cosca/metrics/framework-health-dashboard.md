@@ -100,4 +100,4 @@ bash scripts/detect-orphans.sh /path/to/cosca
 - [Scripts](../scripts/) — Validation scripts
 - [QUALITY_GATES.md](../QUALITY_GATES.md) — Gate definitions
 - [COSCA_INDEX.md](../COSCA_INDEX.md) — Full inventory
-- [COSCA_ENTERPRISE_EVOLUTION_v3.md](../COSCA_ENTERPRISE_EVOLUTION_v3.md) — Evolution report
+- [COSCA_ENTERPRISE_EVOLUTION_v3.md](../COSCA_ENTERPRISE_EVOLUTION.md) — Evolution report

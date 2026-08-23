@@ -15,4 +15,4 @@
 | **Prevention** | Add automated orphan detection to memory health checks — count files in agent/ that are not in a subdirectory |
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

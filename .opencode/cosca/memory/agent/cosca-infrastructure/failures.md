@@ -7,4 +7,4 @@
 *No failures recorded yet — agent has insufficient execution history.*
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

@@ -31,6 +31,6 @@
 | DevOps | 334 | 8.9/10 | 1.8h |
 
 ## Related
-- [Benchmark Engine](../SKILL.md)
+- [Benchmark Engine](./SKILL.md)
 - [Performance Chief](../../departments/performance/SKILL.md)
 - [Provider Chief](../../departments/provider/SKILL.md)

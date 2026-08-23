@@ -47,4 +47,4 @@
 | **Avoidance Pattern** | Se o Don perguntar algo que não sei: "não sei" é a resposta honesta. |
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

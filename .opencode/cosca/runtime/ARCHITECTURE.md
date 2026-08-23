@@ -80,7 +80,7 @@ User Request
 | **QA Chief** | CTO | Quality gates, test strategy, quality metrics | Implements |
 | **Documentation Chief** | CTO | README, ADR, API docs, changelog, release notes | Skips review |
 
-Refer to [company/ORGCHART.md](company/ORGCHART.md) for complete organizational structure.
+Refer to [company/ORGCHART.md](../company/ORGCHART.md) for complete organizational structure.
 
 ---
 
