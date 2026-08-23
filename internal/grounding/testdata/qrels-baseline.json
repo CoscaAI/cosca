@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "embedding": {
+    "model": "nomic-embed-text",
+    "dim": "768"
+  },
+  "queries": [
+    {
+      "query": "Qual é a capital da França?",
+      "relevant_chunk_ids": ["chunk-france-1", "chunk-france-2"],
+      "first_relevant_chunk_id": "chunk-france-1"
+    },
+    {
+      "query": "Explique o que é RAG.",
+      "relevant_chunk_ids": ["chunk-rag-1"],
+      "first_relevant_chunk_id": "chunk-rag-1"
+    },
+    {
+      "query": "Qual a diferença entre memória e cache?",
+      "relevant_chunk_ids": ["chunk-mem-1", "chunk-cache-1"],
+      "first_relevant_chunk_id": "chunk-mem-1"
+    },
+    {
+      "query": "Como o grounding previne alucinação?",
+      "relevant_chunk_ids": ["chunk-ground-1"],
+      "first_relevant_chunk_id": "chunk-ground-1"
+    }
+  ]
+}
