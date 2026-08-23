@@ -48,6 +48,9 @@ for particular domains.
 		NewSkillRestoreCommand(),
 		NewSkillValidateCommand(),
 		NewSkillMigrateCommand(),
+		NewSkillBenchmarkCommand(),
+		NewSkillHistoryCommand(),
+		NewSkillEvalCommand(),
 	)
 
 	return cmd

@@ -299,7 +299,7 @@ func isAdminCommand() bool {
 		// processAlive(pid-do-host) falhar; (c) o --clearenv derruba as env vars
 		// de provider, deixando "Provider: " vazio. Para reportar a VERDADE do
 		// host, esses comandos precisam enxergar o namespace real.
-		"status", "doctor", "health", "capability", "fabric", "gate":
+		"status", "doctor", "health", "capability", "fabric", "gate", "skill":
 		return true
 	case "runtime":
 		// Subcomandos de leitura/controle do daemon (status/stop/logs/info)
@@ -367,7 +367,7 @@ func integrityGateBypass(args []string) bool {
 	words := commandWords(args)
 	if len(words) >= 1 {
 		switch words[0] {
-		case "init", "version", "models", "desktop", "terminal", "start", "gate":
+		case "init", "version", "models", "desktop", "terminal", "start", "gate", "skill":
 			return true
 		}
 	}

@@ -59,18 +59,30 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`vscode-go-extension-patterns.md`](vscode-go-extension-patterns.md) | vscode-go Extension Patterns (LSP lifecycle orchestrator, circuit breaker, provider swap, helper process, 3-mode IPC, versioned tool catalog, dlv-dap proxy, dual-parser test runner, CommandFactory, batch telemetry) | 0.93 | 2026-08-13 |
 | [`kubernetes-core-patterns.md`](kubernetes-core-patterns.md) | Kubernetes Core Patterns (17 patterns: informer/DeltaFIFO, keyed workqueue, reconcile loop, lister/indexer, parallelizer, scheduler extension points, two-phase cycle, typed status chain, priority queue+backoff, CycleState, plugin registry, Scheme/GVK, hub-and-spoke conversion, declarative validation, admission chain, storage+resourceVersion, watch+bookmark) | 0.95 | 2026-08-13 |
 | [`hermes-agent-patterns.md`](hermes-agent-patterns.md) | Hermes Agent Patterns (self-evolution DSPy+GEPA, skill-as-module, benchmarks-as-gates, guardrails, session-DB mining, memory nudges, auto-triage, trajectory compression, SessionDB FTS5) | 0.93 | 2026-08-13 |
+| [`deepseek-harness-patterns.md`](deepseek-harness-patterns.md) | DeepSeek Harness Patterns (28 patterns: plugin-composition Cordis, sandbox landlock self-restrict, probed runner chain full/partial, process-tree escalation, skill registry multi-layer, catalog digest, subagent capabilities+delegation lock, approval waterfall fail-closed, CredentialRef, durable session append-only+surface, compaction bracket, whole-value projection, spill policy, typed wire contract ACP/MCP, generate-and-diff gates) | 0.90 | 2026-08-22 |
+| [`openai-agents-sdk-patterns.md`](openai-agents-sdk-patterns.md) | OpenAI Agents SDK Patterns (7 patterns: agent declarativo+clone, handoff de 1ª classe+history nest, Runner loop+RunState, RunContextWrapper+ledger approval, function_tool+agent.as_tool, guardrails tripwire paralelos, tracing spans+gather_with_cancel) | 0.90 | 2026-08-22 |
+| [`openai-symphony-patterns.md`](openai-symphony-patterns.md) | OpenAI Symphony Patterns (7 patterns: WORKFLOW.md política versionada, orquestrador de claim, runs isoladas workspace+path-safety, worker sessão contínua+re-checagem, retry 2 níveis, concorrência 3 níveis, tracker kernel de leitura+segredos host) | 0.88 | 2026-08-22 |
+| [`vercel-ai-sdk-patterns.md`](vercel-ai-sdk-patterns.md) | Vercel AI SDK Patterns (7 patterns: provider factory+spec versionada, Output tipado+parsePartialJson, tool union+deferred, multi-step tool loop+stopWhen, streaming 3 camadas+finish-reason, capacity-aware batching de embedding) | 0.88 | 2026-08-22 |
+| [`aws-agent-toolkit-patterns.md`](aws-agent-toolkit-patterns.md) | AWS Agent Toolkit Patterns (7 patterns: gate em código não em instrução, credencial na borda via Gateway, least-privilege determinístico+confused deputy, blast radius separado+alerta, auth dual SigV4/JWT, sessão/quota, progressive disclosure+observabilidade) | 0.88 | 2026-08-22 |
+| [`n8n-workflow-patterns.md`](n8n-workflow-patterns.md) | n8n Workflow Engine Patterns (7 patterns: índice bidirecional origem+destino, stack+waitingExecution barrier, pairedItem lineage, WorkflowDataProxy lazy+isolate, credenciais envelope-key, queue+leader election+recovery, runExecutionData versionado+hooks) | 0.90 | 2026-08-22 |
+| [`hermes-self-evolution-patterns.md`](hermes-self-evolution-patterns.md) | Hermes Self-Evolution Patterns (7 patterns: texto-que-vira-genoma, GEPA reflexivo guiado por feedback, benchmarks como GATES, corral de restrições+anti-bloat, eval 4 fontes+holdout, rubrica+parsing robusto, auto-triage+deploy via PR) | 0.93 | 2026-08-22 |
+| [`uber-cadence-patterns.md`](uber-cadence-patterns.md) | Uber Cadence Patterns (7 patterns: decisor+event-sourcing, replay determinístico, matching persistência+canais, sticky tasklists, partições em árvore+forwarding, activity vs workflow+heartbeats, history sharding+NDC-AP) | 0.90 | 2026-08-22 |
+| [`kubernetes-org-patterns.md`](kubernetes-org-patterns.md) | Kubernetes Org Patterns (27 patterns: CRI sandbox gRPC plugável+feature handshake, sandbox lifecycle idempotente, spec declarativa de isolamento, ExecSync bounded/assert stream, VPA decaying histogram+estimador em banda+anti-thrash, CA simulação de capacidade+eviction PDB-aware, KEP estados+graduação, OWNERS 2 fases, SIG/WG charter+OARP, escada de contribuidor, triage lifecycle, RFC2119+super-majority, kube-state-metrics state->metrics+cardinalidade allowlist+health one-hot+sharding) | 0.90 | 2026-08-22 |
+| [`google-agent-patterns.md`](google-agent-patterns.md) | Google Agent Patterns (14 patterns: agent como estrutura de dados+clone, transfer enum-restrito, agent loop por processors, event-sourcing+rewind, InvocationContext resumável, plugins hooks lifecycle, workflow trigger-buffer+scheduler; skills frontmatter mínimo+Use/Don't-use, progressive disclosure, disambiguation, composição+fallback, guardrails em content, anti-alucinação por MCP, ecossistema instalável) | 0.88 | 2026-08-22 |
+| [`anthropics-skills-patterns.md`](anthropics-skills-patterns.md) | Anthropic/Claude Patterns (21 patterns: hooks contrato eventos+exit-code, permissões 3 estados+managed-settings, memória sessão lock+TTL, revisão git-baseline, feedback async rewake, loop auto-referencial pela promise, trust-model anti-prompt-injection; skills frontmatter validável, progressive disclosure 3 níveis, roteador por domínio, descrição anti-undertrigger, scripts caixa-preta, marketplace .skill, meta-loop A/B; SDK query/ClaudeSDKClient, full-duplex multiplexado, can_use_tool, hooks tipados, tools in-process MCP, SessionStore protocol, batcher mirror) | 0.90 | 2026-08-22 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 22 |
+| Total patterns | 33 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |
 | Integration patterns | 2 |
 | AI/Generation patterns | 1 |
-| Enterprise Platform patterns | 10 |
+| Enterprise Platform patterns | 18 |
+| Agent patterns | 4 |
 | Confidence range | 0.85 – 0.96 |
 | Average confidence | ~0.92 |
 

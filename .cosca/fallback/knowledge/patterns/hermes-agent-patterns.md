@@ -100,6 +100,52 @@ O Hermes Agent resolve o problema que o Cosca ainda não resolveu: **self-improv
 
 ---
 
+## D. Deploy, Execução, Hibernação & Self-Improvement (ângulos novos — 2026-08-22)
+
+### D1. Execution-Environment Abstraction (sandbox plugável local/Docker/SSH/Modal/Daytona/Vercel)
+- **O que resolve**: executar código/terminal do agente em qualquer backend sem tocar no loop do agente e sem duplicar lógica de IO/estado, degradando graciosamente quando o backend está fora do ar.
+- **Como funciona**: um `BaseEnvironment` (ABC) impõe *spawn-per-call*: cada comando sobe um `bash -c` fresco; snapshot de sessão capturado no `init` e re-source antes de cada comando; CWD preservado via marcadores in-band no stdout (remoto) ou arquivo temporário (local). `TERMINAL_ENV` seleciona o backend; `tools/env_probe.py` detecta qual capacidade está realmente disponível. `credential_files.py` faz sync/bind-mount de credenciais por tipo de backend. Falhas de infra viram `EnvironmentConnectionError` → resultado `status:"degraded"` com `retry_hint`, nunca um traceback; backend falho nunca é cacheado.
+- **Onde**: `tools/environments/{base,local,docker,ssh,modal,daytona,vercel_sandbox}.py`, `tools/env_probe.py`.
+- **Cosca**: um `CoscaExecutionEnvironment` por backend (local/Docker/SSH), habilitando "mesmo agente, sandbox diferente". Reaproveite o par check_fn passivo vs ensure_deps_fn ativo (D4) e o `EnvironmentConnectionError`→degraded como contrato de resiliência.
+
+### D2. Scale-to-Zero com auto-suspend via socket Flaps (hibernação serverless)
+- **O que resolve**: a economia de custo do serverless sem o race condition do autostop do proxy, que não enxerga tráfego outbound-only e suspenderia a máquina no meio de um job.
+- **Como funciona**: o gateway **possui** a decisão de idle (não o proxy). `is_idle()` compõe três conjuncts: zero trabalho ativo *agregado* (turns de agente + cron + runs), sem inbound no timeout, e sem background work vivo — quem não consegue ler uma fonte de trabalho deve falhar AWAKE (sentinel positivo), nunca pra 0. Ao esvaziar, roda `go_dormant()` (fecha socket, preserva supervisor — nunca stop/drain) e então **suspende a própria máquina** via POST ao unix-socket local (`/v1/apps/{app}/machines/{id}/suspend`) — o socket é a credencial. Sempre *fail-awake, nunca fail-frozen*.
+- **Onde**: `gateway/scale_to_zero.py`.
+- **Cosca**: backbone da hibernação serverless. Padrão-chave: inverta o "quem decide idle" — o runtime deve receber um sinal de inatividade que não depende de tráfego de entrada. Encapsule o suspend numa interface `SelfSuspendBackend`.
+
+### D3. Gateway Split-Edge (connector/relay com capacidade vault e buffered flip)
+- **O que resolve**: rodar um gateway "hosted" **sem porta pública de entrada**, sem vazar secrets da plataforma, e sem perder eventos quando o gateway hiberna a zero.
+- **Como funciona**: o gateway diala **para fora** até um connector na edge. A edge responde o ACK do provider, **remove** os tokens da plataforma e os liga a um *capability vault* da sessão — nunca chegam ao gateway (`send_follow_up` emite ação **semântica** por `session_key`, sem nomear/tocar token). O transporte oferece `go_idle()` (*buffered flip*): envia `going_idle` e aguarda o ack confirmando que o inbound agora bufferiza duravelmente para replay no reconnect — é o que torna o scale-to-zero seguro.
+- **Onde**: `gateway/relay/{transport,ws_transport,adapter,descriptor}.py`, `docs/relay-connector-contract.md`.
+- **Cosca**: arquitetura ideal de gateway multi-plataforma quando o deploy é remoto/serverless: separe "edge autenticada" do "núcleo do agente", mantenha tokens no tenant certo e garanta que escala-zero não perca mensagens.
+
+### D4. Platform Registry → toolset `hermes-<platform>` auto-derivado + split passivo/ativo de dependências
+- **O que resolve**: adicionar plataforma nova sem if/elif e sem que um status-display dispare `pip install` (boot-loop) nem que o connect fique preso (deadlock).
+- **Como funciona**: `PlatformEntry` com `adapter_factory`, `validate_config`, e **dois** probes separados: `check_fn` PASSIVO (sem efeito colateral, usado em status/setup/readiness) vs `ensure_deps_fn` ATIVO (instala via pip/lazy_deps no momento exato de `create_adapter()`). Um toolset `hermes-<platform>` ausente é **auto-gerado** durante `resolve_toolset()`: core + tools que o registry registrou naquele nome de plataforma. `bundle_non_core_tools()` subtrai só o delta. `resolve_toolset()` memoiza por chave `(nome, registry_id, generation)` e invalida só quando o registry muda, com teto de 256 entradas.
+- **Onde**: `gateway/platform_registry.py`, `toolsets.py`, `gateway/platforms/*.py`.
+- **Cosca**: modelo de extensão de plataforma e de toolset: registry de adapters + derivação automática de toolset por plataforma. Reproduza o split passivo/ativo (o mesmo bug de boot-loop/deadlock existe em qualquer sistema com "auto-install").
+
+### D5. Distribuição de contexto: orçamentação por categoria + UI de atribuição
+- **O que resolve**: dar visibilidade de *onde* a janela está indo (system prompt tiers, tool schemas, regras, skills, MCP, subagentes, memória, conversa) para decidir compressão/melhoria.
+- **Como funciona**: `compute_session_context_breakdown()` recompõe o system prompt em tiers (`stable`/`context`/`volatile`) e atribui tokens por categoria usando a **mesma** heurística char/4 de `estimate_request_tokens_rough` (para alinhar com thresholds de compressão). Slots renderizados como grid de glifos no CLI e tabela no gateway. `/context all` faz atribuição **por unidade**. O dado real (`last_prompt_tokens`) tem prioridade sobre a estimativa quando disponível.
+- **Onde**: `agent/context_breakdown.py`, `agent/model_metadata.py`, `hermes_cli/prompt_size.py`.
+- **Cosca**: ferramenta de "distribuição de contexto" — um `/context`-like que mostra o orçamento por toolset/skill para otimizar quais bundles entram no prompt. Alinhar a estimativa com os thresholds de compressão evita "contas diferentes" entre UI e compressor.
+
+### D6. Self-improvement loop: pós-turn review em fork + `/learn` guiado por padrões
+- **O que resolve**: fazer o agente melhorar a si mesmo (gravar memória/skills) sem corromper a sessão ativa, o prompt cache nem o custo da conversa.
+- **Como funciona**: após cada turno, `spawn_background_review()` sobe um **fork em daemon** de um `AIAgent` que re-planeja o snapshot da conversa e se pergunta "devo salvar/atualizar algum skill/memória?". O fork **herda o runtime vivo** (provider, model, credenciais, prompt cache) → bate no mesmo prefix cache, mas roda com **whitelist de tools limitada a memória + skill** (todo o resto negado). Escritas vão direto aos stores; main loop e prompt cache intocados. `/learn` é o caminho insumo→skill com regras HARDLINE de authoring.
+- **Onde**: `agent/background_review.py`, `agent/learn_prompt.py`, `agent/learning_graph.py`.
+- **Cosca**: o loop de self-improvement *real*: um "revisor de fundo" isolado por perfil/sessão que feeda memória/skills, mais um `/learn` que transforma descrição do usuário em ativo reaproveitável sob regras de casa.
+
+### D7. Memória dual-store + provider único ativo + snapshot congelado (user modeling)
+- **O que resolve**: modelar o usuário e persistir conhecimento entre sessões de forma determinística e estável, sem inchar o schema de tools nem invalidar o prefix cache.
+- **Como funciona**: dois stores em texto: `MEMORY.md` (fatos do agente) e `USER.md` (perfil do usuário: preferências, estilo, expectativas) — *user modeling*. Snapshot injetado **congelado** no system prompt no início da sessão; escritas no meio persistem em disco imediatamente (duráveis) mas **não alteram** o prompt atual (preserva o prefix cache); só refresca na próxima sessão. Entries delimitadas por `§`, limites em caracteres. `MemoryManager` é o **ponto único de integração**: permite **exatamente UMA** provider externa ativa (rejeita a segunda), ciclo `build_system_prompt / prefetch_all / sync_all`. `normalize_tool_schema` desembrulha um tool dict duplo-embrulhado (DeepSeek HTTP 400 derruba o toolset inteiro). Discovery roda **precedência invertida** (bundled > user > project) para não fazer shadow do provedor.
+- **Onde**: `tools/memory_tool.py`, `agent/memory_manager.py`, `plugins/memory/*`.
+- **Cosca**: modelo de memória dual (conhecimento do agente vs modelo do usuário), snapshot congelado para estabilidade de cache, e uma Máquina de Memória com "um provider ativo". O `USER.md` é a base direta do user modeling.
+
+---
+
 ## Synthesis — o que o Cosca deveria copiar (priorizado)
 
 | # | Padrão | Aplicação no Cosca | Ganho |
