@@ -2,6 +2,42 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Mineração Generative Media (p/ criar o mundo)
+
+### 2026-08-23 — Mineração stack generativa: PCG+3D+imagem+áudio (objetivo: Cosca criar/habitar um mundo de jogo)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | O Don revelou o objetivo: o Cosca aprender a CRIAR imagem/vídeo/áudio e depois 3D + criação de jogos — até o agente TER UMA VIDA DENTRO DO MUNDO. Minar a stack generativa aberta. |
+| **Technique** | Level 3 — Mining: clone de 4 âncoras abertos (Sceelix PCG, Gaussian Splatting 3D, ComfyUI imagem difusão+LoRA, AudioCraft música) + 4 batedores paralelos. Agregação em `generative-media-patterns.md` (30 padrões) + INDEX (37 total). Mapeado para a base do Cosca (procgen, scene-graph, render, media, pipeline LoRA) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.87 (mining/generative domain) |
+| **Tags** | #mining #generative-media #pcg #3d #diffusion #audio #game-world #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/generative-media-patterns.md |
+| **Learned** | 1) **O objetivo do Don mudou o alvo**: não são os SaaS (fechados), são os ÂNCORAS ABERTOS da stack generativa. 2) 4 camadas para o Cosca criar/habitar um mundo: (a) **PCG** (Sceelix) = a chave pro mundo — dataflow graph engine (mundo como grafo re-executável), shape grammar BoxScope (estruturas recursivas = scene-graph), camadas de terreno + Perlin multi-oitava + seed/cache (mundo contínuo determinístico); (b) **3D** (Gaussian Splatting) = representação/render de cena — gaussianas como átomos + rasterização diferenciável (motor de runtime do mundo) + SfM→gaussianas (capturador de espaços reais); (c) **imagem** (ComfyUI) = node graph declarativo + cache por assinatura + **ModelPatcher/LoRA como patch** (estilo-agente empilhável, casa com o pipeline LoRA que JÁ temos) + denoise (img2img); (d) **áudio** (AudioCraft) = codec discreto→LM (reusa infra de transformers; token=tick de gameplay) + janelas+KV-cache (trilha longa). 3) **Padrão transversal**: separar **grafo (dados)** de **motor de execução (DAG+cache)** em todos (Sceelix, ComfyUI) — re-executar só o que mudou, cache por assinatura. 4) O Cosca está bem posicionado: já tem LoRA pipeline, procgen, scene-graph, media — a mineração fornece o "como" fazer cada camada. |
+| **Next** | Fase 2 do mergulho: minar **vídeo generativo** (modelos abertos) + **game engines** (Godot/runtime) — a última camada pro "viver no jogo". Depois avaliar integrar no `cosca-media`/`procgen` como feature. |
+
+---
+
+## Session: 2026-08-23 — Mineração AI Products (34)
+
+### 2026-08-23 — Mineração/inteligência de produto — 34 produtos de IA
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar lista de 34 produtos/empresas de IA (Ideogram, Midjourney, Runway, Mistral, Grok, Suno, Fireflies, Claude Artifacts, etc.) |
+| **Technique** | Level 3 — GitHub search por estrelas para achar código de primeira-partes (exceção: Leonardo-Interactive/leonardo-ts-sdk; o resto é wrapper de 3º). Como a maioria é SaaS fechado, adaptei para **inteligência de produto**: sintetizar o padrão que cada um prova + lição pro Cosca, agrupado por capacidade. Agregação em `ai-products-patterns.md` (34 produtos) + INDEX (36 total) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.72 (product-intelligence/mining domain) |
+| **Tags** | #mining #ai-products #product-intelligence #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/ai-products-patterns.md |
+| **Learned** | 1) **Método**: nem todo "mine" é clonar repo — produtos SaaS fechados exigem inteligência de produto (o que provam + lição pro Cosca). Usei GitHub search para achar código de 1ª parte; onde não há, sintetizo padrão. 2) Padrões transversais de maior valor pro Cosca: (a) **"Saída como objeto vivo"** (Claude Artifacts) — agente gera artefato interativo, não só texto, o `cosca-ui`/`desktop` deveria seguir; (b) **texto→mídia completa** (Suno/invideo/Synthesia) — o Cosca é forte em análise, fraco em síntese criativa; (c) **meeting intelligence** (Fireflies: capture→transcribe→extract→act) — feature de produto forte; (d) **repurposing de conteúdo** (OpusClip/Vidyo: 1 artefato→N formatos); (e) **fine-tune no próprio conhecimento** (Mistral open-weight + LoRA no knowledge base, não só RAG); (f) **voice/persona persistente** (Jasper/Pi) liga ao DNA voice da Mega Brain. 3) Lição de produto: o Cosca pode oferecer **agentic action** (DoNotPay/Durable) — mas com gate de compliance (ação no mundo real). |
+| **Next** | Considerar como feature: "saída como objeto vivo" (Claude Artifacts) e "text→mídia" no pipeline do Cosca. O padrão de produto mais alinhado ao Cosca é a **meeting intelligence** (capture→transcribe→extract→act) — candidato a feature de produto. |
+
+---
+
 ## Session: 2026-08-23 — Mineração mega-brain
 
 ### 2026-08-23 — Mineração thiagofinch/mega-brain (4 batedores paralelos)
