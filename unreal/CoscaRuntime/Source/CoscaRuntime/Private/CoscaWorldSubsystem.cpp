@@ -22,6 +22,12 @@ UCoscaWorldSubsystem::UCoscaWorldSubsystem()
 {
 }
 
+UCoscaWorldSubsystem::~UCoscaWorldSubsystem()
+{
+	// Defined here where IWebSocketServer is a complete type so the
+	// TUniquePtr<IWebSocketServer> member destructor can be generated.
+}
+
 void UCoscaWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -51,7 +57,8 @@ bool UCoscaWorldSubsystem::StartServer(int32 Port, const FString& BindAddress)
 	}
 
 	IWebSocketNetworkingModule& WsModule = FModuleManager::LoadModuleChecked<IWebSocketNetworkingModule>(TEXT("WebSocketNetworking"));
-	Server = WsModule.CreateServer();
+	// CreateServer() returns TUniquePtr<IWebSocketServer>; wrap into TSharedPtr.
+	Server = TSharedPtr<IWebSocketServer>(WsModule.CreateServer().Release());
 	if (!Server.IsValid())
 	{
 		UE_LOG(LogCosca, Error, TEXT("[Cosca] Failed to create WebSocket server."));
@@ -81,7 +88,8 @@ void UCoscaWorldSubsystem::StopServer()
 
 void UCoscaWorldSubsystem::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+	// UTickableWorldSubsystem has no Super::Tick (it's an FTickableGameObject).
+	// Just service the WebSocket server and active connection.
 	TickServer();
 }
 
@@ -211,7 +219,9 @@ AActor* UCoscaWorldSubsystem::SpawnEntity(const FSpawnPayload& Payload)
 
 	FActorSpawnParameters Params;
 	Params.Name = FName(*Payload.EntityId);
-	AActor* Spawned = World->SpawnActor<AActor>(SpawnClass, Payload.Position, Payload.Rotation, Params);
+	// Note: SpawnActor<T>(UClass*, FVector, FRotator, Params) is not available;
+	// convert quaternion to rotator for the (FVector, FRotator, Params) overload.
+	AActor* Spawned = World->SpawnActor<AActor>(SpawnClass, Payload.Position, Payload.Rotation.Rotator(), Params);
 	if (!Spawned)
 	{
 		UE_LOG(LogCosca, Error, TEXT("[Cosca] Failed to spawn entity %s"), *Payload.EntityId);
@@ -278,12 +288,18 @@ void UCoscaWorldSubsystem::HandleAction(const FActionPayload& Payload)
 {
 	if (Payload.Action == TEXT("move_to"))
 	{
-		FString* T = Payload.Params.Find(TEXT("target"));
+		const FString* T = Payload.Params.Find(TEXT("target"));
 		if (T)
 		{
 			FVector Target;
-			if (FParse::XYZ(**T, Target.X, Target.Y, Target.Z))
+			// Parse "x,y,z" manually (FParse::XYZ does not exist in 5.8).
+			TArray<FString> Parts;
+			T->ParseIntoArray(Parts, TEXT(","), true);
+			if (Parts.Num() == 3)
 			{
+				Target.X = FCString::Atof(*Parts[0]);
+				Target.Y = FCString::Atof(*Parts[1]);
+				Target.Z = FCString::Atof(*Parts[2]);
 				MoveEntity(Payload.EntityId, Target);
 			}
 		}
@@ -408,7 +424,7 @@ bool UCoscaWorldSubsystem::ParseSpawn(const FString& Json, FSpawnPayload& Out)
 	Obj->TryGetStringField(TEXT("asset_hash"), Out.AssetHash);
 
 	// Position [x,y,z]
-	TArray<TSharedPtr<FJsonValue>>* Pos = nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* Pos = nullptr;
 	if (Obj->TryGetArrayField(TEXT("position"), Pos) && Pos->Num() == 3)
 	{
 		Out.Position.X = (*Pos)[0]->AsNumber();
@@ -416,7 +432,7 @@ bool UCoscaWorldSubsystem::ParseSpawn(const FString& Json, FSpawnPayload& Out)
 		Out.Position.Z = (*Pos)[2]->AsNumber();
 	}
 	// Scale [x,y,z]
-	TArray<TSharedPtr<FJsonValue>>* Scale = nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* Scale = nullptr;
 	if (Obj->TryGetArrayField(TEXT("scale"), Scale) && Scale->Num() == 3)
 	{
 		Out.Scale.X = (*Scale)[0]->AsNumber();
@@ -442,7 +458,7 @@ bool UCoscaWorldSubsystem::ParseAction(const FString& Json, FActionPayload& Out)
 	{
 		for (const auto& Pair : ParamsObj->Values)
 		{
-			Out.Params.Add(Pair.Key, Pair.Value->AsString());
+			Out.Params.Add(FString(Pair.Key), Pair.Value->AsString());
 		}
 	}
 	return true;

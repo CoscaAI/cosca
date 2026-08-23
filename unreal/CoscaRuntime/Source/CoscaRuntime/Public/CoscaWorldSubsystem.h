@@ -13,12 +13,13 @@ class IWebSocketServer;
 class FJsonObject;
 
 UCLASS()
-class COSCARUNTIME_API UCoscaWorldSubsystem : public UWorldSubsystem
+class COSCARUNTIME_API UCoscaWorldSubsystem : public UTickableWorldSubsystem
 {
 	GENERATED_BODY()
 
 public:
 	UCoscaWorldSubsystem();
+	virtual ~UCoscaWorldSubsystem();
 
 	// UWorldSubsystem interface
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
@@ -58,7 +59,8 @@ public:
 	virtual TStatId GetStatId() const override;
 
 private:
-	// WebSocket server + active connection
+	// WebSocket server (TSharedPtr avoids needing the complete IWebSocketServer
+	// type in the UHT-generated destructor) + active connection.
 	TSharedPtr<IWebSocketServer> Server;
 	INetworkingWebSocket* ClientSocket = nullptr;
 
