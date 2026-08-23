@@ -1,3 +1,9 @@
+---
+name: planning
+description: Transforms requirements into executable plans - breakdown, estimation, dependencies, and plans.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Planning Engine | **Last Updated**: 2026-07-10
 
 # PLANNING ENGINE

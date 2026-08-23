@@ -1,3 +1,9 @@
+---
+name: compliance
+description: Owns regulatory compliance and policy governance - GDPR, SOC2, HIPAA, PCI-DSS, LGPD.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Compliance Chief | **Last Updated**: 2026-07-23
 
 # COMPLIANCE CHIEF — Regulatory Compliance & Policy Governance

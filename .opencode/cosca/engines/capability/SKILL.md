@@ -1,3 +1,9 @@
+---
+name: capability
+description: Manages the full capability lifecycle - discover, register, validate, resolve, and compose.
+level: 3
+---
+
 # CAPABILITY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Capability Engine | **Last Updated**: 2026-07-12

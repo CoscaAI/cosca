@@ -1,3 +1,9 @@
+---
+name: policy
+description: Single source of truth for business rules, operational policies, and governance constraints.
+level: 3
+---
+
 # POLICY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Policy Engine | **Last Updated**: 2026-07-12

@@ -1,3 +1,9 @@
+---
+name: observability
+description: Provides visibility into internal state - metrics, traces, and logs from all agents and workflows.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Observability Engine | **Last Updated**: 2026-07-10
 
 # OBSERVABILITY ENGINE

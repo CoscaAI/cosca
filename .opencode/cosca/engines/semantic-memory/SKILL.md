@@ -1,3 +1,9 @@
+---
+name: semantic-memory
+description: Provides meaning-based search and retrieval across all Cosca memory via vector embeddings.
+level: 2
+---
+
 # SEMANTIC MEMORY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Semantic Memory Engine | **Last Updated**: 2026-07-28

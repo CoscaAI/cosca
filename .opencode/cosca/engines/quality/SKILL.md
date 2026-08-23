@@ -1,3 +1,9 @@
+---
+name: quality
+description: Enforces quality gates across all deliverables - standards, automated checks, and metrics.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Quality Engine | **Last Updated**: 2026-07-10
 
 # QUALITY ENGINE

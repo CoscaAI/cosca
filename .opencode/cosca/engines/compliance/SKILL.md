@@ -1,3 +1,9 @@
+---
+name: compliance
+description: Ensures the Cosca platform and managed projects comply with regulatory frameworks.
+level: 2
+---
+
 # COMPLIANCE ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Compliance Engine | **Last Updated**: 2026-07-12

@@ -1,3 +1,9 @@
+---
+name: runtime
+description: Manages the execution environment, application lifecycle, middleware pipeline, and processes.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Runtime Engine | **Last Updated**: 2026-07-10
 
 # RUNTIME ENGINE

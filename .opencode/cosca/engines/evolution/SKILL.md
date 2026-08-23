@@ -1,3 +1,9 @@
+---
+name: evolution
+description: Continuously analyzes the codebase for improvement opportunities - debt, refactors, and quality.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Evolution Engine | **Last Updated**: 2026-07-10
 
 # EVOLUTION ENGINE

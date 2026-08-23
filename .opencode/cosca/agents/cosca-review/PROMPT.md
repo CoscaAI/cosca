@@ -1,8 +1,10 @@
-﻿---
+---
+name: cosca-review
 agent: cosca-review
 type: prompt
 version: 1.0.0
 description: Review Chief â€” Code review, architecture review, security review. Reports to CTO.
+level: 1
 ---
 
 PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.

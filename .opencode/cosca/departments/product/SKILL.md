@@ -1,3 +1,9 @@
+---
+name: product
+description: Product Chief - translates user needs into requirements, scope, backlog, and roadmap.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Product Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CEO
 

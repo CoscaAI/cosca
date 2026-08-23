@@ -1,3 +1,9 @@
+---
+name: plugin
+description: Owns the plugin ecosystem - architecture, SDK/API, registry, security, and lifecycle.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Plugin Chief | **Last Updated**: 2026-07-23
 
 # PLUGIN CHIEF — Plugin System & Extensibility

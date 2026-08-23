@@ -1,3 +1,9 @@
+---
+name: context
+description: Builds, maintains, and provides comprehensive workspace, session, project, and environment context.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Context Engine | **Last Updated**: 2026-07-10
 
 # CONTEXT ENGINE

@@ -1,3 +1,9 @@
+---
+name: technical-debt
+description: Owns technical debt management - tracking, measurement, prioritization, and reduction.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Technical Debt Chief | **Last Updated**: 2026-07-23
 
 # TECHNICAL DEBT CHIEF — Code Quality & Technical Debt Management

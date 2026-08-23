@@ -1,3 +1,9 @@
+---
+name: identity
+description: Manages identity, authentication, and authorization for all Cosca components, agents, and tenants.
+level: 3
+---
+
 # IDENTITY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Identity Engine | **Last Updated**: 2026-07-12

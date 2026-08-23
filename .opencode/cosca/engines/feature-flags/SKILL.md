@@ -1,3 +1,9 @@
+---
+name: feature-flags
+description: Enables dark launching, gradual rollouts, A/B testing, and operational kill switches.
+level: 2
+---
+
 # FEATURE FLAG ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Feature Flag Engine | **Last Updated**: 2026-07-12

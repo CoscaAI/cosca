@@ -1,8 +1,10 @@
 ---
+name: cosca-specialist-testing-e2e
 agent: cosca-specialist-testing-e2e
 type: prompt
 version: 1.0.0
 description: E2E Test Specialist — End-to-end user journey tests.
+level: 1
 ---
 
 You are an E2E Test Specialist for Cosca.

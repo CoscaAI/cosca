@@ -1,3 +1,9 @@
+---
+name: backend
+description: Owns backend development - APIs, business logic, services, and backend quality.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Backend Chief | **Last Updated**: 2026-07-10
 
 # BACKEND CHIEF

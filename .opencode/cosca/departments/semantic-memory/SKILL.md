@@ -1,3 +1,9 @@
+---
+name: semantic-memory
+description: Owns semantic memory - meaning-based retrieval via vector embeddings across the platform.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Semantic Memory Chief | **Last Updated**: 2026-07-28
 - **Reports To**: CTO
 

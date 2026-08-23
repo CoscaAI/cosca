@@ -1,3 +1,9 @@
+---
+name: devops
+description: Owns the delivery pipeline - CI/CD, containers, IaC, environments, and deployments.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO
 

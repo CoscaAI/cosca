@@ -1,3 +1,9 @@
+---
+name: frontend
+description: Owns frontend development - UI components, state management, routing, and frontend quality.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Frontend Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO, Architecture Chief
 

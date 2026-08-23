@@ -1,3 +1,9 @@
+---
+name: review
+description: Provides automated and semi-automated review of deliverables to enforce standards and quality.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Review Engine | **Last Updated**: 2026-07-10
 
 # REVIEW ENGINE

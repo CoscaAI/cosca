@@ -1,3 +1,9 @@
+---
+name: provider
+description: Owns provider strategy and operations - model/cloud providers, reliability, cost, and failover.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Provider Chief | **Last Updated**: 2026-07-23
 
 # PROVIDER CHIEF — AI & Cloud Provider Management

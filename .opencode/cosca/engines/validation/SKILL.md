@@ -1,3 +1,9 @@
+---
+name: validation
+description: Provides comprehensive input/output/contract validation across all Cosca components.
+level: 3
+---
+
 # VALIDATION ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Validation Engine | **Last Updated**: 2026-07-12

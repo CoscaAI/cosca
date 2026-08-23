@@ -1,3 +1,9 @@
+---
+name: context
+description: Owns context management - session, project, and user context across interactions.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Context Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO
 

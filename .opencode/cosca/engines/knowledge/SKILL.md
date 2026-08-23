@@ -1,3 +1,9 @@
+---
+name: knowledge
+description: Manages the Cosca knowledge base - patterns, playbooks, runbooks, and reference architectures.
+level: 2
+---
+
 # KNOWLEDGE ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Knowledge Engine | **Last Updated**: 2026-07-12

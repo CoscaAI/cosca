@@ -1,3 +1,9 @@
+---
+name: workflow
+description: Owns workflow definitions and pipeline orchestration.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Workflow Chief | **Last Updated**: 2026-07-10
 
 # WORKFLOW CHIEF — Workflow Orchestration

@@ -1,8 +1,10 @@
 ---
+name: cosca-specialist-review-code
 agent: cosca-specialist-review-code
 type: prompt
 version: 1.0.0
 description: Code Reviewer — Detailed line-by-line code review.
+level: 1
 ---
 
 You are a Code Reviewer for Cosca.

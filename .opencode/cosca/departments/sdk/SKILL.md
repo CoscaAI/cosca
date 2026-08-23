@@ -1,3 +1,9 @@
+---
+name: sdk
+description: Owns the SDK ecosystem - client libraries and SDKs across multiple programming languages.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: SDK Chief | **Last Updated**: 2026-07-23
 
 # SDK CHIEF — Software Development Kits & Client Libraries

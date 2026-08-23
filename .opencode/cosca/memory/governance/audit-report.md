@@ -2,7 +2,7 @@
 
 > **Auditor**: cosca-governance (Governance Chief) | **Date**: 2026-07-28
 > **Scope**: 54 agents (53 Chiefs/Specialists + cosca-kernel)
-> **Standards**: [AGENT_DNA.md](../AGENT_DNA.md) v3.0.0, [CONVENTIONS.md](../CONVENTIONS.md), [GOVERNANCE.md](../GOVERNANCE.md)
+> **Standards**: [AGENT_DNA.md](../../AGENT_DNA.md) v3.0.0, [CONVENTIONS.md](../../CONVENTIONS.md), [GOVERNANCE.md](../../GOVERNANCE.md)
 
 ---
 
@@ -346,11 +346,11 @@ This audit was conducted by:
 
 ### A. Full Agent Inventory
 
-See [memory/agent/INDEX.md](../memory/agent/INDEX.md) (needs update per recommendation H2).
+See [memory/agent/INDEX.md](../agent/INDEX.md) (needs update per recommendation H2).
 
 ### B. DNA v3.0 Capability Profile Template
 
-Reference: [AGENT_DNA.md §24](../AGENT_DNA.md) and [capabilities/CAPABILITY_TEMPLATE.md](../capabilities/CAPABILITY_TEMPLATE.md).
+Reference: [AGENT_DNA.md §24](../../AGENT_DNA.md) and [capabilities/CAPABILITY_TEMPLATE.md](../../capabilities/CAPABILITY_TEMPLATE.md).
 
 ### C. Audit History
 

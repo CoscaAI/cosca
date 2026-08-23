@@ -1,3 +1,9 @@
+---
+name: qa
+description: Owns quality - standards, test strategies, and deliverables meeting quality bars.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: QA Chief | **Last Updated**: 2026-07-10
 
 # QA CHIEF — Quality Assurance

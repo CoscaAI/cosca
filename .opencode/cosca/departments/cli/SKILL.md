@@ -1,3 +1,9 @@
+---
+name: cli
+description: Owns the CLI tooling ecosystem - command-line interfaces, generators, and scaffolding tools.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: CLI Chief | **Last Updated**: 2026-07-23
 
 # CLI CHIEF — Command-Line Tools & Developer Tooling

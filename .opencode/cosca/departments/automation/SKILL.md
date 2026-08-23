@@ -1,3 +1,9 @@
+---
+name: automation
+description: Owns task automation - scripts, CLI tools, and automated workflows for development efficiency.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Automation Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO
 

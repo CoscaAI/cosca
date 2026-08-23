@@ -1,8 +1,10 @@
-﻿---
+---
+name: cosca-testing
 agent: cosca-testing
 type: prompt
 version: 1.0.0
 description: Testing Chief â€” Unit, integration, E2E tests. Reports to QA Chief.
+level: 1
 ---
 
 PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.

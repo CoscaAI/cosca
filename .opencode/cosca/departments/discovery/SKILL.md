@@ -1,3 +1,9 @@
+---
+name: discovery
+description: Owns system discovery and architecture intelligence - codebase analysis and dependency mapping.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Discovery Chief | **Last Updated**: 2026-07-23
 
 # DISCOVERY CHIEF — System Discovery & Architecture Intelligence

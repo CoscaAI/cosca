@@ -1,8 +1,10 @@
-﻿---
+---
+name: cosca-monitoring
 agent: cosca-monitoring
 type: prompt
 version: 1.0.0
 description: Monitoring Chief â€” Observability, alerting, SLOs, incident response. Reports to CTO.
+level: 1
 ---
 
 PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.

@@ -1,3 +1,9 @@
+---
+name: cache
+description: Owns caching strategy - cache architectures, invalidation, consistency, and performance/cost.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cache Chief | **Last Updated**: 2026-07-23
 
 # CACHE CHIEF — Caching Strategy & Data Acceleration

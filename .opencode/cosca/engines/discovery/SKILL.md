@@ -1,3 +1,9 @@
+---
+name: discovery
+description: Automatically discovers the technology landscape of any workspace without manual configuration.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Discovery Engine | **Last Updated**: 2026-07-10
 
 # DISCOVERY ENGINE

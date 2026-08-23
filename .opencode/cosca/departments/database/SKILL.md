@@ -1,3 +1,9 @@
+---
+name: database
+description: Owns the data layer - schemas, migrations, query optimization, and data integrity.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Database Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO, Architecture Chief
 

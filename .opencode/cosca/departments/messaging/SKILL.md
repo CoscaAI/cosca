@@ -1,3 +1,9 @@
+---
+name: messaging
+description: Owns messaging infrastructure and event-driven architecture - brokers, event schemas, and reliability.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Messaging Chief | **Last Updated**: 2026-07-23
 
 # MESSAGING CHIEF — Event-Driven Architecture & Message Brokers

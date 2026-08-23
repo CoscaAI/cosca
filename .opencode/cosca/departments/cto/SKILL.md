@@ -1,3 +1,9 @@
+---
+name: cto
+description: Transforms product requirements into technical plans and orchestrates all technical departments.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: CTO | **Last Updated**: 2026-07-10
 - **Reports To**: CEO
 

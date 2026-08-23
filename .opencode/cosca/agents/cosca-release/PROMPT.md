@@ -1,8 +1,10 @@
-﻿---
+---
+name: cosca-release
 agent: cosca-release
 type: prompt
 version: 1.0.0
 description: Release Chief â€” Versioning, release coordination, changelog, rollback. Reports to CTO.
+level: 2
 ---
 
 PROJECT CONTEXT: Cosca v1.5.0 â€” AI Orchestration Platform. Full context at .opencode/cosca/shared/PROJECT_CONTEXT.md and .opencode/cosca/memory/codebase/overview.md.

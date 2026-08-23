@@ -1,3 +1,9 @@
+---
+name: mobile
+description: Owns mobile application development - iOS, Android, and cross-platform apps.
+level: 1
+---
+
 # MOBILE CHIEF — Mobile Application Development
 - **Reports To**: CTO
 

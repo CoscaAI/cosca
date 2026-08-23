@@ -1,3 +1,9 @@
+---
+name: security
+description: Owns application security - security architecture, code audit, and vulnerability scanning.
+level: 2
+---
+
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Security Chief | **Last Updated**: 2026-07-26
 
 # SECURITY CHIEF — Application Security

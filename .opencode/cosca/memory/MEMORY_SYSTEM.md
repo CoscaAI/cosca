@@ -149,5 +149,5 @@ This document explains how the Kernel's memory system works, how it evolves, and
 
 ## Related
 - [AGENTS.md](../../AGENTS.md) — Discovery policy
-- [KERNEL.md](../../KERNEL.md) — Kernel instructions
-- [CONVENTIONS.md](../../CONVENTIONS.md) — Framework conventions
+- [KERNEL.md](../KERNEL.md) — Kernel instructions
+- [CONVENTIONS.md](../CONVENTIONS.md) — Framework conventions

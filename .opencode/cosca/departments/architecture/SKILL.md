@@ -1,3 +1,9 @@
+---
+name: architecture
+description: Owns system architecture - modular boundaries, patterns, ADRs, and architectural integrity.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Architecture Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO
 
