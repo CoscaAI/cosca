@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Mineração Unreal Engine (o runtime do "viver no jogo")
+
+### 2026-08-23 — Mineração Unreal Engine (arquitetura) — o agente vivo no mundo
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | O Don revelou: o runtime do "viver no jogo" é o **Unreal** (ele já domina criar lá). Minar a arquitetura do UE5 focada em: criar o mundo, o runtime do mundo, onde o agente vive e como age + a ponte Cosca↔Unreal. |
+| **Technique** | Level 3 — Mining de arquitetura. **Nota honesta:** `EpicGames/UnrealEngine` NÃO é clonável anonimamente (exige EULA/conta) e é dezenas de GB. Minei por conhecimento do framework UE5 (sem clonar), focada no objetivo. Agregação em `unreal-integration-patterns.md` (22 padrões) + INDEX (38 total) |
+| **Level** | 3 |
+| **Outcome** | success (arquitetura) |
+| **Confidence** | 0.78 (unreal/integration domain) |
+| **Tags** | #mining #unreal #ue5 #gameworld #agent-life #patterns #integration |
+| **Related** | .cosca/fallback/knowledge/patterns/unreal-integration-patterns.md |
+| **Learned** | 1) O runtime do "viver no jogo" é o **UE5** (o Don domina). 2) **Arquitetura do UE pro agente vivo** mapeada em 3 camadas: (a) **criar o mundo** → **PCG** (grafo espacial data-driven = o "Sceelix do UE", com `PCGData`/`PCGPoint` como átomo de mundo + seed determinística — casa com o padrão Sceelix que já mineramos); (b) **runtime do mundo** → **World Partition** (células/streaming = mundo infinito; o agente só age no que está carregado), Gameplay Framework (Pawn+Controller); (c) **o agente vivo** → o agente = **`ACoscaAgentPawn`** (corpo) dirigido pela **mente Cosca** (cérebro), com **Behavior Tree + Blackboard** (decisão/memória curta), **GAS** (abilities/attributes/effects = ações/estado), **Perception** (os sentidos). 3) **A ponte = o coração do objetivo**: loop **perceber (Unreal) → decidir (Cosca) → agir (GAS/move) → estado (volta pro Cosca como memória)** via **WebSocket/HTTP** (reusa a porta 14120 do Cosca, que já é REST/WS). O Cérebro (Cosca) é separado do Corpo (Pawn). 4) **UInterface** (`CoscaAgentInterface`) é o contrato que o Don liga no Blueprint/C++ — o "agent loop" do Cosca aplicado ao mundo. 5) O Cosca está bem posicionado: já tem memória em camadas (Mega Brain), procgen, services (porta 14120). |
+| **Next** | A ponte Cosca↔Unreal é a feature-chave do objetivo. Recomendo: (1) minar vídeo generativo (completa a Fase 2), (2) depois focar na **ponte** (UInterface + WebSocket bridge pro `ACoscaAgentPawn`). O agente viverá como um pawn no mundo do UE, com o Cosca como cérebro. |
+
+---
+
 ## Session: 2026-08-23 — Mineração Generative Media (p/ criar o mundo)
 
 ### 2026-08-23 — Mineração stack generativa: PCG+3D+imagem+áudio (objetivo: Cosca criar/habitar um mundo de jogo)
