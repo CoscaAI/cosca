@@ -2,7 +2,20 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
-## Session: 2026-08-23 — FATIA H1: harness degradável + controles (ADR-011 Security, Bloco 2)
+## Session: 2026-08-23 — FATIA D1: deliberação determinística evidência-gated (ADR-011, Bloco 1)
+
+### 2026-08-23 — Pacote `internal/deliberate` (zero-LLM, gates externos ao modelo)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-backend-service |
+| **Task** | Criar `internal/deliberate` determinístico (A2–A7): convergência, loop-detector, confiança aritmética, evidência L0–L5+M1–M7, conflito cross-vote, SPEC validável |
+| **Technique** | Pure-functions por arquivo (types/convergence/confidence/evidence/pool/spec), sem estado/goroutines, tudo testável sem LLM |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #deliberate #convergence #confidence-breakdown #evidence-gating #zero-llm #adr-011 #a2 #a4 #a7 |
+| **Related** | ADR-011 §3.1; CONFIDENCE_MODEL.md (internal/embed/cosca/engines/evidence/, NÃO memory/); internal/confidence/tracker.go (reuso conceitual, não duplicado) |
+| **Learned** | (1) **Nome colide em Go**: tipo `Emit` + função `Emit` no mesmo pacote → compile error. Manter o tipo `Emit` e renomear a função para `EvaluateEmit` (documentar o porquê). (2) **"Zero achismo"** = position é `Effective()` só quando `Substantiated && len(EvidenceIDs)>0`; posições não-efetivas são IGNORADAS na convergência (contribuem 0), não somam concordância. (3) **Convergência** `Σ(peso×concordância)` por dimensão (Recommendation .30/Premises .25/Risks .25/Timing .20) exige agrupar positions por dimensão → precisei de um campo `Dimension` extra em `Position` (extensão justificada). (4) Dimensão descoberta contribui **0, sem renormalizar** (gap vira 0, não pass) — isso torna "Pesos somam 1.0" e o limiar 70% testável com floats (usar `assert.InDelta` para esperado 0.0; `assert.InEpsilon` dá erro com expected 0). (5) `ComputeConfidence`: Final = clamp01(Base + Σ deltas); breakdown é trace determinístico `base=.. x=.. final=..`. (6) `EvidenceConfidence(ev any)`: type-switch para `Evidence`/`*Evidence` (nil pointer → L0=0.20); não-evidência → 0.20 conservador. (7) `ValidateSpec`: CONFIDENCE é numérica (0,1]; mensagem de erro de CONFIDENCE **não** contém "required" → teste deve usar substring por caso. |
+| **Next** | Integração (fatia seguinte): port `DecisionDeliberator` em `internal/orchestration/ports.go` + `DeliberateConfig` no `OrchestratorConfig`; adapters critic/review |
 
 ### 2026-08-23 — Envelope uniforme de resultado (results pkg)
 | Field | Value |

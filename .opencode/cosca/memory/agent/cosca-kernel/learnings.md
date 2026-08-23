@@ -2,6 +2,24 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+## Session: 2026-08-23 — Mineração mega-brain
+
+### 2026-08-23 — Mineração thiagofinch/mega-brain (4 batedores paralelos)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Minerar https://github.com/thiagofinch/mega-brain (ordem do Don) |
+| **Technique** | Level 3 — Mining: clone shallow + recon (22 itens: engine/, agents/, squads/, knowledge/, docs/) + 4 subagentes `general` paralelos (filões: Conclave deliberação, DNA/MCE extração, RAG grounded, orquestração multi-squad). Agregação em `mega-brain-patterns.md` (31 padrões) + INDEX (35 total) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.86 (mining/orchestration domain) |
+| **Tags** | #mining #megabrain #conclave #dna-cognitivo #rag-grounded #orquestração #patterns |
+| **Related** | .cosca/fallback/knowledge/patterns/mega-brain-patterns.md |
+| **Learned** | 1) Mega Brain é gestão de conhecimento por IA: ingestão MCE → DNA cognitivo 10 camadas → RAG híbrido "zero achismo" → **Conclave** (conselho multi-agente delibera decisões fundamentado em evidências). 2) **3 lições estruturais de alto valor pro Cosca**: (a) **separar decisão de domínio da meta-cognição** — o conselho (Crítico/Advogado/Sintetizador) NÃO tem DNA de domínio, escora processo, nunca é juiz e parte ao mesmo tempo (corrige o viés de confirmação melhor que "mais especialistas"); (b) **"zero achismo" = evidência rastreável obrigatória** — toda afirmação cita ID (`[RAG:chunk_id]`/`HEUR-AH-025`), sem evidência = opinião; RAG é só interno, web externa proibida; (c) **planejar ≠ executar** — plan-only + executor DAG separado (auditabilidade). 3) Padrões de deliberação mais transferíveis: **convergência calculada** (Σ peso×concordância, threshold 70%, circuit breaker por hash de posições) + **confiança aritmética** (base ± ajustes tipados, thresholds EMITIR/COM-RESSALVAS/ESCALAR) + **votação cruzada sem auto-voto** + **juiz-relay**. 4) RAG grounded: **cascata de fidelidade** (self-RAG heurístico ~1ms → HHEM NLI condicional → block/flag no caller, "nunca bloqueie por ausência de evidência, só por evidência positiva de baixa fidelidade") + **atribuição por claim** + **gabarito congelado** (`qrels-baseline` gate fail-closed). 5) Orquestração: **maturidade 0→1→10→100** (single-router → pipeline → autonomous, métricas 80/90/95%) + **quality gate 3 estados** (APPROVE/REVIEW/VETO + veto_conditions hard-stop) + **token-fencing** em fila durável. |
+| **Next** | Levar os 3 padrões de maior valor ao Conselho: (1) conclusão meta-cognitiva evidência-gated p/ cosca-critic/orchestrator (gap de deliberação), (2) cascata de fidelidade + gabarito congelado p/ cosca-rag/qa (gap "zero achismo"), (3) plan-only + maturidade p/ orquestração do Cosca. |
+
+---
+
 ## Session: 2026-08-23 — Mineração ruflo
 
 ### 2026-08-23 — Mineração ruvnet/ruflo (5 batedores paralelos)

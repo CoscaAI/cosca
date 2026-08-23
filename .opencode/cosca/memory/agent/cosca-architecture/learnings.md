@@ -42,3 +42,16 @@
 | **Related** | `.opencode/cosca/memory/architecture/streaming-plan.md`, `api/rest/handler/run.go`, `internal/chat/types.go`, `api/middleware/security.go`, `internal/knowledge/knowledge.go`, `internal/workflows/workflows.go` |
 | **Learned** | 1) SSE already mature for chat — `POST /v1/run/stream` uses `sendSSE()` with `text/event-stream` + `http.Flusher`. 2) Zero WebSocket code or deps — no gorilla, nhooyr, or gobwas. 3) All 10+ providers implement `ChatStream` via `chat.ChatStream` interface. 4) Knowledge `Sync()` and Workflow `Run()` are fully sync — no progress callbacks exist yet. 5) CSP already has `ws://` in connect-src (line 46 of security.go). 6) Frontend `use-provider-stream.ts` is a placeholder waiting for backend wiring. 7) `sendSSE()` is trapped in handler/run.go — needs extraction to shared package. 8) Auth middleware uses JWT via cookie/Bearer header — WebSocket needs query param pattern. 9) Recommended lib: `nhooyr.io/websocket` (context-aware, Go std interfaces, pure Go). 10) 4 SSE + 1 WS endpoints planned. Total effort 40-55h across 5 phases. |
 | **Next** | Phase 0: Extract SSE utilities to `api/stream/sse.go`. Phase 1: Add progress callbacks to knowledge Sync. |
+
+### 2026-08-23 — Mega Brain: deliberação evidência-gated + plan-only
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-architecture |
+| **Task** | ADR-011 — adotar padrões-ouro (A1-A7, D1-D6) do Mega Brain no Cosca, sem implementar |
+| **Technique** | Mapa gap: o Cosca TEM RAG/critic/gates/DAG/Ciclo-de-Decisão, mas é 1-agente auto-avaliação (passo 8), confiança intuitiva, sem convergência calculada, sem plan-only nem gate 3-estados. Solução: `internal/deliberate` determinístico (Convergence/Confidence/Emit/VoteCross/ValidateSpec) para P0/P1 + Plan-only no `Engine` reusando `internal/gate` e `internal/workflow`. Régua P9: modelo propõe, sistema decide. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #mega-brain #deliberation #plan-only #adr #convergence #confidence #cpu #over-engineering |
+| **Related** | `docs/adr/ADR-011-mega-brain-deliberation-and-plan-only.md`, `.cosca/fallback/knowledge/patterns/mega-brain-patterns.md`, `internal/orchestration/orchestrator.go`, `internal/orchestration/router.go`, `internal/gate/gate.go`, `internal/workflow/workflow.go`, `internal/confidence/tracker.go`, `internal/embed/cosca/{CONSTITUTION,QUALITY_GATES,DECISION_PROTOCOL,CONFIDENCE_MODEL}.md` |
+| **Learned** | 1) Não existe `internal/review` (cosca-review/qa são agentes-texto) — deliberação deve viver num pacote determinístico `internal/deliberate`. 2) `Engine.Execute` roda inline (sem plan-only); a guarda já está em `internal/gate.GateStore` (plan→approving→approved→executed) — estender p/ 3-estados, não recriar. 3) `internal/workflow` já é DAG typed-routing com JoinNode paralelo + ErrCycle — usar como substrato, só somar CPM/FMEA. 4) Reuso é a régua: NÃO tocar `internal/embed/cosca/*` (P8). 5) Over-engineering honesto: batalha adversarial completa (A5), arquétipos D1-D10 (A6), D7 token-fencing, e todo o bloco C (RAG) ficam de fora — RAG merece ADR próprio. 6) Fatia 1 = plan-only + gate 3-estados (bloco 2) e `internal/deliberate` só P0/P1 (bloco 1). |
+| **Next** | Se aprovado: fatiar 1 dos 2 blocos; considerar ADR-012 para RAG "zero achismo" (C2/C4/C5/C6). |
