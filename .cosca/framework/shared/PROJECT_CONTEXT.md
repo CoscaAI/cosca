@@ -1,4 +1,4 @@
-﻿# PROJECT CONTEXT â€” Cosca v1.5.0
+﻿# PROJECT CONTEXT — Cosca v1.5.0
 
 You are building the **Cosca AI Orchestration System Enterprise Platform**.
 
