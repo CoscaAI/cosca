@@ -408,6 +408,16 @@ func (o *Orchestrator) UpdateClimate(climate ClimateState) {
 	o.state.Climate = climate
 }
 
+// AddEntity merges one or more world entities into the world state.
+// It is the public entry point for external perception sources (e.g. the
+// Unreal bridge) to register newly observed/spawned entities.
+func (o *Orchestrator) AddEntity(entities ...WorldEntity) {
+	if len(entities) == 0 {
+		return
+	}
+	o.mergeEntities(entities)
+}
+
 // GenerateAsset delegates asset generation to the configured AssetProvider.
 // If no provider is configured, it returns an error.
 func (o *Orchestrator) GenerateAsset(ctx context.Context, req AssetRequest) (*AssetResult, error) {
