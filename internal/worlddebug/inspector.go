@@ -119,7 +119,7 @@ func (in *Inspector) explainEntity(e *world.Entity) *EntityInspect {
 			area = fmt.Sprintf("%.1f m (length)", lengthOf(e.Geometry.Points))
 		}
 	}
-	height := e.PropertyString("height")
+	height := propertyString(e, "height")
 	if height == "" {
 		height = "unknown"
 	}
@@ -184,7 +184,7 @@ func (in *Inspector) provenanceOf(e *world.Entity) []Attribute {
 	}
 
 	// Height / species are inferred unless present as a hard property.
-	if e.PropertyString("height") == "" {
+	if propertyString(e, "height") == "" {
 		attrs = append(attrs, Attribute{Name: "height", Value: "estimated", Class: Inferred})
 	}
 	// Visual mesh is always GENERATED (Cosca created it to fill the render gap).
@@ -204,7 +204,7 @@ func (in *Inspector) reasoning(e *world.Entity, prov []Attribute) ReasoningInspe
 			"footprint polygon from source",
 			"located in urban context",
 		)
-		if e.PropertyString("height") == "" {
+		if propertyString(e, "height") == "" {
 			r.Uncertainty = append(r.Uncertainty, "height: INFERRED (unavailable in source)")
 		}
 	case world.ClassRoad:

@@ -12,6 +12,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/world"
 	"github.com/CoscaAI/cosca/internal/world/adapter"
 	"github.com/CoscaAI/cosca/internal/world/reconstruct"
+	"github.com/CoscaAI/cosca/internal/worlddebug"
 )
 
 // NewWorldCommand creates the `cosca world` command group — the World Model
@@ -29,6 +30,7 @@ world. Cosca interprets entities (buildings/roads/avenues/parks) — not meshes.
 	cmd.AddCommand(
 		NewWorldInspectCommand(),
 		NewWorldSpawnCommand(),
+		NewWorldExplainCommand(),
 	)
 	return cmd
 }
@@ -169,5 +171,66 @@ Example:
 	cmd.Flags().Float64Var(&lat, "lat", -27.6375, "Origin latitude")
 	cmd.Flags().Float64Var(&lon, "lon", -48.6765, "Origin longitude")
 	cmd.Flags().IntVar(&maxEntities, "max", 0, "Max entities to materialize (0 = all)")
+	return cmd
+}
+
+// NewWorldExplainCommand explains a single entity: OBSERVED/INFERRED/GENERATED.
+// This is the Visual Understanding Inspector (per professor): click a building
+// and see what the Cosca knows, where it came from, what it inferred, and how
+// it became a representation.
+func NewWorldExplainCommand() *cobra.Command {
+	var input string
+	var lat, lon float64
+	var replay bool
+
+	cmd := &cobra.Command{
+		Use:   "explain <entity-id>",
+		Short: "Explicar uma entidade do World Model (Visual Understanding Inspector)",
+		Long: `Explain how the Cosca interpreted a specific entity: what it knows,
+where it came from, what it inferred, and how it became a representation.
+
+Shows the professor's Inspector layout:
+  ENTITY / REPRESENTATION / REASONING / PROVENANCE / RELATIONS
+
+Example:
+  cosca world explain building_001 --input palhoca.json
+  cosca world explain osm:road:ruaflrida:168024958 --replay`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatter := GetFormatter(cmd)
+			entityID := args[0]
+
+			data, err := os.ReadFile(input)
+			if err != nil {
+				return fmt.Errorf("read input: %w", err)
+			}
+			cfg := ingest.DefaultConfig(world.GeoCoordinates{Latitude: lat, Longitude: lon})
+			res, err := ingest.ParseOSM(data, cfg)
+			if err != nil {
+				return fmt.Errorf("parse: %w", err)
+			}
+
+			insp := worlddebug.New(res.World)
+			ex, ok := insp.Explain(entityID)
+			if !ok {
+				return fmt.Errorf("entity %q not found in world", entityID)
+			}
+
+			formatter.Header("World explain — " + entityID)
+			formatter.Println(ex.String())
+
+			if replay {
+				r := worlddebug.BuildReplay(res.World)
+				formatter.Header("Replay")
+				formatter.Println(r.String())
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&input, "input", "internal/ingest/testdata/palhoca_sample.json", "OSM/Overpass JSON input")
+	cmd.Flags().Float64Var(&lat, "lat", -27.6375, "Origin latitude")
+	cmd.Flags().Float64Var(&lon, "lon", -48.6765, "Origin longitude")
+	cmd.Flags().BoolVar(&replay, "replay", false, "Also show the step-by-step reconstruction replay")
 	return cmd
 }
