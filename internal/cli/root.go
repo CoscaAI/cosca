@@ -177,6 +177,7 @@ Documentation: https://cosca.enterprise/docs
 		NewProjectCommand(),
 	NewAssetCommand(),
 	NewBridgeCommand(),
+	NewWorldCommand(),
 	NewTaskCommand(),
 		NewModelCommand(),
 		NewGPUCommand(),
