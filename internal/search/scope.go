@@ -38,6 +38,17 @@ import (
 	"github.com/CoscaAI/cosca/internal/modlink"
 )
 
+// scopeRouted reports whether a routed scope is present — i.e. the
+// deterministic router (modlink) chose a BOUNDED space (ADR-013 §3.2). A nil
+// scope and a NoRoute/empty-Modules scope are NOT routed: for those the
+// full-scan fallback of the vector phase is legitimate (retrocompatível, o
+// invariante do professor). The routed-scope flag is the gate that activates
+// the candidate confinement (Fase B): only when it is true are the direct
+// vector IDs (the vectoragg vocabulary) treated as the permitted candidates.
+func scopeRouted(scope *modlink.SearchScope) bool {
+	return scope != nil && !scope.NoRoute && len(scope.Modules) > 0
+}
+
 // confineToScope mantém apenas os resultados que mapeiam a um dos módulos do
 // escopo. É um filtro determinístico e puro (função dos resultados + módulos) —
 // a mesma entrada produz sempre a mesma saída. Quando `modules` está vazio,
@@ -130,6 +141,14 @@ func ApplyScope(resolver *modlink.Resolver, query string, params SearchParams) (
 // SearchWithRoute é o atalho de uma chamada só: resolve a rota para `query`,
 // injeta o escopo e roda a busca híbrida confinada ao espaço roteado. O fluxo é
 // query → ResolveRoute → SearchScope → SearchParams.Scope → Search(scope).
+//
+// FASE B (ADR-013 §3.2): quando a rota resolve um espaço (SearchScope com
+// Modules não-vazio), `params.CandidateIDs` são interpretados como os
+// candidatos de vetor PERMITIDOS do espaço roteado (o vocabulário de
+// vectoragg.SearchRequest{Query, Scope, CandidateIDs, TopK}): a fase vetorial é
+// confinada a eles em vez de fazer o full-scan do índice — é a delegação do
+// retrieval confinado que a Fase A provou (não materializar tudo). O `Scope`
+// com qual módulo(s) é o "onde"; a query original é o "o quê".
 func SearchWithRoute(ctx context.Context, engine *Engine, resolver *modlink.Resolver, query string, params SearchParams) (*SearchResults, error) {
 	scoped, _ := ApplyScope(resolver, query, params)
 	return engine.Search(ctx, scoped)

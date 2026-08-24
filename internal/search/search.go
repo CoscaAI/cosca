@@ -106,9 +106,22 @@ type SearchParams struct {
 	MinScore float64
 
 	// CandidateIDs (layered search, L3) restricts the vector layer to these
-	// lexical candidates instead of a full brute-force scan. IDs are FTS-style
-	// ("chunks_fts_<rowid>"); chunk hits are resolved to vector-store IDs and
-	// the rest contribute nothing. Empty = full vector scan.
+	// candidates instead of a full brute-force scan. Two vocabularies are
+	// accepted:
+	//
+	//   - FTS-style ("chunks_fts_<rowid>") — the legacy lexical candidate set
+	//     (hybrid-first/L3 bounded): chunk hits are resolved to vector-store
+	//     IDs and the rest contribute nothing. Valid with or without a routed
+	//     scope.
+	//   - Direct vector IDs (the vectoragg.SearchRequest.CandidateIDs
+	//     vocabulary) — the permitted candidates verbatim (the vector store
+	//     `id` column). Honoured ONLY when a routed scope is present (ADR-013
+	//     §3.2, Fase B): the deterministic router chose the space, so the
+	//     vector phase stays confined to these candidates instead of the full
+	//     brute-force scan. Without a routed scope the full-scan fallback is
+	//     the legitimate baseline and these IDs are dropped.
+	//
+	// Empty = full vector scan.
 	CandidateIDs []string
 
 	// CandidatePool is the number of recent vectors scored alongside
@@ -402,11 +415,12 @@ func (e *Engine) searchVector(ctx context.Context, params SearchParams) ([]Searc
 
 	var vecResults []vector.SearchResult
 
-	// Hybrid-first (L3 bounded): when lexical candidates exist, restrict the
-	// vector scan to the resolved chunk candidates + a recency pool instead of
-	// the full O(N) brute force. Falls back to the full scan when the store
-	// does not support candidate search or no chunk candidates resolved.
-	candidateIDs := e.resolveChunkCandidates(params.CandidateIDs)
+	// Hybrid-first (L3 bounded) + Fase B (ADR-013 §3.2): when candidates exist
+	// (lexical FTS candidates, and/or the permitted vector candidates of a
+	// routed scope), restrict the vector scan to them + a recency pool instead
+	// of the full O(N) brute force. Falls back to the full scan when the store
+	// does not support candidate search or no candidate resolved.
+	candidateIDs := e.resolveRouteCandidates(params)
 	var m vector.SearchMetrics
 	if len(candidateIDs) > 0 {
 		if ms, ok := e.vecStore.(vector.MetricsSearcher); ok {
@@ -499,6 +513,77 @@ func (e *Engine) resolveChunkCandidates(candidates []string) []string {
 		}
 	}
 	return out
+}
+
+// resolveRouteCandidates translates the CandidateIDs in params into the actual
+// vector-store candidate IDs that confine the phase (Fase B — ADR-013 §3.2).
+// Two vocabularies are supported:
+//
+//   - FTS-style IDs resolve through the FTS index into chunk vector IDs (the
+//     legacy lexical-candidate / L3-bounded path, valid with or without a
+//     routed scope).
+//   - Direct vector IDs (the vectoragg.SearchRequest.CandidateIDs vocabulary)
+//     are used verbatim — they are the permitted candidates of the routed
+//     space. They are honoured ONLY when the space is routed (see scopeRouted):
+//     without a routed scope the full-scan fallback is the legitimate baseline
+//     and these IDs are dropped (never a "candidate confinement" outside a
+//     routed space).
+//
+// The returned IDs are exactly what the vector store's candidate search
+// (`SearchWithMetrics`/`SearchWithCandidates`) expects: the `id` column of the
+// vector table — the same vocabulary `vectoragg.RetrieveCandidates` consumes.
+func (e *Engine) resolveRouteCandidates(params SearchParams) []string {
+	var legacy []string
+	var direct []string
+	for _, id := range params.CandidateIDs {
+		if isFTSResultID(id) {
+			legacy = append(legacy, id)
+		} else {
+			direct = append(direct, id)
+		}
+	}
+	out := e.resolveChunkCandidates(legacy)
+	if scopeRouted(params.Scope) {
+		out = mergeCandidateIDs(out, direct)
+	}
+	return out
+}
+
+// isFTSResultID reports whether an ID is an FTS result id of the shape
+// "<fts_table>_<rowid>" for one of the known FTS tables. IDs that are NOT FTS
+// result ids are direct vector IDs (the vectoragg vocabulary). This guards
+// against a plain vector ID like "vec-0001" being misread as an FTS id of an
+// unknown table (which parseFTSID would accept) and silently dropped.
+func isFTSResultID(id string) bool {
+	table, _, ok := parseFTSID(id)
+	if !ok {
+		return false
+	}
+	switch table {
+	case "documents_fts", "chunks_fts", "entities_fts", "code_blocks_fts", "knowledge_fts":
+		return true
+	default:
+		return false
+	}
+}
+
+// mergeCandidateIDs appends direct vector IDs to an existing candidate list,
+// deduplicating and preserving the first-occurrence order.
+func mergeCandidateIDs(existing, direct []string) []string {
+	if len(direct) == 0 {
+		return existing
+	}
+	seen := make(map[string]bool, len(existing)+len(direct))
+	for _, id := range existing {
+		seen[id] = true
+	}
+	for _, id := range direct {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			existing = append(existing, id)
+		}
+	}
+	return existing
 }
 
 // parseFTSID splits an FTS result id of the form "<table>_<rowid>" (the table
