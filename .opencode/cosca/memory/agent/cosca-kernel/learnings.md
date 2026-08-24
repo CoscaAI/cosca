@@ -596,3 +596,20 @@
 | **Related** | internal/search/search.go (vectorResults), internal/sqlite/fts.go (DocumentPaths), docs/reports/vectoragg-benchmark-v21-fixed-2026-08-24.md |
 | **Learned** | **O recall=0 NÃO era bug do router — era o instrumento.** O raciocínio que resolveu:<br>1) NÃO aceitar o número: recall=0 em AMBOS (full e roteado) era anomalia, não conclusão.<br>2) GT ESTÁ no candidate set (prova: chunk do GT presente, 9/9 vetores do doc).<br>3) GT ESTÁ no ranking (posição #1/#2 por cosseno no subconjunto).<br>4) PRODUÇÃO acha (top-1, score 0.75).<br>5) → INSTRUMENTO SUSPEITO → auditoria linha a linha.<br>6) **CAUSA RAIZ (linha exata):** `vectorResults` (search.go) NÃO preenchia `SearchResult.DocumentPath` (só `DocumentID`). O `confineToScope`/`moduleMatches` chaveia por `DocumentPath`. Sem path, todo resultado vetorial era DESCARTADO pelo escopo → recall=0 no roteado.<br>7) FIX: `vectorResults` propaga o path via novo `FTSClient.DocumentPaths(ids)` (lote, sem N+1).<br>8) O BENCHMARK também estava errado: criava o engine com `fts=nil` (NewEngine(nil,...)), ambiente artificialmente diferente da produção (knowledge.go usa `e.fts`). Ajuste do instrumento: criar o `ftsClient` e passar ao engine.<br>**REGRA DE OURO: instrumento que já mentiu uma vez precisa ser auditado até a linha exata antes de confiar nele.** E: contrato entre etapas (campo do SearchResult) pode quebrar silenciosamente — o confinamento chaveia por um campo a etapa anterior não preenche. |
 | **Next** | NÃO contar vitória (professor): 6 queries = evidência, não lei da natureza. Estado = HIPÓTESE SUSTENTADA, sob validação contínua. Próxima rodada: aumentar evidência (mais queries/domínios, ambíguas/cross-domain, distribuição real de uso, latência end-to-end) e tentar QUEBRAR de novo. Separar commits de auto-evolução do fix (higiene). |
+
+## Session: 2026-08-24 — A NUANCE da fronteira cross-domain (evitar interpretação errada)
+
+### 2026-08-24 — A fronteira é do pathHasSegment, NÃO do router (conclusão correta)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a conclusão correta da rodada cross-domain, para impedir interpretação errada futura. |
+| **Technique** | Distinguir: o **router** amplia corretamente (resolve 2-3 módulos em queries ambíguas) — a limitação está no **sinal de domínio** (`pathHasSegment`), não no router. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.97 |
+| **Tags** | #cross-domain #fronteira #pathHasSegment #router #fatia-3 #proveniencia |
+| **Related** | docs/reports/vectoragg-crossdomain-2026-08-24.md, internal/search/scope.go (pathHasSegment) |
+| **Learned** | **A CONCLUSÃO CORRETA (não confundir):**<br>❌ **NÃO é** "o router falhou" / "a arquitetura quebrou" / "router estreitou demais".<br>✅ **É:** *"o sinal de domínio baseado em `pathHasSegment` possui uma limitação quando a localização física da evidência diverge do domínio semântico da consulta."*<br><br>**Os dois fatos co-existentes (separados):**<br>1) **O router AMPLIA corretamente** — resolve 2-3 módulos em queries ambíguas (comportamento bom, provado).<br>2) **O `pathHasSegment` (sinal de domínio) tem limite** — quando o tópico da query (ex.: runtime) difere da localização física da evidência (ex.: `cosca/`), o candidate-set (derivado por path) não captura a evidência → recall=0 no routed.<br><br>**A FATIA 3 (não é feature antecipada):** é uma **hipótese experimental nascida de uma limitação observada** — *"consigo mapear domínio semântico → conjunto físico de evidências sem perder a redução de candidatos?"* — NÃO uma "ideia legal" aguardando. Só nasce quando houver **conteúdo real** (world/GIS/vegetation/materials/Unreal) para justificar o mapeamento semântico. **Congelada até lá.** |
+| **Next** | Próximo passo nasce de CONTEÚDO REAL, não de ansiedade de continuar. Fatia 3 🔒 congelada até volume/necessidade demonstrada. O estado atual é forte: path-based routing provado (single-domain), cross-domain testou a fronteira, DocumentPath corrigido e protegido, limitação semântica ≠ localização física documentada. |
