@@ -191,6 +191,7 @@ Documentation: https://cosca.enterprise/docs
 		NewDesktopCommand(),
 		NewVoiceCommand(),
 		NewSlopCommand(),
+		NewDBCommand(),
 	)
 
 	return rootCmd

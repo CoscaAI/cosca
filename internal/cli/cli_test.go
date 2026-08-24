@@ -119,6 +119,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"voice",
 		"slop",
 		"world",
+		"db",
 	}
 
 	for _, name := range expected {

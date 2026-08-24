@@ -308,7 +308,14 @@ func isAdminCommand() bool {
 		// nada que exija isolamento — a validação é 100% determinística
 		// (Gate.Evaluate). Dentro da jaula (InsideJail==true), o reexec é
 		// ignorado e o cofre roda normalmente na zona Cofre.
-		"cofre":
+		"db":
+		// `cosca db check` — leitura pura da Decisão 1 (ADR-013): mede tamanho
+		// de cada banco (.cosca/*.db) e reporta % do teto de 100MB. NUNCA escreve,
+		// nunca executa código de agente. Roda fora da jaula pelos mesmos motivos
+		// de cofre/status (enxergar o workspace real). Sem este admin, no Windows
+		// cairia no fail-closed ReexecInJail exit 1.
+		return true
+	case "cofre":
 		// BUGFIX: o bloco de comandos admin precisa retornar true EXPLICITAMENTE.
 		// Sem este return, todos estes comandos (init/version/status/cofre...)
 		// cairiam no ReexecInJail e passariam a rodar presos na jaula — no Linux
