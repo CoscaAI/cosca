@@ -2,6 +2,12 @@
 
 > Auto-evolution memory. Search before acting. Record after learning.
 
+> [!IMPORTANT — Decisão do Don 2026-08-24]
+> Este arquivo é HISTÓRICO do aprendizado do framework/editor.
+> NÃO recebe mais conhecimento específico do projeto.
+> Conhecimento do projeto vai para: `docs/` + `.cosca/provenance.yaml` (ledger) + `.cosca/knowledge/` (knowledge index).
+> Os 558 registros abaixo permanecem como proveniência — NÃO apagar.
+
 ## Session: 2026-08-23 — Implementation Plan (Living World)
 
 ### 2026-08-23 — Implementation Plan — de mineração para execução
@@ -540,3 +546,19 @@
 | **Related** | CoscaRuntime plugin, websocket.go, CoscaWorldSubsystem.cpp |
 | **Learned** | (1) **StaticMeshActor sem mesh = nada visível**: criar o ator não basta, precisa atribuir `SetStaticMesh()` com mesh do engine (`/Engine/BasicShapes/Cube.Cube`). (2) **Material verde falhou**: cubo padrão do engine não expõe parâmetro `BaseColor` para `UMaterialInstanceDynamic`. Para colorir, usar material custom ou `Color` parameter. (3) **Ordem correta**: Spawn → SetMobility(Movable) → SetStaticMesh → SetTransform → CreateMaterial → SetMaterial → ENTITY_CREATED. (4) **Plano do professor (16 etapas)**: Actors/Components → Meshes → Asset Import → Materials → Transforms → Instanced Meshes → PCG → World Partition → Niagara → Chaos → MetaSounds → Pawn/Character → AI → Gameplay Events → Save/Load → Cosca↔Unreal Sync. (5) **Próximo hito**: parar de usar cubo como solução genérica, construir pipeline real: AssetRequest → Blender → Unreal Asset → Entity → WorldModel. |
 | **Next** | Aplicar plano do professor. Próximo vertical slice: asset real (não cubo), pipeline Blender→Unreal completo. |
+
+## Session: 2026-08-23 � Day/Night Cycle + VFX Mining
+
+### 2026-08-23 � Day/Night cycle implementation (VS#1 hardware)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Implementar ciclo dia/noite no plugin CoscaRuntime (Unreal) + comandos CLI cosca bridge time/weather. |
+| **Technique** | Level 3 � Engineering execution. MessageTime/MessageWeather j� existiam no enum UE (ECoscaMessageType) mas N�O eram implementados no HandleCommand � porta aberta. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence** | 0.85 |
+| **Tags** | #day-night #weather #unreal #websocket #bridge #vfx |
+| **Related** | unreal/CoscaRuntime/Public/CoscaTypes.h, CoscaWorldSubsystem.h/.cpp, internal/bridge/*, internal/cli/bridge.go |
+| **Learned** | 1) **Protocolo j� tinha hueco**: Time/Weather declarados mas caiam no default do switch HandleCommand. 2) **ADirectionalLight N�O tem GetDirectionalLightComponent()** � usa GetComponent() (editor-only) e FindComponentByClass<T>() (build-agnostic). SEMPRE usar FindComponentByClass para cross-build. 3) **SkyAtmosphere.h N�O existe** como Actor engine class em 5.8 � s� SkyAtmosphereComponent.h. N�o usar at� resolver; focar em DirectionalLight+SkyLight+Fog. 4) **Achado cr�tico do VFX**: Big Niagara Bundle (722 arquivos, 786MB) tem sistema de clima completo com 3-tier LOD din�mico (Full/Medium/Low). Sinergia vegetation+VFX = world.living_environment. 5) Dois padr�es de design de asset: Environment_Set = composi��o est�tica (floresta), BigNiagara = mundo vivo (anima��o clima). |
+| **Next** | Adicionar testes unit�rios Go para SetTimeOfDay/SetWeather no bridge controller. Verificar visibilidade da �rvore/ground/rock no VS1_TestMap e validar transi��o dia/noite via cosca bridge time. Explorar ExpoHeightFog + SkyAtmosphere component para atmosfera completa. |
