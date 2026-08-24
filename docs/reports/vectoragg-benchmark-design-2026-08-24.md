@@ -106,9 +106,28 @@ conteúdo), conseguimos testar isso de verdade — em vez de rotas para módulos
 - Full-scan acha **e** roteado não → **router estreitou demais** (ampliar scope).
 - **Ambos acham, roteado usa muito menos candidatos** → a propriedade a provar.
 
+> **🔴 DIFF v2 → v2.1 (motivo — gate explícito da ambígua, re-auditoria Ponto 1):**
+> o teste da ambígua só exercita a propriedade "amplia" se o resolver devolver
+> **AMBOS** os módulos para a query exata (whole-word match; rotas test-only).
+> **Gate de pré-execução obrigatório:**
+> ```
+> Resolve(query_ambígua).Modules  ==  [memory, runtime]   (exatamente, e ambos)
+> ```
+> Se não der exatamente isso → a query é **INVALID** (vira single-module
+> silenciosamente e o teste perde o sentido). As **rotas test-only usadas**
+> (trigger → módulo) são registradas na PROVENANCE.
+
 ---
 
 ## 2.1 Regra de VALIDADE da execução (rigorosa — anti-false-positive)
+
+> **🔴 DIFF v2 → v2.1 (motivo — re-auditoria, Ponto 4/6 FAIL):** o v2 exigia
+> apenas `ScannedVectors < TotalVectors`, mas isso é satisfazível **"de mentira"**:
+> se `CandidateIDs` for **FTS-hits** (redução via registro lexical/hybrid, NÃO do
+> router) ou um **subset manual** (ex.: só os chunks do doc de GT), a validação
+> passa com **recall 100% trivial** — mas o **router NÃO descobriu** o candidato;
+> ele foi **colocado artificialmente** no conjunto. Isso é o **falso-positivo de
+> ouro** que a LINHA DE OURO proíbe. **Fonte:** cosca-critic (re-auditoria v2).
 
 Uma execução **só entra na tabela principal de métricas** se TODAS as condições:
 
@@ -116,14 +135,43 @@ Uma execução **só entra na tabela principal de métricas** se TODAS as condi�
 scopeRouted(scope) == true
 Scope.NoRoute      == false
 len(Scope.Modules) > 0
-ScannedVectors     < TotalVectors   (via SearchMetrics — trabalho REAL fez)
+len(CandidateIDs)  > 0                       ← NÃO vazio (anti "0 trabalho")
+CandidateIDs EXAUSTIVO do(s) módulo(s)       ← a prova-chave (abaixo)
+ScannedVectors     < TotalVectors            (via SearchMetrics — trabalho REAL)
+CandidatePool      == 0                      (isolamento — §2.2)
+EnableGraph        == false                  (isolamento — §2.2)
 ground_truth pré-registrado (id exato)
 rota esperada pré-registrada (módulo onde a evidência mora)
 ```
 
 **Se qualquer condição falhar → a execução é `INVALID`** — NÃO entra no cálculo de
-recall/performance. Isso impede que alguém olhe depreço para um `0 ms, 0
-candidatos` e chame aquilo de otimização. (Regra do professor.)
+recall/performance. Impede o falso-positivo `0 ms / 0 candidatos / recall 100%`.
+
+### O que é "CandidateIDs EXAUSTIVO" (a prova verificável — não "parece correto")
+
+`CandidateIDs` **NÃO** pode ser (a) FTS-hit, (b) GT conhecido, nem (c) subset
+manual. Tem que ser **derivado do domínio**:
+
+```
+scope module
+    ↓
+document/path  (pathHasSegment — mesma lógica do confineToScope)
+    ↓
+JOIN document → vector   (document_id → vector.id)
+    ↓
+TODOS os vector.id elegíveis daquele módulo
+```
+
+**Prova de exaustividade (obrigatória, verificável):**
+```
+COUNT(DISTINCT vector.id via JOIN <módulo>)   ==   len(CandidateIDs)
+```
+Se não bater — o set não é o vocabulário completo do módulo → **INVALID**. Isso
+transforma "CandidateIDs parece correto" em **propriedade verificável**.
+
+> **Escopo da validação:** IDs FTS-lexicais (`chunks_fts_*`) são a via
+> L3/hybrid (outra feature) e **NÃO contam** como "candidatos do roteador". O
+> set exaustivo é **só o vetorial derivado do path → document → vector**.
 
 ---
 
@@ -148,6 +196,25 @@ TotalVectors → ScannedVectors → Candidates → Decoded BLOBs → Top-K
 > `scopeRouted` (L546/L425) — **não** apenas `SearchWithRoute` (que só seta `Scope`
 > e faz a fase vetorial full-scan). O benchmark deve garantir que o caminho roteado
 > passe `CandidateIDs` para ativar o scan bounded.
+
+> **🔴 DIFF v2 → v2.1 (motivo — isolamento, re-auditoria Ponto 3/4):** o benchmark
+> deve responder **uma pergunta por vez** — o efeito do **routing sobre a
+> recuperação vetorial**. Parâmetros que introduzem trabalho **fora** do módulo
+> roteado (pool de recentes, grafo) contaminam a métrica e são **desligados**:
+> - `CandidatePool = 0` — se >0, o pool de recentes do **índice inteiro** entra no
+>   set candidato (infla `ScannedVectors`, importa out-of-scope). Só o roteado deve
+>   definir o set.
+> - `EnableGraph = false` — o grafo roda global e só é pós-cortado pelo scope;
+>   isolar o efeito vetorial o desliga.
+>
+> Depois mede-se híbrido/grafo/FTS em experimentos SEPARADOS, um por vez.
+
+> **🔴 DIFF v2 → v2.1 (motivo — narrativa precisa, re-auditoria Ponto 3):** a fase
+> **FTS roda SEM escopo** (search.go L229+) e só é pós-cortada pelo `confineToScope`
+> (L283). Portanto a redução medida é **SÓ da fase vetorial**. A narrativa correta:
+> **"99,9% do trabalho da FASE VETORIAL foi eliminado"** — NUNCA "99,9% do trabalho
+> total" (incorreto, pois o FTS ainda faz trabalho global). Essa precisão importa
+> na PROVENANCE quando alguém analisar daqui a seis meses.
 
 ---
 
@@ -216,19 +283,24 @@ antes de tocar na Fatia 3.
 
 ## 6. Próximos passos (ordem do professor — atualizada)
 
-1. **DESIGN v1** — desenhar o benchmark ✅ (rastro abaixo).
-2. **AUDIT v1** → o `cosca-critic` **FALHOU** o design (queries p/ módulos vazios +
+1. **DESIGN v1** — desenhar o benchmark ✅ (rastro §7).
+2. **AUDIT v1** → o `cosca-critic` **FALHOU** (queries p/ módulos vazios +
    ground-truth não-verificável + métrica maçã-laranja). Ver §7.
-3. **EVIDENCE** — confirmação por medição própria (replicar `confineToScope`):
-   `vector/unreal/world/vegetation/materials` = 0 docs; `memory`=1.664 etc.
-4. **DESIGN v2** (este documento) — carrega o motivo de TODA mudança (DIFF v1→v2). ✅
-5. **AUDIT v2** — re-auditar antes de executar. Só passa se o design estiver honesto.
-6. **EXECUTAR** — rodar o benchmark (leitura), coletar as métricas por query (com a
-   regra de validade §2.1).
-7. **COMPARAR** — full-scan vs roteado, com `Recall Retention %` + `ScannedVectors`.
-8. **PROVENANCE** — registrar números brutos + verdict em `docs/reports/`.
-9. **Só então** decidir: recall retido alto + custo baixo → arquitetura provada com
-   mundo real; router corta evidência → ajustar rotas/ampliar scope.
+3. **EVIDENCE** — medição própria: `vector/unreal/world/vegetation/materials` = 0 docs. ✅
+4. **DESIGN v2** — carrega o motivo de TODA mudança (DIFF v1→v2). ✅
+5. **AUDIT v2** → o `cosca-critic` **FALHOU** de novo (Ponto 4/6: `CandidateIDs`
+   pode ser FTS-hit/subset e passar na validação com recall-trivial — o
+   falso-positivo de ouro). Ver §8.
+6. **DESIGN v2.1** (este documento) — fechou a porta do candidato não-exaustivo
+   com as 5 correções. ✅
+7. **AUDIT v2.1** — re-auditar ANTES de executar. Só passa se a regra de validade
+   for insatisfazível "de mentira".
+8. **EXECUTAR** — rodar o benchmark (leitura), coletar as métricas por query (com a
+   regra de validade §2.1 + exaustividade).
+9. **COMPARAR** — full-scan vs roteado, com `Recall Retention %` + `ScannedVectors`.
+10. **PROVENANCE** — registrar números brutos + verdict em `docs/reports/`.
+11. **Só então** decidir: recall retido alto + custo baixo → arquitetura provada com
+    mundo real; router corta evidência → ajustar rotas/ampliar scope.
 
 > **LINHA DE OURO (professor/Don):** NÃO mexer no runtime para fazer o benchmark
 > passar. Se o benchmark v2 quebrar, **ótimo** — descobriu outra coisa antes de virar
@@ -270,4 +342,49 @@ antes de tocar na Fatia 3.
 
 > Confirma a falha da auditoria: as queries sobre `vector/unreal/world/
 > vegetation/materials` mediriam **módulo vazio**, não arquitetura. O design v2
-> **remove essas queries** e mapeia cada rota pelo **path onde a evidência mora**. 
+> **remove essas queries** e mapeia cada rota pelo **path onde a evidência mora**.
+
+---
+
+## 8. PROVENANCE — RE-AUDIT v2 (FAIL) e as 5 correções → v2.1
+
+> **Registro da re-auditoria v2** (o rastro que NÃO se apaga). O v2 era honesto na
+> métrica de trabalho (`ScannedVectors`) e no mapeamento módulo=evidência, mas o
+> crítico encontrou a **última porta aberta** — o falso-positivo de ouro.
+
+### RE-AUDIT v2 — VERDICT: **NÃO APROVADO** (cosca-critic) — 5/7 itens passaram, 2 falharam
+
+| Item | Veredicto | Falha |
+|---|---|---|
+| **1. Queries (só módulos com conteúdo)** | ✅ PASS | 5 queries em módulos reais; query de cosseno → `knowledge` correta (evidência em `docs/knowledge/search.md`, path-segment `knowledge`, não `vector`). |
+| **2. Ground-truth não-circular** | ✅ PASS | Vínculo "ground-truth = o que full-scan retorna" cortado (domínio vem da path, não do resultado). |
+| **3. ScannedVectors via SearchMetrics** | ✅ PASS | `vector.SearchMetrics.ScannedVectors` existe (vector.go L145) e é preenchido (sqlite_vec.go L333-343: `ScannedVectors=len(rows)` dos candidatos). |
+| **4. Regra de validade** | ❌ **FAIL** | Satisfazível "de mentira": `CandidateIDs` pode ser FTS-hit (redução lexical, não router) ou subset (só chunks do GT) → `ScannedVectors<TotalVectors` passa com **recall 100% trivial** sem o router descobrir nada. |
+| **5. Módulo = onde a evidência mora** | ✅ PASS | Path-segment correto; GT pré-registrado é uno e está no módulo da rota. |
+| **6. Risco de candidato** | ❌ **FAIL** | Fallback full-scan coberto (vazios→INVALID), mas a "redução fabricada por set não-exaustivo" NÃO. Não existe helper (`IDsForModule`/`ModuleVectors`/`IDsByScope` → 0 resultados). |
+
+### EVIDENCE (medição própria, confirma o FAIL)
+
+- **Não existe** helper para derivar `CandidateIDs` como vocabulário exaustivo do módulo (grep por `IDsForModule`/`ModuleVectors`/`IDsByScope` → **0 resultados**).
+- `CandidatePool` (search.go L130) é usado no caminho candidato (L429) — se >0, o **pool de recentes do índice inteiro** entra e **infla `ScannedVectors` + importa out-of-scope**.
+
+### As 5 correções finais (v2 → v2.1) — fecham o falso-positivo
+
+| # | Correção | Onde | Por quê |
+|---|---|---|---|
+| **1** | `CandidateIDs` **derivado do domínio** (não FTS-hit/GT/subset): `scope module → document/path (pathHasSegment) → JOIN document→vector → TODOS os vector.id elegíveis`. **Prova**: `COUNT(DISTINCT vector.id via JOIN) == len(CandidateIDs)`. | §2.1 | Transforma "parece correto" em **propriedade verificável**. |
+| **2** | Regra de validade: `len(CandidateIDs) > 0` + **exaustividade** (nenhum vetor do módulo omitido). | §2.1 | Impede `0 candidatos → 0 trabalho → resultado conveniente`. |
+| **3** | Narrativa: **"99,9% do trabalho da FASE VETORIAL"** (não "do trabalho total" — o FTS roda global). | §2.2 | Precisão de provenance para análise futura. |
+| **4** | Isolamento: `CandidatePool=0` e `EnableGraph=false` (uma pergunta por vez — efeito do routing na recuperação vetorial). | §2.2 | Pool de recentes/grafo contaminariam a métrica. |
+| **5** | Gate explícito da ambígua: `Resolve(query).Modules == [memory, runtime]` exatamente; senão `INVALID`. Rotas test-only registradas. | §2 (ambígua) | Evita o teste virar single-module silenciosamente. |
+
+> **A PROPRIEDADE-CHAVE (professor/Don):** o resultado favorável precisa ser
+> **conquistado pelo sistema**, não **colocado nas entradas**. Essa é a diferença
+> entre um benchmark que mede uma otimização e um experimento que testa uma hipótese.
+
+### Sequência final
+
+```
+DESIGN v1 → AUDIT v1 → FAIL → EVIDENCE → DESIGN v2 → AUDIT v2 → FAIL → EVIDENCE
+  → DESIGN v2.1 (este) → AUDIT v2.1 (se passar) → EXECUTAR → COMPARAR → PROVENANCE
+``` 
