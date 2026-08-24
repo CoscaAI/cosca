@@ -452,4 +452,90 @@ Ambos:      EnableGraph=false, CandidatePool=0, MESMO Limit (top-K igual)
 
 **🟢 APROVADO para executar** — com as 6 ressalvas de rigor registradas acima para
 a medição ser honesta. Sequência: `EXECUTAR → COMPARAR → PROVENANCE`.
-**NO CODE CHANGED** — o design foi auditar e aprovado sem tocar produção. 
+**NO CODE CHANGED** — o design foi auditar e aprovado sem tocar produção.
+
+---
+
+## 10. PROVENANCE — EXECUÇÃO v1 (resultados) + VERDICT do MISMATCH de embedding
+
+> **Registro da 1ª execução do benchmark (2026-08-24).** A execução PROVOU a
+> redução de `ScannedVectors` (evidência VÁLIDA), mas o **recall veio INVALID**
+> por uma causa que foi AUDITADA (read-only) e FECHADA: **não é re-embed nem
+> provider — é granularidade semântica query→chunk.**
+
+### 10.1 Resultados da 1ª execução (números crus — evidência de redução VÁLIDA)
+
+| Query | Dominio | TotalVec | CandidateIDs | Scanned (full→rote) | Lat vetorial (full→rote) | Recall@10 |
+|---|---|---|---|---|---|---|
+| serve systemd | runtime | 28.888 | 224 | 28.888→224 | 454→3 ms | 0 (full e roteado) |
+| lei da familia | memory | 28.888 | 8.341 | 28.888→8.341 | 1,7→120 ms | 0 |
+| gate da chain | knowledge | 28.888 | 4.190 | 28.888→4.190 | 2,3→51 ms | 0 |
+| cosseno | knowledge | 28.888 | 4.190 | 28.888→4.190 | 2,3→52 ms | 0 |
+| memoria da familia | memory | 28.888 | 8.565 | 28.888→8.565 | 2,2→125 ms | 0 |
+
+**✅ Evidência VÁLIDA (fica):** `Candidate Reduction` + `ScannedVectors` (28.888 →
+centenas/milhares) + **exaustividade `COUNT(JOIN)==len` = true** em todas.
+
+### 10.2 AUDIT do MISMATCH de embedding (read-only — EVIDENCE)
+
+| Verificação | Resultado | Veredicto |
+|---|---|---|
+| Provider/modelo da query | Ollama `nomic-embed-text`, 768-dim | ✅ |
+| Provider/modelo do corpus | Mesmo config.yaml (`nomic-embed-text`, 768) | ✅ idêntico |
+| Dimensão | Ambos 768 | ✅ |
+| Normalização | corpus norm=**1.0**; query cru norm=**22.8** | ⚠️ mas cosseno é invariante → **não é a causa** |
+| Blob íntegro? | self-cos = **1.0** | ✅ íntegro |
+| **Re-embed do MESMO chunk** | cos(query re-embed) vs vetor armazenado = **1.0000** | ✅ **provider reproduz** |
+| **Query vs chunk do GT** | cos = **0.44** | ⚠️ **a causa real** |
+
+**VERDICT do mismatch — CAUSA FECHADA:**
+> **Provider/model/dimensão/normalização estão COMPATÍVEIS.** O Ollama re-embeda o
+> mesmo conteúdo com cos=1.0. O problema é a **granularidade semântica
+> query→chunk**: as queries do benchmark são **perguntas genéricas curtas** que não
+> chegam perto do **chunk específico** que contém a resposta (o corpus indexa
+> chunks/frases, não docs). **NÃO é re-embed. NÃO mexer no corpus.**
+
+**Consequência na medição:** o recall=0 em ambos os bancos (full e roteado) NÃO é
+falha do router — é a query não se casar com o chunk. **Recall anterior = INVALID.
+Redução de ScannedVectors = VÁLIDA.**
+
+### 10.3 REDESENHO do recall em 2 NÍVEIS (v3 — pergunta arquitetural mais forte)
+
+> **Correção de raciocínio (Don):** NÃO ajustar a query até ela acertar o chunk
+> (seria outro viés). O recall ganha **dois níveis**:
+
+**Nível 1 — `RECALL_DOCUMENT@K` (métrica PRINCIPAL):**
+```
+query → top-K chunks → QUALQUER chunk pertencente ao document_id correto → RECALL_DOCUMENT@K
+```
+Não exige que aquele chunk específico seja o representante semântico do documento.
+Responde: **"o router remove ~71–99% do espaço SEM remover o documento relevante?"**
+
+**Nível 2 — `RECALL_CHUNK@K` (métrica SECUNDÁRIA):**
+Mantém a atual (chunk específico pré-registrado no top-K). Mais rigoroso; pode ser
+menor naturalmente. Responde: **"achou exatamente o chunk pré-registrado?"**
+
+**Query set pré-registrado (sem seleção pós-resultado):**
+Queries que expressam o conteúdo real dos documentos, mas **pré-registradas antes
+de rodar** — nunca escolhidas depois de ver o resultado. Fluxo: `query set →
+pré-registro → ground_truth document_id → FULL vs ROUTED`. Proíbe o loop
+"rodei → vi que falhou → fiz uma query que funciona → rodei de novo".
+
+### 10.4 Regras da execução v3 (idênticas ao resto, só muda a medição do recall)
+
+- **Mantém** (exatamente igual): FULL-SCAN (`Scope=nil`, `CandidateIDs` vazio) vs
+  ROTEADO (`ApplyScope` + `CandidateIDs` derivado do domínio); `EnableGraph=false`;
+  `CandidatePool=0`; mesmo `Limit`; mesmos `SearchParams`; exaustividade.
+- **Só muda**: o cálculo do recall em **2 níveis** (document_id principal, chunk
+  secundário).
+- **NÃO altera produção.** NÃO re-embeda o corpus.
+
+### Gating para execução v3
+
+- A query só entra se `Resolve(query).Modules == [módulo esperado]` (gate exact,
+  todas as queries) e a rota apontar para módulo com ≥1 item indexado.
+- `RECALL_DOCUMENT@K` > 0 ⇒ o router preservou o documento (evidência arquitetural).
+- `RECALL_CHUNK@K` pode ser 0 (não exige o chunk exato).
+
+**Pergunta que a v3 responde (mais forte):** "O router consegue remover ~71–99%
+do espaço vetorial SEM remover o documento relevante?" — em vez de só "achou o chunk?". 
