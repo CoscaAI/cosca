@@ -602,11 +602,83 @@ QUERY original
    decode candidatos                 ← decodifica SÓ o top-K (não 84,6 MB)
             │
             ▼
-        reranking                    ← Reranker responde "QUAIS são melhores"
+         reranking                    ← Reranker responde "QUAIS são melhores"
             │
             ▼
          resultado
 ```
+
+### 10.1 ESTADO da Fase B (registro de proveniência — fronteira DELIBERADA, não dívida)
+
+> **Registrado em 2026-08-24.** Após a Fase A (contrato provado, `879eb2f`) e
+> a Fase B (MAPEAR `8f70196` → PROVAR `4d5da37` → IMPLEMENTAR `e461d14`),
+> o estado real é **preciso e deliberado**. Distinção-chave:
+
+**Fase B = integração do INVARIANTE, NÃO do vectoragg.**
+
+```
+              QUERY
+                │
+                ▼
+        Deterministic Router      ← responde "ONDE"
+                │
+                ▼
+             SCOPE
+                │
+                ▼
+       Candidate Retrieval        ← responde "QUAIS IDs"
+                │
+                ▼
+          Candidate IDs
+                │
+        ┌───────┼────────┐
+        ▼       ▼        ▼
+      Vector    FTS     Graph
+        │       │        │
+        └───────┼────────┘
+                ▼
+             Rerank                ← responde "QUAIS são melhores"
+                │
+                ▼
+             Context
+                │
+                ▼
+               LLM
+```
+
+**O que a Fase B provou (real, testado):** o caminho `Scope → Candidate
+Retrieval → scoped vector` **existe de verdade** — quando há `Scope` roteado, a
+fase vetorial é confinada aos candidatos e **não faz full-scan** (invariante da
+Fase A). Suíte completa do search: **161 testes, 0 falhas**. O RED da prova virou
+GREEN.
+
+**O que NÃO foi fingido (honestidade arquitetural):**
+- **Não** se chamou `vectoragg.RetrieveCandidates` diretamente no pipeline — o
+  `search` confina pelo **mecanismo nativo** (`resolveChunkCandidates`/vector
+  store candidatos) com o MESMO vocabulário de candidatos do vectoragg.
+- **Não** se criou um módulo artificial (vazio + ponte + adapter + wrapper +
+  mais banco + mais índice) só para declarar o vectoragg "integrado". Isso seria
+  antipadrão (anti-monster rule, §2.0) e arquitetura dirigida por antecipação.
+
+**Três responsabilidades SEPARADAS (não confundir):**
+1. **Scope** — onde é permitido procurar. (`modlink`)
+2. **Candidate retrieval** — quais IDs podem participar. (`search` native)
+3. **Vectoragg** — como ler as representações dos módulos p/ recuperação/rerank.
+   É **read-model**, NÃO dono do processo.
+
+> O `vectoragg` entra como **read-model**, nunca como "Deus objeto" que faz
+> router + banco + busca + ranking + domínio + integração ao mesmo tempo.
+
+**Limite da Fase B (a fronteira mantida):** a instância física do `vectoragg`
+AINDA não está plugada ao pipeline real (o `RetrieveCandidates` não é chamado).
+Isso é **deliberado** — pertence à **FATIA 3**, condicionada (regra do professor)
+a existir conteúdo de mundo indexado com volume/fronteira próprios:
+`domínio → módulo → IDs reais → recuperação → vectoragg`.
+
+**Veredito:** Fase A provada · Fase B provada · integração física do vectoragg
+deliberadamente NÃO feita · pendência conhecida e **explicitamente condicionada**.
+Isto é uma **fronteira arquitetural mantida por decisão**, não "faltou terminar".
+
 
 **Isso NÃO é correção específica do Unreal.** O problema verdadeiro era o
 **modelo global de recuperação** (aplicável a code/documents/projects/world/
