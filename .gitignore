@@ -3,11 +3,20 @@
 #   (commit deles = working tree eternamente sujo + snapshot inconsistente)
 # - cosca.pid: muda a cada restart
 # - logs/ e cache/: regeneráveis, ruído puro
-# O knowledge.db (cérebro vetorizado) e os demais .db ENTRAM no git como
-# snapshot consistente — procedimento: parar task -> commit -> subir task.
+# - knowledge.db: é o ÍNDICE DERIVADO (vetores + grafo + FTS). Pode passar de
+#   100MB (limite do GitHub) e é RECONSTRUÍVEL (indexação) — NÃO é fonte de
+#   verdade. Por decisão do Don (2026-08-24, arquitetura modular ADR-013):
+#   índices derivados NÃO são versionados; só o CORE imutável (chain + blocks
+#   + manifest) fica no git (pequeno). Regenerar localmente: cosca knowledge index.
+#   ANTES: o knowledge.db entrava no git como snapshot (regra antiga 2026-08-22).
 .cosca/logs/
 .cosca/cache/
 .cosca/cosca.pid
+.cosca/knowledge.db
+.cosca/projects.db
+.cosca/graph.db
+.cosca/vector.db
+.cosca/fts.db
 
 # Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
 *.db-wal
