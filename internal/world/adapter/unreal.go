@@ -92,25 +92,53 @@ func (a *UnrealAdapter) ApplyWorldState(weather world.WeatherState, t world.Simu
 // ──────────────────────────────────────────────────────────────
 
 // entityAssetID returns the semantic AssetID to materialize for an entity.
-// For now, tree/rock/ground classes map to existing registry assets.
-// This is the AssetID (semantic), NOT a path — kept intentionally simple.
+// The semantic class/type maps to an AssetID; the renderer resolves it to a
+// real mesh via the Asset Registry. This is semantic (never a /Game/ path).
+//
+// Each entity type maps to a distinct abstract asset so the renderer can
+// choose the best visual representation. This honors the professor's rule:
+// "the real data provides WHAT exists; the visual system decides HOW to
+// represent it."
 func entityAssetID(e world.Entity) string {
-	// Default: use the entity's semantic type-derived asset ID.
-	// In production this would be looked up via a semantic→asset mapping.
+	// Order by most specific type first, then class fallback.
 	switch e.Class {
 	case world.ClassVegetation:
-		return "vs1_tree"
+		return "vegetation.tree"
 	case world.ClassRoad:
-		return "vs1_ground"
-	case world.ClassStructure:
-		return "vs1_ground"
-	case world.ClassTerrain:
-		if e.Type == "rock.boulder" {
-			return "vs1_rock"
+		// Avenues/primary roads vs residential vs service.
+		switch e.Type {
+		case "road.primary", "road.trunk", "road.motorway", "road.secondary":
+			return "road.avenue"
+		case "road.service", "road.footway", "road.path":
+			return "road.path"
+		default:
+			return "road.residential"
 		}
-		return "vs1_ground"
+	case world.ClassStructure:
+		// Buildings: apartments vs house vs commercial.
+		if e.Properties != nil {
+			if bt, ok := e.Properties["building_type"].(string); ok {
+				return "building." + bt
+			}
+		}
+		return "building.house"
+	case world.ClassWater:
+		return "water.body"
+	case world.ClassTerrain:
+		if e.Type == "park" {
+			return "terrain.park"
+		}
+		if e.Type == "square.public" {
+			return "terrain.plaza"
+		}
+		if e.Type == "rock.boulder" {
+			return "rock.boulder"
+		}
+		return "terrain.region"
+	case world.ClassVehicle:
+		return "vehicle.car"
 	default:
-		return "vs1_ground"
+		return "entity.object"
 	}
 }
 
@@ -120,7 +148,7 @@ func classToBridgeType(c world.EntityClass) string {
 	case world.ClassVegetation:
 		return "tree"
 	case world.ClassRoad:
-		return "ground"
+		return "road"
 	case world.ClassStructure:
 		return "building"
 	case world.ClassWater:
@@ -132,6 +160,11 @@ func classToBridgeType(c world.EntityClass) string {
 	default:
 		return "object"
 	}
+}
+
+// MaterializeAssetIDForTest exposes entityAssetID for testing (exported helper).
+func MaterializeAssetIDForTest(e world.Entity) string {
+	return entityAssetID(e)
 }
 
 // worldVecToArray converts a world Vec3 to a bridge [3]float64 position/scale.

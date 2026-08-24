@@ -109,7 +109,7 @@ func TestRemoveEntity(t *testing.T) {
 func TestClassMapping(t *testing.T) {
 	cases := map[world.EntityClass]string{
 		world.ClassVegetation: "tree",
-		world.ClassRoad:       "ground",
+		world.ClassRoad:       "road",
 		world.ClassStructure:  "building",
 		world.ClassWater:      "water",
 		world.ClassTerrain:    "terrain",
