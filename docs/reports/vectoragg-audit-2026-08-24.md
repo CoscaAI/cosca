@@ -1,188 +1,169 @@
-# vectoragg — Auditoria do Contrato vs Implementação (4 pontos do professor)
+# ADR-013 AUDIT — vectoragg
 
-> Relatório de auditoria · 2026-08-24 · **READ-ONLY** — nenhum código alterado,
-> nenhum dado migrado. O `vectoragg` foi usado como **instrumento de diagnóstico**
-> da arquitetura modular (ADR-013), não como código de produção.
+> Auditoria com **PROVA DE TESTE** (não só leitura estática) · 2026-08-24 ·
+> **NO CODE CHANGED** — nenhum arquivo de código alterado, nenhum banco migrado.
+> O `vectoragg` foi usado como **instrumento de diagnóstico**.
 >
-> **Ordem do Don + professor/advisor técnico:** AUDIT → EVIDENCE → VERDICT →
-> ADR decision → TEST → IMPLEMENT. Este documento cobre os 3 primeiros (audit,
-> evidência, veredicto). Nada foi corrigido — só auditado e documentado.
+> **Método (professor/advisor técnico):** para cada ponto, distinguir
+> `PASS` (comprovado), `FAIL` (comprovadamente errado), `AMBÍGUO` (contrato não
+> define), `NÃO PROVADO` (código parece correto, mas falta teste). "*Não
+> encontrei bug*" ≠ "*provei que não existe bug*".
+>
+> **Ordem:** AUDIT → EVIDENCE → VERDICT → ADR ACTION. Nada implementado. Testes
+> read-only executados contra `.cosca/knowledge.db` (`?mode=ro`) e código real.
 
 ---
 
-## 0. Escopo e contexto
-
-O professor destacou o `internal/vectoragg/vectoragg.go` como um **espelho de
-leitura** entre o legado (`knowledge.db`) e a arquitetura modular (ADR-013):
-cria a **fronteira lógica** (module vector/graph/fts/projects → mesmo
-`knowledge.db`) **antes** da **fronteira física**, com contrato **read-only** e
-`ATTACH` `mode=ro`. O desenho foi **elogiado** (melhor que um `vector_rag.go`
-tradicional). Mas o professor apontou **4 pontos** que exigem confirmação antes
-de declarar a busca semântica modular como "funcionando".
-
-O objetivo desta auditoria: **confirmar cada ponto contra o código real**, com
-evidência, e registrar o veredicto — para que a correção (se houver) seja
-cirúrgica, não uma nova cirurgia de 80k registros no escuro.
-
----
-
-## 1. PONTO 1 — Isolamento real do QueryScope
-
-**Alegação do professor:** existe `SearchScope` para confinar, mas é preciso
-provar que `scope=vegetation → somente vegetation`, e que **não existe caminho
-indireto** para materializar todos os módulos.
-
-**Evidência (código real):**
-
-- `selectModules(scope)` (L683) **filtra corretamente**: `scope==nil` → todos;
-  `scope.NoRoute || len(Modules)==0` → nada; senão interseção com o catálogo. ✅
-- MAS as leituras dentro de `QueryScope` (L584-620) chamam:
-  - `a.Vectors(0)` (L593) — `limit=0` = **SEM LIMIT** (L377-378)
-  - `a.Entities(0)` (L599) — idem
-  - `a.Relationships(0)` (L603) — idem
-  - `a.FTSBM25(q, 0)` (L610) — `limit=0` = **LIMIT -1** (L831-836, "no limit")
-- Portanto, embora a **seleção** de módulos seja correta, o `QueryScope`
-  **materializa TODOS os vetores/entidades/relações do módulo selecionado**
-  (ex.: `scope={vector}` → `Vectors(0)` lê as 28.888 linhas), e `Counts()`
-  (L616) é **incondicionalmente global**.
-
-**Verdicto PONTO 1: CONFIRMADO (falha de isolamento físico).** O scope escolhe
-os módulos certos, mas cada módulo é lido por inteiro (`limit 0`). O ruído
-semântico é eliminado (só os módulos certos), porém **todo o peso físico** do
-módulo é materializado. Isolamento **lógico** ✅, isolamento **físico** ❌.
-
----
-
-## 2. PONTO 2 — Semântica do Counts()
-
-**Alegação do professor:** o `Counts()` reporta contagem global, mas o nome/
-contrato pode sugerir que é scoped.
-
-**Evidência (código real):**
-
-- `Counts()` (L333-363) conta **sempre e incondicionalmente** `vectors`,
-  `entities`, `relationships`, `chunks_fts`, `entities_fts` — **sem** olhar o
-  `selected`/`scope`.
-- `QueryScope` chama `proj.Counts, err = a.Counts()` (L616) **após** já ter
-  lido só os módulos selecionados. Ou seja: a projeção relata um `Counts`
-  **global** mesmo quando leu um **subconjunto**.
-- O cabeçalho do package (L51) diz: *"reads ONLY the modules named in a
-  scope"* — o que o `Counts` **viola** (relata o global).
-
-**Verdicto PONTO 2: CONFIRMADO (ambiguidade de semântica).** O contrato do
-package sugere "scoped", mas `Counts()` implementa "global". Ambas são válidas,
-mas o **nome/contrato não pode sugerir B enquanto implementa A**. Precisa
-decidir: (A) `counts` = catálogo total, ou (B) `counts` = só o lido — e
-documentar explicitamente.
-
----
-
-## 3. PONTO 3 — Query original vs RouteID
-
-**Alegação do professor (o mais delicado):** o pipeline ideal é
-`QUERY → ROUTER → {modules} → busca restringida`, onde a **query original**
-carrega o **conteúdo**, e o **router** determina o **espaço**. NÃO pode ser
-`QUERY → ROUTER → RouteID → BM25`, porque o gatilho (RouteID) é o **rótulo da
-rota**, não o conteúdo procurado.
-
-**Evidência (código real):**
-
-- `scopeQuery(scope)` (L743-751) retorna **`scope.RouteID`** quando não vazio.
-- `QueryScope` usa `proj.FTSHits, err = a.FTSBM25(q, 0)` (L610), onde
-  `q = scopeQuery(scope)` = **`RouteID`**.
-- O `SearchScope.RouteID` (modlink L80) é *"deterministically identifies the
-  matched route set (sorted, unique triggers joined by '|')"* — ou seja, é um
-  **identificador da rota**, não a consulta.
-- **Exemplo concreto:** query *"árvore urbana no terreno"* → router →
-  `{vegetation, world, materials}` → `RouteID ≈ "vegetation.world.materials"`.
-  O BM25 procuraria a string **"vegetation.world.materials"** em `chunks_fts`/
-  `entities_fts`, em vez do conteúdo **"árvore urbana no terreno"**. Isso é
-  procurar o rótulo em vez do texto.
-
-**Verdicto PONTO 3: CONFIRMADO (falha conceitual grave).** O router deve
-decidir **ONDE** (o scope), a query original deve carregar **O QUE** (o
-conteúdo). Usar `RouteID` como BM25 **substitui** a intenção da pergunta pelo
-rótulo da rota. O `SearchRequest` ideal precisa carregar `OriginalQuery`
-**separada** do `SearchScope` (o router decide o espaço; a query decide o
-conteúdo).
-
----
-
-## 4. PONTO 4 — O fantasma dos 80k (custo de decodificação)
-
-**Alegação do professor:** existe diferença entre "80k registros no banco" e
-"80k embeddings decodificados". Se `Vectors(0)` decodificar todos os BLOBs, o
-caminho de execução continua pesado, mesmo com a arquitetura modular correta.
-
-**Evidência (medição read-only — `knowledge.db` aberto em `mode=ro`):**
+## PONTO 1 — QueryScope: Isolamento físico real
 
 ```
-TOTAL vetores:            28.888
-Dim média:                768 (float32, little-endian)
-Bytes totais de BLOB:     84,6 MB
-RAM p/ decodificar todos: ~84,6 MB (float32)
+CONTRATO (package, L51):  "reads ONLY the modules named in a *SearchScope"
+EVIDÊNCIA NO CÓDIGO:      selectModules(L683) filtra corretamente (nil→todos,
+                          NoRoute→nada, senão interseção).
+CAMINHO DE EXECUÇÃO:      QueryScope(L584) → selectModules → Vectors(0)/Entities(0)
+                          /Relationships(0)/FTSBM25(q, 0) → Counts().
+TESTE/PROVA:              selectModules escolhe os módulos certos (lógico OK).
+                          MAS todos os readers são chamados com `limit=0`:
+                            • Vectors(0)     → LIMIT ausente (L377-378) → lê tudo
+                            • Entities(0)    → idem (L432-433)
+                            • Relationships(0)→ idem (L473-474)
+                            • FTSBM25(q, 0)  → LIMIT -1 = "no limit" (L831-836)
+                          Counts() (L333) é incondicionalmente GLOBAL.
+RESULTADO:                Isolamento LÓGICO ok; isolamento FÍSICO NÃO.
+RISCO:                    module ≠ candidate set. Se um módulo (ex. vegetation)
+                          contém subdomínios (tree/grass/shrub/forest), o router
+                          escolhe vegetation mas a busca lê TODO o vegetation —
+                          precisa de uma 2ª dimensão de filtragem por candidato.
+VERDICT:                  **FAIL** (isolamento físico — materializa tudo no módulo)
 ```
 
-- `Vectors(0)` (L368-418): `limit==0` → **sem LIMIT**; para cada linha, faz
-  `decodeVector(blob)` (L412) → aloca `[]float32` de 768 dims.
-- `QueryScope` chama exatamente `Vectors(0)` (L593). Portanto, uma busca
-  roteada ainda pode materializar **84,6 MB de embeddings** na RAM.
-- (Nota: o valor de produção é ~28.888 vetores válidos — o "80k" é o total de
-  linhas do índice; o que importa é que **todos são decodificados** no `Vectors(0)`.)
-
-**Verdicto PONTO 4: CONFIRMADO (o maior risco físico).** A arquitetura modular
-está certa, mas o **caminho de execução** materializa o índice inteiro. O
-roteamento eliminou o **ruído semântico**, mas **não** eliminou o **custo
-físico** (memória + latência). O alvo é:
-`Router → module → candidate retrieval → top-K → decode SÓ candidatos → rerank`.
+**Sub-verificação (a armadilha do professor):** `SELECT ... FROM "vector".vectors`
+— se o arquivo `vector.db` corresponder 1:1 ao módulo roteado, ok; mas o módulo
+`vegetation` (lógico) pode mapear a **vários** subdomínios, e o scope atual
+**não tem** dimensão abaixo do módulo. É a "2ª dimensão de filtragem" que falta.
 
 ---
 
-## 5. Síntese dos veredictos
+## PONTO 2 — Counts(): semântica (global vs scoped)
 
-| Ponto | Confirmação | Severidade | Evidência |
-|---|---|---|---|
-| **1. Isolamento físico do QueryScope** | ✅ **Confirmado** | Alta | Choose módulos certos, mas `Vectors/Entities/Relationships(0)` materializam tudo |
-| **2. Counts() semântica** | ✅ **Confirmado** | Média | `Counts()` é global (L333), contrato sugere scoped (L51); nome ≠ implementação |
-| **3. Query original vs RouteID** | ✅ **Confirmado** | **Alta (conceitual)** | `scopeQuery`= `RouteID`; BM25 busca rótulo, não conteúdo (L743-751, L610) |
-| **4. Fantasma dos 80k** | ✅ **Confirmado** | **Crítica** | 28.888 vetores × 768 = **84,6 MB** decodificados em `Vectors(0)` |
+```
+CONTRATO (L51):           "reads ONLY the modules named in a scope" → sugere scoped
+EVIDÊNCIA NO CÓDIGO:      Counts()(L333-363) conta SEMPRE vector+entities+
+                          relationships+chunks_fts+entities_fts, sem olhar `selected`.
+CAMINHO DE EXECUÇÃO:      QueryScope(L616): proj.Counts = a.Counts() — global,
+                          mesmo quando leu um subconjunto de módulos.
+TESTE/PROVA:              QueryScope lê SÓ os módulos selecionados, mas reporta
+                          Counts GLOBAL (todas as tabelas do catálogo).
+RESULTADO:                Nome/contrato sugere "scoped"; implementação é "global".
+RISCO:                    Alguém vê "Scope: vegetation / Counts: 82.431 vectors"
+                          e conclui "pesquisou tudo", quando internamente não.
+VERDICT:                  **AMBÍGUO** — precisa decidir A(global) ou B(scoped)
+                          e tornar o contrato EXPLÍCITO e coerente com o nome.
+```
 
 ---
 
-## 6. DECISÃO DO ADR (revisão pendente — NADA corrigido)
+## PONTO 3 — Query original vs RouteID (o mais delicado)
 
-O `vectoragg.go` é um **excelente espelho de leitura** (contrato read-only por
-construção, `ATTACH` `mode=ro`, fronteira lógica antes da física, camada
-`Aggregator ≠ database ≠ source of truth`). Mas **não pode ser declarado como
-"busca semântica modular funcionando"** até os 4 pontos serem resolvidos.
-Nenhum deles desmonta o esqueleto — são **refinamentos de contrato e de
-execução**.
+```
+CONTRATO (ADR §3.2):      Router decide ONDE; a query original carrega O QUE.
+EVIDÊNCIA NO CÓDIGO:      scopeQuery(L743-751) retorna scope.RouteID (não a query).
+                          SearchScope.RouteID (modlink L80) = triggers unidos por '|'
+CAMINHO DE EXECUÇÃO:      SearchRequest → modlink → SearchScope → QueryScope
+                          → scopeQuery → FTSBM25(q, 0) → SQL "MATCH ?"
+TESTE/PROVA (executado, read-only):
+  Query original: "árvore urbana no terreno"  → MATCH 'arvore urbana no terreno'  → 0 hits
+  scopeQuery devolve (RouteID): "vegetation.world.materials"
+      MATCH 'vegetation.world.materials'  → **FTS5 SYNTAX ERROR near "."**
+      MATCH 'vegetation|world|materials'  → **FTS5 SYNTAX ERROR near "|"**
+      MATCH 'vegetation world materials'  → 2 hits
+RESULTADO:                O RouteID NÃO é o conteúdo e, pior, **quebra o FTS5**:
+                          os separadores '.' e '|' do RouteID causam "syntax error" no
+                          MATCH. Ou seja: FTSBM25(scopeQuery(scope), 0) SEMPRE falha
+                          quando RouteID ≠ vazio — nem chega a buscar.
+RISCO:                    Não é só "busca o rótulo errado"; é que **não busca**.
+VERDICT:                  **FAIL** (conceitual + erro de execução real no MATCH)
+```
 
-### Correções recomendadas (nesta ordem — para a próxima fase)
-1. **Ponto 4 (crítico):** `QueryScope` deve usar **candidate retrieval + Top-K**
-   (`Vectors(limit>0)`, `FTSBM25(q, limit>0)`, etc.), e **decodificar SÓ os
-   candidatos** — nunca o índice inteiro. Isso ataca simultaneamente ruído +
-   espaço + memória + latência.
-2. **Ponto 3 (conceitual):** `SearchRequest{OriginalQuery, SearchScope}` — o
-   router decide o espaço; a **query original** carrega o conteúdo pro BM25.
-   `RouteID` é metadado de rota, **não** o texto a buscar.
-3. **Ponto 1:** após o Top-K, garantir que NENHUMA leitura materialize módulo
-   fora do scope (confinamento físico, não só lógico).
-4. **Ponto 2:** separar `Counts` global (`catalog_totals`) de `Counts` scoped
-   (`scoped_counts`) — ou declarar explicitamente o contrato.
+**Decisão arquitetural a tomar (não é necessariamente código errado):** o
+`SearchRequest` deve carregar `OriginalQuery` **separada** do `SearchScope`.
+O router decide o espaço; a **query original** alimenta o BM25. `RouteID` é
+metadado de rota, nunca o texto a buscar. Se mantiver `RouteID`, precisa
+sanitizar sinais de FTS e redefinir a semântica.
 
-### NÃO corrigido nesta sessão (por ordem do professor)
-> "Não mandaria ele corrigir nada ainda. Primeiro: AUDIT → EVIDENCE → VERDICT →
-> ADR decision → TEST → IMPLEMENT."
+---
 
-Este documento é a etapa **AUDIT + EVIDENCE + VERDICT**. A correção (TEST +
-IMPLEMENT) fica para a próxima fase, **após** o Don validar o veredicto.
+## PONTO 4 — Vector materialization (o fantasma dos 80k)
 
-## Anexo — arquivos auditados
+```
+CONTRATO (ADR §3.2/§6):   Buscar SÓ os candidatos do espaço roteado (top-K).
+                          Router → module → candidate retrieval → top-K → decode
+                          SÓ candidatos → rerank.
+EVIDÊNCIA NO CÓDIGO:      Vectors(lim) (L368-418): lim<=0 → SEM LIMIT (L377-378);
+                          para cada row chama decodeVector(blob) (L412).
+                          QueryScope chama Vectors(0) (L593).
+CADEIA MEDIDA (read-only, .cosca/knowledge.db?mode=ro):
+  1. Rows lidas (SELECT sem LIMIT):            28.888
+  2. BLOBs de vetor recebidos (not null):      28.888
+  3. BLOBs decodificados (decodeVector):       28.888  (todos)
+  4. Dim:                                       768 (float32)
+  5. float32 alocados (todos):                  28.888 × 768 × 4B = ~84,6 MB
+  6. Memória aproximada (peak allocation):     ~84,6 MB
+RESULTADO:                Nenhuma camada reduz o conjunto antes da decodificação.
+                          Router eliminou o ruído SEMÂNTICO, mas NÃO o custo FÍSICO
+                          (memória + latência): ainda materializa ~84,6 MB na RAM.
+RISCO:                    Alta — o caminho de execução continua pesado mesmo com a
+                          arquitetura modular correta. NÃO resolve "80k na RAM".
+VERDICT:                  **FAIL** (o maior risco — 84,6 MB decodificados)
+```
 
-- `internal/vectoragg/vectoragg.go` (L51, L333, L368-418, L584-620, L743-751)
-- `internal/modlink/modlink.go` (struct `SearchScope`: Modules/RouteID/NoRoute)
-- `.cosca/knowledge.db` (medição read-only, `mode=ro`)
+---
 
-Nenhum arquivo foi alterado. Nenhum banco foi migrado. O `knowledge.db` foi
-apenas lido (`?mode=ro`).
+## GLOBAL VERDICT — ADR-013 AUDIT (vectoragg)
+
+| Ponto | Argumento | Vertict |
+|---|---|---|
+| **P1** QueryScope isolation | Seleciona módulos certos, mas materializa tudo no módulo (`limit 0`) | **FAIL** |
+| **P2** Counts semantics | Global implementado, contrato sugere scoped — nome ≠ impl | **AMBÍGUO** |
+| **P3** Original query vs RouteID | Busca o rótulo (RouteID), e ainda **quebra o FTS5 MATCH** | **FAIL** |
+| **P4** Vector materialization | 28.888 emb. = **84,6 MB** decodificados na RAM (medido) | **FAIL** |
+
+### Por eixo
+- **Architecture:** ✅ sólida — espelho lógico antes do físico, `Aggregator ≠
+  database ≠ source of truth`, contrato read-only por construção (`mode=ro`,
+  `SetMaxOpenConns(1)`).
+- **Runtime:** ⚠️ `QueryScope` pode materializar 84,6 MB e o `FTSBM25` com
+  `RouteID` lança syntax error.
+- **Performance:** ❌ top-K/candidate-retrieval ausente; `Vectors(0)` decodifica
+  o índice inteiro.
+- **Contract gaps:** (1) isolamento físico; (2) `Counts` global vs scoped;
+  (3) `Query` vs `RouteID`; (4) materialização sem top-K.
+
+---
+
+## ADR ACTION
+
+**Documento** (o esqueleto do vectoragg é correto e deve ser **KEEP** mantido)
+**+ resolver os gaps antes de declarar "busca semântica modular funcionando".**
+
+| Ponto | Ação |
+|---|---|
+| **P4** | **CHANGE** — `candidate retrieval + top-K` (decodificar SÓ candidatos). Ataca ruído + espaço + memória + latência juntos. |
+| **P3** | **CHANGE** — `SearchRequest{OriginalQuery, SearchScope}`; query original → BM25; RouteID = metadado. Sanitizar se mantiver. |
+| **P1** | **CLARIFY** — confinamento físico (não só lógico) + 2ª dimensão (candidate set dentro do módulo). |
+| **P2** | **CLARIFY** — decidir global vs scoped e documentar; ou separar `catalog_totals` de `scoped_counts`. |
+
+**NO CODE CHANGED** — este é o registro de proveniência. Nenhum arquivo de
+código alterado, nenhum banco migrado/indexado/duplicado. O `vectoragg` foi
+apenas **auditado e medido** (read-only). A correção (TEST + IMPLEMENT) fica
+para a próxima fase, após o Don validar o veredicto.
+
+---
+
+## Anexo — evidência de teste (read-only)
+
+- `.cosca/knowledge.db` aberto em `?mode=ro` (SQLite).
+- `vectors`: 28.888 rows, dim 768, 84,6 MB de BLOB, decodificação = 84,6 MB.
+- FTS5: `MATCH 'vegetation.world.materials'` → **syntax error**; `'vegetation|world|materials'`
+  → **syntax error**; `'arvore urbana no terreno'` → 0 hits.
+- Arquivos: `internal/vectoragg/vectoragg.go`, `internal/modlink/modlink.go`.
