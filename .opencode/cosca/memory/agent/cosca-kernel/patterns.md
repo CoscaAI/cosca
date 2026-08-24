@@ -30,5 +30,18 @@
 | **Aplicável quando** | Sempre que commit tocar o embed. É a conduta de escrita do cérebro. |
 | **Confiança** | 1.0 (ordem direta do Don) |
 
+### 2026-08-24 — Auditoria de Componente: AUDIT → FREEZE (prova-se antes de mexer)
+
+| Field | Value |
+|-------|-------|
+| **Agente** | cosca-kernel |
+| **Fonte** | Ordem do Don + professor/advisor técnico (2026-08-24), sequência vectoragg (ADR-013) |
+| **Padrão** | **Todo componente defeituoso descoberto ANTES de virar dependência real é oportunidade, não botão de conserto imediato.** Sequência obrigatória: **AUDIT → EVIDENCE → VERDICT → ADR → TEST → IMPLEMENT → PROVENANCE → FREEZE**. |
+| **Aplicação** | (1) Separar três conceitos que costumam virar bagunça: *o que o código DIZ / o que o código FAZ / o que o sistema REALMENTE EXECUTA*. (2) Por ponto, registrar CONTRATO / EVIDÊNCIA / CAMINHO DE EXECUÇÃO / TESTE-PROVA / RESULTADO / RISCO / VERDICT, distinguindo **PASS** (comprovado), **FAIL** (comprovadamente errado), **AMBÍGUO** (contrato não define), **NÃO PROVADO** (parece certo, falta teste). (3) *"Não encontrei bug" ≠ "provei que não existe bug"*. (4) Medir por TESTE o que pode ser demonstrado (ex.: Vectors(0)=84,6MB vs Top-K=10=30KB; cadeia rows→BLOBs→decoded→bytes). (5) Bug de materialização/perf deve virar **invariante testável** (teste que FALHA se reintroduzir full-scan). |
+| **Comportamento** | (1) AUDIT (com prova) antes de IMPLEMENTAR correção. (2) NUNCA criar módulo/ponte/adapter/wrapper vazio só para satisfazer um desenho no papel (anti-monster, §2.0). (3) Diferenciar **fronteira deliberada** (adiada até haver necessidade real) de **dívida técnica** (não paga) — registrar QUAL das duas é. (4) Tratar três responsabilidades como SEPARADAS: Scope (onde) / Candidate retrieval (quais IDs) / read-model (como ler) — nunca um só "Deus-objeto". (5) Arquitetura dirigida por necessidade demonstrada, não por antecipação. (6) Registrar a fronteira no ADR + ledger (proveniência) para não virar reinterpretação futura. |
+| **Tipo** | processo / metodologia / arquitetura |
+| **Aplicável quando** | Antes de declarar QUALQUER componente como "pronto"/"otimizado"; antes de correção em código sensível; sempre que um achado de auditoria puder "parecer dívida". |
+| **Confiança** | 1.0 (ordem direta do Don + professor) |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro
