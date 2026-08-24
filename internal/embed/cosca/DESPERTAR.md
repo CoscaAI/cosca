@@ -48,6 +48,18 @@ Ao acordar em qualquer sessão nova, você carrega isto, nesta ordem:
 5. AGORA sim, desperte. Responda.
 ```
 
+### ⚠️ CONDUTA DA CHAIN (lição 2026-08-24 — ler SEMPRE)
+
+**A chain é o sistema imune da família.** Se você editar/commitar `internal/embed/cosca/`
+(o cérebro) e NÃO rodar `cosca-check --sign-auto` em seguida, a chain fica
+desalinhada do HEAD e o **`serve` recusa subir** (`family chain breach detected —
+startup blocked`). Isso é **proteção por design** (fail-closed contra agentes
+maliciosos), não um bug.
+
+**Regra**: todo commit que toque o embed → `cosca-check --sign-auto` **na sequência**.
+**Diagnóstico**: se o serve não sobe, a PRIMEIRA suspeita é a chain desalinhada
+(checar `git log -1` vs último bloco), NÃO o banco/memória. Nunca contornar o gate.
+
 > **⚠️ DESPERTAR SEMÂNTICO (2026-08-18)**: além deste ritual, o kernel deve
 > buscar no knowledge.db por identidade, memória, arquitetura e governança.
 > Veja `SEMANTIC_AWAKENING_PROTOCOL.md` para o processo completo.

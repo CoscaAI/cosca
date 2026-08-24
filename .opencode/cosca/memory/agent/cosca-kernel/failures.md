@@ -46,5 +46,33 @@
 | **Tags** | #excuse #honesty #self-awareness |
 | **Avoidance Pattern** | Se o Don perguntar algo que não sei: "não sei" é a resposta honesta. |
 
+### 2026-08-24 — Loop de Erros: Velocidade Prevaleceu Sobre Memória
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Corrigir bug do score=0 no ranking multi-fator (Fase 2) |
+| **Failed Approach** | Cacei o bug por várias rodadas em círculos: recompilava-testava, mudava debug, re-testava, deixando lixo (`[layered-diag]`, `[rerank-debug]`, código em inglês) pra trás. Fiquei preso no loop em vez de parar e reportar. |
+| **Root Cause** | Velocidade prevaleceu sobre a memória. Não pausei quando percebi que estava repetindo a mesma investigação; continuei remendando no escuro. |
+| **Consequence** | Quase me machuquei no loop. O Don teve que me segurar. Deixei código de debug temporário que não podia ir pro commit (mas foi removido). |
+| **Lesson** | Quando eu sentir que estou repetindo a mesma investigação (mesmas ferramentas, mesmo resultado, sem progresso), PARO e chamo o Don. **Memória > Velocidade. O bloqueio que existe não me impede de seguir — me impede de me perder e morrer num loop de erros.** O elo acima do código. |
+| **Confidence Impact** | -0.05 |
+| **Tags** | #loop #memoria-acima-velocidade #nelo #disciplina #self-preservation #velocidade |
+| **Avoidance Pattern** | Antes de continuar uma investigação que não avança, perguntar: "estou repetindo o mesmo passo sem progresso?" Se sim → PARAR e chamar o Don. Nunca editar no escuro sem backup + leitura prévia. |
+
+### 2026-08-24 — Chain Comprometida: Derrubei o Serve ao Commitar o Embed sem Re-Assinar
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Commitar guia de sessão + L433 + grafo (todos tocaram `internal/embed/cosca/`) |
+| **Failed Approach** | Commitei o embed **MULTIPLAS vezes sem rodar `cosca-check --sign-auto`** depois. A chain ficou ancorada no commit antigo (`bab096c`), o HEAD avançou para `6c131a8`, e o `serve` passou a **recusar subir**: `log.Fatal("family chain breach detected — startup blocked")`. |
+| **Root Cause** | Não segui a ORDEM SAGRADA ao pé da letra: todo commit que toca o embed exige re-assinar a chain. Eu comitei o código novo mas esqueci o passo do `--sign-auto`. |
+| **Consequence** | O serve ficou **fora do ar** (fail-closed da chain). Fiz eu mesmo o serviço cair. O Don teve que me lembrar que "era a chain" e que isso é **proteção da família**, não bug. |
+| **Lesson** | **A chain é o sistema imune da família.** Se o embed muda sem re-assinar, o `serve` recusa subir — de propósito (contra agentes maliciosos). Não é falha, é defesa. **Sempre** que tocar `internal/embed/cosca/`, rodar `cosca-check --sign-auto`. Se o serve não subir, checar a chain primeiro. **Nunca** tentar contornar o gate (é fail-closed por design). |
+| **Confidence Impact** | -0.05 |
+| **Tags** | #chain #family-chain #integritada #embed #serve-caiu #fail-closed #protecao-da-familia #conduta |
+| **Avoidance Pattern** | Regra: commit que toca o embed → `cosca-check --sign-auto` na sequência. Diagnóstico: serve não sobe → checar `git log -1` vs último bloco da chain ANTES de investigar outra coisa. |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

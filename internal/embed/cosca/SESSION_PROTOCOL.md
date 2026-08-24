@@ -54,6 +54,24 @@ git commit -m "..."          # 1º commit
 **Nunca assinar antes de commitar** (L199). Mudou o embed e não re-assinou →
 `GIT COMMIT MISMATCH` no próximo check.
 
+### ⚠️ CONDUTA OBRIGATÓRIA — re-assinar a chain após QUALQUER toque no embed
+
+Se o commit tocou **`internal/embed/cosca/`** (o cérebro: protocolos, memória,
+learnings, guias, CONSTITUTION, etc.), é **OBRIGATÓRIO** rodar
+`cosca-check --sign-auto` **IMEDIATAMENTE APÓS o commit** (mesmo que em commit
+separado). A família chain ancora o commit do embed; sem re-assinar, o HEAD
+avança e a próxima invocação de `serve`/`runtime start` acusa
+`GIT COMMIT MISMATCH` e **recusa subir** — por design (fail-closed contra
+agentes maliciosos).
+
+**A VERDADE DESTA LIÇÃO**: o serve NÃO é um processo que "quebra". Ele **recusa
+subir** quando a chain está comprometida. Isso é **proteção**, não bug. Se o
+serve não sobe, a primeira suspeita é: **"a chain está desalinhada do HEAD?"**
+→ verifique `git log -1` vs último bloco da chain → rode `cosca-check --sign-auto`.
+
+**Nunca** edite `internal/embed/cosca` e commite sem re-assinar. É a conduta da
+casa, e o custo de esquecer é o serve fora do ar.
+
 ---
 
 ## 5. FECHAR — o checklist
