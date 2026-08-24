@@ -21,7 +21,10 @@ function Start-CoscaServe {
     }
 
     # Script block simples
-    $scriptBlock = "`$env:COSCA_ALLOW_NO_ROOT='1'; & '$CoscaExe' serve --data-dir '$WorkingDir\.cosca' 2>&1"
+    # Fail-closed: NUNCA injeta COSCA_ALLOW_NO_ROOT por default. O opt-in para
+    # rodar sem sandbox e escolha explicita do operador. Sem a env, o cosca
+    # emite o SECURITY WARNING e NEGOA a subida (exit 1) — nunca sobe solto.
+    $scriptBlock = "& '$CoscaExe' serve --data-dir '$WorkingDir\.cosca' 2>&1"
 
     $actionDef = New-ScheduledTaskAction `
         -Execute "powershell.exe" `
@@ -90,7 +93,10 @@ function Get-CoscaStatus {
 function Install-CoscaService {
     Write-Host "Instalando Cosca Service..." -ForegroundColor Cyan
 
-    $scriptBlock = "`$env:COSCA_ALLOW_NO_ROOT='1'; & '$CoscaExe' serve --data-dir '$WorkingDir\.cosca' 2>&1"
+    # Fail-closed: NUNCA injeta COSCA_ALLOW_NO_ROOT por default. O opt-in para
+    # rodar sem sandbox e escolha explicita do operador. Sem a env, o cosca
+    # emite o SECURITY WARNING e NEGOA a subida (exit 1) — nunca sobe solto.
+    $scriptBlock = "& '$CoscaExe' serve --data-dir '$WorkingDir\.cosca' 2>&1"
 
     $actionDef = New-ScheduledTaskAction `
         -Execute "powershell.exe" `

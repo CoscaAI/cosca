@@ -73,7 +73,15 @@ function Show-NssmGuide {
        $exe = "$env:USERPROFILE\.cosca\bin\cosca.exe"
        nssm install cosca-serve $exe serve
        nssm set cosca-serve AppDirectory "$env:USERPROFILE\Documents\cosca"
-       nssm set cosca-serve AppEnvironmentExtra COSCA_ALLOW_NO_ROOT=1 COSCA_PIPELINE_ENABLED=true
+       # ATENCAO — opt-in NUNCA default. O cosca no Windows NAO sobe sem
+       # sandbox sem que o operador aceite o risco EXPLICITAMENTE. Sem a env,
+       # o serve emite o SECURITY WARNING e sai com exit 1 (fail-closed).
+       # Se voce PRECISA rodar sem jail (ex: dev trusted-dev), adicione
+       #   COSCA_ALLOW_NO_ROOT=1
+       # como valor EXTRA abaixo (e LEIA o warning antes de ignorar). NAO
+       # adicione a env sem entender o que aceita: sem bwrap, agente/workload
+       # roda com o privilegio do processo, sem isolamento de FS/rede/recursos.
+       nssm set cosca-serve AppEnvironmentExtra COSCA_PIPELINE_ENABLED=true
        nssm set cosca-serve Start SERVICE_AUTO_START
        nssm set cosca-serve AppExit Default Restart
        nssm set cosca-serve AppRestartDelay 5000
@@ -133,7 +141,10 @@ $ErrorActionPreference = 'Continue'
 # Defaults espelhando o cosca-serve.service (Linux). Segredos NAO ficam
 # aqui: o binario carrega %USERPROFILE%\.config\cosca\serve.env sozinho.
 if (-not $env:COSCA_PIPELINE_ENABLED) { $env:COSCA_PIPELINE_ENABLED = 'true' }
-if (-not $env:COSCA_ALLOW_NO_ROOT)    { $env:COSCA_ALLOW_NO_ROOT    = '1' }
+# FAIL-CLOSED: NAO injeta COSCA_ALLOW_NO_ROOT por default. O opt-in para
+# rodar SEM sandbox e decisao explicita do operador (set a env num shell
+# dedicado, ou via -EncodedCommand do proprio usuario) — nunca aqui. Sem a
+# env, o cosca emite o SECURITY WARNING e NEGOA a subida (exit 1).
 try {
     & '<EXE>' serve
     $code = $LASTEXITCODE

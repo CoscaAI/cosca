@@ -187,6 +187,7 @@ Documentation: https://cosca.enterprise/docs
 		NewFlowCommand(),
 		NewProvenanceCommand(),
 		NewSecurityCommand(),
+		NewCofreCommand(),
 		NewDesktopCommand(),
 		NewVoiceCommand(),
 		NewSlopCommand(),

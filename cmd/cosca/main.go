@@ -299,7 +299,23 @@ func isAdminCommand() bool {
 		// processAlive(pid-do-host) falhar; (c) o --clearenv derruba as env vars
 		// de provider, deixando "Provider: " vazio. Para reportar a VERDADE do
 		// host, esses comandos precisam enxergar o namespace real.
-		"status", "doctor", "health", "capability", "fabric", "gate", "skill":
+		"status", "doctor", "health", "capability", "fabric", "gate", "skill",
+		// `cofre` — a fronteria de validação do Cofre (ADR-012). É um guard
+		// PURAMENTE local (nunca abre a rede, não executa código de agente):
+		// valida um SemanticPackage e devolve a DECISÃO do Oráculo. Precisa ser
+		// comandável tanto pelo Kernel (submeter o pacote, fora da jaula) quanto
+		// DENTRO da jaula. Fora da jaula, roda sem sandbox porque não executa
+		// nada que exija isolamento — a validação é 100% determinística
+		// (Gate.Evaluate). Dentro da jaula (InsideJail==true), o reexec é
+		// ignorado e o cofre roda normalmente na zona Cofre.
+		"cofre":
+		// BUGFIX: o bloco de comandos admin precisa retornar true EXPLICITAMENTE.
+		// Sem este return, todos estes comandos (init/version/status/cofre...)
+		// cairiam no ReexecInJail e passariam a rodar presos na jaula — no Linux
+		// quebraria `cosca version`/`--help`/leitura, e no Windows cairiam no
+		// fail-closed exit 1 sem nem conseguir operar. O isAdminCommand é o que
+		// garante que comandos de leitura/admin rodem FORA da jaula (ver contrato
+		// fail-closed de pkg/cosca).
 		return true
 	case "runtime":
 		// Subcomandos de leitura/controle do daemon (status/stop/logs/info)

@@ -121,6 +121,12 @@ Welcome to the Cosca documentation. This index provides quick navigation to all 
 |----------|-------------|
 | [Orchestration Overview](orchestration/README.md) | AI orchestration engine, pipelines, execution |
 
+### 🔐 Security
+| Document | Description |
+|----------|-------------|
+| [Dependency Scanning](security/dependency-scanning.md) | OSV.dev scanning, severity tiers, qgate integration |
+| [Windows Cofre Threat Model](security/threat-model-cofre-windows.md) | Threat model + hardening plan for the air-gapped "Cofre" on Windows/WSL2 (P0/P1) |
+
 ### 🏗️ Platform
 | Document | Description |
 |----------|-------------|

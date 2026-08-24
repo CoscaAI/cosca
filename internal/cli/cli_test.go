@@ -45,6 +45,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"kernel",
 		"don",
 		"circadian",
+		"cofre",
 		"plan",
 		"approve",
 		"propose",
@@ -117,6 +118,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"desktop",
 		"voice",
 		"slop",
+		"world",
 	}
 
 	for _, name := range expected {

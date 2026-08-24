@@ -16,10 +16,13 @@ FAIL-CLOSED (seguranca — correcao apos red team):
 	A jaula NUNCA falha em silencio. Se a jaula nao puder ser estabelecida
 	(bwrap ausente, /proc/self/exe ilegivel, falha ao criar a copia em RAM,
 	ou o proprio bwrap falhar ao subir a sandbox), o processo:
-	  - imprime um SECURITY WARNING alto em stderr + grava no security log,
-	  - segue no modo no-root apenas pelo tradeoff aceito pelo Don neste
-	    ambiente de dev; com COSCA_ALLOW_NO_ROOT=1 (opt-in explicito) roda
-	    silencioso.
+	  - imprime um SECURITY WARNING alto em stderr + grava no security log;
+	  - SEM o opt-in explicito COSCA_ALLOW_NO_ROOT=1, o chamador (ReexecInJail)
+	    NEGOA a execucao (exit 1) — fail-closed de verdade. Nada de agente/
+	    workload rodar sem sandbox apenas "com um aviso".
+	  - COM COSCA_ALLOW_NO_ROOT=1 (opt-in explícito do operador, NUNCA default)
+	    o processo segue sem sandbox, mas ainda assim emite o WEARNING — um
+	    opt-in nunca vira um fallback silencioso.
 	Rodar como ROOT e recusado SEMPRE: bwrap como root nao cria user
 	namespace, portanto a jaula seria anulavel (root real dentro da bolha).
 
@@ -75,8 +78,9 @@ const (
 	ApparmorUsernsSysctlPath = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
 
 	// SecurityWarningNoJail e o alerta emitido quando a jaula nao pode ser
-	// estabelecida e o processo roda sem sandbox.
-	SecurityWarningNoJail = "SECURITY WARNING: jail unavailable, running WITHOUT sandbox. Set COSCA_ALLOW_NO_ROOT=1 to suppress this warning. DO NOT run untrusted agents in this mode."
+	// estabelecida e o processo roda sem sandbox. Texto honesto: SEM opt-in o
+	// processo e NEGADO (exit 1) — o warning nunca significa "continua rodando".
+	SecurityWarningNoJail = "SECURITY WARNING: jail unavailable, running WITHOUT sandbox. Set COSCA_ALLOW_NO_ROOT=1 to accept this risk (OPT-IN); without it the process is DENIED (exit 1). DO NOT run untrusted agents in this mode."
 
 	// JailSecretsFile e o caminho FIXO dentro da jaula onde os segredos
 	// COSCA_* (JWT/metrics etc.) sao entregues. O workspace e o "/" da jaula,
@@ -227,11 +231,20 @@ func IsRunningInContainer() bool {
 }
 
 // jailFallback e a funcao que decide o que acontece quando a jaula nao pode
-// ser estabelecida. NUNCA roda direto em silencio:
+// ser estabelecida. NUNCA roda direto em silencio. Retorna TRUE apenas com o
+// opt-in explicito; caso contrario, o chamador (ReexecInJail) NEGOA a execucao.
 //   - default (sem COSCA_ALLOW_NO_ROOT): SECURITY WARNING alto em stderr +
-//     gravado no security log. O processo segue sem sandbox (tradeoff aceito
-//     pelo Don neste ambiente de dev), mas o alerta e impossivel de ignorar.
-//   - COSCA_ALLOW_NO_ROOT=1: opt-in explicito — ainda emite alerta.
+//     gravado no security log e RETORNO FALSE → o processo nao segue (exit 1
+//     no chamador). Fail-closed de verdade: agente/workload nao roda sem
+//     sandbox apenas "com um aviso".
+//   - COSCA_ALLOW_NO_ROOT=1: opt-in explicito — retorna TRUE (permite seguir
+//     sem sandbox), mas SEMPRE emite o alerta. Um opt-in nunca vira um
+//     fallback silencioso.
+//
+// IMPORTANTE (postura): este opt-in e de responsabilidade EXCLUSIVA do
+// operador. Nenhum launcher/script instalado deve injeta-lo por default —
+// faz-lo transformaria o escape-hatch em postura default e anularia o
+// fail-closed. Ver deploy/*.ps1, cosca-service.ps1 e cosca-serve.bat.
 func jailFallback(reason string) bool {
 	recordSecurityAlert(reason)
 	// An explicit development opt-in is the only permitted direct-execution
@@ -245,7 +258,7 @@ func printSecurityWarning(reason string) {
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "  [COSCA] %s\n", SecurityWarningNoJail)
 	fmt.Fprintf(os.Stderr, "  [COSCA] Reason: %s\n", reason)
-	fmt.Fprintf(os.Stderr, "  [COSCA] Suppress this warning with COSCA_ALLOW_NO_ROOT=1 (explicit opt-in to run without sandbox).\n\n")
+	fmt.Fprintf(os.Stderr, "  [COSCA] Without COSCA_ALLOW_NO_ROOT=1 this run is DENIED (exit 1). Set it ONLY to explicitly accept the risk of running WITHOUT sandbox (opt-in); it never makes execution safe.\n\n")
 }
 
 // recordSecurityAlert grava o alerta no security log (best-effort, nunca

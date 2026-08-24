@@ -10,7 +10,7 @@ import (
 )
 
 func TestIsAdminCommandIncludesTerminal(t *testing.T) {
-	admin := []string{"init", "config", "version", "hook", "project", "models", "security", "terminal",
+	admin := []string{"init", "config", "version", "hook", "project", "models", "security", "cofre", "terminal",
 		"status", "doctor", "health", "capability", "fabric"}
 	jailed := []string{"serve", "runtime", "chat", "workflow", "run", "pipeline", "install"}
 

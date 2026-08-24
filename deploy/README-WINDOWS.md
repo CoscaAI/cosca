@@ -60,26 +60,33 @@ Copy-Item -LiteralPath .\bin\cosca.exe -Destination "$env:USERPROFILE\.cosca\bin
 
 ---
 
-## 4. Jaula no Windows — fail-closed preservado
+## 4. Jaula no Windows — fail-closed (postura endereçada)
 
 **`bwrap` (Bubblewrap) não existe no Windows.** A implementação
-`pkg/cosca/jail_windows.go` segue o **mesmo contrato fail-closed** do Linux:
+`pkg/cosca/jail_windows.go` segue o **mesmo contrato fail-closed** do Linux,
+agora **real e preservado**:
 
 1. `jailAvailable()` reporta **indisponível** (`bubblewrap (bwrap) is not supported on Windows`);
-2. `ReexecInJail()` cai no `jailFallback`, que **emite o SECURITY WARNING**, grava no security log e
-   **só continua sem sandbox com `COSCA_ALLOW_NO_ROOT=1`** (opt-in explícito);
-3. **Sem o opt-in, o processo sai com `exit 1`** — nada roda sem sandbox silenciosamente.
+2. `ReexecInJail()` cai no `jailFallback`, que **emite o SECURITY WARNING** e grava no security log;
+3. **Sem `COSCA_ALLOW_NO_ROOT=1` o processo é NEGADO (`exit 1`)** — agente/workload nunca roda
+   sem sandbox apenas "com um aviso";
+4. **Com `COSCA_ALLOW_NO_ROOT=1`** (opt-in explícito **do operador**, nunca default) o processo
+   segue sem sandbox, mas **continuamente emitindo o alerta** — um opt-in nunca se torna um
+   fallback silencioso.
 
-Os scripts instalados já definem `COSCA_ALLOW_NO_ROOT=1` no launcher da tarefa — portanto, ao
-iniciar, o cosca **emite o SECURITY WARNING** em stderr indicando que está rodando **sem sandbox**.
+> **Postura fixada**: os launchers instalados **não injetam mais** `COSCA_ALLOW_NO_ROOT=1`.
+> O opt-in é de responsabilidade exclusiva do operador e **nunca é default**. Qualquer script
+> que injete a env por padrão **anula o fail-closed** — consideramos isso uma bug/CR de segurança.
 
 ### ⚠️ Risco e recomendação
 
 - **Risco**: sem a jaula, um workload (skill/plugin/código executado pelo pipeline) roda com as
-  permissões do processo — não há isolamento de filesystem/namespace.
+  permissões do processo — não há isolamento de filesystem/namespace/rede/recurso.
 - **Recomendação**: o cosca mantém os defaults fail-closed (REST escuta em `127.0.0.1`, CORS
-  desabilitado, registro público desabilitado). Para **código não confiável**, rode o workload em
-  **Docker** (veja `Dockerfile` e `docker-compose.yml` do projeto) em vez de expor o host.
+  desabilitado, registro público desabilitado). Para **código não confiável**, o caminho seguro é
+  rodar dentro do **Cofre / WSL2 + bwrap** (zona air-gap, validação sem interferência externa) —
+  **nunca no host**. Enquanto essa zona não está em produção, trata o host Windows como
+  **trusted-dev only**: sem jail, não execute agente/workload não confiável.
 
 ---
 
@@ -162,7 +169,11 @@ winget install NSSM   # ou https://nssm.cc
 $exe = "$env:USERPROFILE\.cosca\bin\cosca.exe"
 nssm install cosca-serve $exe serve
 nssm set cosca-serve AppDirectory "$env:USERPROFILE\Documents\cosca"
-nssm set cosca-serve AppEnvironmentExtra COSCA_ALLOW_NO_ROOT=1 COSCA_PIPELINE_ENABLED=true
+# ATENCAO — opt-in NUNCA default. Sem COSCA_ALLOW_NO_ROOT o cosca NÃO sobe sem
+# sandbox no Windows (emite o SECURITY WARNING e sai com exit 1). Se você
+# PRECISA rodar sem jail (ex: dev trusted-dev), adicione COSCA_ALLOW_NO_ROOT=1
+# como valor EXTRA abaixo — e LEIA o warning antes de ignorar.
+nssm set cosca-serve AppEnvironmentExtra COSCA_PIPELINE_ENABLED=true
 nssm set cosca-serve Start SERVICE_AUTO_START
 nssm set cosca-serve AppExit Default Restart
 nssm set cosca-serve AppRestartDelay 5000
@@ -228,9 +239,12 @@ pode resolver para `::1` primeiro.
 
 ## 11. Segurança (resumo)
 
-- **Fail-closed preservado**: sem `COSCA_ALLOW_NO_ROOT=1` o binário não sobe sem sandbox no
-  Windows (`exit 1` + SECURITY WARNING).
+- **Fail-closed real**: sem `COSCA_ALLOW_NO_ROOT=1` o binário **não** sobe sem sandbox no Windows
+  — emite o SECURITY WARNING e **nega** (`exit 1`). O opt-in é **nunca default**: só quando o
+  operador o define explicitamente (e mesmo assim o alerta continua).
+- **Código não confiável**: o host Windows **não tem isolamento** de FS/rede/recurso sem jail.
+  Rode agente/workload não confiável dentro do **Cofre / WSL2 + bwrap** (zona air-gap) — nunca no
+  host. Enquanto a zona não está em produção, trate o host como **trusted-dev only**.
 - **Segredos**: apenas em `%USERPROFILE%\.config\cosca\serve.env` (protegido por ACL), nunca na
-  definição da tarefa nem em scripts.
+  definição da tarefa nem em scripts. **Nunca** inclua a env em script/launcher default.
 - **Rede**: defaults `127.0.0.1` + CORS desabilitado + registro público desabilitado.
-- **Código não confiável**: use Docker — o Windows não tem bwrap.

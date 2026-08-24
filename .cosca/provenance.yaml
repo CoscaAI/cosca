@@ -113,3 +113,39 @@ claims:
       source: professor-reconstrucao
       confidence: 0.95
       created_at: "2026-08-24T02:01:20Z"
+    - id: visual-inspector
+      statement: 'VISUAL UNDERSTANDING INSPECTOR (professor). Camada worlddebug SEPARADA, apenas OBSERVA (nunca fonte da verdade - TestInspectorReadOnly). Inspector (Entity/Representation/Reasoning/Provenance com OBSERVED/INFERRED/GENERATED). Replay passo-a-passo (mundo nasce). Asset Browser semantico (species/context/age, nao filename). cosca world explain <id> + --replay. Prefeitura de Palhoca: Area 3045m2, building.civic, height INFERRED, visual_mesh GENERATED.'
+      kind: observed
+      source: professor-visual-inspector
+      confidence: 0.96
+      created_at: "2026-08-24T02:21:17Z"
+    - id: spawn-visual-gap
+      statement: 'PIPELINE OK (142 spawns, 0 falhas) MAS problema VISUAL: (1) mapa ativo era OpenWorld vazio sem luz; (2) vs1_ground e placa preta escura usada para TUDO (ruas/edificios/agua) — nao representa cidade. Diagnostico: pipeline semantico correto, REPRESENTACAO visual precisa de assets de cidade (Brushify/Brutalist que Don adicionou) + mapa com iluminacao. Proximo: criar cena com luz + assets de cidade reais.'
+      kind: observed
+      source: spawn-palhoca
+      confidence: 0.9
+      created_at: "2026-08-24T02:31:38Z"
+    - id: unreal-headless-proof
+      statement: 'PROVA: Unreal executa Python SEM Play/headless via commandlet (-run=PythonScript -Script=). EditorLevelLibrary=True, UnrealEditorSubsystem=True. FASE D parcialmente provada. Causa raiz: bridge em OnWorldBeginPlay (Runtime) - migrar para UEditorSubsystem. Evidencia via arquivo-marker (prints vaopara editor, nao stdout).'
+      kind: observed
+      source: UNREAL_AUTOMATION_DISCOVERY
+      confidence: 0.95
+      created_at: "2026-08-24T02:47:34Z"
+    - id: editor-bridge-no-play
+      statement: 'PROVA (editor sem Play): [CoscaEditor] Subsystem initialized - WebSocket listening on port 9000 (no Play required). CAUSA RAIZ RESOLVIDA - o UEditorSubsystem sobe o bridge sem PIE. PROXIMO: evitar bind DUPLO na 9000 (CoscaEditor no editor + CoscaRuntime no PIE). Solucao: CoscaEditor deve ser o UNICO (parar CoscaRuntime no PIE ou usar porta diferente). Editor FECHOU apos PIE (possivelmente conflito de bind).'
+      kind: observed
+      source: editor-bridge-test
+      confidence: 0.9
+      created_at: "2026-08-24T03:10:00Z"
+    - id: resume-wsl2-airgap
+      statement: 'SESSAO SUSPENSA (2026-08-24): Don instalando WSL2 para AR-GAP do Cofre. Zonas: Cofre = IA local (ollama) SEM internet + Oracle valida sem interferencia; Kernel = com internet. RESUMIR apos reboot: (1) WSL2+bwrap pro jail do cofre (ar-gap + seccomp, reusa jail testado), (2) ADR de arquitetura 2-zonas, (3) remover opt-in COSCA_ALLOW_NO_ROOT default dos scripts (fail-closed), (4) blindagem nativa AppContainer+Job+Low-IL+firewall de saida como fallback. INVESTIGACAO: bwrap inexistente no Windows, opt-in virou postura default = falha fail-closed; comentarios do gate alegam conteccao falsa no Windows; execpolicy ultima linha contornavel. DISK CLEANUP feito (+31GB no C:, cache Unreal movido p/ E:/UE-LocalDataCachePath). Kernel despertou via cosca despertar (chain valida).'
+      kind: decision
+      source: Don+cosca-kernel+cosca-security+cosca-devops
+      confidence: 0.97
+      created_at: "2026-08-24T11:04:25Z"
+    - id: cofre-blindagem-executada
+      statement: 'BLINDAGEM DO COFRE EXECUTADA (2026-08-24, resolvido). Fundacao provada de ponta a ponta: WSL2 ativado + Ubuntu-24.04 + bwrap 0.9.0 instalado + usuario nao-root (cosca, uid 1000). JAIL bwrap como nao-root funciona (unshare-all + unshare-user + unshare-net). AIR-GAP REAL provado: dentro da jaula SEM-ETH0 (rede totalmente desligada). ELF Linux (GOOS=linux amd64) cross-compila e roda na jaula com COSCA_JAILED=1. ADR-012 (2 zonas) + threat-model-cofre-windows criados. P0-1 CORRIGIDO: opt-in COSCA_ALLOW_NO_ROOT NAO e mais default - removido de cosca-serve.bat, cosca-service.ps1 (2x), deploy/install-service.ps1 (guia NSSM + launcher); fail-closed real (sem opt-in = exit 1), env = escape-hatch explicito nunca default; docs README-WINDOWS §4/§7/§11 atualizados. P0-3 ENTREGUE: comando novo cosca cofre (validate/gate/health) reutiliza internal/oracle (Gate.Evaluate fail-closed); 13 testes verdes; validate produz ACCEPT/ACCEPT_WITH_CAVEAT/REJECT/INCONCLUSIVE com gaps+perguntas; --json p/ Kernel; health reporta air-gap honestamente (Windows host = sem air-gap, WSL2+bwrap = air-gap). DECISAO DE DESIGN: validacao (fase 1) antes de migrar o serve (fase 2) - Cofre dedicado com superficie minima. EXIT CODES: 0=ACCEPT/CAVEAT, 1=REJECT, 2=INCONCLUSIVE. PENDENTE FASE 2: migrar o serve pro Cofre WSL2, blindagem nativa host (AppContainer+Job+Low-IL+firewall, P1), envelope assinado/HMAC, air-gap de egresso do WSL. NOTA: TestCronFullCycle/TestCronRun pre-existentes flaky (cron.go nao tocado); TestRootCommand_HasAllSubcommands corrigido (cofre+world).'
+      kind: observed
+      source: Don+cosca-kernel+cosca-security+cosca-backend+cosca-infrastructure+cosca-architecture
+      confidence: 0.94
+      created_at: "2026-08-24T00:00:00Z"
