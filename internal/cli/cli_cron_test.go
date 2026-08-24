@@ -162,7 +162,7 @@ func TestCronFullCycle(t *testing.T) {
 	_ = add.ParseFlags([]string{
 		"--name", "backup",
 		"--schedule", "every 30m",
-		"--cmd", "true",
+		"--cmd", "echo ok",
 	})
 	out, err := runCronCommand(t, add, nil)
 	if err != nil {
@@ -239,7 +239,7 @@ func TestCronRun_ExecutesCommandInCWD(t *testing.T) {
 	_ = add.ParseFlags([]string{
 		"--name", "marker",
 		"--schedule", "every 30m",
-		"--cmd", "touch marker.txt",
+		"--cmd", "echo ok > marker.txt",
 	})
 	if _, err := runCronCommand(t, add, nil); err != nil {
 		t.Fatalf("add: %v", err)
