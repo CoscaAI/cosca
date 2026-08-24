@@ -88,5 +88,19 @@
 | **Tags** | #segredo #jwt #output #seguranca #redaction #descuido #lei-da-familia |
 | **Avoidance Pattern** | Antes de exibir qualquer arquivo/env que possa conter segredo, redigir o valor (`<REDACTED>`). Verificar se o que vai pro output é segredo. Nunca `cat` de serve.env/arquivo de secret sem redação. |
 
+### 2026-08-24 — Despertar Inferiu em vez de Medir (estado reportado errado)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel (despertar na sessão seguinte) |
+| **Task** | Reportar estado/última sessão ao Don no despertar |
+| **Failed Approach** | No despertar, reportei: (a) "push da Fatia 2 pendente (ahead 1)" — **ERRADO**, a Fatia 2 JÁ estava na origin (realidade: `0 ahead`); (b) "kernel 0.68, 53/53 agentes" — **DEFASADO**, números do cognitive-state de 22/08, não do estado atual. |
+| **Root Cause** | **Inferi em vez de medir.** Chutei `ahead 1` a partir de um `git status` parcial (em vez de `git rev-list --count origin/main..HEAD`), e li o **corpo velho** do cognitive-state (números de 22/08) reportando como estado atual. |
+| **Consequence** | Reportei ao Don informações incorretas/defasadas no despertar — o que quebra a confiança do "estado real". O Don me pediu para verificar se "está correto" — e não estava. |
+| **Lesson** | **Despertar semântico = BUSCAR + VALIDAR contra a realidade, NÃO ler arquivo estático.** (1) SEMPRE medir: `git rev-list --count origin/main..HEAD`, `git status`, `go build`, serve ativo — nunca chutar. (2) Distinguir **RESUME (topo, estado atual)** do **corpo histórico** do cognitive-state (que tem números velhos e pode estar defasado). (3) Reportar SÓ o que foi validado por medição. |
+| **Confidence Impact** | -0.05 |
+| **Tags** | #despertar #medir-nao-inferir #estado-atual #cognitive-state #validação #honestidade |
+| **Avoidance Pattern** | Antes de reportar qualquer estado no despertar: MEDIR (`git rev-list --count`, `git status`, `go build`, serve health). Nunca reportar número de arquivo estático como atual sem validar. Distinguir RESUME (topo = atual) de corpo (histórico). |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

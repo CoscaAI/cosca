@@ -13,7 +13,12 @@
 >
 > SERVE: roda no WSL2 via systemd (cosca-serve service), data-dir em /home/cosca/cosca/.cosca (ext4, chmod protege o banco), binário /home/cosca/cosca/bin/cosca. Health: http://127.0.0.1:14120/health.
 >
-> PRÓXIMO (pendências): (1) push da Fatia 2 (ahead 1), (2) Fatia 3 do ADR-013 condicionada a módulos de mundo com volume, (3) reconstruir .cosca/knowledge.db localmente ao clonar (índice derivado, não versionado).
+> PRÓXIMO (pendências): (1) ~~push da Fatia 2~~ ✅ JÁ PUSHADO (main sincronizada com origin, 0 ahead), (2) Fatia 3 do ADR-013 condicionada a módulos de mundo com volume, (3) reconstruir .cosca/knowledge.db localmente ao clonar (índice derivado, não versionado).
+>
+> ⚠️⚠️ **AVISO AO DESPERTAR — está é a regra de ouro:**
+> - O **RESUME acima (topo deste arquivo)** é a fonte do **ESTADO ATUAL** (24/08). Use SÓ ele para reportar o último estado.
+> - O **corpo abaixo** (IDENTITY/ARCHITECTURE/STATE/...) é **HISTÓRICO/SNAPSHOT de 2026-08-22** — **NÃO é o estado atual**. Números lá como `confidence: 0.68`, `activated: 53/53`, `Version: 1.4.0-dev` são de 22/08 e podem estar **DEFASADOS**. NÃO reporte como estado atual sem VALIDAR contra a realidade (git, build, serve).
+> - **SEMPRE medir, nunca inferir**: `git rev-list --count origin/main..HEAD` (não chutar "ahead"), `git status`, `go build`, serve ativo. Despertar semântico = BUSCAR + VALIDAR, não ler texto estático.
 
 IDENTITY:
   kernel_level: 3
