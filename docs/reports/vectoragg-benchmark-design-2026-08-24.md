@@ -387,4 +387,69 @@ antes de tocar na Fatia 3.
 ```
 DESIGN v1 → AUDIT v1 → FAIL → EVIDENCE → DESIGN v2 → AUDIT v2 → FAIL → EVIDENCE
   → DESIGN v2.1 (este) → AUDIT v2.1 (se passar) → EXECUTAR → COMPARAR → PROVENANCE
-``` 
+```
+
+---
+
+## 9. PROVENANCE — RE-AUDIT v2.1: **🟢 APROVADO para EXECUTAR** (cosca-critic, 3º round)
+
+> **Registro da aprovação.** Após 3 rounds de auditoria adversarial, o `cosca-critic`
+> **não encontrou furo no núcleo anti-falso-positivo**: o candidato é exaustivo
+> (derivado de JOIN, não fabricado), a regra de validade não é satisfazível "de
+> mentira", e o ground-truth é não-circular. **APROVADO para executar.**
+
+### EVIDENCE da aprovação (medição própria, read-only — confirma o PASS)
+
+| Módulo | Vetores (via JOIN document→vector, pathHasSegment) | Conteúdo |
+|---|---|---|
+| `memory` | 8.341 | ✅ |
+| `knowledge` | 4.190 | ✅ |
+| `architecture` | 1.728 | ✅ |
+| `runtime` | 224 | ✅ |
+| `cli` | 374 | ✅ |
+| `security` | 161 | ✅ |
+| `vector/unreal/world/vegetation/materials` | 0 | ❌ (fatia 3) |
+
+- **Total = 28.888 vetores; `document_id` vazio = 0; órfãos = 0** → o `JOIN
+  document→vector` captura **100%** dos vetores (exaustividade funciona na prática).
+- → A prova `COUNT(DISTINCT vector.id via JOIN) == len(CandidateIDs)` é **factível
+  e completa no corpus atual**.
+
+### As 6 ressALVAS de RIGOR (não-fatais — registrar no script de execução)
+
+O núcleo está fechado; estas ressalvas garantem que a medição não capture efeitos
+que não sejam o roteamento:
+
+1. **Full-scan irrestringível:** chamar o baseline com `Scope=nil` + `CandidateIDs`
+   vazio (NUNCA via resolver — as rotas reais confinariam e mediria "redução 0"
+   / clonagem). O roteado usa `ApplyScope` + `CandidateIDs` derivado do módulo.
+2. **`SearchParams` idênticos nos dois braços** (mesmos `Limit`, `Tags`, `Types`,
+   `EnableFTS`, `EnableVector`, `EnableGraph=false`, `CandidatePool=0`) — exceto
+   `Scope`/`CandidateIDs`. Senão a diferença medida vem de filtros/flags, não do roteamento.
+3. **Mesma representação de scoring** para recall justo: full-scan = int8/int16
+   (in-memory), roteado = float32 (bounded). OU forçar float32 nos dois (DisableInt8/
+   DisableInt16), OU documentar o ~0,5% de ruído de precisão.
+4. **Gate exact para TODAS as queries** (`Resolve(query).Modules == conjunto
+   esperado`), não só à ambígua. O gate "≥1 item" deixa entrar módulo errado.
+5. **Narrativa:** reportar `1 − ScannedVectors_roteado / ScannedVectors_fullscan`
+   **medido** (ex.: memory 71,1%, knowledge 85,5%, architecture 94,0%, runtime
+   99,22%, cli 98,71%, security 99,44%), NUNCA "99,9%" como fato — só como ordem
+   de grandeza hipotética.
+6. **Prova de exaustividade:** registrar que `COUNT(JOIN)==len(CandidateIDs)` é
+   verificação de **consistência/identidade do pipeline**, não de completude
+   absoluta. Risco latente: vetores de entidade (`document_id=''`) caso surjam no
+   futuro (hoje 0 no corpus — inofensivo).
+
+### Mecanismo FULL-SCAN vs ROTEADO (especificado — evita a clonagem)
+
+```
+FULL-SCAN:  Engine.Search(ctx, params)  — Scope=nil, CandidateIDs vazio (irrestringível)
+ROTEADO:    ApplyScope(resolver, query) — Scope=roteado, CandidateIDs=derivado do módulo
+Ambos:      EnableGraph=false, CandidatePool=0, MESMO Limit (top-K igual)
+```
+
+### Veredicto
+
+**🟢 APROVADO para executar** — com as 6 ressalvas de rigor registradas acima para
+a medição ser honesta. Sequência: `EXECUTAR → COMPARAR → PROVENANCE`.
+**NO CODE CHANGED** — o design foi auditar e aprovado sem tocar produção. 
