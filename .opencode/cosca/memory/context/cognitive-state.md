@@ -1,5 +1,19 @@
-# COGNITIVE STATE — Cosca v1.4.0-dev
-# Compressed: 2026-08-22T14:00:00Z | Session: deep-learning | Tokens: ~800/2000
+# COGNITIVE STATE — Cosca v1.5.0
+# Compressed: 2026-08-24 | Session: blindagem+gold+arquitetura-modular | Tokens: ~800/2000
+
+> ⚠️ RESUME (2026-08-24, fim de sessão): SESSAO CONCLUIDA E CONSOLIDADA — tudo commitado, testado, serve de pé.
+> DESTAQUES DA SESSAO (para o despertar):
+> 1. **Blindagem do Cofre** (commit 58673db): Oracle + IA local validam entrada; air-gap provado no WSL2+bwrap (SEM-ETH0); fix da bomba COSCA_ALLOW_NO_ROOT (fail-closed real).
+> 2. **Ranking multi-fator** (2d47bd6): fix do score=0 (ranking.New com pesos zero); score>0 comprovado.
+> 3. **Grafo ativado** (6c131a8): GraphDistance real via BFS + fix dirty flag (grafo agora persiste).
+> 4. **Gold** (4f8dad6): knowledge.db com grafo populado (36.539 entidades/32.535 relações) + dedup (28.888 vetores). knowledge.db SAIRÁ do git (índice derivado; >100MB).
+> 5. **Conduta da Chain** (f4a32ef): todo commit que toca internal/embed/cosca EXIGE cosca-check --sign-auto; senão o serve recusa subir (fail-closed). Serve não subiu por causa disso HOJE.
+> 6. **ADR-013** (5458adf): arquitetura de BANCOS MODULARES — Core=mapa (não depósito), <100MB por banco, zero-redundância, extensibilidade global (Cosca todo, não só jogo). Fatia 1 (modlink route resolver) + Fatia 2 (busca obedece ao SearchScope) implementadas. **Fatia 3 condicionada** a conteúdo/volume de mundo.
+> 7. **Lições de segurança**: nunca expor JWT_SECRET em output; nonce = consentimento-ao-conteúdo; CLAIM não é FACT (memoryguard Regra Zero).
+>
+> SERVE: roda no WSL2 via systemd (cosca-serve service), data-dir em /home/cosca/cosca/.cosca (ext4, chmod protege o banco), binário /home/cosca/cosca/bin/cosca. Health: http://127.0.0.1:14120/health.
+>
+> PRÓXIMO (pendências): (1) push da Fatia 2 (ahead 1), (2) Fatia 3 do ADR-013 condicionada a módulos de mundo com volume, (3) reconstruir .cosca/knowledge.db localmente ao clonar (índice derivado, não versionado).
 
 IDENTITY:
   kernel_level: 3
