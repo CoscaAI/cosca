@@ -5,28 +5,79 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 // Serialization: canonical, deterministic, versioned, hashable.
 //
-// The world model serializes to a canonical JSON form. Determinism is
-// guaranteed by:
-//   - Stable field order (Go structs marshal in declaration order)
-//   - SchemaVersion embedded in every payload
-//   - Deterministic entity ordering (sorted by ID when required)
-//   - No random/time elements in the serialized payloads (timestamps are
-//     provided by the caller, not injected by the serializer)
+// CANONICAL (regra do professor, item 10): the fingerprint must NOT depend
+// on insertion order. So A,B,C and C,A,B → the SAME hash. The serializer
+// sorts entities by ID and relations by (subject,object,relation) before
+// producing the canonical payload.
+//
+// Determinism is guaranteed by:
+//   - Entities sorted by ID
+//   - Relations sorted by (subject, object, relation)
+//   - SchemaVersion embedded
+//   - No random/time elements injected by the serializer
 
 // Error codes for serialization.
 const (
-	ErrSchemaMismatch      = "schema_version_mismatch"
-	ErrCorruptPayload      = "corrupt_payload"
+	ErrSchemaMismatch = "schema_version_mismatch"
+	ErrCorruptPayload = "corrupt_payload"
 )
 
-// MarshalWorldCanonical serializes a world deterministically.
-// The output is byte-for-byte reproducible for the same logical world.
+// canonicalWorld is a transient, order-independent projection of a World.
+// It is produced on-the-fly and is NOT the stored representation; it exists
+// solely to guarantee a canonical byte stream for hashing.
+type canonicalWorld struct {
+	WorldID       string          `json:"world_id"`
+	SchemaVersion int             `json:"schema_version"`
+	CoordSystem   CoordinateSystem `json:"coord_system"`
+	Entities      []Entity        `json:"entities"`
+	Relations     []Relation      `json:"relations"`
+	Weather       WeatherState    `json:"weather"`
+	Season        Season          `json:"season"`
+	Time          SimulationTime  `json:"time"`
+	Version       int             `json:"version"`
+}
+
+// buildCanonicalWorld constructs an order-independent projection of w.
+func buildCanonicalWorld(w *World) canonicalWorld {
+	entities := make([]Entity, len(w.Entities))
+	copy(entities, w.Entities)
+	sort.Slice(entities, func(i, j int) bool { return entities[i].ID < entities[j].ID })
+
+	relations := make([]Relation, len(w.Relations))
+	copy(relations, w.Relations)
+	sort.Slice(relations, func(i, j int) bool {
+		a, b := relations[i], relations[j]
+		if a.Subject != b.Subject {
+			return a.Subject < b.Subject
+		}
+		if a.Object != b.Object {
+			return a.Object < b.Object
+		}
+		return a.Relation < b.Relation
+	})
+
+	return canonicalWorld{
+		WorldID:       w.WorldID,
+		SchemaVersion: w.SchemaVersion,
+		CoordSystem:   w.CoordSystem,
+		Entities:      entities,
+		Relations:     relations,
+		Weather:       w.Weather,
+		Season:        w.Season,
+		Time:          w.Time,
+		Version:       w.Version,
+	}
+}
+
+// MarshalWorldCanonical serializes a world deterministically and
+// independent of insertion order. Same logical world ⇒ same bytes.
 func MarshalWorldCanonical(w *World) ([]byte, error) {
-	return json.Marshal(w)
+	return json.Marshal(buildCanonicalWorld(w))
 }
 
 // UnmarshalWorld decodes a serialized world, validating schema version.
@@ -55,9 +106,9 @@ func UnmarshalEntity(data []byte) (*Entity, error) {
 	return &e, nil
 }
 
-// WorldFingerprint computes a deterministic SHA-256 over the whole world's
-// canonical serialization. Same logical world ⇒ same fingerprint.
-// This enables reproduction/verification: "is this the same world?"
+// WorldFingerprint computes a deterministic SHA-256 over the canonical
+// (order-independent) serialization. Same logical world ⇒ same fingerprint,
+// regardless of insertion order.
 func WorldFingerprint(w *World) (string, error) {
 	data, err := MarshalWorldCanonical(w)
 	if err != nil {
@@ -70,17 +121,4 @@ func WorldFingerprint(w *World) (string, error) {
 // HashWorld returns the fingerprint as a hex string (convenience).
 func (w *World) HashWorld() (string, error) {
 	return WorldFingerprint(w)
-}
-
-// DeterministicEntities returns entities sorted by ID, so output is stable.
-func deterministicEntities(entities []Entity) []Entity {
-	out := make([]Entity, len(entities))
-	copy(out, entities)
-	// Simple insertion sort (stable, small n). Use sort.Slice for large n.
-	for i := 1; i < len(out); i++ {
-		for j := i; j > 0 && out[j].ID < out[j-1].ID; j-- {
-			out[j], out[j-1] = out[j-1], out[j]
-		}
-	}
-	return out
 }

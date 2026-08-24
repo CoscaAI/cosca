@@ -207,12 +207,22 @@ type EntityState struct {
 	Temporal        string `json:"temporal,omitempty"` // snapshot time
 }
 
+// Geometry is an abstract shape reference attached to an entity.
+// It is SEPARATE from the entity's semantics (regra do professor, item 5):
+// an entity is what it IS; geometry is its shape representation.
+type Geometry struct {
+	Kind     string   `json:"kind"`               // "point", "polygon", "linestring", "polyline", "volume", "bbox"
+	Points   []Vec3   `json:"points,omitempty"`   // polyline/polygon vertices
+	BoundingBox *BoundingBox `json:"bbox,omitempty"` // axis-aligned bounds
+}
+
 // Entity is a single canonical object in the world.
 type Entity struct {
 	ID          string         `json:"id"`          // stable entity ID (e.g. "tree_000184")
 	Class       EntityClass    `json:"class"`       // broad category
 	Type        EntityType     `json:"type"`        // specific type (e.g. "tree.oak")
 	Transform   Transform      `json:"transform"`
+	Geometry    *Geometry      `json:"geometry,omitempty"` // shape (separate from semantics)
 	BoundingBox *BoundingBox   `json:"bbox,omitempty"`
 	Parent      string         `json:"parent,omitempty"`  // parent entity ID
 	Children    []string       `json:"children,omitempty"` // child entity IDs

@@ -28,10 +28,15 @@ func RoadEntity(id string, line Line, width float64, prov Provenance) Entity {
 		Class:     ClassRoad,
 		Type:      "road.way",
 		Transform: Transform{Position: midpoint(line)},
+		Geometry: &Geometry{
+			Kind:       "linestring",
+			Points:     line.Points,
+			BoundingBox: lineBBox(line),
+		},
 		BoundingBox: lineBBox(line),
 		Properties: map[string]any{
-			"length": line.Length(),
-			"width":  width,
+			"length":  line.Length(),
+			"width":   width,
 			"surface": "asphalt",
 		},
 		State:     EntityState{Alive: true, Health: 1, Condition: "intact"},
@@ -59,19 +64,32 @@ func TreeEntity(id string, species string, pos Vec3, age string, prov Provenance
 
 // BuildingEntity creates a structure entity.
 func BuildingEntity(id string, pos Vec3, size Vec3, prov Provenance) Entity {
+	// Footprint polygon (separate from entity semantics — item 5).
+	footprint := Polygon{Points: []Vec3{
+		pos,
+		{pos.X + size.X, pos.Y, pos.Z},
+		{pos.X + size.X, pos.Y + size.Y, pos.Z},
+		{pos.X, pos.Y + size.Y, pos.Z},
+	}}
 	return Entity{
 		ID:        id,
 		Class:     ClassStructure,
 		Type:      "building.house",
 		Transform: Transform{Position: pos},
+		Geometry: &Geometry{
+			Kind:       "polygon",
+			Points:     footprint.Points,
+			BoundingBox: &BoundingBox{Min: pos, Max: pos.Add(size)},
+		},
 		BoundingBox: &BoundingBox{
 			Min: pos,
 			Max: pos.Add(size),
 		},
 		Properties: map[string]any{
-			"footprint_w": size.X,
-			"footprint_d": size.Y,
-			"height":      size.Z,
+			"footprint_w":  size.X,
+			"footprint_d":  size.Y,
+			"height":       size.Z,
+			"total_height": size.Z, // derived semantic height
 		},
 		State:     EntityState{Alive: true, Health: 1, Condition: "intact"},
 		Provenance: prov,
