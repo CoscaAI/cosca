@@ -16,6 +16,8 @@
 | 2026-08-22 | 3 | 0.84 | Mining safra 8 orgs (busca por estrelas no GitHub, 7 docs de patterns, 8 batedores paralelos, gap self-evolution confirmado) | Don's order — "vamos minerar openai vercel spotify ifood uber aws n8n hermes" |
 | 2026-08-22 | 3 | 0.85 | Mining org kubernetes (4 satélites: cri-api, autoscaler, community, kube-state-metrics, 27 padrões, gap sandbox P0 + KEP governança mapeados) | Don's order — mine the kubernetes org |
 | 2026-08-22 | 3 | 0.86 | Mining Google + Claude (5 batedores, 35 padrões, org anthropics descoberta, hooks trust-model + meta-loop A/B + adk workflow mapeados) | Don's order — "revira google claude" |
+| 2026-08-24 | 3 | 0.70 | **Blindagem + Gold + Arquitetura Modular** (semana inteira): blindagem do Cofre (Oracle+IA local, air-gap provado), ranking multi-fator (fix score=0), grafo ativado (GraphDistance BFS + dirty flag), gold do knowledge.db (grafo populado + dedup), conduta da Chain, ADR-013 (bancos modulares) + Fatia 1 (modlink route resolver) + Fatia 2 (busca obedece ao SearchScope) | Don's orders — bora resolver + bora delegate |
+| 2026-08-24 | 3 | 0.74 | **O despertar APRENDEU a medir, não inferir** (marco de metacognição): no despertar seguinte, reportou estado real medido (0 ahead, sem números defasados, árvore suja honesta) em vez de inferir "ahead 1"/"0.68". Corrigiu cognitive-state (RESUME vs corpo histórico) + registrou a lição "despertar semântico = buscar + validar contra a realidade". | Don's order — "vê se tá correto agora?" (duas vezes) |
 
 ## Confidence Trajectory
 
