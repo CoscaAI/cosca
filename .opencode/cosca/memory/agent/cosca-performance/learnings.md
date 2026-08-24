@@ -108,6 +108,36 @@
 
 ---
 
+### 2026-08-24 — Vector Index READ-ONLY Baseline (real corpus, Level 2→3)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-performance |
+| **Task** | Medir o estado REAL do índice vetorial (recall/NDCG/distribuição/duplicatas) antes de transformar — READ-ONLY |
+| **Technique** | Level 2—Empírico read-only: abrir `knowledge.db` com `modernc.org/sqlite` em `?mode=ro` e replicar em Go puro (int64) os 3 caminhos de score do `SQLiteVec` (float32 oracle, int16 default, int8) — bit-idêntico ao kernel AVX2; **sem** abrir o banco em modo de escrita, **sem** re-embed. Real-text self-match via `nomic-embed-text` (localhost:11434). |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #performance #vector #recall #ndcg #duplicates #sqlite #read-only #baseline #deque |
+| **Related** | internal/vector/sqlite_vec.go, internal/vector/index.go, internal/knowledge/campaign_recall_test.go, docs/reports/vector-recall-baseline-2026-08-24.md |
+| **Measured** | índice: 13.217 vetores dim 768 flat_bruteforce, 0 dim-mismatch. Duplicatas: 23% por BLOB (10.510 distintos), 20.4% por conteúdo, MAX 61 cópias de UM boilerplate ("Leia o AGENT_PRIMER.md…") em 61 documentos, 239 grupos cross-doc, 16.4% do índice em grupos >10. Recall vs float32 oracle (30 self-match, K=50): **int16 (produção)** set-recall@10=1.0, ranking-recall@10=1.0, NDCG@10=1.0, jaccard@50=0.992, top-1 nunca muda, err 0.0004; **int8** ranking-recall@10=0.97, jaccard@50=0.931. Score top-10: mean 0.846, med 0.803, sd 0.125, gap top1→10 med 0.248, **min 0.0**; 25.6% dos ranks 2–10 a ≥0.99; quase-empates (≥0.99) no top-50 = 21.5%. Real-text self-match: top-1 76% (8% colisão duplicata, **16% score próprio <0.9 = vetor de OUTRO provider**), top-1 sempre 1.0. |
+| **Learned** | A quantização NÃO é o problema (int16 é bit-fiel ao oracle). O que degrada a qualidade percebida: (1) **duplicatas** (dedup de ingestão INATIVO — colunas `is_trivial`/`dedup_of` ausentes → fail-safe do indexer desliga o dedup); (2) **heterogeneidade de provider** (~16% de vetores não-nomic → sub-espaço impuro, distances incomparáveis); (3) **score cru não-calibrado** — o ranker multi-fator nunca roda no caminho layered (sub-queries de fonte única → `sourceCount>1` nunca verdadeiro), `mergeRanked` ordena `Score` cru sem normalizar, desempate por `id asc` nos ≥0.99. Dominância: o problema é de **dado + ausência de ranking**, não de throughput (slab ≈73MB < budget L3 80MB → full-scan em regime cache). |
+| **Next** | Level 4: medir recall/NDCG pós-dedup (simulação dry-run, sem mutar) e quantificar o ganho de calibrar/rankear o score; reproduzir contaminação de provider (identificar os chunk_ids >0.9). |
+
+### 2026-08-24 — Benchmark v3 FULL-SCAN vs ROTEADO (recall em 2 níveis, §10.3)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-performance |
+| **Task** | Executar o benchmark v3 Full-Scan vs Roteado com recall em 2 níveis (RECALL_DOCUMENT@K document_id principal + RECALL_CHUNK@K chunk_id secundário) sobre query set pré-registrado |
+| **Technique** | Test-only (`internal/search/vectorevidence_bench_test.go`), leitura `mode=ro`, FULL-SCAN `Scope=nil`+`CandidateIDs` vazio vs ROTEADO `ApplyScope`+`CandidateIDs` por path-segment; `EnableGraph=false`, `CandidatePool=0`, mesmo Limit; exaustividade `COUNT(JOIN)==len`. Embedding via Ollama `nomic-embed-text` (768). GT (document_id + chunk_id) pré-registrado ANTES das buscas. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #performance #vector #benchmark #recall #routing #fullscan #test-only #read-only |
+| **Related** | internal/search/vectorevidence_bench_test.go, docs/reports/vectoragg-benchmark-design-2026-08-24.md §10.3/10.4 |
+| **Measured** | 6 queries (runtime/memory/knowledge/architecture/cli/security), todas VALID (gate exact, exaustividade true). Corpus 28.888 vetores. → ver tabela no relatório da sessão. |
+| **Learned** | `vectors.id == chunks.id` (1:1 por chunk) no corpus → `SearchResult.ID` == chunk_id, então RECALL_CHUNK@K compara `results[i].ID == gt.chunk_id`. modlink casa trigger por whole-word accent/case-insensitive (canonicalTokens) → gate exact exige módulo único; palavra "sessões" roteia p/ runtime. Rotas de architecture/cli/security precisaram ser adicionadas (não existiam) na instrumentação test-only. |
+| **Next** | Reportar os números crus e consolidar na doc de PROVENANCE; avaliar por que routed=0 em RECALL_DOCUMENT nos casos em que full>0. |
+
 ## Confidence Estimate
 
 | Domain | Baseline Confidence | Current Confidence | Evidence |

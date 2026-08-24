@@ -73,6 +73,21 @@
 | **Learned** | **Critical finding:** Content trust envelopes protect memories and knowledge but NOT the system prompt itself (agent definitions + AGENTS.md chain). This is the highest-authority position in the LLM context. The AGENTS.md chain is loaded from filesystem without integrity checks and injected raw into system prompt. Agent definitions can be overridden by placing .md files in .cosca/agents/ (last-wins). The .env loader has no key allowlist. The SandboxTool falls back to unsandboxed local execution. The execpolicy tokenizer doesn't interpret shell operators (|, &&, ;). On non-Linux, all sandbox is advisory. Suspicious content detector has only 5 markers. |
 | **Next** | Level 4: Implement cryptographic agent signatures, shell AST parser for execpolicy, runtime integrity monitor, per-agent trust tiers |
 
+## Session: 2026-08-24 — Windows Jail Fail-Closed Analysis (Level 3)
+
+### 2026-08-24 — Windows auto-jail: fail-closed vs fail-open vs opt-in
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-security |
+| **Task** | Analyze what happens when `cosca despertar` runs on Windows (no bwrap) |
+| **Technique** | Level 3 — Code audit of jail.go/jail_windows.go/jail_linux.go, main.go (isAdminCommand), jail_test.go (FailClosed), per-command Gate (chat/sandbox gate.go + gate_linux.go + gate_other.go), execpolicy, hardening |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #windows #jail #fail-closed #bwrap #appcontainer #jobobject #guardpact #threat-model |
+| **Related** | jail_windows.go, jail.go:jailFallback, main.go:isAdminCommand, chat/sandbox/gate.go, chat/sandbox/gate_other.go |
+| **Learned** | **Windows has NO sandbox at all.** (1) Auto-jail: jailAvailable() always false → ReexecInJail() hits jailFallback → SECURITY WARNING + exit 1 unless COSCA_ALLOW_NO_ROOT=1 (explicit opt-in). BUT isAdminCommand() bypasses ReexecInJail entirely for ~40 commands → they run unsandboxed unconditionally + silently. (2) Per-command Gate (chat/sandbox): findBwrap() returns "" on Windows → Execute(SandboxWorkspace) uses execWithoutSandbox → requires COSCA_ALLOW_NO_ROOT=1, else error. With opt-in = execDirect = `cmd /c <command>` with NO workspace confinement, NO network block, NO resource limits. The "network off/workspace confined" promise is broken on Windows. (3) SandboxTool (chat/tool/sandbox.go) runs python/go/sh via exec.CommandContext directly, bypassing the gate AND the opt-in, BUT it is NOT registered in engine_builder.go toolRegistry — latent risk, not active. (4) execpolicy tokenizer doesn't interpret shell operators (|&&;`$()`) so prefix rules are bypassable via `cmd /c`/`sh -c`; on Linux bwrap contains the blast radius, on Windows it's the last line and it leaks. (5) hardening.applyPlatformHardening is a no-op on Windows (no RLIMIT_CORE/dumpable/no_new_privs). **Verdict:** COSCA_ALLOW_NO_ROOT=1 is a documented explicit fail-open *escape hatch* (acceptable for trusted-dev), NOT a mitigation — it disables isolation. To honor the Guard Pact on Windows requires a real native isolator: AppContainer (capability-based FS/network scope, Win8+, moderate cost) + Job Object kill-on-close (≈--die-with-parent, low cost) + Low Integrity/Restricted Token (privilege cap, moderate). Windows Sandbox (kernel VM) is strongest isolation but too heavy/slow for `serve`. WSL2+bwrap reuses Linux jail logic (highest reuse, high ops cost). |
+| **Next** | Level 4: If Don approves a Windows tier, prototype an AppContainer + Job Object + Low-IL confinement for the per-command gate; fix execpolicy to parse shell operators; document Windows as trusted-dev-only tier in the Guard Pact. |
+
 ### 2026-08-22 — Key Security Architecture Patterns Discovered
 | Field | Value |
 |-------|-------|
@@ -85,3 +100,16 @@
 | **Related** | sandbox/rails.go, contenttrust/contenttrust.go, execpolicy/, hardening/ |
 | **Learned** | **Strong patterns:** (1) Path rails with symlink resolution + blocked dirs — comprehensive workspace escape prevention. (2) Content trust envelopes with JSON-escaped length-delimited content — prevents delimiter spoofing. (3) Bubblewrap with --unshare-all, --clearenv, --die-with-parent + resource limits (RLIMIT_AS, FSIZE, NOFILE). (4) Git command whitelist with stash subcommand restriction. (5) Env var allowlist at sandbox boundary. (6) Embed read-only enforcement via --ro-bind in bwrap. (7) Memory integrity gate at startup with first-boot baseline. (8) Null byte rejection in path validation. |
 | **Next** | Apply these patterns to close the gaps identified in V1-V13 |
+
+### 2026-08-24 — Threat model + blindagem do "Cofre" Windows (Don aprovou)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-security |
+| **Task** | Threat model + plano de blindagem do Cofre (air-gap, IA local + Oráculo) no Windows/WSL2 contra entrada não validada |
+| **Technique** | Level 3 — Leitura de deploy/README-WINDOWS.md, jail.go/jail_windows.go/jail_linux.go, vault.go, oracle.go/search.go, install-service.ps1, cognitive-state + wsl --status (v2.7.12/kernel 6.1, SEM distro instalada) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #threat-model #cofre #windows #wsl2 #fail-closed #air-gap #appcontainer #jobobject #low-il #oracle #p0-p1 |
+| **Related** | deploy/README-WINDOWS.md §4/§11, jail.go:jailFallback, jail_windows.go, install-service.ps1 L136, cosca-serve.bat L2, cosca-service.ps1, internal/oracle, docs/security/ |
+| **Learned** | (1) **Brecha central confirmada**: os launchers instalados (deploy/install-service.ps1 L136, cosca-serve.bat L2, cosca-service.ps1 L24/93) injetam `COSCA_ALLOW_NO_ROOT=1` por padrão → opt-in virou default → o cosca roda SEM sandbox no Windows, só emitindo SECURITY WARNING; a alegação de "fail-closed preservado" no README-WINDOWS §4/§11 é FALSA. (2) **WSL2 ativo (v2.7.12/kernel 6.1) MAS sem distro instalada** (`wsl -l -v` = nenhuma) → o plano (a) exige instalar distro não-root primeiro; bwrap no WSL2 precisa validar `apparmor_restrict_unprivileged_userns` (kernel 6.1). (3) **Air-gap não é automático**: WSL2 NAT fala com a rede do Windows; "zona Cofre isolada" precisa de egress realmente bloqueado (default route/firewall na distro), senão é air-gapped "no papel". (4) **Camadas priorizadas P0**: (b) fechar o opt-in default + gate isAdminCommand/por-comando falha-fechado; (a) jail WSL2+bwrap reusando buildJailArgs (workspace=/ + --unshare-all --unshare-user --clearenv --die-with-parent); (d) Oracle ingress gate-first (já existe, não regredir). **P1**: (c) Job Object + Low-IL + SetProcessMitigationPolicy + egress firewall (defense-in-depth, NÃO bloqueia exfil), execpolicy parser, SandboxTool. (5) **Trade-offs**: air-gap no papel / fail-closed quebra dev loop / (c) dá falsa sensação de segurança (não bloqueia leitura/exfil de serve.env+vault). (6) vault.go deriva a chave AES de COSCA_JWT_SECRET (ponto único—se vazar, tudo decifrável). |
+| **Next** | If Don approves a Windows tier: (P0) remove COSCA_ALLOW_NO_ROOT default + isAdminCommand gate; (P0) WSL2 distro + bwrap jail do cofre (2 zonas); (P1) Job Object+Low-IL+egress firewall spawner; fix execpolicy shell operators. Authorized doc-only so far. |

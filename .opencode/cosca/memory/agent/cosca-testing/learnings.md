@@ -57,3 +57,31 @@
 - **Growth Area** (E2E Testing): still 0.05 — no E2E work done
 
 **Next**: Level 4 — E2E test suite for critical user journeys, soak tests (>1h), CI pipeline integration with `-race` gate.
+
+---
+
+### 2026-08-24 — Fase B vectoragg×search (PROVA / TDD RED, contratos de confinamento)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-testing |
+| **Task** | Escrever a PROVA (teste RED) da Fase B — search não pode materializar 28.888 embeddings quando há Scope roteado |
+| **Technique** | TDD RED contratual; mock vector.Store que implementa `MetricsSearcher` e grava o conjunto de candidatos; previsibilidade RED/GREEN por contraste |
+| **Level** | 3 |
+| **Outcome** | success (1 RED esperado, 1 GREEN de contrapeso; 0 regressão na suíte) |
+| **Tags** | #testing #tdd-red #vectoragg #search #faseB #integração #contrato |
+| **Related** | `internal/search/faseb_pipeline_test.go`, `internal/search/scope.go`, `internal/search/search.go`, `internal/vectoragg/vectoragg.go` |
+
+**Key Learnings**:
+
+1. **PROVA contratual usa um "seam" observável, não um campo inexistente.** Para provar que `search` NÃO delega ao `vectoragg`, escrevi um `vector.Store` que implementa a superfície opcional `MetricsSearcher` e REGISTRA o slice de candidatos que a fase vetorial recebeu. Candidato `nil` ⇒ full-scan (`ScannedVectors == TotalVectors`); candidato não-vazio ⇒ caminho confinado. É o único jeito de provar o invariante SEM implementar a fiação (que é a fase IMPLEMENTAR, separada).
+
+2. **O par RED/GREEN é o que define a fronteira do contrato.** Teste 1 (Scope roteado + CandidateIDs ⇒ DEVE confinar) é RED hoje; Teste 2 (sem Scope ⇒ full-scan é legítimo) é GREEN hoje. Juntos documentam que o confinamento é exigido SÓ quando há scope — nunca como regra universal. Usar `SearchWithRoute` com rota CONHECIDA (RED) vs rota DESCONHECIDA/NoRoute (GREEN) para variar só a presença do scope.
+
+3. **TDD RED exige que o teste compile e rode** — não deve quebrar o `go build ./...`. A falha deve ser de ASSERT (runtime), não de compilação/import-ciclo. Evitei importar `vectoragg` no teste (seria um ciclo de intenção / impl); referencio o contrato apenas em comentários.
+
+4. **Mecanismo interno de candidatos ≠ contrato do vectoragg.** O `resolveChunkCandidates` do `search` só entende `chunks_fts_<rowid>` (exige cliente FTS) e viaja para `SearchWithCandidates`/`SearchWithMetrics`. O `vectoragg.RetrieveCandidates` aceita IDs de vetor permitidos diretamente e decodifica SÓ os TopK. A lacuna de fiação é exatamente essa: passar o conjunto roteado ao vectoragg (que o testa com IDs de vetor simples), em vez de depender da tradução via FTS.
+
+5. **Verificação final de "não quebrei a suíte":** rodar a suíte do pacote inteira e grep por `--- FAIL` deve listar APENAS o novo teste RED. `go build ./...` sem saída = build ok. `git status --short` deve mostrar apenas o arquivo de teste novo como artefato meu (o resto do workspace sujo é ruído pré-existente de outros agentes/runtime).
+
+**Next**: Fase IMPLEMENTAR — conectar `search ↔ vectoragg` e tornar o Teste 1 verde; depois, testar que o novo caminho NÃO introduz regressão de materialização.

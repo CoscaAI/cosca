@@ -544,3 +544,54 @@ func truncateText(text string, maxLen int) string {
 
 // Ensure compile-time checks.
 var _ = (FTSClient)(struct{ db *DB }{})
+
+// DocumentPaths resolves, in a single query (no N+1), the canonical `path`
+// (from the `documents` table) for each given document_id. It is the source of
+// the `SearchResult.DocumentPath` used by the routed-scope confinement
+// (`confineToScope`/`moduleMatches`), which keys on the document path — not on
+// the document id. Returns an empty string for ids that do not exist.
+//
+//	ids: document_ids (chunks/vectors reference these via document_id).
+//	returns: map[document_id]path (only for existing documents).
+func (c *FTSClient) DocumentPaths(ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	// Dedupe, keep the known ids.
+	seen := make(map[string]bool, len(ids))
+	unique := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return out, nil
+	}
+	placeholders := make([]string, len(unique))
+	args := make([]interface{}, len(unique))
+	for i, id := range unique {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	q := "SELECT id, path FROM documents WHERE id IN (" + strings.Join(placeholders, ",") + ")"
+	rows, err := c.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id, path string
+		if err := rows.Scan(&id, &path); err != nil {
+			return nil, err
+		}
+		out[id] = path
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

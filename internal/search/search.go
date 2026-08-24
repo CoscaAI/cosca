@@ -603,6 +603,33 @@ func parseFTSID(id string) (string, int64, bool) {
 // vectorResults converts raw vector store results into search results.
 func (e *Engine) vectorResults(vecResults []vector.SearchResult, params SearchParams) ([]SearchResult, error) {
 	results := make([]SearchResult, 0, len(vecResults))
+
+	// Propaga o path canônico do documento (documents.path) nos resultados
+	// vetoriais, pois o confinamento por escopo roteado (confineToScope /
+	// moduleMatches) chaveia por DocumentPath — não por DocumentID. Sem isso,
+	// todo resultado vetorial é descartado pelo escopo (DocumentPath vazio ⇒
+	// moduleMatches==false ⇒ confineToScope remove), produzindo recall=0 no
+	// caminho roteado (BUG confirmado na auditoria).
+	//
+	// Materialização em lote (uma única consulta WHERE id IN (...)) para evitar
+	// N+1. DocumentID vazio ⇒ sem path (resultado de cliente desconhecido).
+	var docPaths map[string]string
+	if e.fts != nil && len(vecResults) > 0 {
+		ids := make([]string, 0, len(vecResults))
+		seen := make(map[string]bool, len(vecResults))
+		for _, vr := range vecResults {
+			if vr.DocumentID != "" && !seen[vr.DocumentID] {
+				seen[vr.DocumentID] = true
+				ids = append(ids, vr.DocumentID)
+			}
+		}
+		if len(ids) > 0 {
+			if p, err := e.fts.DocumentPaths(ids); err == nil {
+				docPaths = p
+			}
+		}
+	}
+
 	for _, vr := range vecResults {
 		result := SearchResult{
 			ID:         vr.ID,
@@ -612,6 +639,9 @@ func (e *Engine) vectorResults(vecResults []vector.SearchResult, params SearchPa
 			DocumentID: vr.DocumentID,
 			Metadata:   vr.Metadata,
 			Snippet:    generateSnippet(vr.Content, params.Query, 200),
+		}
+		if docPaths != nil && vr.DocumentID != "" {
+			result.DocumentPath = docPaths[vr.DocumentID]
 		}
 		if vr.EntityID != "" {
 			result.EntityType = vr.Metadata["entity_type"]
