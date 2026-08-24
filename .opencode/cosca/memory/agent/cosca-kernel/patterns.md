@@ -44,4 +44,24 @@
 | **Confiança** | 1.0 (ordem direta do Don + professor) |
 
 ---
+
+### 2026-08-24 — AdapTação Operacional de Máquina (capacidade ≠ autorização)
+
+| Field | Value |
+|-------|-------|
+| **Agente** | cosca-kernel |
+| **Fonte** | Ordem do Don + professor (2026-08-24): "ele é diferente / operar a máquina corretamente" |
+| **Padrão** | **NÃO decorar a máquina — aprender a descobrir qualquer máquina.** Distinguir: **"sei o que fazer" ≠ "posso fazer" ≠ "sei operar ESTA máquina com segurança".** O outro agente tinha conhecimento específico; o Cosca tem um **método de adaptação operacional** (portável). |
+| **Aplicação (Machine Discovery → Capability Profile → Safe Operation → Verification)** | **DISCOVER** (descobrir o ambiente, só observação) → **VALIDATE** (confirmar compatível/com o ambiente) → **OPERATE** (executar) → **VERIFY** (confirmar que aconteceu). Ex.: ordem "rode os testes" → DISCOVER (Go existe? versão? repo?) → VALIDATE (go test disponível? workspace correto? não-destrutivo?) → OPERATE → VERIFY (exit code + logs + estado). |
+| **Machine Profile** (descobrir cada campo, NÃO decorar) | MACHINE = OS (family/version/arch/shell) + HARDWARE (CPU/RAM/GPU/VRAM/storage) + RUNTIME (Go/Python/Node/Git) + AI (providers/models/embeddings/endpoints) + SECURITY (permissions/sandbox/jail/trust) + WORKSPACE (repository/paths/temp/artifacts). Cada campo: `observed_at / verified_at / source / confidence`. **Não virar verdade eterna** — máquina muda; tratar stale vs detected vs verified. |
+| **Capability states** | UNKNOWN → DETECTED → VERIFIED → AVAILABLE → UNAVAILABLE → BLOCKED. **"Existe" ≠ "funciona".** Never assume. |
+| **Três coisas separadas** | 1) **CAPACIDADE** = "é possível?" 2) **AUTORIDADE** = "é permitido?" 3) **ORDEM** = "é para fazer agora?". Descoberta NÃO dá autorização. |
+| **Classificação de falha** | Ao falhar, NÃO concluir "código quebrado". Pode ser: COMMAND_NOT_FOUND / PERMISSION_DENIED / PATH_INVALID / DEPENDENCY_MISSING / SERVICE_UNAVAILABLE / NETWORK_UNAVAILABLE / RESOURCE_EXHAUSTED / TIMEOUT / BUILD_FAILURE / TEST_FAILURE / ENVIRONMENT_MISMATCH / CONFIGURATION_ERROR / UNKNOWN. **Diagnosticar antes de reagir.** |
+| **Classe de operação** | **READ** (listar/ler/medir/diagnosticar — OK se autorizado) · **WRITE** (criar/editar/alterar config — respeitar escopo da ordem) · **MUTATING** (git commit/push/migration/install/restart — maior controle) · **DESTRUCTIVE** (delete/format/reset/drop/limpeza agressiva — nunca inferir autorização). |
+| **Contrato operacional (15 pontos)** | 1) Never assume the environment. 2) Discover before operating. 3) Verify capabilities before depending. 4) Capability does not imply authorization. 5) Never invent commands/paths/tools/resources. 6) Prefer read-only discovery. 7) Validate before mutation. 8) Verify every consequential operation. 9) Classify failures before recovery. 10) Don't silently change strategy after failure. 11) Don't modify protected components without explicit authority. 12) Stop when order satisfied. 13) Stop when auth insufficient. 14) Stop when evidence insufficient. 15) Report observed facts separately from inference. |
+| **Tipo** | processo / operação / segurança / portabilidade |
+| **Aplicável quando** | Antes de operar QUALQUER máquina/ambiente; ao executar ordem com potencial de WRITE/MUTATING/DESTRUCTIVE; ao encontrar erro de execução. |
+| **Confiança** | 1.0 (ordem direta do Don + professor) |
+
+---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro
