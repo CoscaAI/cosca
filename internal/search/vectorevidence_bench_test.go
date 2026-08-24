@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/modlink"
+	"github.com/CoscaAI/cosca/internal/sqlite"
 	"github.com/CoscaAI/cosca/internal/vector"
 
 	_ "modernc.org/sqlite"
@@ -376,6 +377,17 @@ func TestVectorEvidence_FullScanVsRouted(t *testing.T) {
 	}
 	defer vecStore.Close()
 
+	// FTS client sobre o MESMO banco (modo read-only), reproduzindo o ambiente
+	// REAL de produção (knowledge.go: search.NewEngine(e.fts, ...)). Sem isso o
+	// vectorResults não consegue resolver o DocumentPath e o confineToScope
+	// descarta os resultados vetoriais (BUG do instrumento — ver auditoria).
+	ftsDB, err := sqlite.Open(sqlite.Config{Path: benchDBPath, AutoMigrate: false})
+	if err != nil {
+		t.Fatalf("open fts db: %v", err)
+	}
+	defer ftsDB.Close()
+	ftsClient := sqlite.NewFTSClient(ftsDB)
+
 	resolver := benchmarkResolver()
 
 	// Embedding: chamado por query (uma vez).
@@ -415,7 +427,7 @@ func TestVectorEvidence_FullScanVsRouted(t *testing.T) {
 			// Scope NIL + CandidateIDs vazio = full-scan verdadeiro.
 		}
 		var fullM benchMetrics
-		eng := NewEngine(nil, vecStore, nil, nil, func(ctx context.Context, text string) (*EmbeddingRequest, error) {
+		eng := NewEngine(ftsClient, vecStore, nil, nil, func(ctx context.Context, text string) (*EmbeddingRequest, error) {
 			return &EmbeddingRequest{Vector: vec}, nil
 		})
 		eng.MetricsSink = func(m vector.SearchMetrics) {
@@ -476,7 +488,7 @@ func TestVectorEvidence_FullScanVsRouted(t *testing.T) {
 
 		routedParams.CandidateIDs = candidates
 		var routedM benchMetrics
-		eng2 := NewEngine(nil, vecStore, nil, nil, func(ctx context.Context, text string) (*EmbeddingRequest, error) {
+		eng2 := NewEngine(ftsClient, vecStore, nil, nil, func(ctx context.Context, text string) (*EmbeddingRequest, error) {
 			return &EmbeddingRequest{Vector: vec}, nil
 		})
 		eng2.MetricsSink = func(m vector.SearchMetrics) {
