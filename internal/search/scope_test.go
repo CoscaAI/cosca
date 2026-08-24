@@ -2,10 +2,12 @@ package search
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/CoscaAI/cosca/internal/graph"
 	"github.com/CoscaAI/cosca/internal/modlink"
+	"github.com/CoscaAI/cosca/internal/sqlite"
 	"github.com/CoscaAI/cosca/internal/vector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -355,4 +357,70 @@ func TestScopeModuleMatchesDeterministic(t *testing.T) {
 	// E a ordem de avaliação não altera o resultado (função pura).
 	got := moduleMatches("memory", SearchResult{DocumentPath: "content/unreal/y.md"})
 	assert.False(t, got)
+}
+
+// ── ANTI-REGRESSÃO: contrato `vector result → DocumentPath → scope` ─────────
+//
+// Este teste protege o bug corrigido na auditoria do instrumento (recall=0):
+// o vectorResults NÃO preenchia SearchResult.DocumentPath, e o confineToScope
+// (que chaveia por DocumentPath) descartava TODO o resultado vetorial no caminho
+// roteado. Ele falha se vectorResults voltar a produzir um SearchResult com o
+// DocumentPath vazio para um documento conhecido — exatamente o que causava o
+// recall=0 mesmo com o GT no candidate set e a produção achando o top-1.
+//
+// Contrato verificado (comportamento observável, não inspeção interna):
+//   - o vetor pertence a um documento de um módulo conhecido (memory);
+//   - o resultado vetorial (via vectorResults) carrega o DocumentPath;
+//   - o moduleMatches/scope reconhece o módulo;
+//   - o confineToScope NÃO descarta o resultado.
+func TestVectorResults_PropagatesDocumentPath_ScopeKeepsResult(t *testing.T) {
+	// 1. DB em memória/temp com a tabela `documents` (id, path) — a fonte
+	//    canônica do DocumentPath que o FTSClient.DocumentPaths resolve.
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "knowledge.db")
+	ftsDB, err := sqlite.Open(sqlite.Config{Path: dbPath, AutoMigrate: false})
+	require.NoError(t, err)
+	defer ftsDB.Close()
+	_, err = ftsDB.Exec(`CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, path TEXT)`)
+	require.NoError(t, err)
+	_, err = ftsDB.Exec(`INSERT INTO documents (id, path) VALUES (?, ?)`,
+		"doc-mem-1", ".cosca/fallback/memory/notes.md")
+	require.NoError(t, err)
+	ftsClient := sqlite.NewFTSClient(ftsDB)
+
+	// 2. mockVectorStore retorna um resultado VETORIAL genuíno com DocumentID
+	//    (NÃO EntityID — o caminho que quebrava: sem DocumentPath o scope descarta).
+	docID := "doc-mem-1"
+	vs := &mockVectorStore{
+		searchFunc: func(query []float64, limit int) ([]vector.SearchResult, error) {
+			return []vector.SearchResult{
+				{ID: "chunk-mem-1", Score: 0.9, DocumentID: docID, Content: "memoria notes"},
+			}, nil
+		},
+	}
+	engine := NewEngine(ftsClient, vs, nil, nil, stubEmbedFunc)
+
+	// 3. Scope roteado {memory}; a busca vetorial deve manter o hit de memory.
+	params := SearchParams{
+		Query:        "memoria",
+		Limit:        20,
+		EnableVector: true,
+		EnableFTS:    false,
+		EnableGraph:  false,
+		Scope:        &modlink.SearchScope{Modules: []string{"memory"}},
+	}
+
+	res, err := engine.Search(context.Background(), params)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	// CONTRATO: o resultado não é descartado (se DocumentPath ficasse vazio,
+	// moduleMatches=false e confineToScope o removeria → TotalCount=0).
+	assert.Equal(t, 1, res.TotalCount,
+		"contrato: vetor de um documento de 'memory' deve sobreviver ao scope")
+	require.Len(t, res.Results, 1)
+	assert.Equal(t, "chunk-mem-1", res.Results[0].ID)
+	// O DocumentPath foi propagado (a fonte da correção do bug).
+	assert.Equal(t, ".cosca/fallback/memory/notes.md", res.Results[0].DocumentPath,
+		"contrato: vectorResults deve preencher DocumentPath (nao pode voltar a vazio)")
 }
