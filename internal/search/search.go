@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/graph"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/ranking"
 	"github.com/CoscaAI/cosca/internal/sqlite"
 	"github.com/CoscaAI/cosca/internal/vector"
@@ -114,6 +115,19 @@ type SearchParams struct {
 	// CandidateIDs (hybrid-first recency pool). Ignored when CandidateIDs is
 	// empty. When <= 0, no recency pool is added.
 	CandidatePool int
+
+	// Scope, quando não-nil e com Modules não-vazio, confina a busca híbrida ao
+	// espaço de busca roteado pelo modlink (ADR-013 §3.2): apenas resultados que
+	// mapeiam a um dos módulos do escopo (via `documents.path` ou `entity_type`)
+	// são retornados; os demais são descartados. A busca REFINA o espaço já
+	// escolhido pelo roteador determinístico — ela nunca escolhe o espaço.
+	//
+	// Retrocompatível (invariante do professor): quando Scope é nil OU tem
+	// Modules vazio (ex.: um escopo NoRoute), a busca é ilimitada — exatamente o
+	// comportamento atual. Não cria coluna `domain`/`module` no banco (isso é
+	// Fatia 3, condicionada a ter conteúdo de mundo indexado); usa o sinal
+	// honesto já existente: o path do documento (e o entity_type).
+	Scope *modlink.SearchScope
 }
 
 // DefaultSearchParams returns sensible defaults.
@@ -244,6 +258,17 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 				}
 			}
 		}
+	}
+
+	// Phase 3.5 — confinamento por módulo (ADR-013 §3.2, Fatia 2).
+	// Quando um `Scope` roteado (modlink) veio com módulos, a busca NUNCA
+	// "pesquisa tudo": apenas resultados que mapeiam a um dos módulos do escopo
+	// sobrevivem, e os demais são descartados do espaço roteado. Scope nil ou
+	// Modules vazio → busca ilimitada (comportamento atual, retrocompatível).
+	// Isso acontece ANTES do re-rank: o ranking opera só sobre o espaço já
+	// confinado, e `totalCount` conta apenas os hits in-scope.
+	if params.Scope != nil && len(params.Scope.Modules) > 0 {
+		allResults = confineToScope(allResults, params.Scope.Modules)
 	}
 
 	// Phase 4: Re-rank — only when results come from multiple sources.
@@ -530,12 +555,13 @@ func (e *Engine) searchGraph(params SearchParams) ([]SearchResult, error) {
 	results := make([]SearchResult, 0, len(matchedNodes))
 	for _, node := range matchedNodes {
 		result := SearchResult{
-			ID:         node.ID,
-			Type:       ResultEntity,
-			Score:      0.5, // base score for graph matches
-			Title:      node.Name,
-			EntityType: node.Type,
-			Metadata:   make(map[string]string),
+			ID:           node.ID,
+			Type:         ResultEntity,
+			Score:        0.5, // base score for graph matches
+			Title:        node.Name,
+			EntityType:   node.Type,
+			DocumentPath: node.Path, // sinal de domínio (path) p/ o confinamento por escopo
+			Metadata:     make(map[string]string),
 		}
 
 		if desc, ok := node.Metadata["description"].(string); ok {

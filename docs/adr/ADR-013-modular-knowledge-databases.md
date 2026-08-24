@@ -439,7 +439,21 @@ Cada módulo tem seu **próprio schema versionado** e seu **próprio `migration_
 - Mudar `internal/sqlite/migrations.go` — intocado; reusado.
 - O **air-gap** do Core (ADR-012) — escopo do ADR-012, não deste.
 
+### 📌 FATIA 2 — BUSCA OBEDECE AO SCOPE (implementado 2026-08-24) + FATIA 3 CONDICIONADA
+
+**Fatia 2 (implementada, bounded):** `SearchParams.Scope *modlink.SearchScope` (campo opcional, `nil` = busca atual intacta). O fluxo é o professor definiu: `QUERY → modlink.Resolver.ResolveRoute → SearchScope → SearchParams.Scope → Engine.Search` — a **busca semântica REFINA o espaço já roteado** (não escolhe o espaço). Em `internal/search/scope.go`: extração determinística de módulo do `path` (segmento igual, case-insensitive) + `entity_type` como sinal secundário + `confineToScope`. **Retrocompatível.**
+
+**⚠️ LIMITAÇÃO HONESTA + CONDIÇÃO DA FATIA 3 (regra do professor — NÃO criar módulo sem volume/fronteira):**
+- O schema atual **NÃO tem coluna `domain`/`module`**; a única pista de domínio é `documents.path`/`entity_type`.
+- **NÃO existe conteúdo de mundo** (`vegetation`, `world`, `unreal`, `gis`) indexado ainda: o `knowledge.db` de hoje é ~2002 docs em `internal/embed/cosca/...` + ~334 em `.cosca/fallback/memory/...`. Logo, um escopo `{vegetation, world}` retorna **vazio** (correto — nunca recai em "pesquisar tudo").
+- **A Fatia 3 (coluna `domain`/`module` no schema e/ou indexar módulos de mundo) fica CONDICIONADA** a: *"quando os módulos de mundo tiverem conteúdo indexado com volume/fronteira próprios."* O professor foi explícito: **"Não criar uma tabela/módulo só porque apareceu uma nova categoria. Primeiro provar que existe responsabilidade, volume e fronteira próprios. Senão trocamos o 'banco monstro' por um 'zoológico de microbancos'."**
+- **Nem todo módulo precisa virar banco imediatamente**: domínio com pouco conteúdo continua como armazenamento simples dentro da fronteira; só ganha estrutura própria quando houver volume/indexação/necessidade operacional.
+
+**Estado das fatias:** Fatia 1 (`internal/modlink`, route resolver determinístico) ✅ commitado · Fatia 2 (busca obedece ao scope) ✅ implementado+validado · Fatia 3 (coluna de domínio / conteúdo de mundo) ⏳ **condicionada a volume/fronteira**.
+
 ---
+
+
 
 ## 7. A tese do Don — por que módulos = inteligência (o coração da decisão)
 
