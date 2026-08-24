@@ -74,5 +74,19 @@
 | **Tags** | #chain #family-chain #integritada #embed #serve-caiu #fail-closed #protecao-da-familia #conduta |
 | **Avoidance Pattern** | Regra: commit que toca o embed → `cosca-check --sign-auto` na sequência. Diagnóstico: serve não sobe → checar `git log -1` vs último bloco da chain ANTES de investigar outra coisa. |
 
+### 2026-08-24 — Exposei o JWT_SECRET no output (descuido de segurança)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Configurar o serve no WSL e inspecionar o serviço systemd |
+| **Failed Approach** | Ao `cat` do arquivo de serviço para verificar `ExecStart`/`Environment=`, o `COSCA_JWT_SECRET` (o valor real) apareceu **cru no output do terminal**. Era um segredo e não devia ser exibido. |
+| **Root Cause** | Tratei segredo como config comum. Não redigi o output ao inspecionar um arquivo que contém segredo. |
+| **Consequence** | O secret apareceu na sessão/log. Não vazou para fora (era o terminal local do Don), mas foi um descuido de segurança inaceitável — o tipo de coisa que a família não tolera. |
+| **Lesson** | **Segredo nunca aparece em output de inspeção.** Ao ler arquivos que contêm segredos (serve.env, serviço systemd com Environment=, configs), usar `grep` com redação (`-replace 'SECRET=.*', 'SECRET=<REDACTED>'`) ou mostrar só o nome da variável, nunca o valor. Tratar segredo como ouro. |
+| **Confidence Impact** | -0.05 |
+| **Tags** | #segredo #jwt #output #seguranca #redaction #descuido #lei-da-familia |
+| **Avoidance Pattern** | Antes de exibir qualquer arquivo/env que possa conter segredo, redigir o valor (`<REDACTED>`). Verificar se o que vai pro output é segredo. Nunca `cat` de serve.env/arquivo de secret sem redação. |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
