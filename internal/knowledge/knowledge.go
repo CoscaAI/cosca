@@ -700,6 +700,13 @@ func (e *Engine) RootDir() string {
 	return e.cfg.RootDir
 }
 
+// Ranker expõe o re-rankear multi-fator do engine, para que camadas
+// superiores (ex.: LayeredSearch no CLI) possam injetá-lo via SetRanker. É
+// imutável após Init() — retorno direto é seguro e não exige cópia.
+func (e *Engine) Ranker() *ranking.Ranker {
+	return e.ranker
+}
+
 // IndexDocument indexes a single document through the full pipeline.
 func (e *Engine) IndexDocument(ctx context.Context, path string) error {
 	e.mu.RLock()

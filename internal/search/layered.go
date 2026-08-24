@@ -24,6 +24,8 @@ import (
 	"unicode"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/CoscaAI/cosca/internal/ranking"
 )
 
 // Layer identifies a search layer in the progressive-cost ladder.
@@ -145,7 +147,8 @@ type LLMHook func(ctx context.Context, query string, candidates []SearchResult) 
 type LayeredSearch struct {
 	engine  LayeredSearcher
 	cfg     LayeredConfig
-	llmHook LLMHook // opcional; wire later via SetLLMHook
+	llmHook LLMHook          // opcional; wire later via SetLLMHook
+	ranker  *ranking.Ranker  // opcional; wire later via SetRanker
 }
 
 // NewLayeredSearch creates a layered search over the given engine.
@@ -157,6 +160,17 @@ func NewLayeredSearch(engine LayeredSearcher, cfg LayeredConfig) *LayeredSearch 
 // receiver for chaining.
 func (l *LayeredSearch) SetLLMHook(hook LLMHook) *LayeredSearch {
 	l.llmHook = hook
+	return l
+}
+
+// SetRanker registra o re-rankear multi-fator opcional. Quando injetado, os
+// candidatos finais retornados por Search() são re-rankeados pelo Ranker e o
+// score combinado normalizado é propagado de volta em cada SearchResult.Score.
+// Quando nil (default), o comportamento atual (`mergeRanked` por score cru)
+// é preservado — retrocompatível. Retorna o receptor para encadeamento, no
+// mesmo padrão de SetLLMHook.
+func (l *LayeredSearch) SetRanker(r *ranking.Ranker) *LayeredSearch {
+	l.ranker = r
 	return l
 }
 
@@ -185,6 +199,19 @@ func (l *LayeredSearch) Search(ctx context.Context, query string) (*LayeredResul
 	cfg := normalizeLayeredConfig(l.cfg)
 
 	res := &LayeredResult{}
+
+	// Re-ranking multi-fator (retrocompatível): quando um Ranker é injetado via
+	// SetRanker, re-rankeamos os candidatos finais (em QUALQUER camada de
+	// parada, inclusive a mesclagem L3) e PROPAGAMOS o score combinado
+	// normalizado de volta em cada SearchResult.Score — em vez do cosseno/BM25
+	// cru. O defer garante uma única aplicação em TODOS os caminhos de retorno
+	// (L1..L4), sem tocar em StoppedEarly/Reason/Stats. Com l.ranker == nil
+	// nada muda (mergeRanked por score cru permanece).
+	if l.ranker != nil {
+		defer func() {
+			res.Results = rerankResults(l.ranker, res.Results, query)
+		}()
+	}
 
 	// ── L1 — FTS5 (zero IA, mais barata) ──────────────────────────────────
 	ftsParams := SearchParams{

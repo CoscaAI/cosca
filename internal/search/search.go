@@ -262,9 +262,11 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 		sourceCount++
 	}
 	if sourceCount > 1 && params.Query != "" && e.ranker != nil {
-		rankables := e.toRankables(allResults)
-		ranked := e.ranker.Rank(rankables, params.Query)
-		allResults = e.fromRankables(ranked)
+		// Re-ranking multi-fator: reordena pelos scores combinados E PROPAGA o
+		// score final normalizado de volta (bug #2 — o Score exposto antes
+		// permanecia o cosseno/BM25 cru). O módulo de ranking é reutilizado por
+		// completo (pesos/fórmulas intactos).
+		allResults = rerankResults(e.ranker, allResults, params.Query)
 	} else {
 		// Sort by score descending (preserves raw vector/BM25 scores)
 		sort.Slice(allResults, func(i, j int) bool {
@@ -645,6 +647,50 @@ func (e *Engine) fromRankables(rankables []ranking.Rankable) []SearchResult {
 		results[i].Rank = i + 1
 	}
 	return results
+}
+
+// rerankResults re-rankeia results com o Ranker multi-fator, reordenando pelos
+// scores combinados e PROPAGANDO o score final normalizado de volta em cada
+// SearchResult.Score (e Rank = posição). Reutiliza ranking.Rank (ordem final) e
+// ranking.ExplainRanked (score combinado por item — mesmo algoritmo e mesmas
+// normalizações min-max), então nenhuma lógica de score é duplicada.
+//
+// Retrocompatível: quando ranker == nil, a query é vazia ou não há resultados,
+// devolve os resultados inalterados — o comportamento de mergeRanked por score
+// cru permanece.
+func rerankResults(ranker *ranking.Ranker, results []SearchResult, query string) []SearchResult {
+	if ranker == nil || len(results) == 0 || strings.TrimSpace(query) == "" {
+		return results
+	}
+	rankables := make([]ranking.Rankable, len(results))
+	for i := range results {
+		rankables[i] = &searchResultRankable{result: results[i]}
+	}
+
+	// Score combinado por item. O ExplainRanked retorna um breakdown por item
+	// NA MESMA ORDEM e com o MESMO algoritmo que o Rank, então casamos por
+	// POSIÇÃO, não por ID: os IDs dos resultados vindos do vectorLayer (chunk_id)
+	// e do FTS5 (chunks_fts_<rowid>) têm formatos diferentes e nunca bateriam
+	// num mapa por chave — era a causa do score zerado na saída (Fase 2 bug).
+	breaks := ranker.ExplainRanked(rankables, query)
+	totalByPos := make([]float64, len(breaks))
+	for i, b := range breaks {
+		totalByPos[i] = b.Total
+	}
+
+	ranked := ranker.Rank(rankables, query)
+	out := make([]SearchResult, len(ranked))
+	for i, r := range ranked {
+		sr := r.(*searchResultRankable).result
+		sr.Rank = i + 1
+		// O Rank reordena exatamente conforme a ordem dos breaks, então a
+		// posição i no ranked corresponde à posição i no breakdown.
+		if i < len(totalByPos) {
+			sr.Score = totalByPos[i]
+		}
+		out[i] = sr
+	}
+	return out
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

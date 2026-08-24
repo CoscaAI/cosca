@@ -294,7 +294,7 @@ invoca um LLM por si só; o provedor é plugado depois.`,
 
 			cfg := search.DefaultLayeredConfig()
 			cfg.AllowLLM = allowLLM
-			ls := search.NewLayeredSearch(ke, cfg)
+			ls := search.NewLayeredSearch(ke, cfg).SetRanker(ke.Ranker())
 
 			res, err := ls.Search(ctx, args[0])
 			if err != nil {

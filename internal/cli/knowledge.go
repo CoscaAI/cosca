@@ -179,7 +179,7 @@ local e também faz grep nos documentos globais adquiridos.`,
 
 			// Use layered search with cosine similarity (same pipeline as `cosca search layered`)
 			lsCfg := search.DefaultLayeredConfig()
-			ls := search.NewLayeredSearch(ke, lsCfg)
+			ls := search.NewLayeredSearch(ke, lsCfg).SetRanker(ke.Ranker())
 			res, sErr := ls.Search(cmd.Context(), args[0])
 			if sErr != nil {
 				return fmt.Errorf("search failed: %w", sErr)

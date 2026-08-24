@@ -85,15 +85,47 @@ type Ranker struct {
 }
 
 // New creates a new Ranker with the given configuration.
+//
+// Um Config vazio (struct zero) não deve produzir um ranker que zera o score:
+// sem os pesos default, o total ponderado seria 0.25*0+0.35*0+...=0 e TODO
+// resultado sairia com score 0 (bug da Fase 2 no caminho real do knowledge
+// search, onde o engine cria `ranking.New(e.cfg.RankingConfig)` com a struct
+// zero). Aplicamos os defaults de DefaultConfig a qualquer campo zero — o
+// chamador que quiser pesos personalizados passa todos os que importam.
 func New(cfg Config) *Ranker {
+	def := DefaultConfig()
+	if cfg.BM25Weight <= 0 {
+		cfg.BM25Weight = def.BM25Weight
+	}
+	if cfg.VectorWeight <= 0 {
+		cfg.VectorWeight = def.VectorWeight
+	}
+	if cfg.GraphWeight <= 0 {
+		cfg.GraphWeight = def.GraphWeight
+	}
+	if cfg.FreshnessWeight <= 0 {
+		cfg.FreshnessWeight = def.FreshnessWeight
+	}
+	if cfg.PopularityWeight <= 0 {
+		cfg.PopularityWeight = def.PopularityWeight
+	}
 	if cfg.BM25K <= 0 {
-		cfg.BM25K = 1.2
+		cfg.BM25K = def.BM25K
 	}
 	if cfg.BM25B <= 0 {
-		cfg.BM25B = 0.75
+		cfg.BM25B = def.BM25B
 	}
 	if cfg.FreshnessHalfLife <= 0 {
-		cfg.FreshnessHalfLife = 7 * 24 * 3600
+		cfg.FreshnessHalfLife = def.FreshnessHalfLife
+	}
+	// NormalizeScores é bool: na struct zero ele é false, mas o default é true.
+	// Usamos um sentinela: se NENHUM campo foi setado (config realmente vazia),
+	// aplicamos o default de normalização também. Quem passa uma config
+	// personalizada com NormalizeScores=false explícito mantém o comportamento
+	// (o caso de config totalmente vazia + NormalizeScores=false é intencional
+	// apenas quando todos os pesos também são setados — raro).
+	if cfg == (Config{}) {
+		cfg.NormalizeScores = def.NormalizeScores
 	}
 	return &Ranker{cfg: cfg}
 }
