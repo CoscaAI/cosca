@@ -73,7 +73,14 @@ não está mais descartando o GT na camada `search`.
 
 ## 5. VERDICT (o resultado científico — provado, não prometido)
 
-### 5.1 A arquitetura está CORRETA e agora PROVADA
+### 5.1 Hipótese principal SUSTENTADA (não universalmente provada — rigor)
+
+> **Qualificação (professor/Don):** seis queries são **evidência forte**, não uma
+> lei da natureza. O resultado sustenta a hipótese no **corpus e conjunto de queries
+> desenhados** — especialmente após 3 rodadas tentando quebrá-lo. **Não** prova
+> universalmente nenhum router; prova muito bem a propriedade neste experimento.
+> Estado: **🟢 Hipótese principal sustentada — ainda sob validação contínua.** Sem
+> champagne ainda. 🍾❌
 
 | Métrica | Resultado | Leitura |
 |---|---|---|
@@ -121,7 +128,7 @@ melhora** o recall em relação ao full-scan.
 
 ---
 
-## 7. O que o experimento finalmente PROVOU (o fechamento do arco)
+## 7. O fechamento do arco (e o que continuamos a testar)
 
 ```
 v1 (design) → FAIL → v2 → FAIL → v2.1 → PASS
@@ -131,11 +138,13 @@ v1 (design) → FAIL → v2 → FAIL → v2.1 → PASS
   → vectorResults NÃO propaga DocumentPath → confineToScope descarta
   → FIX → TEST mínimo → benchmark re-executado
   → recall routed 0→1 em 5/6, com ~99% menos trabalho
-  → ARQUITETURA PROVADA (router preserva evidência, reduz espaço)
+  → HIPÓTESE SUSTENTADA (não universalmente provada): o router preserva a evidência
+    e reduz o espaço, no corpus e conjunto de queries testados
 ```
 
 > **O professor não quebrou o RAG — quebrou o microscópio; e consertamos o
-> microscópio SEM tocar na arquitetura.** Agora o RAG está provado com instrumento
-> calibrado: **o router reduz o espaço drasticamente sem eliminar a evidência
-> relevante**, com exações de granularidade (Q3) e doc-vs-chunk (Q2) que são da
-> busca, não do roteamento.
+> microscópio SEM tocar na arquitetura.** Agora o instrumento está calibrado e o
+> experimento sustenta a hipótese: **o router reduz drásticamente o espaço sem
+> eliminar a evidência relevante**, no corpus/queries testados — com as exações de
+> granularidade (Q3) e doc-vs-chunk (Q2), que são da busca, não do roteamento.
+> **🟢 Hipótese sustentada — ainda sob validação contínua. Sem champagne.** 🍾❌
