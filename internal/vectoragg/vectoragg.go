@@ -57,6 +57,48 @@
 // The aggregator is NOT a database. It is the READING that unites the modules.
 // It materializes projections and consults the routed space; it owns no
 // source of truth and is always reconstructible.
+//
+// # CANDIDATE RETRIEVAL + TOP-K CONTRACT (Caminho A — ADR-013 §10, audit P1-P4)
+//
+// The pre-existing readers (Vectors/Entities/Relationships/FTSBM25/QueryScope/
+// Counts) are the LOW-LEVEL projection readers and are kept for compatibility;
+// they are NOT the search path. The search path is the following bounded
+// contract, which uses the SAME vocabulary as internal/search.SearchParams
+// (Query/Scope/CandidateIDs/TopK) but is intentionally isolated from it:
+//
+//	// SearchRequest: QUERY (o que) separado de SCOPE (onde). RouteID é metadado.
+//	type SearchRequest struct {
+//	    Query        string               // conteúdo pesquisado (o que) → chega ao FTS MATCH
+//	    Scope        *modlink.SearchScope // onde pode pesquisar (opcional) — confinamento físico (P1)
+//	    CandidateIDs []string             // ids permitidos (fonte de candidatos) — NUNCA "ler tudo"
+//	    TopK         int                  // top-K explícito; 0 = SEM resultados, nunca "sem limite"
+//	}
+//
+// // CandidateVectorResult: métricas de confinamento (prova do P4).
+// type CandidateVectorResult struct {
+//	    Request      SearchRequest
+//	    Vectors      []VectorRecord // decodificados (no máximo TopK)
+//	    ScopeModules []string
+//	    CandidateSet int            // ids de candidatos aceitos (fonte)
+//	    Decoded      int64          // BLOBs decodificados (<= TopK)
+//	    BytesDecoded int64          // bytes de vetor decodificados
+//	    Truncated    bool           // existiam mais candidatos que TopK
+//	}
+//
+// Contract invariants (enforced by implementation, proven by tests):
+//   - P4: Vectors are decoded ONLY for the permitted CandidateIDs, at most TopK
+//     of them. CandidateIDs empty = zero candidates (never materialize all).
+//   - P1: Scope → allowed modules → allowed candidate IDs → retrieval → decode.
+//     A scope that does not name the vector module yields NO candidates; it is
+//     physical confinement, NOT "module + LIMIT 10" truncation.
+//   - P3: Search/FTSMatch send the ORIGINAL Query to the FTS5 `MATCH ?`; the
+//     RouteID is metadata and is never used as search text (its '.'/'|'
+//     separators would raise an FTS5 syntax error).
+//   - P2: CatalogCounts() is the TOTAL catalog; ScopeCounts(scope) counts only
+//     the modules in scope. Distinct semantics, both explicit.
+//   - TOPK<=0 means "no results" in every search API with a scope — never the
+//     legacy "LIMIT 0 == no limit" behaviour (which remains only on the
+//     low-level readers, not the search path).
 package vectoragg
 
 import (
@@ -191,6 +233,41 @@ type ScopeProjection struct {
 	Relationships []RelationshipRecord `json:"relationships"`
 	FTSHits       []FTSHit             `json:"fts_hits"`
 	Counts        Counts               `json:"counts"`
+}
+
+// SearchRequest is the bounded search contract of the read-model (Caminho A,
+// ADR-013 §10). It carries the QUERY (what to search) SEPARATED from the SCOPE
+// (where to search), matching the vocabulary of internal/search.SearchParams
+// (Query / Scope / CandidateIDs / TopK) without importing that package.
+//
+//   - Query is the original user text. It is the ONLY thing that reaches the
+//     FTS5 `MATCH ?` operator. The scope's RouteID is metadata and is never
+//     used as search text (audit P3).
+//   - CandidateIDs is the SOURCE of the permitted vector IDs: the decode step
+//     runs ONLY on these candidates, never on the whole index (audit P4).
+//   - TopK is explicit. TopK == 0 means "no results" (never "no limit").
+//
+//nolint:revive // Stutter name aligned with search.SearchRequest vocabulary.
+type SearchRequest struct {
+	Query        string               // conteúdo pesquisado (o que) → chega ao FTS MATCH
+	Scope        *modlink.SearchScope // onde pode pesquisar (opcional) — confinamento físico (P1)
+	CandidateIDs []string             // ids permitidos (fonte de candidatos) — NUNCA "ler tudo"
+	TopK         int                  // top-K explícito; 0 = SEM resultados, nunca "sem limite"
+}
+
+// CandidateVectorResult is the outcome of candidate retrieval + top-K. It
+// reports the CONFINEMENT metrics (candidate set, decoded count, decoded bytes,
+// truncation) so a caller can PROVE the physical confinement, not just assume
+// it. `Vectors` holds the at-most-TopK decoded projections; `Decoded` equals
+// `len(Vectors)`.
+type CandidateVectorResult struct {
+	Request      SearchRequest
+	Vectors      []VectorRecord `json:"vectors"` // decodificados (no máximo TopK)
+	ScopeModules []string       `json:"scope_modules,omitempty"`
+	CandidateSet int            `json:"candidate_set"` // ids de candidatos aceitos (fonte)
+	Decoded      int64          `json:"decoded"`       // BLOBs decodificados (<= TopK)
+	BytesDecoded int64          `json:"bytes_decoded"` // bytes de vetor decodificados
+	Truncated    bool           `json:"truncated"`     // existiam mais candidatos que TopK
 }
 
 // Aggregator is the read-only aggregated read-model. It holds one read-only
@@ -330,31 +407,53 @@ func (a *Aggregator) HasTable(module, table string) bool {
 // Counts reports the read-only cardinality of the aggregated modules. Modules
 // (or tables) that are not present contribute zero; a present table that cannot
 // be counted returns an error.
-func (a *Aggregator) Counts() (Counts, error) {
+//
+// It is equivalent to CatalogCounts (the TOTAL catalog). Prefer the explicit
+// CatalogCounts/ScopeCounts pair (audit P2) when the caller needs to prove
+// whether a count is global or scoped.
+func (a *Aggregator) Counts() (Counts, error) { return a.CatalogCounts() }
+
+// CatalogCounts reports the TOTAL cardinality across every logical module
+// present in the catalog, independent of any scope (audit P2). It is the
+// explicit global count.
+func (a *Aggregator) CatalogCounts() (Counts, error) {
+	return a.countsForModules(append([]string(nil), a.modules...))
+}
+
+// ScopeCounts reports the cardinality ONLY within the logical modules selected
+// by `scope` (audit P2), using the same confinement rules as the rest of the
+// package: nil scope → all catalog modules; NoRoute or empty Modules → zeros
+// (never a silent global count); otherwise the intersection with the catalog.
+func (a *Aggregator) ScopeCounts(scope *modlink.SearchScope) (Counts, error) {
+	return a.countsForModules(a.selectModules(scope))
+}
+
+// countsForModules counts each table ONLY when its logical module is in
+// `selected`. This is what makes CatalogCounts and ScopeCounts distinct.
+func (a *Aggregator) countsForModules(selected []string) (Counts, error) {
 	var c Counts
 	var err error
-
-	if a.HasTable(ModuleVector, "vectors") {
+	if contains(selected, ModuleVector) && a.HasTable(ModuleVector, "vectors") {
 		if c.Vectors, err = a.countTable(ModuleVector, "vectors"); err != nil {
 			return c, fmt.Errorf("vectoragg: count vectors: %w", err)
 		}
 	}
-	if a.HasTable(ModuleGraph, "entities") {
+	if contains(selected, ModuleGraph) && a.HasTable(ModuleGraph, "entities") {
 		if c.Entities, err = a.countTable(ModuleGraph, "entities"); err != nil {
 			return c, fmt.Errorf("vectoragg: count entities: %w", err)
 		}
 	}
-	if a.HasTable(ModuleGraph, "relationships") {
+	if contains(selected, ModuleGraph) && a.HasTable(ModuleGraph, "relationships") {
 		if c.Relationships, err = a.countTable(ModuleGraph, "relationships"); err != nil {
 			return c, fmt.Errorf("vectoragg: count relationships: %w", err)
 		}
 	}
-	if a.HasTable(ModuleFTS, "chunks_fts") {
+	if contains(selected, ModuleFTS) && a.HasTable(ModuleFTS, "chunks_fts") {
 		if c.ChunksFTS, err = a.countTable(ModuleFTS, "chunks_fts"); err != nil {
 			return c, fmt.Errorf("vectoragg: count chunks_fts: %w", err)
 		}
 	}
-	if a.HasTable(ModuleFTS, "entities_fts") {
+	if contains(selected, ModuleFTS) && a.HasTable(ModuleFTS, "entities_fts") {
 		if c.EntitiesFTS, err = a.countTable(ModuleFTS, "entities_fts"); err != nil {
 			return c, fmt.Errorf("vectoragg: count entities_fts: %w", err)
 		}
@@ -510,15 +609,40 @@ func (a *Aggregator) Relationships(limit int) ([]RelationshipRecord, error) {
 // NOTE on FTS5 syntax: the `MATCH` operator and the `bm25`/`snippet` functions
 // must reference the FTS table by its UNQUALIFIED name, even though the table
 // is read from a schema-qualified (`"alias".table`) FROM clause.
+//
+// This is the LOW-LEVEL reader. The SEARCH path uses FTSMatch (bounded top-K,
+// TopK == 0 → no results). FTSBM25 keeps the historical semantics where
+// limit <= 0 means "no limit" only for backward compatibility.
 func (a *Aggregator) FTSBM25(query string, limit int) ([]FTSHit, error) {
+	if limit < 0 {
+		limit = 0
+	}
+	return a.ftsBM25SQL(query, limitOrAll(limit))
+}
+
+// FTSMatch is the SEARCH-path BM25 reader (audit P3): it sends the ORIGINAL
+// query string straight to the FTS5 `MATCH ?` operator — never the scope's
+// RouteID (whose '.'/'|' separators would raise an FTS5 syntax error). TopK is
+// explicit: TopK == 0 means NO results (never "no limit"); TopK < 0 is an
+// error; otherwise at most TopK hits per table are returned.
+func (a *Aggregator) FTSMatch(query string, topK int) ([]FTSHit, error) {
+	if topK < 0 {
+		return nil, fmt.Errorf("vectoragg: topK must be >= 0 (got %d); 0 means 'no results', never 'no limit'", topK)
+	}
+	if topK == 0 {
+		return nil, nil // sem resultados — nunca "sem limite"
+	}
+	return a.ftsBM25SQL(query, fmt.Sprintf("%d", topK))
+}
+
+// ftsBM25SQL is the shared BM25 query over the FTS tables. `limitSQL` is the raw
+// SQL LIMIT fragment (e.g. "10", or "-1" for the legacy "no limit" reader).
+func (a *Aggregator) ftsBM25SQL(query, limitSQL string) ([]FTSHit, error) {
 	if !a.HasModule(ModuleFTS) {
 		return nil, fmt.Errorf("%w: %q", ErrModuleMissing, ModuleFTS)
 	}
 	if strings.TrimSpace(query) == "" {
 		return nil, fmt.Errorf("vectoragg: empty FTS query")
-	}
-	if limit < 0 {
-		limit = 0
 	}
 
 	var out []FTSHit
@@ -539,7 +663,7 @@ func (a *Aggregator) FTSBM25(query string, limit int) ([]FTSHit, error) {
 		q := fmt.Sprintf(
 			"SELECT rowid, bm25(%s, %s) AS rank, snippet(%s, %d, '<b>', '</b>', '...', 12) "+
 				"FROM %s.%s WHERE %s MATCH ? ORDER BY rank LIMIT %s",
-			ft.table, weights, ft.table, ft.col, ident(ModuleFTS), ft.table, ft.table, limitOrAll(limit),
+			ft.table, weights, ft.table, ft.col, ident(ModuleFTS), ft.table, ft.table, limitSQL,
 		)
 		rows, err := a.conn.Query(q, query)
 		if err != nil {
@@ -614,6 +738,117 @@ func (a *Aggregator) QueryScope(scope *modlink.SearchScope) (*ScopeProjection, e
 		}
 	}
 	proj.Counts, err = a.Counts()
+	if err != nil {
+		return nil, err
+	}
+	return proj, nil
+}
+
+// RetrieveCandidates is the CANDIDATE retrieval + top-K search path (audit
+// P1/P4). It decodes at MOST TopK vectors and uses CandidateIDs as the ONLY
+// source of permitted IDs — never the whole index. The decode step runs
+// exclusively on the candidates, in the order the caller provided them.
+//
+// Physical confinement (P1): a non-nil Scope must name the vector module as an
+// allowed module; otherwise there are NO permitted candidates (never a
+// "module + LIMIT" truncation or a read-everything fallback). Empty
+// CandidateIDs means zero candidates. TopK == 0 means no results (never "no
+// limit"); TopK < 0 is an error.
+func (a *Aggregator) RetrieveCandidates(req SearchRequest) (*CandidateVectorResult, error) {
+	res := &CandidateVectorResult{Request: req}
+	if !a.HasModule(ModuleVector) {
+		return res, fmt.Errorf("%w: %q", ErrModuleMissing, ModuleVector)
+	}
+	if !a.HasTable(ModuleVector, "vectors") {
+		return res, fmt.Errorf("%w: %q.%s", ErrTableMissing, ModuleVector, "vectors")
+	}
+	if req.TopK < 0 {
+		return res, fmt.Errorf("vectoragg: TopK must be >= 0 (got %d); 0 means 'no results', never 'no limit'", req.TopK)
+	}
+
+	// Confinamento físico (P1): quem nomeia os módulos permitidos é o scope. Se
+	// "vector" não está no conjunto permitido → nenhum candidato permitido.
+	allowed := a.selectModules(req.Scope)
+	res.ScopeModules = append([]string(nil), allowed...)
+	if !contains(allowed, ModuleVector) {
+		return res, nil
+	}
+
+	ids := dedupePreserve(req.CandidateIDs)
+	res.CandidateSet = len(ids)
+	if len(ids) == 0 || req.TopK == 0 {
+		return res, nil // zero candidatos (nunca materializar tudo) / TopK 0 = sem resultados
+	}
+
+	dec := make([]VectorRecord, 0, req.TopK)
+	var decoded, byteCount int64
+	const cols = "id, vector, content, document_id, chunk_id, entity_id"
+	query := "SELECT " + cols + " FROM " + ident(ModuleVector) + ".vectors WHERE id = ?"
+	for _, cid := range ids {
+		if int64(len(dec)) >= int64(req.TopK) {
+			res.Truncated = true
+			break
+		}
+		var id, content, docID, chunkID, entityID string
+		var blob []byte
+		err := a.conn.QueryRow(query, cid).Scan(&id, &blob, &content, &docID, &chunkID, &entityID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue // candidato permitido, mas ausente no módulo → skip
+			}
+			return res, fmt.Errorf("vectoragg: candidate %q: %w", cid, err)
+		}
+		rec := VectorRecord{
+			ID: id, Module: ModuleVector, Content: content,
+			DocumentID: docID, ChunkID: chunkID, EntityID: entityID,
+		}
+		switch {
+		case entityID != "":
+			rec.RefID = entityID
+		case chunkID != "":
+			rec.RefID = chunkID
+		default:
+			rec.RefID = docID
+		}
+		rec.Embedding, rec.Dim = decodeVector(blob)
+		dec = append(dec, rec)
+		decoded++
+		byteCount += int64(len(blob))
+	}
+	res.Vectors = dec
+	res.Decoded = decoded
+	res.BytesDecoded = byteCount
+	return res, nil
+}
+
+// Search is the end-to-end SEARCH path of the new contract (audit P1/P2/P3/P4).
+// It confines the query to `req.Scope`, sends `req.Query` (not the RouteID) to
+// the FTS5 MATCH, retrieves candidates bounded by CandidateIDs/TopK, and
+// reports scoped counts. It never falls back to "read everything".
+func (a *Aggregator) Search(req SearchRequest) (*ScopeProjection, error) {
+	allowed := a.selectModules(req.Scope)
+	proj := &ScopeProjection{
+		Scope:   req.Scope,
+		Modules: append([]string(nil), allowed...),
+	}
+	var err error
+	if contains(allowed, ModuleVector) {
+		cres, cerr := a.RetrieveCandidates(req)
+		if cerr != nil && !errors.Is(cerr, ErrModuleMissing) && !errors.Is(cerr, ErrTableMissing) {
+			return nil, cerr
+		}
+		if cres != nil {
+			proj.Vectors = cres.Vectors
+		}
+	}
+	if contains(allowed, ModuleFTS) && strings.TrimSpace(req.Query) != "" {
+		hits, ferr := a.FTSMatch(req.Query, req.TopK)
+		if ferr != nil && !errors.Is(ferr, ErrModuleMissing) && !errors.Is(ferr, ErrTableMissing) {
+			return nil, ferr
+		}
+		proj.FTSHits = hits
+	}
+	proj.Counts, err = a.ScopeCounts(req.Scope)
 	if err != nil {
 		return nil, err
 	}
@@ -698,6 +933,28 @@ func (a *Aggregator) selectModules(scope *modlink.SearchScope) []string {
 		}
 	}
 	sort.Strings(out)
+	return out
+}
+
+// dedupePreserve returns a copy of `in` with duplicate IDs removed while
+// preserving the first-occurrence order, so each permitted candidate is decoded
+// at most once.
+func dedupePreserve(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
 	return out
 }
 
