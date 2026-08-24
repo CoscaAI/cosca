@@ -520,3 +520,96 @@ As **decisões de governança** (§2.2) estão em serviço da mesma tese, não c
 > **Decisão pendente de revisão (cosca-cto + cosca-security + Don).** O desenho captura a visão do Don (bancos modulares, imutáveis no Core, orquestrados, idempotentes, com índice agregador) e a tese técnica ("ler cada módulo = entender de uma vez"), **com as 3 decisões de governança do Don incorporadas fielmente**: (1) **Limite de 100 MB por banco** — todo banco (Core e módulos) < 100 MB, como gate com medição/alerta/recusa; (2) **Zero Redundância** — o Core referencia por `Ref{Module,ID,Hash}` e nunca copia conteúdo dos módulos; (3) **Residência dos índices pesados** — os ~88 MB de vetores vão para `vector.db`, o grafo para `graph.db`, o FTS para `fts.db`, e o **Core (fonte da verdade)** fica leve (chain + blocks + documentos ORIGINAIS + proveniência + metadados). Com a honestidade de que: (a) a memória imutável da família **já é** arquivo append-only assinado (não um SQLite reescritível), e (b) SQLite **não suporta** trigger/FK cross-db — os links são na camada de aplicação (Ref + resolução + detecção de drift). A fatia 1 é bounded e **não** migra nada destrutivo: formaliza, cria `modlink`, prova o agregador por espelho de leitura, entrega o `core.db` read-only e adiciona o gate de tamanho `cosca db check --gate`. A migração dos 257 MB fica para a fatia 2+, com backup e validação, jamais com o serve rodando.
 
 > **Refinamento do professor/advisor técnico (2026-08-24) incorporado:** (A) **Regra anti-monstro** — particionar por **responsabilidade**, nunca por arquivo; **estrutura lógica primeiro, particionamento físico depois**; proibido um banco por função (micro-bancos), §2.0/§5/§8; (B) **4 níveis** — Core = MAPA (não o conhecimento), Módulo = domínio que possui conhecimento, Capability = função lógica (não é banco), Conhecimento = conteúdo pesado; <100 MB é possível **e** significativo porque o conhecimento cresce sem crescer o Core, §2.1; (C) **Tabelas de governança do Core** (`module`, `capability`, `route`), §3.0; (D) **Router determinístico** — a busca semântica **refina** o espaço já roteado, nunca escolhe o espaço, §3.2; (E) **Submódulos** lógicos só viram banco quando o volume justificar, §2.1; (F) **Gatilho imutável → zero conteúdo** — o Core conhece contratos/capacidades/versões/integridade, nunca o conteúdo, reforçado nas tabelas `module`/`capability`/`route`, §2.1/§3.0; (G) **World Model como linguagem** — Cosca possui uma linguagem para representar mundos (`WORLD → World Model → GIS | Knowledge | Unreal`), §1/§7/§9; (H) **Busca semântica modular** — `QUERY → TRIGGER → ROUTER → MODULE SELECTION → CAPABILITY SELECTION → SEMANTIC SEARCH → EVIDENCE`, reduzindo o espaço de busca, §3.2.
+
+---
+
+## 10. AUDITORIA da Fatia 1 (vectoragg) — KEEP architecture / CHANGE execution contract
+
+> **Registrado em 2026-08-24** após auditoria com **prova de teste** (não só
+> leitura estática) do `internal/vectoragg/vectoragg.go`. Ordem: AUDIT →
+> EVIDENCE → VERDICT → ADR decision → TEST → IMPLEMENT. **NO CODE CHANGED.**
+> Relatório completo: `docs/reports/vectoragg-audit-2026-08-24.md`.
+>
+> **Distinção fundamental:** o `vectoragg` **NÃO está "errado"**. O **esqueleto é
+> KEEP** — read-model/projection, read-only por construção (`mode=ro`,
+> `ATTACH`, `SetMaxOpenConns(1)`), espelho lógico antes do físico, camada
+> `Aggregator ≠ database ≠ source of truth`. O que **falha** é o **contrato de
+> execução** (as invariantes de confinamento, consulta semântica e materialização
+> limitada **ainda não são satisfeitas** pela implementação da Fatia 1).
+
+### O que a auditoria provou (teste, não opinião)
+
+| # | Ponto | Veredicto | Evidência (teste) |
+|---|---|---|---|
+| **P1** | Isolamento físico do QueryScope | **FAIL** | `selectModules` escolhe os módulos certos (lógico OK), mas `Vectors(0)`/`Entities(0)`/`Relationships(0)`/`FTSBM25(q,0)` **materializam tudo** (`limit 0` = sem LIMIT). Confinamento é **nominal**, não de candidatos. |
+| **P2** | Semântica do `Counts` | **AMBÍGUO** | `Counts()` é global, mas o contrato (L51) diz "reads ONLY the modules named in a scope" — nome sugere scoped, implementação é global. Precisa definir e documentar. |
+| **P3** | Query original × RouteID | **FAIL** | `scopeQuery` devolve `scope.RouteID` — e o RouteID **quebra o FTS5 MATCH**: `'vegetation.world.materials'` → **syntax error** (ponto '.'); `'vegetation\|world\|materials'` → **syntax error** (pipe '|'). A busca original (`'árvore urbana'`) → 0 hits. **O sistema não busca o lugar errado — ele NÃO busca** (falha no MATCH). |
+| **P4** | Materialização de vetores | **FAIL** | Cadeia medida: 28.888 rows → 28.888 BLOBs → 28.888 decodificados → dim 768 → **~84,6 MB float32** → peak ~84,6 MB. Nenhuma camada reduz o conjunto antes da decodificação. É o **piso** da carga (não o total: ainda há slices/structs/strings/IDs/GC/e cópias no rerank). |
+
+### Falhas comprovadas (invariantes não satisfeitos pela Fatia 1)
+
+1. **Isolamento lógico ≠ confinamento físico** — o scope escolhe o módulo, mas o
+   read-model materializa todo o conteúdo do módulo; um módulo pode ter
+   subdomínios (`vegetation/tree/grass/shrub/forest`) que precisam de uma **2ª
+   dimensão** de filtragem (candidate set), ausente.
+2. **`Counts` sem semântica scoped/global explícita** — o contrato não define, e o
+   nome engana.
+3. **`RouteID` não pode substituir a query original no FTS** — além de ser o
+   rótulo da rota (não o conteúdo), os separadores `.`/`|` quebram o FTS5.
+4. **Materialização integral de embeddings** viola o objetivo de busca modular
+   eficiente (ruído + espaço + memória + latência — ainda não eliminados).
+
+### Decisão
+
+**KEEP architecture — CHANGE execution contract.**
+
+> O `vectoragg` permanece como **read-model/projection** (o esqueleto é sólido e
+> correto). Não é descartado. O que muda é o **contrato de execução**:
+> impedir que ele seja usado como *"me dê todos os dados e depois eu penso"* e
+> transformá-lo em *"me dê somente os candidatos que o contrato permite
+> considerar"*.
+
+**Correções exigidas (fase TEST → IMPLEMENT, APÓS o Don validar):**
+
+| Ponto | Ação |
+|---|---|
+| **P4** | **CHANGE** — `candidate retrieval + top-K`: decodificar SÓ os candidatos (nunca 84,6 MB inteiros). Ataca ruído + espaço + memória + latência simultaneamente. |
+| **P3** | **CHANGE** — `SearchRequest{OriginalQuery, SearchScope}`: o router decide **onde**, a query original carrega **o que**. `RouteID` = metadado de rota, nunca o texto a buscar. |
+| **P1** | **CLARIFY** — confinamento físico (não só lógico) + 2ª dimensão de filtragem (candidate set dentro do módulo). |
+| **P2** | **CLARIFY** — decidir global vs scoped e documentar, ou separar `catalog_totals` de `scoped_counts`. |
+
+### A arquitetura-alvo (pós-correção)
+
+```
+QUERY original
+    │
+    ├───────────────┐
+    │               │
+    ▼               ▼
+  Router          Query            ← Router responde "ONDE", Query responde "O QUÊ"
+    │               │
+    ▼               │
+ SearchScope        │
+    │               │
+    └───────┬───────┘
+            ▼
+   candidate retrieval              ← Retriever responde "QUAIS candidatos"
+            │
+            ▼
+          Top-K                      ← só os candidatos (não o índice inteiro)
+            │
+            ▼
+   decode candidatos                 ← decodifica SÓ o top-K (não 84,6 MB)
+            │
+            ▼
+        reranking                    ← Reranker responde "QUAIS são melhores"
+            │
+            ▼
+         resultado
+```
+
+**Isso NÃO é correção específica do Unreal.** O problema verdadeiro era o
+**modelo global de recuperação** (aplicável a code/documents/projects/world/
+vegetation/materials/knowledge/memory). O jogo foi só o primeiro domínio que o
+expôs. Registra-se aqui o **conhecimento arquitetural permanente** — para que
+daqui a seis meses ninguém "simplifique" o `Vectors(0)` e recrie o problema.
