@@ -51,6 +51,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Cosca")
 	bool MoveEntity(const FString& EntityId, const FVector& Target);
 
+	// ---- Day/Night + Weather ----
+	// Set the time of day (drives sun position, color, ambient, fog).
+	UFUNCTION(BlueprintCallable, Category = "Cosca")
+	void ApplyTimeOfDay(const FTimePayload& Payload);
+
+	// Set the weather (drives fog density, darkening, etc).
+	UFUNCTION(BlueprintCallable, Category = "Cosca")
+	void ApplyWeather(const FWeatherPayload& Payload);
+
+	// Auto-advance the clock by DeltaHours if a time scale is set.
+	void TickTimeOfDay(float DeltaTime);
+
 	// ---- Broadcasting ----
 	// Send a message back to the Cosca client.
 	void SendToCosca(const FCoscaMessage& Message);
@@ -74,6 +86,17 @@ private:
 	// entity id -> Actor
 	TMap<FString, TWeakObjectPtr<AActor>> EntityMap;
 
+	// Day/Night state
+	float CurrentHour = 12.0f;
+	float TimeScale = 0.0f; // 0 = paused, >0 = hours per second
+	bool bAutoAdvanceTime = false;
+	FWeatherPayload CurrentWeather;
+
+	// Cached environment actors (set during ApplyTimeOfDay / ApplyWeather)
+	TWeakObjectPtr<AActor> SunActor;
+	TWeakObjectPtr<AActor> SkyLightActor;
+	TWeakObjectPtr<AActor> FogActor;
+
 	// Message handlers
 	void OnClientConnected(INetworkingWebSocket* Socket);
 	void OnPacketReceived(void* Data, int32 DataSize);
@@ -82,6 +105,8 @@ private:
 	void HandleSpawn(const FSpawnPayload& Payload);
 	void HandleAction(const FActionPayload& Payload);
 	void HandleDestroy(const FString& EntityId);
+	void HandleTimeOfDay(const FTimePayload& Payload);
+	void HandleWeather(const FWeatherPayload& Payload);
 
 	// Tick the WS server (libwebsocket typically requires a tick)
 	void TickServer();
@@ -90,6 +115,8 @@ private:
 	bool ParseSpawn(const FString& Json, FSpawnPayload& Out);
 	bool ParseAction(const FString& Json, FActionPayload& Out);
 	bool ParseImportMesh(const FString& Json, FImportMeshPayload& Out);
+	bool ParseTime(const FString& Json, FTimePayload& Out);
+	bool ParseWeather(const FString& Json, FWeatherPayload& Out);
 
 	// JSON envelope helpers
 	FCoscaMessage MessageFromJson(const TSharedPtr<FJsonObject>& Obj);

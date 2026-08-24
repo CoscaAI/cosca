@@ -11,9 +11,9 @@ struct FTransformPayload
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly) FVector Position = FVector::ZeroVector;
-	UPROPERTY(BlueprintReadOnly) FQuat Rotation = FQuat::Identity;
-	UPROPERTY(BlueprintReadOnly) FVector Scale = FVector::OneVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Position = FVector::ZeroVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FQuat Rotation = FQuat::Identity;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Scale = FVector::OneVector;
 };
 
 // Message types (mirror bridge MessageType in Cosca)
@@ -43,19 +43,19 @@ struct FSpawnPayload
 	GENERATED_BODY()
 
 	// Unique Cosca WorldEntity id (<= correlation id)
-	UPROPERTY(BlueprintReadWrite) FString EntityId;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString EntityId;
 	// Semantic type: "npc", "object", "vehicle", etc.
-	UPROPERTY(BlueprintReadWrite) FString Type;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Type;
 	// Asset content hash (sha256) — used for dedup/provenance registration
-	UPROPERTY(BlueprintReadWrite) FString AssetHash;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString AssetHash;
 	// Position/Rotation/Scale in world space
-	UPROPERTY(BlueprintReadWrite) FVector Position = FVector::ZeroVector;
-	UPROPERTY(BlueprintReadWrite) FQuat Rotation = FQuat::Identity;
-	UPROPERTY(BlueprintReadWrite) FVector Scale = FVector::OneVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Position = FVector::ZeroVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FQuat Rotation = FQuat::Identity;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Scale = FVector::OneVector;
 	// Semantic GameplayTags (vocabulary, e.g. cosca.npc.guard)
-	UPROPERTY(BlueprintReadWrite) FGameplayTagContainer Tags;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FGameplayTagContainer Tags;
 	// Arbitrary config (mesh, material, etc.)
-	UPROPERTY(BlueprintReadWrite) TMap<FString, FString> Config;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") TMap<FString, FString> Config;
 };
 
 // Action command payload (Cosca -> Unreal)
@@ -64,11 +64,11 @@ struct FActionPayload
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite) FString EntityId;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString EntityId;
 	// "move_to", "interact", "look_at", "speak"
-	UPROPERTY(BlueprintReadWrite) FString Action;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Action;
 	// action-specific params, e.g. {"target": [x,y,z]}
-	UPROPERTY(BlueprintReadWrite) TMap<FString, FString> Params;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") TMap<FString, FString> Params;
 };
 
 // ImportMesh command payload (Cosca -> Unreal)
@@ -77,15 +77,38 @@ struct FImportMeshPayload
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite) FString EntityId;
-	// Path to GLB/FBX file on disk
-	UPROPERTY(BlueprintReadWrite) FString MeshPath;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString EntityId;
+	// AssetID or /Game/ content path
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString MeshPath;
 	// Semantic type (for future reference)
-	UPROPERTY(BlueprintReadWrite) FString Type;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Type;
 	// Position/Rotation/Scale in world space
-	UPROPERTY(BlueprintReadWrite) FVector Position = FVector::ZeroVector;
-	UPROPERTY(BlueprintReadWrite) FQuat Rotation = FQuat::Identity;
-	UPROPERTY(BlueprintReadWrite) FVector Scale = FVector::OneVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Position = FVector::ZeroVector;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FQuat Rotation = FQuat::Identity;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FVector Scale = FVector::OneVector;
+};
+
+// Time-of-day command payload (Cosca -> Unreal)
+// Controls the day/night cycle: sun position, color, ambient, fog.
+USTRUCT(BlueprintType)
+struct FTimePayload
+{
+	GENERATED_BODY()
+
+	// Hour of day, 0.0 (midnight) to 24.0 (next midnight). Fractional = minutes.
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") float Hour = 12.0f;
+};
+
+// Weather command payload (Cosca -> Unreal)
+USTRUCT(BlueprintType)
+struct FWeatherPayload
+{
+	GENERATED_BODY()
+
+	// Weather type: "clear", "rain", "snow", "fog", "storm", "overcast"
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Type = TEXT("clear");
+	// Intensity 0.0-1.0 (affects density of effects)
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") float Intensity = 1.0f;
 };
 
 // Envelope for all Cosca<->Unreal messages.
@@ -94,9 +117,9 @@ struct FCoscaMessage
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite) ECoscaMessageType Type = ECoscaMessageType::Ping;
-	UPROPERTY(BlueprintReadWrite) FString Id;
-	UPROPERTY(BlueprintReadWrite) FString EntityId;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") ECoscaMessageType Type = ECoscaMessageType::Ping;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Id;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString EntityId;
 	// JSON payload string (serialized by Cosca, parsed server-side)
-	UPROPERTY(BlueprintReadWrite) FString Payload;
+	UPROPERTY(BlueprintReadWrite, Category = "Cosca") FString Payload;
 };

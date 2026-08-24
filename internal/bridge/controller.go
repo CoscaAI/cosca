@@ -42,6 +42,16 @@ type EntityState struct {
 	Collision bool     `json:"collision"`
 }
 
+// ImportMeshPayload describes an import_mesh command (Cosca → Unreal).
+// Unreal resolves AssetID via registry, loads UStaticMesh, spawns actor.
+type ImportMeshPayload struct {
+	EntityID string    `json:"entity_id"`
+	MeshPath string    `json:"mesh_path"` // AssetID or /Game/ path
+	Type     string    `json:"type"`
+	Position [3]float64 `json:"position"`
+	Scale    [3]float64 `json:"scale"`
+}
+
 // ──────────────────────────────────────────────────────────────
 // Controller
 // ──────────────────────────────────────────────────────────────
@@ -190,6 +200,59 @@ func (c *Controller) Destroy(ctx context.Context, entityID string) error {
 	data, _ := json.Marshal(DestroyPayload{EntityID: entityID})
 	return c.client.Send(ctx, Message{
 		Type:      MessageDestroy,
+		Timestamp: time.Now(),
+		Payload:   data,
+	})
+}
+
+// ImportMesh sends an import_mesh command to Unreal.
+// Unreal resolves AssetID via registry, loads UStaticMesh, spawns actor.
+func (c *Controller) ImportMesh(ctx context.Context, payload ImportMeshPayload) error {
+	c.mu.Lock()
+	c.entities[payload.EntityID] = EntitySpec{
+		ID:    payload.EntityID,
+		Type:  payload.Type,
+		Pos:   payload.Position,
+		Scale: payload.Scale,
+	}
+	c.mu.Unlock()
+
+	data, _ := json.Marshal(payload)
+	return c.client.Send(ctx, Message{
+		Type:      MessageImportMesh,
+		Timestamp: time.Now(),
+		Payload:   data,
+	})
+}
+
+// TimeOfDayPayload describes a time command (Cosca → Unreal).
+// Unreal sets sun position, color, ambient, fog for the given hour.
+type TimeOfDayPayload struct {
+	Hour float64 `json:"hour"`
+}
+
+// WeatherPayload describes a weather command (Cosca → Unreal).
+// Unreal adjusts fog density, darkening, etc.
+type WeatherPayload struct {
+	Type      string  `json:"type"`
+	Intensity float64 `json:"intensity"`
+}
+
+// SetTimeOfDay sends a time command to Unreal (drives day/night cycle).
+func (c *Controller) SetTimeOfDay(ctx context.Context, hour float64) error {
+	data, _ := json.Marshal(TimeOfDayPayload{Hour: hour})
+	return c.client.Send(ctx, Message{
+		Type:      MessageTime,
+		Timestamp: time.Now(),
+		Payload:   data,
+	})
+}
+
+// SetWeather sends a weather command to Unreal.
+func (c *Controller) SetWeather(ctx context.Context, weatherType string, intensity float64) error {
+	data, _ := json.Marshal(WeatherPayload{Type: weatherType, Intensity: intensity})
+	return c.client.Send(ctx, Message{
+		Type:      MessageWeather,
 		Timestamp: time.Now(),
 		Payload:   data,
 	})

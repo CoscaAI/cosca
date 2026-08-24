@@ -41,6 +41,9 @@ Subcommands:
 		NewBridgeServeCommand(),
 		NewBridgeConnectCommand(),
 		NewBridgeDemoCommand(),
+		NewBridgeImportMeshCommand(),
+		NewBridgeTimeCommand(),
+		NewBridgeWeatherCommand(),
 	)
 	return cmd
 }
@@ -300,4 +303,154 @@ type obsFunc func(ctx context.Context, frame []byte, w, h int) ([]worldmodel.Wor
 
 func (f obsFunc) Observe(ctx context.Context, frame []byte, w, h int) ([]worldmodel.WorldEntity, error) {
 	return f(ctx, frame, w, h)
+}
+
+// NewBridgeImportMeshCommand sends an import_mesh command to Unreal.
+// Resolves AssetID via registry, loads UStaticMesh, spawns actor.
+func NewBridgeImportMeshCommand() *cobra.Command {
+	var url, assetID, entityType string
+	var posX, posY, posZ, scaleX, scaleY, scaleZ float64
+
+	cmd := &cobra.Command{
+		Use:   "import-mesh",
+		Short: "Import mesh via AssetID → Registry → Spawn",
+		Long: `Send an import_mesh command to Unreal Engine.
+
+Unreal resolves the AssetID via asset_registry.json, loads the UStaticMesh,
+and spawns a StaticMeshActor with that mesh.
+
+Example:
+  cosca bridge import-mesh --asset-id oak_mature --type tree
+  cosca bridge import-mesh --asset-id oak_mature --x 100 --z 50 --scale 2`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			ctx := cmd.Context()
+
+			ctrl := bridge.NewController(bridge.NewWebSocketClient())
+			if err := ctrl.Connect(ctx, url); err != nil {
+				return fmt.Errorf("connect: %w", err)
+			}
+			defer ctrl.Disconnect(ctx)
+
+			payload := bridge.ImportMeshPayload{
+				EntityID: "entity_" + assetID,
+				MeshPath: assetID,
+				Type:     entityType,
+				Position: [3]float64{posX, posY, posZ},
+				Scale:    [3]float64{scaleX, scaleY, scaleZ},
+			}
+
+			if err := ctrl.ImportMesh(ctx, payload); err != nil {
+				return fmt.Errorf("import_mesh: %w", err)
+			}
+
+			formatter.Success("Sent import_mesh command")
+			formatter.KeyValue("AssetID", assetID)
+			formatter.KeyValue("EntityID", payload.EntityID)
+			formatter.KeyValue("Position", fmt.Sprintf("(%.0f, %.0f, %.0f)", posX, posY, posZ))
+			formatter.KeyValue("Scale", fmt.Sprintf("(%.1f, %.1f, %.1f)", scaleX, scaleY, scaleZ))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000", "WebSocket URL")
+	cmd.Flags().StringVar(&assetID, "asset-id", "", "AssetID from registry (required)")
+	cmd.Flags().StringVar(&entityType, "type", "object", "Entity type")
+	cmd.Flags().Float64Var(&posX, "x", 0, "Spawn X")
+	cmd.Flags().Float64Var(&posY, "y", 0, "Spawn Y")
+	cmd.Flags().Float64Var(&posZ, "z", 0, "Spawn Z")
+	cmd.Flags().Float64Var(&scaleX, "scale-x", 1, "Scale X")
+	cmd.Flags().Float64Var(&scaleY, "scale-y", 1, "Scale Y")
+	cmd.Flags().Float64Var(&scaleZ, "scale-z", 1, "Scale Z")
+	cmd.MarkFlagRequired("asset-id")
+
+	return cmd
+}
+
+// NewBridgeTimeCommand sets the time of day in Unreal (day/night cycle).
+func NewBridgeTimeCommand() *cobra.Command {
+	var url string
+	var hour float64
+
+	cmd := &cobra.Command{
+		Use:   "time",
+		Short: "Set time of day in Unreal (day/night cycle)",
+		Long: `Send a time command to Unreal Engine.
+
+Unreal computes sun position, color, ambient light, and fog based on the
+given hour of day (0.0 = midnight, 12.0 = noon, 18.0 = dusk).
+
+Example:
+  cosca bridge time --hour 18        # golden hour / dusk
+  cosca bridge time --hour 12        # noon
+  cosca bridge time --hour 0         # midnight`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			ctx := cmd.Context()
+
+			ctrl := bridge.NewController(bridge.NewWebSocketClient())
+			if err := ctrl.Connect(ctx, url); err != nil {
+				return fmt.Errorf("connect: %w", err)
+			}
+			defer ctrl.Disconnect(ctx)
+
+			if err := ctrl.SetTimeOfDay(ctx, hour); err != nil {
+				return fmt.Errorf("time: %w", err)
+			}
+
+			formatter.Success("Sent time command")
+			formatter.KeyValue("Hour", fmt.Sprintf("%.1f", hour))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000", "WebSocket URL")
+	cmd.Flags().Float64Var(&hour, "hour", 12.0, "Hour of day (0-24)")
+	return cmd
+}
+
+// NewBridgeWeatherCommand sets the weather in Unreal.
+func NewBridgeWeatherCommand() *cobra.Command {
+	var url, weatherType string
+	var intensity float64
+
+	cmd := &cobra.Command{
+		Use:   "weather",
+		Short: "Set weather in Unreal",
+		Long: `Send a weather command to Unreal Engine.
+
+Unreal adjusts fog density, ambient darkening, etc. based on weather type:
+  clear, rain, snow, fog, storm, overcast.
+
+Example:
+  cosca bridge weather --type rain --intensity 0.8
+  cosca bridge weather --type fog`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			ctx := cmd.Context()
+
+			ctrl := bridge.NewController(bridge.NewWebSocketClient())
+			if err := ctrl.Connect(ctx, url); err != nil {
+				return fmt.Errorf("connect: %w", err)
+			}
+			defer ctrl.Disconnect(ctx)
+
+			if err := ctrl.SetWeather(ctx, weatherType, intensity); err != nil {
+				return fmt.Errorf("weather: %w", err)
+			}
+
+			formatter.Success("Sent weather command")
+			formatter.KeyValue("Type", weatherType)
+			formatter.KeyValue("Intensity", fmt.Sprintf("%.1f", intensity))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&url, "url", "ws://localhost:9000", "WebSocket URL")
+	cmd.Flags().StringVar(&weatherType, "type", "clear", "Weather type (clear/rain/snow/fog/storm/overcast)")
+	cmd.Flags().Float64Var(&intensity, "intensity", 1.0, "Intensity (0-1)")
+	return cmd
 }

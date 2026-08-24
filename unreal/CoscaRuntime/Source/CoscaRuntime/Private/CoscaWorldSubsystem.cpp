@@ -4,6 +4,8 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -18,6 +20,13 @@
 #include "INetworkingWebSocket.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/SkyLightComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/SkyLight.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCosca, Log, All);
 
@@ -94,6 +103,13 @@ void UCoscaWorldSubsystem::Tick(float DeltaTime)
 	// UTickableWorldSubsystem has no Super::Tick (it's an FTickableGameObject).
 	// Just service the WebSocket server and active connection.
 	TickServer();
+	// Advance the day/night clock if auto-advance is enabled.
+	if (CurrentWeather.Type.IsEmpty())
+	{
+		CurrentWeather.Type = TEXT("clear");
+		CurrentWeather.Intensity = 1.0f;
+	}
+	TickTimeOfDay(DeltaTime);
 }
 
 TStatId UCoscaWorldSubsystem::GetStatId() const
@@ -203,6 +219,24 @@ void UCoscaWorldSubsystem::HandleCommand(const FCoscaMessage& Message)
 		if (ParseImportMesh(Message.Payload, Payload))
 		{
 			ImportMesh(Payload);
+		}
+		break;
+	}
+	case ECoscaMessageType::Time:
+	{
+		FTimePayload Payload;
+		if (ParseTime(Message.Payload, Payload))
+		{
+			HandleTimeOfDay(Payload);
+		}
+		break;
+	}
+	case ECoscaMessageType::Weather:
+	{
+		FWeatherPayload Payload;
+		if (ParseWeather(Message.Payload, Payload))
+		{
+			HandleWeather(Payload);
 		}
 		break;
 	}
@@ -360,6 +394,217 @@ void UCoscaWorldSubsystem::HandleAction(const FActionPayload& Payload)
 			}
 		}
 	}
+}
+
+// ---- Day/Night + Weather ----
+
+bool UCoscaWorldSubsystem::ParseTime(const FString& JsonStr, FTimePayload& Payload)
+{
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonStr);
+	TSharedPtr<FJsonObject> Obj;
+	if (!FJsonSerializer::Deserialize(Reader, Obj) || !Obj.IsValid())
+	{
+		return false;
+	}
+
+	if (Obj->HasField(TEXT("hour")))
+	{
+		Payload.Hour = Obj->GetNumberField(TEXT("hour"));
+	}
+	return true;
+}
+
+bool UCoscaWorldSubsystem::ParseWeather(const FString& JsonStr, FWeatherPayload& Payload)
+{
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonStr);
+	TSharedPtr<FJsonObject> Obj;
+	if (!FJsonSerializer::Deserialize(Reader, Obj) || !Obj.IsValid())
+	{
+		return false;
+	}
+
+	if (Obj->HasField(TEXT("type")))
+	{
+		Payload.Type = Obj->GetStringField(TEXT("type"));
+	}
+	if (Obj->HasField(TEXT("intensity")))
+	{
+		Payload.Intensity = Obj->GetNumberField(TEXT("intensity"));
+	}
+	return true;
+}
+
+void UCoscaWorldSubsystem::ApplyTimeOfDay(const FTimePayload& Payload)
+{
+	CurrentHour = FMath::Clamp(Payload.Hour, 0.0f, 24.0f);
+
+	// Sun elevation: -90 (midnight) at 0/24, +90 (noon) at 12.
+	float ElevationDeg = 90.0f * FMath::Sin((CurrentHour - 6.0f) / 12.0f * PI);
+	// Sun azimuth rotates 360 across the day.
+	float AzimuthDeg = CurrentHour / 24.0f * 360.0f - 180.0f;
+
+	FVector SunDir;
+	float El = FMath::DegreesToRadians(ElevationDeg);
+	float Az = FMath::DegreesToRadians(AzimuthDeg);
+	SunDir.X = FMath::Cos(El) * FMath::Cos(Az);
+	SunDir.Y = FMath::Cos(El) * FMath::Sin(Az);
+	SunDir.Z = FMath::Sin(El);
+	SunDir.Normalize();
+
+	// Directional light shines along -SunDir (from sun toward scene).
+	FRotator SunRot = FRotationMatrix::MakeFromZ(SunDir).Rotator();
+
+	// Find or create a directional light (the sun).
+	ADirectionalLight* Sun = Cast<ADirectionalLight>(SunActor.Get());
+	if (!Sun)
+	{
+		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
+		{
+			Sun = *It;
+			break;
+		}
+	}
+	if (!Sun)
+	{
+		Sun = GetWorld()->SpawnActor<ADirectionalLight>();
+	}
+	if (Sun)
+	{
+		SunActor = Sun;
+		Sun->SetActorRotation(SunRot);
+
+		if (UDirectionalLightComponent* Comp = Sun->FindComponentByClass<UDirectionalLightComponent>())
+		{
+			// Day factor 0(noite)-1(dia). Smooth transition across sunrise/sunset.
+			float DayFactor = FMath::Clamp((ElevationDeg + 10.0f) / 20.0f, 0.0f, 1.0f);
+
+			// Sun intensity: bright at day, 0 at night.
+			Comp->SetIntensity(DayFactor * 130000.0f);
+
+			// Color temperature: warm at dawn/dusk, white at noon, blue at night.
+			FLinearColor SunColor = FLinearColor::White;
+			if (DayFactor > 0.0f && DayFactor < 0.4f)
+			{
+				// Low angle ~ sunrise/dusk: warm orange.
+				SunColor = FLinearColor(1.0f, 0.55f, 0.2f);
+			}
+			else if (DayFactor < 0.05f)
+			{
+				// Night: pale cold moonlight.
+				SunColor = FLinearColor(0.15f, 0.2f, 0.4f);
+			}
+			else
+			{
+				SunColor = FLinearColor::White;
+			}
+			Comp->SetLightColor(SunColor);
+		}
+	}
+
+	// Ambient: sky light scales with day, but stays a bit at night (moon/ambient).
+	ASkyLight* SkyLight = Cast<ASkyLight>(SkyLightActor.Get());
+	if (!SkyLight)
+	{
+		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
+		{
+			SkyLight = *It;
+			break;
+		}
+	}
+	if (SkyLight)
+	{
+		SkyLightActor = SkyLight;
+		if (USkyLightComponent* SLComp = SkyLight->FindComponentByClass<USkyLightComponent>())
+		{
+			float DayFactor = FMath::Clamp((ElevationDeg + 10.0f) / 20.0f, 0.0f, 1.0f);
+			// Ambient intensity: 0.05 at night, 1.0 at day (scale by weather too).
+			float BaseAmbient = FMath::Lerp(0.03f, 1.0f, DayFactor) * CurrentWeather.Intensity;
+			SLComp->SetIntensity(BaseAmbient * 1.2f);
+
+			// Sky color: warm at dawn/dusk, blue at day, dark blue at night.
+			FLinearColor SkyColor = FLinearColor(0.1f, 0.15f, 0.3f); // night
+			if (DayFactor > 0.4f)
+			{
+				SkyColor = FLinearColor(0.55f, 0.75f, 1.0f); // day
+			}
+			else if (DayFactor > 0.05f)
+			{
+				SkyColor = FLinearColor(0.8f, 0.5f, 0.3f); // dusk/dawn
+			}
+			SLComp->SetLightColor(SkyColor);
+		}
+	}
+
+	// Fog: denser/darker at night, warmer at dawn/dusk.
+	AExponentialHeightFog* Fog = Cast<AExponentialHeightFog>(FogActor.Get());
+	if (!Fog)
+	{
+		for (TActorIterator<AExponentialHeightFog> It(GetWorld()); It; ++It)
+		{
+			Fog = *It;
+			break;
+		}
+	}
+	if (Fog)
+	{
+		FogActor = Fog;
+		if (UExponentialHeightFogComponent* FogComp = Fog->FindComponentByClass<UExponentialHeightFogComponent>())
+		{
+			float DayFactor = FMath::Clamp((ElevationDeg + 10.0f) / 20.0f, 0.0f, 1.0f);
+			// Night fog is darker/denser.
+			FogComp->SetFogDensity(FMath::Lerp(0.02f, 0.005f, DayFactor) * (0.5f + CurrentWeather.Intensity));
+			FLinearColor FogColor = FLinearColor::White;
+			if (DayFactor < 0.1f)
+			{
+				FogColor = FLinearColor(0.05f, 0.07f, 0.12f); // night
+			}
+			else if (DayFactor < 0.4f)
+			{
+				FogColor = FLinearColor(0.5f, 0.3f, 0.15f); // dusk
+			}
+			FogComp->SetFogInscatteringColor(FogColor);
+		}
+	}
+
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] TimeOfDay: hour=%.1f elevation=%.1f"), CurrentHour, ElevationDeg);
+}
+
+void UCoscaWorldSubsystem::HandleTimeOfDay(const FTimePayload& Payload)
+{
+	ApplyTimeOfDay(Payload);
+}
+
+void UCoscaWorldSubsystem::TickTimeOfDay(float DeltaTime)
+{
+	if (bAutoAdvanceTime && TimeScale > 0.0f)
+	{
+		CurrentHour += TimeScale * DeltaTime;
+		if (CurrentHour >= 24.0f)
+		{
+			CurrentHour -= 24.0f;
+		}
+
+		FTimePayload Payload;
+		Payload.Hour = CurrentHour;
+		ApplyTimeOfDay(Payload);
+	}
+}
+
+void UCoscaWorldSubsystem::HandleWeather(const FWeatherPayload& Payload)
+{
+	CurrentWeather = Payload;
+
+	// Re-apply lighting so weather can modulate ambient/fog.
+	FTimePayload TimePayload;
+	TimePayload.Hour = CurrentHour;
+	ApplyTimeOfDay(TimePayload);
+
+	UE_LOG(LogCosca, Log, TEXT("[Cosca] Weather: type=%s intensity=%.2f"), *Payload.Type, Payload.Intensity);
+}
+
+void UCoscaWorldSubsystem::ApplyWeather(const FWeatherPayload& Payload)
+{
+	HandleWeather(Payload);
 }
 
 // ---- Import Mesh (GLB/FBX → StaticMesh → Spawn) ----

@@ -35,6 +35,7 @@ const (
 	MessageSpawn       MessageType = "spawn"        // spawn entity
 	MessageDestroy     MessageType = "destroy"      // destroy entity
 	MessageModify      MessageType = "modify"       // modify entity properties
+	MessageImportMesh  MessageType = "import_mesh"  // import GLB + spawn (AssetID → Registry → Mesh)
 	MessageWeather     MessageType = "weather"      // change weather
 	MessageTime        MessageType = "time"         // change time of day
 
