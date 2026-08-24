@@ -85,5 +85,8 @@ cosca-forex/
 # Logs na raiz
 /*.log
 
-# Transient runtime auto-backups (Don policy: lixo transitorio).cosca/backups/
+# Transient runtime auto-backups (Don policy: lixo transitorio)
+# NUNCA versionar: são cópias voláteis do knowledge.db (podem passar de 100MB,
+# limite do GitHub) e são lixo transitório. Regra da Decisão 1 (ADR-013, 2026-08-24).
+.cosca/backups/
 .cosca/assets/
