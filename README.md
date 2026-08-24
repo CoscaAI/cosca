@@ -147,9 +147,16 @@ QUERY → Router determinístico (modlink) → Scope → Candidate IDs → busca
 
 - **Reduz o universo antes de pagar o custo** — o `ScannedVectors` cai de 28.888
   para centenas/milhares (~99% de redução) **sem perder o recall do documento**
-  relevante (provado por benchmark).
+  relevante (provado por benchmark). **Medido:** 28.888 → 161–8.341 (71–99,44%),
+  com recall do documento mantido em 5/6 queries.
+- **Componentes da arquitetura modular:**
+  - `internal/modlink` — **router determinístico** (whole-word match, decide ONDE).
+  - `internal/vectoragg` — **read-model** (`ATTACH` read-only) que lê os módulos
+    coesos de uma vez (projeção tipada), sem ser dono do processo.
+  - `internal/search/scope.go` — confinamento por `DocumentPath` (não só `DocumentID`).
 - **Índices derivados** (`knowledge.db`, vetores, grafo) são **regeneráveis** e
   ficam fora do git; só o Core imutável (chain + blocks) é versionado.
+- **Guia completo de operação:** ver `docs/USO_COSCA.md` (comandos reais por fluxo).
 
 ---
 
@@ -189,8 +196,15 @@ de capacidade). O protocolo de auto-evolução registra cada despertar.
 | `cosca don` | Proteção de identidade do Don (war phrase) |
 
 **A chain da família (crítico):** se você mexer em `internal/embed/cosca/` (o
-cérebro), **DEVE re-assinar** a chain (`cosca-check --sign-auto`). Senão o serve
-**não sobe** (fail-closed). É proteção, não bug.
+cérebro), **DEVE re-assinar** a chain. Senão o serve **não sobe** (fail-closed
+`family chain breach`). É proteção, não bug. **Duas variantes:**
+- `cosca-check --sign` — **autoridade do Don** (chave Ed25519 + gate TTY/nonce).
+  A variante correta quando o Don precisa autenticar a mudança.
+- `cosca-check --sign-auto` — âncora git, **sem** autoridade do Don (testemunho de
+  imutabilidade). Use só quando a mudança **não** exige assinatura do Don.
+
+> **Estado atual:** chain com **30 blocks** (re-assinada com autoridade do Don em
+> 2026-08-24 via `--sign`, não `--sign-auto`).
 
 ---
 
@@ -204,6 +218,17 @@ cosca runtime logs                  # logs
 cosca metrics                       # métricas de orquestração
 cosca fabric                        # Compute Fabric (pools, backpressure)
 cosca hardware / cosca machine      # probe de hardware / capability profile
+```
+
+**Serve no WSL2 (autostart configurado):** o serve sobe sozinho no login do Windows
+(pasta Startup → `cosca-serve-autostart.bat` invoca `wsl -d Ubuntu-24.04 -u cosca
+-- systemctl --user start cosca-serve`). Para operar manualmente sem quebrar:
+
+```bash
+# ativo?              wsl -d Ubuntu-24.04 -u cosca -- systemctl --user is-active cosca-serve
+# subir:              wsl -d Ubuntu-24.04 -u cosca -- systemctl --user start cosca-serve
+# health:             curl http://127.0.0.1:14120/health
+# NUNCA `sudo -u cosca` (erro 216/GROUP) — use `-u cosca`.
 ```
 
 ---
