@@ -123,11 +123,14 @@ O `GeoToWorld` usa projeção equirectangular local (tangent plane).
 **Status dos pré-requisitos:**
 - ✅ WORLD_MODEL_SPEC.md (este arquivo)
 - ✅ schema (SchemaVersion 1)
-- ✅ testes determinísticos (7/7)
+- ✅ testes determinísticos (13/13: 7 model + 6 adapter)
 - ✅ mundo sintético pequeno (Terrain/Road/Tree/Building/Rock)
-- ⏳ adapter Unreal funcional (bridge já existe — falta ligar ao RendererAdapter)
+- ✅ adapter Unreal funcional (`internal/world/adapter.UnrealAdapter`, 6/6 tests)
 
-> ⚠️ **Ainda NÃO** conectar Google Maps até o adapter Unreal estar funcional.
+> ✅ **Pré-requisitos COMPLETOS.** O professor pode liberar a integração de
+> dados reais (OSM/GIS/DEM) quando decidir.
+>
+> Pipeline funcional: `World Model → UnrealAdapter → bridge WebSocket → CoscaRuntime plugin → Unreal`
 
 ---
 
