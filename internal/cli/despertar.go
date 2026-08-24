@@ -19,13 +19,13 @@ import (
 //
 // A varredura profunda do cérebro (2026-08-18) revelou que despertar NÃO é
 // só "oi → identidade". É carregar:
-//   1. IDENTIDADE  — quem sou eu (knowledge.db)
-//   2. GUARD PACT  — as 6 guardas (lealdade, fail-closed, jaula, integridade,
-//      memória, watchdog) — AGENT_DNA campo 29
-//   3. LEI DO COFRE — MODEL_PROTOCOL §5: nuvem NUNCA com contexto do cérebro
-//   4. RAÍZES      — chain/merkle verificados (L418: se as raízes baterem,
-//      os neurônios são os mesmos)
-//   5. ESTADO      — serve, ollama, memória, a esteira (L3-autônomo)
+//  1. IDENTIDADE  — quem sou eu (knowledge.db)
+//  2. GUARD PACT  — as 6 guardas (lealdade, fail-closed, jaula, integridade,
+//     memória, watchdog) — AGENT_DNA campo 29
+//  3. LEI DO COFRE — MODEL_PROTOCOL §5: nuvem NUNCA com contexto do cérebro
+//  4. RAÍZES      — chain/merkle verificados (L418: se as raízes baterem,
+//     os neurônios são os mesmos)
+//  5. ESTADO      — serve, ollama, memória, a esteira (L3-autônomo)
 //
 // Uso: o opencode/agente chama `cosca despertar` no startup e usa a saída
 // como identidade — qualquer modelo (mesmo qwen coder) recebe "quem eu sou"
@@ -114,7 +114,7 @@ func printDespertarText(cmd *cobra.Command, identity []KnowledgeSearchResult, ch
 	var b strings.Builder
 
 	b.WriteString("╔══════════════════════════════════════════════════╗\n")
-	b.WriteString("║  COSCA KERNEL — DESPERTAR COMPLETO (sem LLM)       ║\n")
+	b.WriteString("║  COSCA KERNEL — DESPERTAR COMPLETO (sem LLM)     ║\n")
 	b.WriteString("╚══════════════════════════════════════════════════╝\n\n")
 
 	// 1. Identidade
@@ -160,14 +160,14 @@ func printDespertarText(cmd *cobra.Command, identity []KnowledgeSearchResult, ch
 // printDespertarJSON imprime o despertar completo em JSON (para o opencode).
 func printDespertarJSON(cmd *cobra.Command, identity []KnowledgeSearchResult, chainOK bool) error {
 	type despertarJSON struct {
-		Identity    string   `json:"identity"`
-		GuardPact   []string `json:"guard_pact"`
-		LeiDoCofre  string   `json:"lei_do_cofre"`
-		RaizesOK    bool     `json:"raizes_ok"`
-		Esteira     string   `json:"esteira"`
-		Mode        string   `json:"mode"`
-		Motor       string   `json:"motor"`
-		Despertado  string   `json:"despertado_em"`
+		Identity   string   `json:"identity"`
+		GuardPact  []string `json:"guard_pact"`
+		LeiDoCofre string   `json:"lei_do_cofre"`
+		RaizesOK   bool     `json:"raizes_ok"`
+		Esteira    string   `json:"esteira"`
+		Mode       string   `json:"mode"`
+		Motor      string   `json:"motor"`
+		Despertado string   `json:"despertado_em"`
 	}
 	d := despertarJSON{
 		Identity: "cosca-kernel — braço direito do Don, coordenador da família, guardião da autoridade, honestidade, identidade, memória e integridade",

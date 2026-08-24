@@ -1,0 +1,115 @@
+claims:
+    - id: wm-proto
+      statement: 'World Model: Entity canonica separada da percepcao (asset/state/generation/provenance)'
+      kind: hypothesis
+      source: professor+ADR-fundacao
+      confidence: 0.85
+      created_at: "2026-08-24T00:37:57Z"
+    - id: arch-unreal-module
+      statement: Projeto Unreal (CoscaRuntime) deve ser MODULO separado do nucleo Go. Cosca=cerebro, Unreal=corpo, comunicam por contrato/WebSocket.
+      kind: hypothesis
+      source: Don+professor
+      confidence: 0.9
+      created_at: "2026-08-24T00:43:35Z"
+    - id: arch-kernel-memory
+      statement: Memoria do Kernel e o knowledge.db + family_chain (blockchain). .opencode/ e so framework do editor. Conhecimento de projeto vai para .cosca/knowledge/ via cosca knowledge.
+      kind: observed
+      source: despertar+Don
+      confidence: 0.95
+      created_at: "2026-08-24T00:43:35Z"
+    - id: arch-command-event
+      statement: Command (Cosca->Unreal) e Event (Unreal->Cosca) sao coisas DIFERENTES. Cosca envia comandos, Unreal retorna eventos. Base p/ replay/audit.
+      kind: hypothesis
+      source: professor
+      confidence: 0.9
+      created_at: "2026-08-24T00:45:22Z"
+    - id: arch-determinism
+      statement: 'Toda geracao procedural exige: seed, versao do generator, input_hash, provenance. Mesma seed+versao+dados = mesmo resultado (reprodutivel).'
+      kind: hypothesis
+      source: professor
+      confidence: 0.95
+      created_at: "2026-08-24T00:45:22Z"
+    - id: ident-tree-raiz
+      statement: Arvore canonica Go = RAIZ. cosca/ e orfa antiga/incompleta (0 tracked, gitignored, sem unreal/worldmodel/bridge). 7 pacotes exclusivos na raiz NUNCA sera perdidos.
+      kind: observed
+      source: git+hash-comparison
+      confidence: 0.97
+      created_at: "2026-08-24T00:48:54Z"
+    - id: migrate-unreal
+      statement: 'Migracao reversivel CoscaRuntime para repo proprio (temp/cosca-unreal). COPIA 100% equivalente (Merkle A84A7B5C identico). Origem unreal/ intacta. Fronteira limpa: Go sem dependencia de path UE.'
+      kind: observed
+      source: UNREAL_EXTRACTION_MANIFEST
+      confidence: 0.98
+      created_at: "2026-08-24T00:54:14Z"
+    - id: fix-dll-path
+      statement: O editor UE carrega CoscaRuntime.dll de Plugin/Binaries/, MAS RunUAT BuildPlugin -package entrega em LocalBuilds/Binaries/. Apos build, copiar .dll+pdb+modules de LocalBuilds -> Binaries (agora 21:57 297KB com ApplyTimeOfDay).
+      kind: observed
+      source: 5.5b-validação
+      confidence: 0.95
+      created_at: "2026-08-24T01:02:59Z"
+    - id: val-5.5b
+      statement: 'Validacao 5.5b COMPLETA com dll nova (297KB ApplyTimeOfDay): ping OK, TimeOfDay hour=18 elevation=-0.0 OK, Weather rain intensity=0.8 OK, ImportMesh tree spawned OK. Contrato Cosca<->Unreal 1:1 funcional.'
+      kind: observed
+      source: fase5-migracao
+      confidence: 0.98
+      created_at: "2026-08-24T01:10:24Z"
+    - id: migrados-sha
+      statement: 'Migracao completa e reversivel. SHA Cosca: 95f601b0241ad48792a33c3c246958be786e79e9. SHA cosca-unreal: 1184f440d83b302d294e549cb9223dd0c85bf27b. Copia 100% equivalente (Merkle A84A7B5C). Fronteira definida e validada 5.5b.'
+      kind: observed
+      source: fase5-migracao-sha
+      confidence: 0.98
+      created_at: "2026-08-24T01:11:41Z"
+    - id: world-model-a
+      statement: 'FASE A World Model ENTREGUE. Pacote puro Go internal/world (zero Unreal). 9 componentes: Entity, Coord(GeoToWorld), Graph, Spatial, Temporal, Provenance, Serialize(deterministic fingerprint SHA256), RendererContract(interface). Teste minimo mundo sintetico (Terrain/Road/Tree/Building/Rock) 7/7 pass com -race. SchemaVersion 1.'
+      kind: observed
+      source: WORLD_MODEL_SPEC.md
+      confidence: 0.95
+      created_at: "2026-08-24T01:17:51Z"
+    - id: world-unreal-adapter
+      statement: 'Adapter Unreal FUNCIONAL. internal/world/adapter.UnrealAdapter implementa world.RendererAdapter (compile-time check). Traduz Entity->import_mesh/spawn, Move, Destroy, Weather, Time. Regra de ouro verificada por teste: NUNCA emite /Game/ path (sempre AssetID). 6/6 testes pass com -race.'
+      kind: observed
+      source: WORLD_MODEL_SPEC.tsk
+      confidence: 0.95
+      created_at: "2026-08-24T01:20:57Z"
+    - id: city-synthetic
+      statement: 'PULO DO GATO do professor: cidade sintetica hierarquica SEM imagem. CityGenerator (seed-driven deterministico): Cidade->Bairros->Ruas->Edificios/Arvores/Veiculos + Pracas + Rio. Mesma seed = mesma cidade (fingerprint SHA256 verificado). Provenance GENERATED em toda entity. 5/5 tests. Total world tests: 18/18.'
+      kind: observed
+      source: WORLD_MODEL_SPEC
+      confidence: 0.95
+      created_at: "2026-08-24T01:25:01Z"
+    - id: pipeline-completo
+      statement: 'PIPELINE COMPLETO validado: CityGenerator (cidade sintetica) -> World Model -> UnrealAdapter -> bridge -> [Unreal]. Determinismo preservado fim-a-fim (mesma seed=same cargo). Regra de ouro: nenhum /Game/ path emitido (testado). Total world tests: 21/21. Trava do professor 100% liberada para dados reais.'
+      kind: observed
+      source: WORLD_MODEL_SPEC
+      confidence: 0.97
+      created_at: "2026-08-24T01:26:26Z"
+    - id: world-model-v2
+      statement: 'World Model reforcado (itens 5,9,10,11 do professor): (1) serializacao CANONICA ordem-independente (mesmo mundo=mesmo fingerprint, TestCanonicalOrderIndependent). (2) Validator com invariantes (ID unico, relacoes nao-orfas, sem NaN, escala valida). (3) Queries espaciais+semanticas (CountByClass, TallestBuilding, ConnectBetween, EntitiesInside, EntitiesNear). (4) Geometry como atributo SEPARADO da semantica (Building=polygon, Road=linestring).'
+      kind: observed
+      source: WORLD_MODEL_SPEC-professor
+      confidence: 0.95
+      created_at: "2026-08-24T01:30:46Z"
+    - id: real-world-ingest
+      statement: 'FASE B ENTREGUE: dados REAIS de OSM (recorte ~1km Palhoca/SC, 1256 elementos: 135 ruas, 45 edificios, parque) ingeridos no MESMO World Model. Parser OSM (internal/ingest) aprendeu o formato, nao copiou. Provenance FACT+source_id. Geometria local WGS84->m. TESTE FUNDAMENTAL do professor passou: synthetic e real -> mesma estrutura semantica valida. 6/6 tests ingest + world+adapter+city OK com -race.'
+      kind: observed
+      source: professor-realmundo
+      confidence: 0.97
+      created_at: "2026-08-24T01:37:08Z"
+    - id: golden-slice-inventory
+      statement: 'GOLDEN SLICE + INVENTARIO SEMANTICO. cosca world inspect explica o que encontrou em Palhoca-1km: 45 edificacoes, 112 ruas, 23 avenidas, 0 invalidas, 0 duplicadas, Validation OK, Fingerprint 3c55b59c. Frozen como dataset de referencia (qualquer mudanca no parser deve manter mesmo fingerprint). NAO sao poligonos, sao entidades interpretadas semanticamente.'
+      kind: observed
+      source: professor-golden
+      confidence: 0.97
+      created_at: "2026-08-24T01:44:14Z"
+    - id: mine-batch2
+      statement: 'Minered 6 pacotes novos do Don (VintageRoom, AbandonedFactory, Brushify, BrutalistLevelKit, Isometric_World, BlinkAndDashVFX; ~19GB, 3263 files). Tecnicas-ouro: Brushify (landscape POM/RVT/distance-fade/biome), AbandonedFactory (mist/smoke/steam S/M/L + audio ambience + reactive foliage + decals), Brutalist (modular kit), Isometric (grid tiles 1m/2m), VintageRoom (HDRI IBL), BlinkAndDash (VFX replay). 12 novas capacidades Cosca. Faltava: COMO representar visualmente o que o Cosca semanticamente ja entende.'
+      kind: observed
+      source: ue-content-batch2
+      confidence: 0.92
+      created_at: "2026-08-24T01:49:12Z"
+    - id: reconstruct-pipeline
+      statement: 'PIPELINE RECONSTRUCAO COMPLETO: OSM real (Palhoca) -> World Model -> Reconstructor -> UnrealAdapter -> commands bridge. TestReconstructRealWorld: materializa TODAS as entidades reais via adapter (mock), AssetID semantico por classe (road.avenue/residential, building.house, water.body, terrain.park). 42 testes pass. Mundo real pronto para UE.'
+      kind: observed
+      source: professor-reconstrucao
+      confidence: 0.95
+      created_at: "2026-08-24T02:01:20Z"
