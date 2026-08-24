@@ -806,6 +806,19 @@ func (g *Graph) IsDirty() bool {
 	return g.dirty
 }
 
+// MarkDirty marca o grafo como mutado. Usado pelos métodos do Builder que
+// alteram nodes/edges/inEdges DIRETAMENTE (BuildFromChunks, Extract*,
+// IncrementalUpdate, RemoveDocument, Clear) — essas mutações cruas não passam
+// por AddNode/AddEdge/RemoveNode, que são os que já setam o dirty. Sem isso,
+// IsDirty() retornava falso após essas mutações e o saveGraph() (conhecimento),
+// que só persiste se IsDirty(), pulava a persistência → o grafo ficava vazio
+// no DB entre execuções (BUG do grafo morto, L335).
+func (g *Graph) MarkDirty() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.dirty = true
+}
+
 // MarkClean clears the mutation flag (called after persisting).
 func (g *Graph) MarkClean() {
 	g.mu.Lock()

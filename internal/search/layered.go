@@ -25,6 +25,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/CoscaAI/cosca/internal/graph"
 	"github.com/CoscaAI/cosca/internal/ranking"
 )
 
@@ -149,6 +150,7 @@ type LayeredSearch struct {
 	cfg     LayeredConfig
 	llmHook LLMHook          // opcional; wire later via SetLLMHook
 	ranker  *ranking.Ranker  // opcional; wire later via SetRanker
+	graph   *graph.Graph     // opcional; alimenta o sinal GraphDistance do re-rank (SetGraph)
 }
 
 // NewLayeredSearch creates a layered search over the given engine.
@@ -171,6 +173,17 @@ func (l *LayeredSearch) SetLLMHook(hook LLMHook) *LayeredSearch {
 // mesmo padrão de SetLLMHook.
 func (l *LayeredSearch) SetRanker(r *ranking.Ranker) *LayeredSearch {
 	l.ranker = r
+	return l
+}
+
+// SetGraph registra o grafo de conhecimento opcional. Quando injetado junto com
+// um Ranker (SetRanker), o re-rank final dos candidatos passa a alimentar o
+// sinal GraphDistance real (resultados conectados ao contexto da query sobem no
+// ranking). Nil-safe: sem grafo, o re-rank fica idêntico ao atual (GraphDistance
+// neutro = 0). Retorna o receptor para encadeamento, no mesmo padrão de
+// SetRanker/SetLLMHook.
+func (l *LayeredSearch) SetGraph(g *graph.Graph) *LayeredSearch {
+	l.graph = g
 	return l
 }
 
@@ -209,7 +222,7 @@ func (l *LayeredSearch) Search(ctx context.Context, query string) (*LayeredResul
 	// nada muda (mergeRanked por score cru permanece).
 	if l.ranker != nil {
 		defer func() {
-			res.Results = rerankResults(l.ranker, res.Results, query)
+			res.Results = rerankResults(l.ranker, res.Results, query, l.graph)
 		}()
 	}
 

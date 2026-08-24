@@ -707,6 +707,14 @@ func (e *Engine) Ranker() *ranking.Ranker {
 	return e.ranker
 }
 
+// Graph expõe o grafo de conhecimento do engine, para que camadas superiores
+// (ex.: LayeredSearch no CLI) possam injetá-lo via SetGraph e alimentar o sinal
+// GraphDistance do re-rank. O ponteiro do grafo é estável após Init() — retorno
+// direto é seguro e não exige cópia, no mesmo padrão de Ranker().
+func (e *Engine) Graph() *graph.Graph {
+	return e.graph
+}
+
 // IndexDocument indexes a single document through the full pipeline.
 func (e *Engine) IndexDocument(ctx context.Context, path string) error {
 	e.mu.RLock()

@@ -266,7 +266,7 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 		// score final normalizado de volta (bug #2 — o Score exposto antes
 		// permanecia o cosseno/BM25 cru). O módulo de ranking é reutilizado por
 		// completo (pesos/fórmulas intactos).
-		allResults = rerankResults(e.ranker, allResults, params.Query)
+		allResults = rerankResults(e.ranker, allResults, params.Query, e.graph)
 	} else {
 		// Sort by score descending (preserves raw vector/BM25 scores)
 		sort.Slice(allResults, func(i, j int) bool {
@@ -621,8 +621,28 @@ func (e *Engine) generateSuggestions(query string) []string {
 
 // ── Rankable adapter ───────────────────────────────────────────────────────
 
+// graphDistanceMax é o teto de "distância semântica" no grafo. Um resultado que
+// não está no grafo, ou que não alcança nenhum nó-semente da consulta dentro
+// desse raio, recebe essa distância — o que dá graph score ≈ exp(-6/3) ≈ 0.135
+// (quase sem peso de grafo). Resultados conectados ao contexto da query ficam
+// com distância baixa e sobem no ranking.
+const graphDistanceMax = 6
+
 type searchResultRankable struct {
 	result SearchResult
+
+	// graph dá acesso ao grafo de conhecimento para computar GraphDistance.
+	// Nil-safe: sem grafo, GraphDistance() retorna 0 (comportamento atual,
+	// retrocompatível).
+	graph *graph.Graph
+
+	// query é o texto da consulta que define o "contexto" (nós-semente).
+	query string
+
+	// querySeeds é o conjunto de nós do grafo que casam com o contexto da
+	// consulta (pré-computado uma vez por re-rank para não varrer o grafo a
+	// cada item — O(x) por busca, não por candidato).
+	querySeeds map[string]bool
 }
 
 func (r *searchResultRankable) ID() string          { return r.result.ID }
@@ -630,12 +650,53 @@ func (r *searchResultRankable) Content() string     { return r.result.Content + 
 func (r *searchResultRankable) Score() float64      { return r.result.Score }
 func (r *searchResultRankable) Timestamp() int64    { return 0 }
 func (r *searchResultRankable) ReferenceCount() int { return 0 }
-func (r *searchResultRankable) GraphDistance() int  { return 0 }
+
+// GraphDistance() devolve a distância real no grafo de conhecimento entre o
+// nó que representa o resultado e o nó-semente (contexto) mais próximo da
+// consulta.
+//
+// ESTRATÉGIA (honesta e deliberadamente simples — não é uma ontologia):
+//   - A consulta é uma string; não existe um "nó da query" direto no grafo.
+//     Então definimos o CONTEXTO da query como o conjunto de nós-semente cuja
+//     name/label/path/description contém algum termo da consulta.
+//   - Para o resultado, localizamos o nó do grafo correspondente por: ID exato,
+//     DocumentID, caminho do documento ou proximidade de título/conteúdo.
+//   - A distância é o menor caminho BFS do nó do resultado até a semente mais
+//     próxima (0 = o próprio nó é contexto; 1 = vizinho direto; etc.).
+//
+// CASO BASE (retrocompatível): grafo vazio (GetNodeCount()==0), grafo nulo,
+// consulta vazia ou resultado sem ID retornam 0 — exatamente o comportamento
+// anterior (GraphDistance hardcoded 0). Como computeGraphScore(0)=1.0 é
+// constante, nenhum campo do ranking é diferenciado → o ranking fica idêntico
+// ao atual. Só quando o grafo tem nós e a consulta casa com algum deles é que a
+// distância passa a diferenciar (resultado conectado ao contexto sobe).
+func (r *searchResultRankable) GraphDistance() int {
+	if r.graph == nil || r.query == "" || r.result.ID == "" || r.graph.GetNodeCount() == 0 {
+		return 0 // caso base: sem grafo/contexto → sem sinal (retrocompatível)
+	}
+
+	nodeID := resultNodeID(r.graph, r.result)
+	if nodeID == "" {
+		// Resultado não está no grafo → sem conexão semântica de contexto.
+		return graphDistanceMax
+	}
+
+	// O próprio nó é contexto da query → distância 0 (boost máximo).
+	if r.querySeeds[nodeID] {
+		return 0
+	}
+
+	if d, ok := nearestSeedDistance(r.graph, nodeID, r.querySeeds); ok {
+		return d
+	}
+	// Nenhuma semente alcançável dentro do raio → tratado como desconectado.
+	return graphDistanceMax
+}
 
 func (e *Engine) toRankables(results []SearchResult) []ranking.Rankable {
 	rankables := make([]ranking.Rankable, len(results))
 	for i, r := range results {
-		rankables[i] = &searchResultRankable{result: r}
+		rankables[i] = &searchResultRankable{result: r, graph: e.graph}
 	}
 	return rankables
 }
@@ -657,14 +718,19 @@ func (e *Engine) fromRankables(rankables []ranking.Rankable) []SearchResult {
 //
 // Retrocompatível: quando ranker == nil, a query é vazia ou não há resultados,
 // devolve os resultados inalterados — o comportamento de mergeRanked por score
-// cru permanece.
-func rerankResults(ranker *ranking.Ranker, results []SearchResult, query string) []SearchResult {
+// cru permanece. O parâmetro `g` (grafo de conhecimento) alimenta o sinal
+// GraphDistance dos rankables: quando é nil, o grafo está vazio, ou a query não
+// casa com nenhum nó, o sinal é neutro (0) e o ranking fica idêntico ao atual.
+func rerankResults(ranker *ranking.Ranker, results []SearchResult, query string, g *graph.Graph) []SearchResult {
 	if ranker == nil || len(results) == 0 || strings.TrimSpace(query) == "" {
 		return results
 	}
+	// Nós-semente (contexto da consulta) pré-computados uma única vez por
+	// re-rank, para não varrer o grafo a cada candidato.
+	seeds := graphQuerySeeds(g, query)
 	rankables := make([]ranking.Rankable, len(results))
 	for i := range results {
-		rankables[i] = &searchResultRankable{result: results[i]}
+		rankables[i] = &searchResultRankable{result: results[i], graph: g, query: query, querySeeds: seeds}
 	}
 
 	// Score combinado por item. O ExplainRanked retorna um breakdown por item
@@ -691,6 +757,111 @@ func rerankResults(ranker *ranking.Ranker, results []SearchResult, query string)
 		out[i] = sr
 	}
 	return out
+}
+
+// ── Graph context helpers (sinal semântico do grafo) ───────────────────────
+
+// graphQuerySeeds devolve os IDs dos nós do grafo que casam com o contexto da
+// consulta (por substring nos campos name/label/path/description). Pré-computado
+// uma vez por re-rank. Grafo nulo ou consulta vazia → conjunto vazio (sem
+// sinal — retrocompatível).
+func graphQuerySeeds(g *graph.Graph, query string) map[string]bool {
+	seeds := make(map[string]bool)
+	if g == nil || strings.TrimSpace(query) == "" {
+		return seeds
+	}
+	terms := tokenize(query) // reusa o tokenizer do pacote (layered.go)
+	if len(terms) == 0 {
+		return seeds
+	}
+	for _, n := range g.GetAllNodes() {
+		haystack := strings.ToLower(n.Name + " " + n.Label + " " + n.Path)
+		if d, ok := n.Metadata["description"].(string); ok {
+			haystack += " " + strings.ToLower(d)
+		}
+		for _, t := range terms {
+			if t != "" && strings.Contains(haystack, t) {
+				seeds[n.ID] = true
+				break
+			}
+		}
+	}
+	return seeds
+}
+
+// resultNodeID localiza o nó do grafo que representa um SearchResult, na ordem:
+// ID exato → DocumentID → caminho do documento → proximidade de título/conteúdo.
+// Retorna "" quando o resultado não tem correspondência no grafo (→ sem boost).
+func resultNodeID(g *graph.Graph, sr SearchResult) string {
+	if sr.ID != "" {
+		if _, ok := g.GetNode(sr.ID); ok {
+			return sr.ID
+		}
+	}
+	if sr.DocumentID != "" {
+		if _, ok := g.GetNode(sr.DocumentID); ok {
+			return sr.DocumentID
+		}
+	}
+	if sr.DocumentPath != "" {
+		for _, n := range g.GetAllNodes() {
+			if n.Path != "" && n.Path == sr.DocumentPath {
+				return n.ID
+			}
+		}
+	}
+	if sr.Title != "" || sr.Content != "" {
+		for _, n := range g.GetAllNodes() {
+			if n.Name == "" {
+				continue
+			}
+			if strings.EqualFold(n.Name, sr.Title) {
+				return n.ID
+			}
+			if sr.Content != "" && strings.Contains(sr.Content, n.Name) {
+				return n.ID
+			}
+		}
+	}
+	return ""
+}
+
+// nearestSeedDistance faz BFS a partir de `start` e devolve a distância (hops)
+// até a semente de contexto mais próxima. Limita a expansão ao raio
+// graphDistanceMax — além desse raio tratamos como "sem conexão" (retorna false),
+// o que equivale a devolver graphDistanceMax. BFS garante a MENOR distância.
+func nearestSeedDistance(g *graph.Graph, start string, seeds map[string]bool) (int, bool) {
+	if len(seeds) == 0 {
+		return 0, false
+	}
+	type queueItem struct {
+		id    string
+		depth int
+	}
+	visited := map[string]bool{start: true}
+	queue := []queueItem{{id: start, depth: 0}}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur.depth >= graphDistanceMax {
+			continue // não expande além do raio de contexto
+		}
+		neighbors, err := g.GetNeighbors(cur.id)
+		if err != nil {
+			continue
+		}
+		for _, nb := range neighbors {
+			d := cur.depth + 1
+			if seeds[nb.ID] {
+				return d, true
+			}
+			if !visited[nb.ID] {
+				visited[nb.ID] = true
+				queue = append(queue, queueItem{id: nb.ID, depth: d})
+			}
+		}
+	}
+	return 0, false
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -174,6 +174,8 @@ func (b *Builder) BuildFromChunks(chunks []chunker.Chunk, documentID, documentPa
 		})
 	}
 
+	b.graph.MarkDirty() // mutação direta abaixo do AddNode — marca para persistência
+
 	return nil
 }
 
@@ -215,6 +217,8 @@ func (b *Builder) ExtractCrossReferences(docs map[string]*markdown.Document) err
 			}
 		}
 	}
+
+	b.graph.MarkDirty() // mutação direta de edges/inEdges — marca para persistência
 
 	return nil
 }
@@ -270,6 +274,8 @@ func (b *Builder) ExtractDependencies(path string, doc *markdown.Document) error
 			}
 		}
 	}
+
+	b.graph.MarkDirty() // mutação direta de edges/inEdges — marca para persistência
 
 	return nil
 }
@@ -327,6 +333,8 @@ func (b *Builder) ExtractCodeImports(path string, content string) error {
 		}
 	}
 
+	b.graph.MarkDirty() // mutação direta de edges/inEdges — marca para persistência
+
 	return nil
 }
 
@@ -357,6 +365,7 @@ func (b *Builder) IncrementalUpdate(path string, doc *markdown.Document, entityP
 		b.graph.edges[source] = filtered
 	}
 	b.mu.Unlock()
+	b.graph.MarkDirty() // remoção direta de nodes/edges — marca para persistência
 
 	// Re-add
 	return b.BuildFromDocument(doc, entityParser)
@@ -391,6 +400,8 @@ func (b *Builder) RemoveDocument(path string) error {
 		b.graph.edges[source] = filtered
 	}
 
+	b.graph.MarkDirty() // remoção direta de nodes/edges — marca para persistência
+
 	return nil
 }
 
@@ -401,6 +412,7 @@ func (b *Builder) Clear() {
 	b.graph.nodes = make(map[string]*Node)
 	b.graph.edges = make(map[string][]*Edge)
 	b.graph.inEdges = make(map[string][]*Edge)
+	b.graph.MarkDirty() // limpeza total é mutação — marca para persistência
 }
 
 // ── Helper methods ────────────────────────────────────────────────────────
