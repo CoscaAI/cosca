@@ -89,3 +89,26 @@ não é descer — descer é a sabedoria.
   estabilizar."
 - Lição do L434: a vergonha não é descer; descer é a sabedoria que evita o loop
   de morte.
+
+## Ordem Sagrada — modelo REAL de enforcement (2026-08-25)
+
+A ordem sagrada (L199: "todo commit que toca o embed exige re-assinar") tem
+**duas camadas**:
+
+| Camada | Status | Papel |
+|--------|--------|-------|
+| **Fail-closed do serve** | ✅ **Código, forte, testado** | **A proteção real**: embed adulterado → `cosca-check` detecta (GIT COMMIT MISMATCH) e o serve **recusa subir**. Indelevél, funciona em WSL e Windows. |
+| **Hook post-commit** | ⚠️ Frágil no Windows | Só conveniência (tenta auto-re-assinar). No git-for-windows a delegação bash→cmd é instável e **não dispara de forma confiável**. |
+
+**Verdade registrada (decisão do consigliere, 2026-08-25):**
+- A camada que **importa** (proteção) é o **fail-closed do serve** — já é código e
+  funciona. É o muro real.
+- A camada frágil (auto-re-assinação via hook) é **só conforto**, não segurança.
+- **No Windows, a re-assinação é semi-manual:** quando o embed muda, o fail-closed
+  avisa; re-assine com `bin/cosca-check.exe --sign-auto` (funciona perfeitamente:
+  Blocks 39/40/41 criados, chain valid).
+- **NÃO perseguir a automação do hook no git-for-windows** — é o loop do L434
+  (repetir a mesma investigação sem progresso). O retorno (conveniência) não
+  justifica o custo. A garantia real já está em código.
+- No WSL/Linux, o hook post-commit re-assina automaticamente (a delegação bash
+  funciona lá).

@@ -118,3 +118,20 @@
 
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+
+### 2026-08-25 — Persegui automação de hook no Windows sem progresso (loop do L434)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Fazer a ordem sagrada (re-assinar chain) ser 100% automática via hook post-commit no Windows |
+| **Failed Approach** | Empenhei vários passes tentando fazer o hook post-commit disparar no git-for-windows: `cmd //c` → `cmd //c call` → debug de invocação → teste de fogo (commitei HOOK_TEST.md). Cada tentativa não resolveu — a delegação bash→cmd do git-for-windows é instável. |
+| **Root Cause** | A camada que EU buscava automatizar (auto-re-assinar via hook) é **conveniência**, não segurança. A proteção real (fail-closed do serve) **já estava em código** e funcionava. Eu persegui o que dava trabalho em vez de proteger o que importa — o loop do L434 (repetir investigação sem progresso, Memória > Velocidade). |
+| **Consequence** | Passei do foco: a chain ficou em breach em alguns passes do teste (reativada manualmente), e gastei sessão tentando o impossível no git-for-windows. O consigliere teve que parar. |
+| **Lesson** | **Não perseguir automação que não é segurança.** O fail-closed do serve (embed adulterado → serve não sobe) é a GARANTIA REAL da ordem sagrada, já em código e testada. A auto-re-assinação via hook é conforto; se não funciona no Windows de forma confiável, ACEITAR o modelo semi-manual (fail-closed avisa + `bin/cosca-check.exe --sign-auto` na mão) em vez de 10 commits tentando forçar. **Distinguir sempre: segurança (fail-closed, código, investir) vs conveniência (auto-um-tanto, se frágil, deixar).** |
+| **Confidence Impact** | -0.05 |
+| **Tags** | #loop-do-L434 #hook-windows #fail-closed #ordem-sagrada #conveniencia-vs-seguranca #consigliere-parou #Memoria-velocidade |
+| **Avoidance Pattern** | Antes de investir em automação: perguntar "isso é SEGURANÇA (fail-closed, código) ou CONVENIÊNCIA (auto-)?". Se é conveniência e a infra (git-for-windows) é frágil → PARE, aceita o modelo manual, documenta, registra o aprendizado. Só o que protege de verdade merece insistir. |
+
+---
+> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
