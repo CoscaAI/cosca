@@ -175,7 +175,11 @@ func (gs *GRPCServer) GracefulStop() {
 			gs.logger.Warn().
 				Dur("timeout", gracefulStopTimeout).
 				Msg("gRPC graceful stop timed out; forcing server stop")
-			gs.server.Stop()
+			// gs.server.Stop() pode bloquear esperando streams ativos que não
+			// terminam (CallbackSerializer.Wait no runtime do gRPC). Para que o
+			// GracefulStop respeite o deadline mesmo nesse caso, chama Stop() em
+			// goroutine — o retorno do método é bounded, sem espera indefinida.
+			go gs.server.Stop()
 		}
 	})
 }

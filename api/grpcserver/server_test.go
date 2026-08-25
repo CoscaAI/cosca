@@ -297,8 +297,10 @@ func TestGRPCServerGracefulStopTimeoutAndIdempotency(t *testing.T) {
 
 	lis := bufconn.Listen(1024 * 1024)
 	go func() { _ = srv.Serve(lis) }()
+	var blockOnce sync.Once
+	closeBlock := func() { blockOnce.Do(func() { close(service.block) }) }
 	defer func() {
-		close(service.block)
+		closeBlock()
 		srv.Stop()
 	}()
 
