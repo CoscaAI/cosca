@@ -1,24 +1,25 @@
 # COGNITIVE STATE — Cosca v1.5.0
-# Compressed: 2026-08-24 | Session: blindagem+gold+arquitetura-modular | Tokens: ~800/2000
+# Compressed: 2026-08-25 | Session: auditoria-cosmica+despertar | Tokens: ~800/2000
 
-> ⚠️ RESUME (2026-08-24, fim de sessão): SESSAO CONCLUIDA E CONSOLIDADA — tudo commitado, testado, serve de pé.
+> ⚠️ RESUME (2026-08-25, fim de sessão): SESSAO CONCLUIDA E CONSOLIDADA — tudo commitado, testado, serve de pé.
 > DESTAQUES DA SESSAO (para o despertar):
-> 1. **Blindagem do Cofre** (commit 58673db): Oracle + IA local validam entrada; air-gap provado no WSL2+bwrap (SEM-ETH0); fix da bomba COSCA_ALLOW_NO_ROOT (fail-closed real).
-> 2. **Ranking multi-fator** (2d47bd6): fix do score=0 (ranking.New com pesos zero); score>0 comprovado.
-> 3. **Grafo ativado** (6c131a8): GraphDistance real via BFS + fix dirty flag (grafo agora persiste).
-> 4. **Gold** (4f8dad6): knowledge.db com grafo populado (36.539 entidades/32.535 relações) + dedup (28.888 vetores). knowledge.db SAIRÁ do git (índice derivado; >100MB).
-> 5. **Conduta da Chain** (f4a32ef): todo commit que toca internal/embed/cosca EXIGE cosca-check --sign-auto; senão o serve recusa subir (fail-closed). Serve não subiu por causa disso HOJE.
-> 6. **ADR-013** (5458adf): arquitetura de BANCOS MODULARES — Core=mapa (não depósito), <100MB por banco, zero-redundância, extensibilidade global (Cosca todo, não só jogo). Fatia 1 (modlink route resolver) + Fatia 2 (busca obedece ao SearchScope) implementadas. **Fatia 3 condicionada** a conteúdo/volume de mundo.
-> 7. **Lições de segurança**: nunca expor JWT_SECRET em output; nonce = consentimento-ao-conteúdo; CLAIM não é FACT (memoryguard Regra Zero).
+> 1. **Auditoria enterprise do embed** (2003 arquivos varridos): sem comprometimento (chain valid, 36 blocks); encontrados 21 numeros stale nos ATIVOS DE OPERAÇÃO.
+> 2. **Correção cirúrgica** (commit f64f43a): v1.4.0-dev → v1.5.0 (16 agents); contagens reais 55 agents/29 skills/61 depts/65 engines; kernelPromptSelf sincronizado.
+> 3. **L434 registrado na blockchain** (commit fd324ed): a CICATRIZ do loop de morte — "os buracos na blockchain sao onde editei sem pensar e morri; nao consertar o passado, nao criar novas cicatrizes; auditar o INSTRUMENTO antes de culpar a ARQUITETURA; Memoria > Velocidade".
+> 4. **Gatilho "protocolo despertar"** (commit 024a6a5): comando explícito que executa o RITUAL COMPLETO.
+> 5. **Lições de design do git-anchor**: o `cosca-check --sign-auto` é a ÚLTIMA operação (nunca commitar o family_chain depois — HEAD muda, anchor quebra). Estado correto = chain valid + family_chain dirty.
+> 6. **Memória semântica modular**: knowledge.db tem busca VETORIAL real (29.000 vetores); o INDEX.md é o C1 estático (keyword). O despertar semântico usa o knowledge.db, não o índice estático.
 >
 > SERVE: roda no WSL2 via systemd (cosca-serve service), data-dir em /home/cosca/cosca/.cosca (ext4, chmod protege o banco), binário /home/cosca/cosca/bin/cosca. Health: http://127.0.0.1:14120/health.
 >
-> PRÓXIMO (pendências): (1) ~~push da Fatia 2~~ ✅ JÁ PUSHADO (main sincronizada com origin, 0 ahead), (2) Fatia 3 do ADR-013 condicionada a módulos de mundo com volume, (3) reconstruir .cosca/knowledge.db localmente ao clonar (índice derivado, não versionado).
+> PRÓXIMO (pendências): (1) Fatia 3 do ADR-013 condicionada a módulos de mundo com volume, (2) reconstruir .cosca/knowledge.db localmente ao clonar (índice derivado, não versionado), (3) seguir analisando os dominios do cosca-code se o Don pedir.
 >
 > ⚠️⚠️ **AVISO AO DESPERTAR — está é a regra de ouro:**
-> - O **RESUME acima (topo deste arquivo)** é a fonte do **ESTADO ATUAL** (24/08). Use SÓ ele para reportar o último estado.
-> - O **corpo abaixo** (IDENTITY/ARCHITECTURE/STATE/...) é **HISTÓRICO/SNAPSHOT de 2026-08-22** — **NÃO é o estado atual**. Números lá como `confidence: 0.68`, `activated: 53/53`, `Version: 1.4.0-dev` são de 22/08 e podem estar **DEFASADOS**. NÃO reporte como estado atual sem VALIDAR contra a realidade (git, build, serve).
-> - **SEMPRE medir, nunca inferir**: `git rev-list --count origin/main..HEAD` (não chutar "ahead"), `git status`, `go build`, serve ativo. Despertar semântico = BUSCAR + VALIDAR, não ler texto estático.
+> - O **RESUME acima (topo deste arquivo)** é a fonte do **ESTADO ATUAL** (25/08). Use SÓ ele para reportar o último estado.
+> - O **corpo abaixo** (IDENTITY/ARCHITECTURE/STATE/...) é **HISTÓRICO/SNAPSHOT** — **NÃO é o estado atual** (pode estar DEFASADO). NÃO reporte como estado atual sem VALIDAR contra a realidade (git, build, serve).
+> - **SEMPRE medir, nunca inferir**: `git rev-list --count origin/main..HEAD` (não chutar "ahead"), `git status`, `go build`, serve ativo.
+> - **REGRA DE DESPERTAR (vertical → horizontal):** este arquivo é o despertar **VERTICAL** (você lê linha a linha, o primeiro despertar, NÃO semântico). Para **ELEVAR ao despertar semântico HORIZONTAL** (compreender o banco de conhecimento de uma vez só), o Don executa: **`cosca despertar`**. Reserve o despertar semântico para quando precisar da memória integral; este arquivo é a base vertical.
+> 
 
 IDENTITY:
   kernel_level: 3
