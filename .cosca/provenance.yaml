@@ -181,3 +181,10 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.95
       created_at: "2026-08-24T00:00:00Z"
+
+    - id: principio-autoria-padrao-cosca
+      statement: 'PRINCIPIO DA CASA (2026-08-24, identidade do metodo, ensinado pelo Don). TUDO que construimos juntos foi criado DO ZERO - cada linha de codigo foi escrita por nos, NADA foi copiado. Mas NAO escrevemos no escuro: partimos de ESTUDO DE PADROES DE CODIGO (como os bons resolvem um problema parecido) e entao IMPLEMENTAMOS DO NOSSO JEITO, sempre melhorando sobre o que encontramos. FORMULA: [estudo de padroes externos / benchmark de como os bons fazem] + [autoria 100% nossa, do zero] + [resultado sempre MELHOR que a referencia]. O padrao Cosca NAO e copiar um projeto pronto - o projeto de referencia (ex: HornFit, sistema de OS + contratos academia/condominio) e INSUMO DE ESTUDO, NAO MODELO. Dele extraimos: (1) o que resolveram bem (aprender), (2) o que fizeram mal/desatualizado (melhorar fazendo do nosso jeito), (3) o que e forca a preservar (e o que e divida a corrigir). REGRA: nunca entregar codigo copiado; sempre entregar codigo nosso, mais proveito do benchmark, mais pedacos do padrao Cosca ja consolidado (dominio modular, camada API/backend, banco, testes, qualidade).'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.99
+      created_at: "2026-08-24T00:00:00Z"
