@@ -1,5 +1,5 @@
 {
-  "total_blocks": 431,
+  "total_blocks": 432,
   "epoch_size": 32,
   "total_epochs": 14,
   "epochs": [
@@ -57,7 +57,7 @@
     },
     {
       "epoch": 13,
-      "root": "233e56665332680ec413682b1239bf599d3498f181203d1d59e002dfcc5df8a2"
+      "root": "f0f2a3432b7d07a974cb5934fcded8d6c85b7bc3f526da962aabc772e94225e7"
     }
   ]
 }
