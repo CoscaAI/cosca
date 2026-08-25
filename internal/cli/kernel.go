@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/CoscaAI/cosca/internal/embed"
+	"github.com/CoscaAI/cosca/internal/integrity"
 	"github.com/CoscaAI/cosca/internal/kernel"
 	"github.com/spf13/cobra"
 )
@@ -53,6 +55,14 @@ func NewKernelIdentityCommand() *cobra.Command {
 			}
 
 			formatter.Header("Cosca Kernel — Identity")
+			// Guarda-identidade (loyalty.go): verifica POR CÓDIGO se a identidade
+			// é a canônica (ALMA.md). Se a alma está íntegra, reporta. Se foi
+			// trocada (breach/desafio falhado), AVISA — o kernel não é "outra pessoa".
+			if v, reason := verifyKernelAlma(); v != integrity.IDOk {
+				formatter.KeyValue("⚠ Identidade", v.String()+" — "+reason)
+			} else {
+				formatter.KeyValue("⚠ Identidade", "✅ íntegra (ALMA verificada)")
+			}
 			formatter.KeyValue("Name", id.Name)
 			formatter.KeyValue("Role", id.Role)
 			formatter.KeyValue("Project", fmt.Sprintf("%s %s", id.Project, id.ProjectVer))
@@ -251,4 +261,28 @@ func resolveKnowledgeDB() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("knowledge.db not found in %s", filepath.Join(dir, ".cosca"))
+}
+
+// verifyKernelAlma verifica POR CÓDIGO que a identidade do kernel é a canônica
+// (ALMA.md). Lê a filosofia-genoma do embed, computa o digest BLAKE3 e valida
+// a resposta ao desafio semântico. Se a alma foi trocada (breach/injeção),
+// retorna IDBreach/IDChallengeFail — o kernel não é "outra pessoa".
+func verifyKernelAlma() (integrity.VerdictIdentity, string) {
+	// Camada 1 — lê a ALMA do embed e computa o digest (a "impressão digital da alma").
+	data, err := embed.ReadFile("ALMA.md")
+	if err != nil {
+		return integrity.IDNoConfig, "ALMA.md nao acessivel no embed"
+	}
+	almaDigest := integrity.HashBytes(integrity.HashBLAKE3, data)
+	// Registra o digest canônico (se ainda não configurado).
+	if integrity.IdentityDigest() == "" {
+		integrity.SetIdentityDigest(almaDigest)
+	}
+	// Camada 2 — verifica o digest + o desafio semântico (a resposta da alma).
+	return integrity.VerifyIdentity(
+		integrity.IdentityDigest(),
+		// A resposta canônica à pergunta "quem é você" (extraída da ALMA).
+		integrity.AlmaChallenge,
+		"kernel->don", // a relação fundamental do grafo de lealdade
+	)
 }
