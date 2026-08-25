@@ -24,7 +24,7 @@ if [ "${OS:-}" = "Windows_NT" ] || uname -s 2>/dev/null | grep -qiE 'mingw|msys|
   HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
   HOOK_DIR_WIN="$(cygpath -w "$HOOK_DIR" 2>/dev/null)"
   if [ -n "$HOOK_DIR_WIN" ] && [ -f "$HOOK_DIR/post-commit.cmd" ]; then
-    cmd //c "$HOOK_DIR_WIN\\post-commit.cmd" </dev/null >/dev/null 2>&1
+    cmd //c call "$HOOK_DIR_WIN\\post-commit.cmd" </dev/null >/dev/null 2>&1
   fi
   exit 0
 fi
