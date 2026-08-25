@@ -26,6 +26,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/chat/sandbox"
+	"github.com/CoscaAI/cosca/internal/level"
 	"github.com/CoscaAI/cosca/internal/policy"
 )
 
@@ -159,7 +160,12 @@ type Executor struct {
 	// hierarquia de autoridade, entre a validação e o sandbox. Nil = sem
 	// guard (comportamento histórico).
 	policy *policy.Engine
-	mu     sync.RWMutex
+	// levelGate é o sistema de NÍVEIS de capacidade (decisão do Don 2026-08-25):
+	// enforcement por código que limita o que o agente pode fazer conforme o
+	// nível atual (L1 inicial / L2 operacional / L3 soberano). Avaliado ANTES do
+	// policy — é a primeira barreira de soberania. Nil = nível não gerenciado.
+	levelGate *level.Gate
+	mu        sync.RWMutex
 }
 
 // New creates a new Executor with the given dependencies.
@@ -184,6 +190,15 @@ func (e *Executor) SetPolicy(p *policy.Engine) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.policy = p
+}
+
+// SetLevelGate anexa o sistema de níveis de capacidade ao executor (nil
+// desativa). O gate é a primeira barreira de soberania: decide pela matriz
+// nível × dimensão se a ação é permitida no nível atual.
+func (e *Executor) SetLevelGate(g *level.Gate) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.levelGate = g
 }
 
 // ─── Core Methods ────────────────────────────────────────────────────────────
@@ -226,7 +241,30 @@ func (e *Executor) Execute(ctx context.Context, toolCall ToolCall) (*ToolResult,
 		}, nil
 	}
 
-	// 2.5 Policy enforcement (guard determinístico — L366). O veredito DENY
+	// 2.5 Level gate (sistema de níveis de capacidade — decisão do Don 2026-08-25).
+	// A primeira barreira de soberania: decide pela matriz nível × dimensão se a
+	// ação é permitida no nível atual, ANTES do policy determinístico. Um veredito
+	// LEVEL-DENY bloqueia a execução por código (independe do LLM).
+	e.mu.RLock()
+	lg := e.levelGate
+	e.mu.RUnlock()
+	if lg != nil {
+		lv := lg.Check(level.Action{
+			Tool:       toolCall.Name,
+			RawCommand: strArg(toolCall.Input, "command", "cmd"),
+			TargetPath: strArg(toolCall.Input, "path", "filePath", "file"),
+		})
+		if lv == level.VDeny || lv == level.VNeedApproval {
+			return &ToolResult{
+				ToolCallID: toolCall.ID,
+				Status:     StatusError,
+				Error:      fmt.Sprintf("level %s: ação bloqueada pela soberania do nível — %s", lg.Current(), lv),
+				DurationMs: time.Since(start).Milliseconds(),
+			}, nil
+		}
+	}
+
+	// 2.6 Policy enforcement (guard determinístico — L366). O veredito DENY
 	// e CONFIRM bloqueiam a execução: a decisão é por código, independente
 	// do LLM (GOVERNANCE_PROTOCOL §1).
 	e.mu.RLock()
@@ -409,6 +447,17 @@ func (e *Executor) ValidateToolCall(toolCall ToolCall) error {
 	}
 
 	return nil
+}
+
+// strArg extrai a primeira chave string presente em args (para montar a Action
+// do level gate — comando e alvo). Mesmo padrão do helper do policy.
+func strArg(args map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := args[k].(string); ok {
+			return v
+		}
+	}
+	return ""
 }
 
 // ListTools returns all registered tool definitions in the format required for
