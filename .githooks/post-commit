@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# post-commit — reindexa o knowledge base quando o framework muda e valida o
-# catálogo (.opencode/cosca) via `cosca gate catalog --check --summary`.
+# post-commit — reindexa o knowledge base quando o framework muda, valida o
+# catálogo (.opencode/cosca) e RE-ASSINA A CHAIN automaticamente quando o embed
+# mudou (ORDEM SAGRADA L199 — enforcement, não disciplina).
+#
+# A ordem sagrada: "todo commit que toca internal/embed/cosca exige re-assinar".
+# Aqui ela é APLICADA por código: se o embed mudou no último commit, o hook roda
+# `cosca-check --sign-auto` automaticamente. Assim o agente/jovem NUNCA deixa a
+# chain desalinhada — o fail-closed do serve passa a ser a 2ª rede de segurança,
+# não a única.
 #
 # Conectado via `git config core.hooksPath .githooks`. Roda em background
 # (setsid) para não travar o commit; o hash-check do indexador pula arquivos
-# inalterados, então só os .md/.yaml alterados são re-embeddados.
-#
-# Catálogo: quando algo em .opencode/cosca/ muda no último commit, roda
-# `cosca gate catalog --check --summary`. Se falhar (drift), imprime a
-# orientação de re-gerar o snapshot — MAS NUNCA trava o commit (post-commit
-# sempre retorna 0). A esteira avisa, não bloqueia.
+# inalterados.
 #
 # Windows: o git-for-windows executa hooks SEM extensão (este arquivo) via
 # bash embutido e NÃO invoca post-commit.cmd sozinho. Quando detectamos
@@ -30,6 +32,26 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 FRAMEWORK_DIR="$REPO_ROOT/internal/embed/cosca"
 COSCA_BIN="${COSCA_BIN:-/home/cosca/.cosca/bin/cosca}"
+# O cosca-check é um binário separado (cmd/cosca-check), não subcomando do cosca.
+# Prioridade: binário built no repo (Linux) → go run (fallback) → binário do WSL.
+CSCA_CHECK=""
+if [ -x "$REPO_ROOT/bin/cosca-check" ]; then
+  CSCA_CHECK="$REPO_ROOT/bin/cosca-check"
+elif [ -x "$REPO_ROOT/bin/cosca-check.exe" ] && [ "${OS:-}" != "Windows_NT" ]; then
+  CSCA_CHECK="$REPO_ROOT/bin/cosca-check.exe"
+fi
+
+# Se não há binário built no repo, podemos sempre rodar via go run (mais lento
+# mas confiável) OU via o binário do WSL se disponível.
+run_sign_auto() {
+  if [ -n "$CSCA_CHECK" ]; then
+    (cd "$REPO_ROOT" && "$CSCA_CHECK" --sign-auto)
+  elif [ -x "$COSCA_BIN" ]; then
+    (cd "$REPO_ROOT" && "$COSCA_BIN" check --sign-auto)
+  else
+    (cd "$REPO_ROOT" && go run ./cmd/cosca-check --sign-auto)
+  fi
+}
 
 # --- Catálogo (.opencode/cosca) — generate-and-diff ---
 CATALOG_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^\.opencode/cosca/' | head -100 || true)"
@@ -45,14 +67,22 @@ fi
 # Só faz sentido se o framework existir
 [ -d "$FRAMEWORK_DIR" ] || exit 0
 
-# Verifica se algo do framework mudou no último commit
+# ORDEM SAGRADA em código: re-assina a chain em TODO commit. Motivo: QUALQUER
+# commit avança o HEAD e desalinha o anchor do último bloco (o git-anchor opera
+# por GIT_COMMIT = HEAD). Para a chain estar SEMPRE alinhada ao HEAD, o sign-auto
+# roda sempre que o repo avança — independente de o embed ter mudado. Assim o
+# fail-closed do serve nunca dispara por desalinhamento benigno.
+if run_sign_auto >/tmp/cosca-sign.log 2>&1; then
+  echo "✅ ordem sagrada cumprida: family chain re-assinada automaticamente (HEAD avançou)" >&2
+else
+  echo "⚠️ ordem sagrada: re-assinar falhou — rode 'cosca-check --sign-auto' manualmente" >&2
+fi
+
+# Reindexa (desacoplado) quando o embed muda (só nesse caso faz sentido indexar).
 CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^internal/embed/cosca/.*\.(md|yaml)$' | head -100 || true)"
-[ -n "$CHANGED" ] || exit 0
-
-[ -x "$COSCA_BIN" ] || exit 0
-
-# Desacopla do git (o hook não espera nem bloqueia o commit)
-setsid bash -c "cd '$REPO_ROOT' && '$COSCA_BIN' knowledge index '$FRAMEWORK_DIR' >> /tmp/cosca-index.log 2>&1" \
-  </dev/null >/dev/null 2>&1 &
+if [ -n "$CHANGED" ] && [ -x "$COSCA_BIN" ]; then
+  setsid bash -c "cd '$REPO_ROOT' && '$COSCA_BIN' knowledge index '$FRAMEWORK_DIR' >> /tmp/cosca-index.log 2>&1" \
+    </dev/null >/dev/null 2>&1 &
+fi
 
 exit 0
