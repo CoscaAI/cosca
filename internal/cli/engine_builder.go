@@ -167,7 +167,28 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 		log.Info().Msg("level: subida para L3-SOBERANO autorizada pelo Don")
 		return level.L3Soberano, nil
 	})
+	// Watchdog de auto-regulação: observa os resultados de cada execução e, quando
+	// detecta o padrão de loop (L434), DESCE o nível automaticamente para estabilizar.
+	// "A subida é capacidade; a descida é sabedoria."
+	levelGate.SetWatchdog(level.NewWatchdog())
 	exec.SetLevelGate(levelGate)
+	// Observa cada evento de execução para alimentar o watchdog (a auto-descida)
+	// e promover por capacidade (L1→L2 quando o agente opera a máquina com sucesso).
+	exec.SetExecObserver(func(result *executor.ToolResult, progressed bool) {
+		status := ""
+		if result != nil {
+			status = string(result.Status)
+		}
+		if levelGate.ObserveResult(status, progressed) {
+			log.Warn().Msgf("level: watchdog estabilizou — agente desceu para %s", levelGate.Current())
+		}
+		// Promoção por capacidade: L1→L2 automática quando o agente opera com sucesso.
+		if progressed && levelGate.Current() == level.L1Inicial {
+			if next, ok := levelGate.AutoPromote(); ok {
+				log.Info().Msgf("level: agente promovido por capacidade — subiu para %s", next)
+			}
+		}
+	})
 
 	// ── 3. Agent Registry ────────────────────────────────────────────────
 	agentReg := engine.NewAgentRegistry()

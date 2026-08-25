@@ -49,6 +49,11 @@ type Gate struct {
 	// onElevate é o hook chamado quando uma ação pede subida de nível
 	// (ex.: editar o cérebro no L2). Retorna o novo nível se autorizado.
 	onElevate func(from Level, a Action) (Level, error)
+	// watchdog é o sensor de auto-regulação (opcional). Quando ligado, o gate
+	// observa os resultados e DESCE o nível se detectar o padrão de loop (L434).
+	watchdog *Watchdog
+	// lastCorrection guarda a última correção/edição (para detectar loop).
+	lastCorrection string
 }
 
 // NewGate cria um Gate começando no nível dado.
@@ -107,6 +112,61 @@ func (g *Gate) Demote(to Level) error {
 	g.current = to
 	return nil
 }
+
+// ObserveResult conecta o watchdog ao ciclo de execução real (chamado pelo
+// executor após cada tool): alimenta os contadores sem progresso e, quando o
+// watchdog pede estabilização, DESCE o nível automaticamente (auto-regulação).
+// Devole true quando o nível foi reduzido (para observabilidade).
+func (g *Gate) ObserveResult(status string, progressed bool) bool {
+	if g.watchdog == nil {
+		return false
+	}
+	// Sucesso → reseta o streak de erros; erro → conta.
+	if status == "ok" || status == "success" {
+		g.watchdog.ResetError()
+	} else {
+		g.watchdog.RecordError()
+		// Apenas erros de execução sem progresso alimentam o loop quando a ação
+		// é uma "correção" (edit/write). Leitura com erro é só streak.
+		g.watchdog.RecordLoop(g.lastCorrection, progressed)
+	}
+	// Watchdog pede estabilização? → desce automaticamente.
+	if ok, target := g.watchdog.ShouldStabilize(g.current); ok {
+		_ = g.Demote(target)
+		g.watchdog.MarkedDown()
+		return true
+	}
+	return false
+}
+
+// AutoPromote decide a subida por CAPACIDADE: quando o agente demonstra domínio
+// (ex.: operou a máquina com sucesso), sobe um nível de forma automática, até o
+// L2-OPERACIONAL. A subida além de L2 (L3-SOBERANO) NÃO é automática — exige o
+// hook do Don (Promote com aval). Sem hook de elevação, a subida para L2 é
+// permitida por capacidade; para L3 é sempre negada (fail-closed).
+func (g *Gate) AutoPromote() (Level, bool) {
+	if g.current == L1Inicial {
+		g.current = L2Operacional
+		return g.current, true
+	}
+	return g.current, false
+}
+
+// ObserveEdit registra uma edição (com progresso) — usada para detectar o loop
+// de correção do tipo que matou o kernel (L434).
+func (g *Gate) ObserveEdit(correction string, progressed bool) {
+	g.lastCorrection = correction
+	if g.watchdog != nil {
+		g.watchdog.RecordLoop(correction, progressed)
+	}
+}
+
+// Watchdog expõe o sensor (para o executor ligar). Nil se não configurado.
+func (g *Gate) Watchdog() *Watchdog { return g.watchdog }
+
+// SetWatchdog liga o sensor de auto-descida ao gate (live). Sem ele, não há
+// auto-regulação — a descida só acontece via Demote explícito.
+func (g *Gate) SetWatchdog(w *Watchdog) { g.watchdog = w }
 
 // Check avalia uma ação no nível atual. Ordem: se a ação toca o cérebro e o
 // nível não permite, tenta elevar (com aval do Don). Caso contrário, decide

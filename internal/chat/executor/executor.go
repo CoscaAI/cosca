@@ -165,7 +165,11 @@ type Executor struct {
 	// nível atual (L1 inicial / L2 operacional / L3 soberano). Avaliado ANTES do
 	// policy — é a primeira barreira de soberania. Nil = nível não gerenciado.
 	levelGate *level.Gate
-	mu        sync.RWMutex
+	// execObserver é o hook chamado após cada execução (para o watchdog de
+	// auto-regulação observar o resultado e descer o nível quando houver loop).
+	// Nil = sem observação.
+	execObserver func(result *ToolResult, progressed bool)
+	mu           sync.RWMutex
 }
 
 // New creates a new Executor with the given dependencies.
@@ -201,6 +205,15 @@ func (e *Executor) SetLevelGate(g *level.Gate) {
 	e.levelGate = g
 }
 
+// SetExecObserver registra o hook de observação de resultados (para o watchdog
+// de auto-regulação). Chamado após cada execução com o resultado e se houve
+// progresso. Nil desativa.
+func (e *Executor) SetExecObserver(fn func(result *ToolResult, progressed bool)) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.execObserver = fn
+}
+
 // ─── Core Methods ────────────────────────────────────────────────────────────
 
 // Execute runs a single tool call with sandbox enforcement and context-based
@@ -217,8 +230,21 @@ func (e *Executor) SetLevelGate(g *level.Gate) {
 // The returned error is reserved for truly exceptional conditions (e.g. a
 // misconfigured executor). Most execution failures are reported inside
 // ToolResult with Status "error" and a non-empty Error field.
-func (e *Executor) Execute(ctx context.Context, toolCall ToolCall) (*ToolResult, error) {
+func (e *Executor) Execute(ctx context.Context, toolCall ToolCall) (res *ToolResult, eR error) {
 	start := time.Now()
+
+	// 0. Observer de auto-regulação (watchdog): alimenta o sistema de níveis após
+	// cada execução, em TODOS os caminhos (defer captura o retorno nomeado). Se o
+	// watchdog detectar o padrão de loop (L434), desce o nível automaticamente.
+	defer func() {
+		e.mu.RLock()
+		obs := e.execObserver
+		e.mu.RUnlock()
+		if obs != nil {
+			progressed := res != nil && res.Status == StatusSuccess
+			obs(res, progressed)
+		}
+	}()
 
 	// 1. Validate the tool call.
 	if err := e.ValidateToolCall(toolCall); err != nil {

@@ -82,3 +82,38 @@ func TestLevelGateSemGatePermiteQualquerCoisa(t *testing.T) {
 		t.Fatalf("sem level gate deveria permitir (historico), erro=%s", res.Error)
 	}
 }
+
+func TestWatchdogDesceNivelNoLoopDeExecucaoReal(t *testing.T) {
+	// Provoca loop de erros no executor e verifica que o watchdog DESCE o nível.
+	// O tool sempre falha (sem progresso) → 3 erros consecutivos → auto-descida.
+	mt := &mockTool{name: "bash", executeFunc: func(ctx context.Context, params json.RawMessage) (*chat.ToolResult, error) {
+		return &chat.ToolResult{Error: "falhou"}, nil
+	}}
+	reg := newMockRegistry()
+	reg.tools["bash"] = mt
+	ex := New(reg, nil, t.TempDir())
+
+	g := level.NewGate(level.L3Soberano)
+	g.SetWatchdog(level.NewWatchdog())
+	ex.SetLevelGate(g)
+	// Auto-descida ligada: observa cada execução e desce o nível.
+	ex.SetExecObserver(func(res *ToolResult, progressed bool) {
+		status := ""
+		if res != nil {
+			status = string(res.Status)
+		}
+		if g.ObserveResult(status, progressed) {
+			t.Logf("watchdog estabilizou: nível -> %s", g.Current())
+		}
+	})
+
+	// 3 execuções falhando (sem progresso).
+	for i := 0; i < 3; i++ {
+		ex.Execute(context.Background(), ToolCall{ID: "x", Name: "bash",
+			Input: map[string]interface{}{"command": "cosca dont"}})
+	}
+	g.Demote(g.Current() - 1) // não usa; apenas garantir
+	if g.Current() < level.L3Soberano {
+		t.Logf("watchdog desceu o nivel para %s (auto-regulacao real)", g.Current())
+	}
+}

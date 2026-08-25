@@ -132,3 +132,15 @@ func TestIsBrainPath(t *testing.T) {
 		t.Error("nao deveria reconhecer path fora do cerebro")
 	}
 }
+
+func TestAutoPromotePorCapacidade(t *testing.T) {
+	// Agente em L1 opera maquina com sucesso → promovido a L2 por capacidade.
+	g := NewGate(L1Inicial)
+	if next, ok := g.AutoPromote(); !ok || next != L2Operacional {
+		t.Errorf("AutoPromote de L1 deveria subir para L2, foi %v (ok=%v)", next, ok)
+	}
+	// Agora em L2, AutoPromote nao sobe mais automaticamente (L3 exige aval).
+	if _, ok := g.AutoPromote(); ok {
+		t.Error("AutoPromote de L2 nao deveria subir (L3 exige aval do Don)")
+	}
+}
