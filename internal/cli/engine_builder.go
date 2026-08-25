@@ -20,6 +20,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/engine"
 	"github.com/CoscaAI/cosca/internal/execpolicy"
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/level"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/models"
 	"github.com/CoscaAI/cosca/internal/plugins"
@@ -149,6 +150,24 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 
 	// ── 2. Sandbox Gate & Executor ───────────────────────────────────────
 	exec := executor.New(toolRegistry, sbGate, workspace)
+
+	// ── 2.1 Level Gate (sistema de níveis de capacidade — decisão do Don 2026-08-25).
+	// O agente começa no NÍVEL INICIAL (L1) — o primeiro despertar, só leitura de
+	// identidade. Sobra para o Don elevar com o aval dele (o hook abaixo). O
+	// enforcement é por código: subir para o SOBERANO SEM o aval é negado.
+	levelGate := level.NewGate(level.L1Inicial)
+	// Hook de elevação: subir ao L3-SOBERANO exige a PRESENÇA do Don (VerifyDonPresence,
+	// TTY fail-closed M3 + consentimento ao conteúdo M4). Sem o Don no terminal, a
+	// subida é NEGADA — fail-closed. O Don é soberano; o nível soberano só sobe com o aval dele.
+	levelGate.SetElevateHook(func(from level.Level, a level.Action) (level.Level, error) {
+		if err := VerifyDonPresence(workspace, os.Stdin); err != nil {
+			log.Warn().Err(err).Msg("level: subida para L3-SOBERANO negada — presença do Don não confirmada")
+			return from, fmt.Errorf("subida ao nível soberano requer o aval do Don (presença não confirmada): %w", err)
+		}
+		log.Info().Msg("level: subida para L3-SOBERANO autorizada pelo Don")
+		return level.L3Soberano, nil
+	})
+	exec.SetLevelGate(levelGate)
 
 	// ── 3. Agent Registry ────────────────────────────────────────────────
 	agentReg := engine.NewAgentRegistry()
