@@ -1,0 +1,20 @@
+{
+  "id": "prisma",
+  "kind": "library",
+  "ecosystem": "typescript",
+  "versions": [
+    "*"
+  ],
+  "sources": [
+    "official-docs",
+    "official-repository"
+  ],
+  "knowledge_level": "partial",
+  "repository": "prisma/prisma",
+  "acquired_at": "2026-08-24T21:43:21.1059043-03:00",
+  "artifact_ids": [
+    "A-0004"
+  ],
+  "sha256": "48f02f6560944d00bc6562d3136c7dda17b6b606639fff4921f938ba5b32122f",
+  "status": "acquired"
+}

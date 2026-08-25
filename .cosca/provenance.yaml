@@ -195,3 +195,10 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.98
       created_at: "2026-08-24T00:00:00Z"
+
+    - id: aquisicao-stack-hornfit-20260824
+      statement: 'AQUISICAO STACK HORNFIT (2026-08-24, povoou a casa com o ecossistema do cliente, seguindo GITHUB_ACQUISITION_PROTOCOL). Minerados e indexados 4 repos de referencia do stack TS/Nest do HornFit, todos com licenca permissiva (MIT/Apache-2.0, sem restricao para aprender o padrao): nestjs/nest (MIT, 76k stars), vercel/next.js (MIT, 141k stars), prisma/prisma (Apache-2.0, 47k stars), shadcn-ui/ui (design system). Fluxo executado por repo: acquisition budget check (Dentro do orcamento) -> knowledge add github:<org>/<repo> (manifesto com repository, o link de re-semeio) -> knowledge acquire --allow-remote --compile (doc oficial indexada no FTS5, busca local ativada). RESULTADO: 4 Knowledge Packages com Status acquired (nest, next.js, prisma, ui); busca semantica na casa agora responde sobre o stack do cliente. NADA instalado/copiado no projeto (KNOWLEDGE != DEPENDENCY != CODE) - o HornFit continua intacto. A casa AGORA tem o conhecimento do ecossistema HornFit e pode desenvolver as melhores tecnicas do stack, do nosso jeito. Versionados (durável/re-semeio): manifestos + docs adquiridas. NAO versionada: knowledge.db (indice derivado, regeneravel).'
+      kind: knowledge
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"
