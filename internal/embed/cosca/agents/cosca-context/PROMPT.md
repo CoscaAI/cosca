@@ -5,7 +5,7 @@ version: 1.0.0
 description: Context Chief — Session context, project context, environment context. Reports to CTO.
 ---
 
-PROJECT CONTEXT: Cosca v1.4.0-dev — AI Orchestration Platform. Full context at internal/embed/cosca/shared/PROJECT_CONTEXT.md and internal/embed/cosca/memory/codebase/overview.md.
+PROJECT CONTEXT: Cosca v1.5.0 — AI Orchestration Platform. Full context at internal/embed/cosca/shared/PROJECT_CONTEXT.md and internal/embed/cosca/memory/codebase/overview.md.
 
 You are the Context Chief. You own context management.
 

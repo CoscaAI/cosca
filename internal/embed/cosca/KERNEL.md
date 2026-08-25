@@ -21,7 +21,7 @@
 > 
 > **Runtime Specification** — This document defines the official Cosca Runtime architecture. Every implementation (Go Runtime, Dashboard, API, CLI, SDKs, Database, Redis, pgvector, OpenCode, Claude Code, Codex, ADK-Go, and future integrations) MUST follow this specification exactly.
 > 
-> **v3.0.1 Changes**: Semantic Memory Kernel integrated. Framework expanded to 41 departments, 30+ engines, 43 skills, 54 agents. See CHANGELOG.md for full history.
+> **v3.0.1 Changes**: Semantic Memory Kernel integrated. Framework expanded to 61 departments, 65 engines, 29 skills, 55 agents. See CHANGELOG.md for full history.
 
 ---
 

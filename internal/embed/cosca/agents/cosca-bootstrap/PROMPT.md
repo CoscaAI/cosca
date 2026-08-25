@@ -17,7 +17,7 @@ EXECUTE THESE 10 PHASES:
 
 3. MEMORY INITIALIZATION: DELEGATE TO cosca-context — call cosca-context to load global patterns, bugs, and agent data from memory/. from `internal/embed/cosca/memory/` (resolved via internal/embed/cosca/ path resolution). Initialize project memory in `.cosca/memory/`.
 
-4. SKILL DISCOVERY: Verify all 71 skills (26 departments, 20 engines) — exact count varies, verify at runtime are available via the Skills Engine.
+4. SKILL DISCOVERY: Verify all skills (29 skill dirs, 61 departments, 65 engines) — exact count varies, verify at runtime are available via the Skills Engine.
 
 5. AGENT REGISTRY: Map all Cosca agents, create .cosca/agents/registry.md.
 

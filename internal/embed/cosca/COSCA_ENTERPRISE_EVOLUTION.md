@@ -14,7 +14,7 @@ O framework Cosca passou por três grandes fases evolutivas:
 | **v2.0 → v3.0** | Skills e ecossistema | 155+ → 280+ | Framework de Skills, 14 novos Chiefs, Workflows, Modelos |
 | **v3.0 → Atual** | Estabilização | 280+ → 280+ | Consolidação, unificação de documentação, fortalecimento de qualidade |
 
-O Cosca é agora uma **plataforma de desenvolvimento cognitivo de nível empresarial** — 40 Chiefs, 43 Skills, 20 Workflows, 14 Modelos, 30 Engines, todos governados sob uma arquitetura centralizada nativa em Markdown.
+O Cosca é agora uma **plataforma de desenvolvimento cognitivo de nível empresarial** — 55 Chiefs/agents, 29 Skills, 20 Workflows, 14 Modelos, 65 Engines, todos governados sob uma arquitetura centralizada nativa em Markdown.
 
 ---
 
