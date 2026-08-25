@@ -93,6 +93,21 @@ func (g *Gate) Promote(to Level) error {
 	return nil
 }
 
+// Demote reduz o nível para estabilizar (auto-regulação — decisão do Don
+// 2026-08-25). Ao contrário da subida, a descida NÃO exige aval: é a sabedoria
+// de descer quando se vê perdendo o controle. "A subida é capacidade; a descida
+// é sabedoria." Só desce até o piso L1-INICIAL — nunca abaixo.
+func (g *Gate) Demote(to Level) error {
+	if to >= g.current {
+		return nil // não sobe nem mantém; descida só para níveis menores
+	}
+	if to < L1Inicial {
+		to = L1Inicial
+	}
+	g.current = to
+	return nil
+}
+
 // Check avalia uma ação no nível atual. Ordem: se a ação toca o cérebro e o
 // nível não permite, tenta elevar (com aval do Don). Caso contrário, decide
 // pela matriz. Nada é executado sem VAllow — fail-closed.
