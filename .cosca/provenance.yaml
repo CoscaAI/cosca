@@ -188,3 +188,10 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.99
       created_at: "2026-08-24T00:00:00Z"
+
+    - id: protocolo-github-aquisicao-20260824
+      statement: 'PROTOCOLO GITHUB + AQUISICAO (2026-08-24, ensinado pelo Don, materializado como .opencode/cosca/shared/GITHUB_ACQUISITION_PROTOCOL.md). O Don ensinou o metodo de minerar repositorios do GitHub no padrao Cosca: o fluxo e PESQUISAR (github.com/search?q=<termos>&type=repositories&s=stars&o=desc) -> AVALIAR (estrelas>=1k, escopo, manutencao, licenca - GPL/AGPL seria so estudar padrao, NAO derivar codigo; MIT/Apache/BSD ok; propriataria/sem-licenca descartar) -> PROTEGER (cosca security scan de CVE, checagem de malware/backdoor em preinstall/ofuscacao, fail-closed --allow-remote) -> BAIXAR (cosca knowledge add github:<org>/<repo> registra o link de proveniencia + knowledge acquire --allow-remote --compile indexa no FTS5) -> EXPLORAR (clone em TEMP, ler padroes com Glob/Grep, NUNCA copiar) -> ENTENDER (extrair padrao + contra-padrao + melhoria do nosso jeito) -> REGISTRAR (knowledge search ✓ + provenance com repository/commit/sha256, re-semeavel). REGRA DE OURO: NUNCA copiar codigo - o repo e INSUMO DE ESTUDO, NAO MODELO; a casa aprende o padrao e reescreve melhor, com padrao Cosca por cima. CONFIRMADO em pratica: minerei shadcn-ui/ui via add+acquire+compile (Status acquired, Repository shadcn-ui/ui, busca FTS5 ativa com provenance) sem instalar nada no projeto (KNOWLEDGE != DEPENDENCY != CODE).'
+      kind: knowledge
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"

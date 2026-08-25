@@ -1,0 +1,20 @@
+{
+  "id": "ui",
+  "kind": "library",
+  "ecosystem": "unknown",
+  "versions": [
+    "*"
+  ],
+  "sources": [
+    "official-docs",
+    "official-repository"
+  ],
+  "knowledge_level": "partial",
+  "repository": "shadcn-ui/ui",
+  "acquired_at": "2026-08-24T21:33:52.5395771-03:00",
+  "artifact_ids": [
+    "A-0001"
+  ],
+  "sha256": "0a8039a82eddfbd4ff37497090aa7ca7abf13ed83805b675267aad8360838257",
+  "status": "acquired"
+}
