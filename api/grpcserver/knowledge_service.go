@@ -24,6 +24,7 @@ type knowledgeEngine interface {
 	IndexDirectory(ctx context.Context, dir string) error
 	GetStats() (*knowledge.Stats, error)
 	Sync(ctx context.Context) (*knowledge.SyncResult, error)
+	RouteCandidateIDs(scope *modlink.SearchScope) ([]string, error)
 }
 
 // KnowledgeServiceServer implements the cosca.v1.KnowledgeServiceServer interface
@@ -103,6 +104,11 @@ func (s *KnowledgeServiceServer) Search(ctx context.Context, req *cospb.SearchRe
 			return searchResultsToPb(&search.SearchResults{Query: req.GetQuery()}), nil
 		}
 		params = scoped
+		// FASE B (ADR-013 §3.2): confinar a fase vetorial aos candidatos
+		// permitidos do escopo roteado (nunca full-scan do índice).
+		if cands, cErr := s.engine.RouteCandidateIDs(scope); cErr == nil && len(cands) > 0 {
+			params.CandidateIDs = cands
+		}
 	}
 
 	results, err := s.engine.Search(ctx, params)

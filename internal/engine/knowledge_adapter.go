@@ -57,6 +57,11 @@ func (a *knowledgeAdapter) Search(ctx context.Context, params KnowledgeSearchPar
 			// retrieval 0 + sinal NO_ROUTE explícito.
 			return &KnowledgeSearchResults{NoRoute: true, Query: params.Query, Scope: scope}, nil
 		}
+		// FASE B (ADR-013 §3.2): confinar a fase vetorial aos candidatos
+		// permitidos do escopo roteado (nunca full-scan do índice).
+		if cands, cErr := a.engine.RouteCandidateIDs(scope); cErr == nil && len(cands) > 0 {
+			sp.CandidateIDs = cands
+		}
 	}
 
 	sr, err := a.engine.Search(ctx, sp)

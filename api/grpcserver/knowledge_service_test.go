@@ -29,6 +29,9 @@ func (s *spyEngine) IndexDocument(context.Context, string) error        { return
 func (s *spyEngine) IndexDirectory(context.Context, string) error       { return nil }
 func (s *spyEngine) GetStats() (*knowledge.Stats, error)                { return &knowledge.Stats{}, nil }
 func (s *spyEngine) Sync(context.Context) (*knowledge.SyncResult, error) { return &knowledge.SyncResult{}, nil }
+func (s *spyEngine) RouteCandidateIDs(*modlink.SearchScope) ([]string, error) {
+	return []string{"vec-cand-1", "vec-cand-2"}, nil
+}
 
 // adrResolver returns a router that only knows the "adr" route (trigger "decisão
 // arquitetural"). A query about anything else (e.g. "musica") yields NoRoute.

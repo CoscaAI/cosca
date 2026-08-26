@@ -294,6 +294,11 @@ func (h *KnowledgeHandler) Search(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		params = scoped
+		// FASE B (ADR-013 §3.2): confinar a fase vetorial aos candidatos
+		// permitidos do escopo roteado (nunca full-scan do índice).
+		if cands, cErr := h.engine.RouteCandidateIDs(scope); cErr == nil && len(cands) > 0 {
+			params.CandidateIDs = cands
+		}
 	}
 
 	results, err := h.engine.Search(ctx, params)

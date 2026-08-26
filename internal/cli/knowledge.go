@@ -324,6 +324,14 @@ func runModularKnowledgeSearch(
 		return nil
 	}
 
+	// FASE B (ADR-013 §3.2): confinar a fase vetorial aos candidatos PERMITIDOS
+	// do escopo roteado (nunca full-scan do índice). RouteCandidateIDs devolve
+	// nil quando não roteado (baseline legítimo). Em erro, mantém a linha de
+	// base atual (não quebra a busca existente).
+	if cands, cErr := ke.RouteCandidateIDs(scope); cErr == nil && len(cands) > 0 {
+		scoped.CandidateIDs = cands
+	}
+
 	res, sErr := ke.Search(cmd.Context(), scoped)
 	if sErr != nil {
 		return fmt.Errorf("search failed: %w", sErr)
