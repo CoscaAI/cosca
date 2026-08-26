@@ -93,6 +93,7 @@ Subcommands provide search, graph visualization, statistics, and maintenance.
 		NewKnowledgeClassifyCommand(),
 		NewKnowledgeVectorsBackfillCommand(),
 		NewKnowledgeSemanticDiscoveryCommand(),
+		NewKnowledgeManifestCommand(),
 	)
 
 	return cmd
