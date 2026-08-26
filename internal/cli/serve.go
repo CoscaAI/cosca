@@ -274,7 +274,7 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			mgr.agents, mgr.skills, mgr.providers, mgr.workflows,
 			authRes.store, authRes.apiKey, authRes.jwtSecret, authRes.tokens,
 			stores.audit, stores.secrets, stores.trace, stores.department,
-			runtimeClient, deterministic, boot,
+			runtimeClient, deterministic, boot, eng.searchMode,
 			host, port, metricsPort, corsOrigins,
 			tlsCertFile, tlsKeyFile,
 			grpcPort, grpcReflection, grpcDisable,
@@ -296,6 +296,9 @@ type serveEngineResult struct {
 	ke            *knowledge.Engine
 	mem           *memory.MemoryEngine
 	rt            *runtime.Runtime
+	// searchMode é o modo de busca da config ("legacy" | "modular") — FASE 1
+	// routing/scope. Vazio = legacy (comportamento atual).
+	searchMode string
 }
 
 type serveManagerResult struct {
@@ -393,6 +396,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		embeddingDigest     string
 		embeddingAPIKey     string
 		embeddingDimensions int
+		embeddingSearchMode string
 		watchFrameworkDir   string
 	)
 	if c, loadErr := config.Load(); loadErr != nil {
@@ -404,6 +408,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		embeddingModel = c.Embedding.Model
 		embeddingDigest = c.Embedding.Digest
 		embeddingDimensions = c.Embedding.Dimensions
+		embeddingSearchMode = c.Search.Mode
 
 		if c.Watch.Enabled {
 			if wd, wdErr := os.Getwd(); wdErr == nil {
@@ -447,6 +452,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		ke:            boot.Knowledge,
 		mem:           boot.Memory,
 		rt:            boot.Runtime,
+		searchMode:    embeddingSearchMode,
 	}, nil
 }
 
@@ -677,6 +683,7 @@ func serveStartServers(
 	runtimeClient *grpcclient.RuntimeClient,
 	deterministic bool,
 	boot *bootstrap.Result,
+	searchMode string,
 	host *string,
 	port *int,
 	metricsPort *int,
@@ -713,6 +720,13 @@ func serveStartServers(
 	}
 
 	server := rest.New(ke, mem, rtInstance, agentsMgr, skillsMgr, providersMgr, workflowsMgr, authStore, apiKeyStore, jwtSecret, serverCfg, tokenStore, auditStore, secretsVault, emergencyMgr, nil, *enableWebsocket, parseWsOrigins(*wsAllowedOrigins), traceStore, deptStore, buildPipelineServices(boot, *pipelineEnable))
+
+	// FASE 1 routing/scope: injeta o roteador determinístico (boot.RouteResolver)
+	// e o modo de busca no servidor REST (modular → /v1/knowledge/search confina
+	// ao escopo roteado; NoRoute → vazio + no_route:true; legacy → atual).
+	if boot != nil && boot.RouteResolver != nil {
+		server.SetModularSearch(boot.RouteResolver, searchMode)
+	}
 
 	httpMetrics := metrics.NewHTTPMetrics()
 

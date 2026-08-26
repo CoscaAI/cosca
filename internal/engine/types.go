@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/modlink"
 )
 
 // ─── Session ──────────────────────────────────────────────────────────────────
@@ -136,6 +137,19 @@ type BuiltContext struct {
 
 	// UsagePct is TokenEstimate / ContextLimit * 100.
 	UsagePct float64 `json:"usage_pct,omitempty"`
+
+	// KnowledgeNoRoute (FASE 1 routing/scope) sinaliza que a pesquisa de
+	// conhecimento entrou em estado NO_ROUTE no modo modular: o roteador
+	// determinístico não encontrou um espaço semântico confiável para a consulta,
+	// o retrieval foi 0 e nenhum full-scan foi feito. True mantém `knowledge`
+	// vazio e injeta uma linha curta de escopo no SystemPrompt.
+	KnowledgeNoRoute bool `json:"knowledge_no_route,omitempty"`
+
+	// ScopeInfo, quando não-nil, carrega o *modlink.SearchScope decidido pelo
+	// roteador (módulos/capacidades/NoRoute) — o "onde" da busca confinada.
+	// Opcional: nil quando a busca não roteou (legacy) ou o sinal não foi
+	// propagado pelo adapter.
+	ScopeInfo *modlink.SearchScope `json:"scope_info,omitempty"`
 }
 
 // ─── Subagent Request / Result ────────────────────────────────────────────────

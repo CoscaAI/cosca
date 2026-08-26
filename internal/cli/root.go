@@ -192,6 +192,7 @@ Documentation: https://cosca.enterprise/docs
 		NewVoiceCommand(),
 		NewSlopCommand(),
 		NewDBCommand(),
+		NewRoutesCommand(),
 	)
 
 	return rootCmd

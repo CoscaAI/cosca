@@ -1,6 +1,10 @@
 package engine
 
-import "context"
+import (
+	"context"
+
+	"github.com/CoscaAI/cosca/internal/modlink"
+)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Memory & Knowledge Port Interfaces
@@ -63,11 +67,14 @@ type MemorySearchOptions struct {
 // KnowledgeSearchParams carries search parameters for the knowledge engine.
 // Matches orchestration.KnowledgeSearchParams.
 type KnowledgeSearchParams struct {
-	Query    string   `json:"query"`
-	Limit    int      `json:"limit,omitempty"`
-	Types    []string `json:"types,omitempty"`
-	Path     string   `json:"path,omitempty"`
-	MinScore float64  `json:"min_score,omitempty"`
+	Query    string              `json:"query"`
+	Limit    int                 `json:"limit,omitempty"`
+	Types    []string            `json:"types,omitempty"`
+	Path     string              `json:"path,omitempty"`
+	MinScore float64             `json:"min_score,omitempty"`
+	// Scope, quando não-nil num adapter em modo modular, confina a busca ao
+	// espaço roteado (ADR-013 §3.2). Nil mantém o comportamento atual (legacy).
+	Scope *modlink.SearchScope `json:"scope,omitempty"`
 }
 
 // KnowledgeSearchResult is a single knowledge-base search hit.
@@ -87,4 +94,13 @@ type KnowledgeSearchResults struct {
 	Results    []KnowledgeSearchResult `json:"results"`
 	TotalCount int                     `json:"total_count"`
 	Query      string                  `json:"query"`
+	// NoRoute é o sinal NO_ROUTE explícito (modo modular): true significa que o
+	// roteador determinístico não encontrou um espaço semântico confiável para a
+	// consulta, então o retrieval foi 0 SEM full-scan. False = rotas conhecidas
+	// (ou busca legacy, que nunca roteou).
+	NoRoute bool `json:"no_route,omitempty"`
+	// Scope é o *modlink.SearchScope decidido pelo roteador (módulos, RouteID,
+	// NoRoute). Populado pelo adapter em modo modular — o "onde" da busca.
+	// Nil em modo legacy.
+	Scope *modlink.SearchScope `json:"scope,omitempty"`
 }

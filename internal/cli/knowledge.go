@@ -23,6 +23,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/discovery"
 	"github.com/CoscaAI/cosca/internal/indexer"
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/search"
 	_ "modernc.org/sqlite"
 )
@@ -98,6 +99,8 @@ func NewKnowledgeSearchCommand() *cobra.Command {
 	var limit int
 	var offset int
 	var global bool
+	var scopeModule string
+	var mode string
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -106,11 +109,20 @@ func NewKnowledgeSearchCommand() *cobra.Command {
 
 Com --global/-g, busca no knowledge.db global (~/.config/cosca/knowledge.db),
 compartilhado entre TODOS os projetos. Sem a flag, busca no .cosca/knowledge.db
-local e também faz grep nos documentos globais adquiridos.`,
+local e também faz grep nos documentos globais adquiridos.
+
+Modo modular (--mode=modular ou search.mode=modular na config): o roteador
+determinístico (modlink) decide o espaço de busca. Uma consulta sem rota
+(NO_ROUTE) devolve 0 resultados + o sinal NO_ROUTE — nunca um full-scan
+silencioso. --scope=<module> restringe AINDA MAIS (nunca amplia): o módulo deve
+existir no registry, senão é erro; se a query for incompatível com o escopo
+forçado, o resultado é 0.`,
 		Example: `  cosca knowledge search "database schema"
   cosca knowledge search --limit 20 "error handling patterns"
   cosca knowledge search --json "architecture decisions"
-  cosca knowledge search --global "cobra"`,
+  cosca knowledge search --global "cobra"
+  cosca knowledge search --mode=modular "decisão arquitetural do banco"
+  cosca knowledge search --mode=modular --scope=adr "decisão arquitetural"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
@@ -123,6 +135,7 @@ local e também faz grep nos documentos globais adquiridos.`,
 			dir, _ := os.Getwd()
 
 			// Load project config for embedding provider settings (unified with search layered)
+			// AND the search mode (search.mode: legacy | modular).
 			var (
 				embeddingProvider string
 				embeddingBaseURL  string
@@ -130,6 +143,7 @@ local e também faz grep nos documentos globais adquiridos.`,
 				embeddingDigest   string
 				embeddingAPIKey   string
 				embeddingDim      int
+				cfgSearchMode     string
 			)
 			if c, cfgErr := config.Load(); cfgErr == nil {
 				embeddingProvider = c.Embedding.Provider
@@ -138,8 +152,32 @@ local e também faz grep nos documentos globais adquiridos.`,
 				embeddingDigest = c.Embedding.Digest
 				embeddingAPIKey = c.Embedding.APIKey
 				embeddingDim = c.Embedding.Dimensions
+				cfgSearchMode = c.Search.Mode
 			}
 
+			// Modo efetivo: flag --mode > config -> default LEGACY (retrocompatível).
+			effectiveMode := mode
+			if effectiveMode == "" {
+				effectiveMode = cfgSearchMode
+			}
+			if effectiveMode != search.ModeModular {
+				effectiveMode = search.ModeLegacy
+			}
+
+			// ── Modo MODULAR (FASE 1 routing/scope) ─────────────────────────
+			// O roteador determina o espaço; a busca confina. O caminho RÁPIDO do
+			// daemon 24/7 é intencionalmente ignorado aqui (FASE 1 roteia no
+			// caminho LOCAL — mais simples de tornar determinístico e honesto
+			// quanto ao escopo; o daemon pode adotar o mesmo roteamento depois).
+			if effectiveMode == search.ModeModular {
+				return runModularKnowledgeSearch(
+					cmd, formatter, useJSON, dir, args[0], limit, offset, scopeModule,
+					embeddingProvider, embeddingBaseURL, embeddingModel, embeddingDigest,
+					embeddingAPIKey, embeddingDim,
+				)
+			}
+
+			// ── Modo LEGACY (comportamento atual, sem roteamento) ───────────
 			// Caminho rápido: o daemon 24/7 já tem o knowledge engine vivo (Init
 			// frio custa ~6s por invocação CLI). Busca via REST quando o daemon
 			// responde; senão cai no Engine local (mesma pipeline).
@@ -203,7 +241,118 @@ local e também faz grep nos documentos globais adquiridos.`,
 	cmd.Flags().IntVarP(&limit, "limit", "l", 10, "Maximum number of results")
 	cmd.Flags().IntVarP(&offset, "offset", "o", 0, "Result offset")
 	cmd.Flags().BoolVarP(&global, "global", "g", false, "Search the global knowledge base (~/.config/cosca/)")
+	cmd.Flags().StringVar(&scopeModule, "scope", "", "Módulo do registry (modlink) para confinar AINDA MAIS a busca (restrição adicional, nunca ampliação)")
+	cmd.Flags().StringVar(&mode, "mode", "", "Modo de busca: legacy (default, sem roteamento) | modular (roteamento obrigatório; NoRoute → 0 + NO_ROUTE)")
 	return cmd
+}
+
+// runModularKnowledgeSearch executa `cosca knowledge search` no modo MODULAR:
+// o roteador determinístico decide o espaço, a busca confina a ele, e uma
+// consulta sem rota (NoRoute) devolve 0 resultados + o sinal NO_ROUTE — nunca
+// full-scan silencioso.
+//
+// --scope=M é uma restrição ADICIONAL, não um substituto do roteador: M precisa
+// constar no registry (senão é erro), e é aceito apenas se a query roteada
+// incluir M; query incompatível com o escopo forçado → 0 resultados.
+func runModularKnowledgeSearch(
+	cmd *cobra.Command, formatter *OutputFormatter, useJSON bool,
+	dir, query string, limit, offset int, forcedScope string,
+	embeddingProvider, embeddingBaseURL, embeddingModel, embeddingDigest, embeddingAPIKey string,
+	embeddingDim int,
+) error {
+	routes := modlink.DefaultRoutes()
+	if err := modlink.ValidateRoutes(routes); err != nil {
+		return fmt.Errorf("route registry inválido: %w", err)
+	}
+	resolver := modlink.NewResolver(routes)
+
+	var forcedModule string
+	if forcedScope != "" {
+		byModule := modlink.RoutesByModule(routes)
+		route, ok := byModule[forcedScope]
+		if !ok {
+			return fmt.Errorf("--scope=%q não está no registry de rotas (módulos conhecidos): %s",
+				forcedScope, strings.Join(sortedRouteModules(byModule), ", "))
+		}
+		forcedModule = route.Module
+	}
+
+	ke, kErr := knowledge.New(knowledge.Config{
+		DBPath:              knowledgeDBPath(dir),
+		RootDir:             dir,
+		AutoMigrate:         true,
+		EmbeddingProvider:   embeddingProvider,
+		EmbeddingBaseURL:    embeddingBaseURL,
+		EmbeddingModel:      embeddingModel,
+		EmbeddingDigest:     embeddingDigest,
+		EmbeddingAPIKey:     embeddingAPIKey,
+		EmbeddingDimensions: embeddingDim,
+	})
+	if kErr != nil {
+		return fmt.Errorf("knowledge engine not available: %w", kErr)
+	}
+	if iErr := ke.Init(); iErr != nil {
+		return fmt.Errorf("init knowledge engine: %w", iErr)
+	}
+	defer ke.Close()
+
+	params := search.DefaultSearchParams()
+	params.Query = query
+	params.Limit = limit
+	params.Offset = offset
+
+	scoped, scope := search.ApplyForcedScope(resolver, query, forcedModule, params)
+	if scope.NoRoute {
+		// Route desconhecida (ou escopo forçado incompatível) → sinal explícito,
+		// NUNCA full-scan. O agente não é bloqueado; só o conhecimento semântico
+		// fica vazio + o sinal NO_ROUTE.
+		if useJSON {
+			return printJSON(cmd, map[string]interface{}{
+				"query":    query,
+				"results":  []KnowledgeSearchResult{},
+				"total":    0,
+				"no_route": true,
+			})
+		}
+		formatter.Header("Knowledge Search Results")
+		formatter.KeyValue("Scope", "modular")
+		formatter.KeyValue("Query", query)
+		formatter.KeyValue("Results", "0")
+		formatter.Warning("NO_ROUTE — nenhum espaço semântico confiável para esta consulta (sem full-scan)")
+		return nil
+	}
+
+	res, sErr := ke.Search(cmd.Context(), scoped)
+	if sErr != nil {
+		return fmt.Errorf("search failed: %w", sErr)
+	}
+
+	results := make([]KnowledgeSearchResult, 0, len(res.Results))
+	for _, r := range res.Results {
+		results = append(results, KnowledgeSearchResult{
+			Title:   r.Title,
+			Type:    string(r.Type),
+			Score:   r.Score,
+			Snippet: r.Snippet,
+		})
+	}
+	// In modo modular NÃO mesclamos o grep global de documentos adquiridos
+	// (searchGlobalKnowledge): o espaço semântico é estritamente o roteado — a
+	// mescla reintroduziria resultados fora do escopo ("nunca silenciosamente amplo").
+	globalResults := []KnowledgeSearchResult(nil)
+	merged := mergeSearchResults(results, globalResults, limit+offset)
+	return printKnowledgeResults(cmd, formatter, useJSON, merged, query, globalResults)
+}
+
+// sortedRouteModules devolve os módulos conhecidos do registry, ordenados, para
+// mensagens de erro legíveis.
+func sortedRouteModules(byModule map[string]modlink.Route) []string {
+	modules := make([]string, 0, len(byModule))
+	for m := range byModule {
+		modules = append(modules, m)
+	}
+	sort.Strings(modules)
+	return modules
 }
 
 // runGlobalSearch searches the global knowledge.db via FTS5.

@@ -86,6 +86,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"quarantine",
 		"gate",
 		"qgate",
+		"routes",
 		"bug",
 		"hardware",
 		"fabric",

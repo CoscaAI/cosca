@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -2024,7 +2025,7 @@ func (h *indexingHandler) HandleEvent(ctx context.Context, event watcher.FileEve
 func searchCacheKey(params search.SearchParams) string {
 	// Build a canonical representation of all distinguishing parameters.
 	// fmt.Sprintf("%v", ...) gives deterministic output for slices and maps.
-	return cache.Key(
+	parts := []string{
 		"search",
 		params.Query,
 		fmt.Sprintf("%d", params.Limit),
@@ -2038,7 +2039,52 @@ func searchCacheKey(params search.SearchParams) string {
 		fmt.Sprintf("%v", params.EnableGraph),
 		fmt.Sprintf("%v", params.EnableFacets),
 		fmt.Sprintf("%f", params.MinScore),
-	)
+	}
+
+	// FASE 1.5 — Cache Scope Safety: a chave deve ser específica ao SearchScope
+	// que originou a consulta, para que um resultado de escopo A jamais seja
+	// servido para um escopo B.
+	//
+	// Semântica explícita (requisito 4 + preservação da LEGACY, requisito 5):
+	//   - Scope nil OU com Modules vazio = SEM confinamento (LEGACY, busca
+	//     ilimitada). Ambos são semanticamente idênticos e NÃO recebem
+	//     componente de escopo → a chave/semântica LEGACY permanece exatamente
+	//     a mesma de antes deste ajuste.
+	//   - Apenas um escopo que realmente confina (Modules não-vazio) contribui
+	//     com uma representação CANÔNICA dos módulos (ordenada), pois
+	//     `confineToScope` trata os módulos como um CONJUNTO — a semântica não
+	//     depende da ordem. Assim, módulos equivalentes em qualquer ordem
+	//     produzem a mesma chave (requisito 7), e escopos distintos produzem
+	//     chaves distintas (impossível o cache servir um resultado de escopo A
+	//     para o escopo B).
+	if params.Scope != nil && len(params.Scope.Modules) > 0 {
+		parts = append(parts, "scope:"+canonicalScopeModules(params.Scope.Modules))
+	}
+
+	return cache.Key(parts...)
+}
+
+// canonicalScopeModules devolve a representação canônica (ordenada e dedup) dos
+// módulos de um SearchScope, insensível à ordem — a mesma semântica de
+// confinamento produz sempre a mesma chave.
+func canonicalScopeModules(modules []string) string {
+	seen := make(map[string]struct{}, len(modules))
+	for _, m := range modules {
+		seen[m] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for m := range seen {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	var b strings.Builder
+	for i, m := range out {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(m)
+	}
+	return b.String()
 }
 
 func computeHash(content string) string {

@@ -26,6 +26,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/integrity"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	rt "github.com/CoscaAI/cosca/internal/runtime"
@@ -126,6 +127,12 @@ type Result struct {
 	// Memory may be nil when the engine fails to create
 	// (warn-and-continue).
 	Memory *memory.MemoryEngine
+	// RouteResolver is the deterministic module router (modlink) built from
+	// DefaultRoutes. Never nil. It is the FASE 1 routing/scope decision-maker
+	// shared by the serve REST /v1/knowledge/search and any modular adapter.
+	// (New — additive; existing engine wiring is unaffected.)
+	RouteResolver *modlink.Resolver
+
 	// Runtime is always non-nil (rt.New has no error return).
 	Runtime *rt.Runtime
 	// Daemon is non-nil when EnableDaemon is set. It is registered on the
@@ -223,6 +230,15 @@ func Compose(cfg Config) (*Result, error) {
 	}
 
 	res := &Result{}
+
+	// ── Route Resolver (FASE 1 routing/scope) ──────────────────────────
+	// The deterministic modular router (ADR-013 §3.2) built from the production
+	// route registry. It decides the bounded search space for a query; the
+	// semantic search never chooses the space. Exposed on the Result so the
+	// REST /v1/knowledge/search handler and the modular adapter can confine.
+	routeRegistry := modlink.DefaultRoutes()
+	res.RouteResolver = modlink.NewResolver(routeRegistry)
+	cfg.Logger.Info().Int("routes", len(routeRegistry)).Msg("route resolver initialized")
 
 	// ── Knowledge Engine ──────────────────────────────────────────────
 	// (FASE 3, DDNA-2026-08-07-001): skipped in standalone mode — the

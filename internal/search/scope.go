@@ -38,6 +38,17 @@ import (
 	"github.com/CoscaAI/cosca/internal/modlink"
 )
 
+// Search-mode constants (FASE 1 routing/scope). They mirror the `search.mode`
+// config key: LEGACY (default) keeps the current behaviour (no routing);
+// MODULAR makes routing mandatory — a NoRoute query returns 0 semantic results
+// + an explicit NO_ROUTE signal, never a silent full-scan.
+const (
+	// ModeLegacy is the current behaviour: search is unbounded, no routing.
+	ModeLegacy = "legacy"
+	// ModeModular makes routing mandatory (ADR-013 §3.2).
+	ModeModular = "modular"
+)
+
 // scopeRouted reports whether a routed scope is present — i.e. the
 // deterministic router (modlink) chose a BOUNDED space (ADR-013 §3.2). A nil
 // scope and a NoRoute/empty-Modules scope are NOT routed: for those the
@@ -138,9 +149,61 @@ func ApplyScope(resolver *modlink.Resolver, query string, params SearchParams) (
 	return params, scope
 }
 
-// SearchWithRoute é o atalho de uma chamada só: resolve a rota para `query`,
-// injeta o escopo e roda a busca híbrida confinada ao espaço roteado. O fluxo é
-// query → ResolveRoute → SearchScope → SearchParams.Scope → Search(scope).
+// ApplyForcedScope combina o roteamento determinístico com uma restrição
+// ADICIONAL de módulo (`forcedModule`, a flag `--scope=<module>`). É a forma
+// do `ApplyScope` que também honra o escopo forçado do usuário — o chamador já
+// validou que `forcedModule` existe no registry.
+func ApplyForcedScope(resolver *modlink.Resolver, query, forcedModule string, params SearchParams) (SearchParams, *modlink.SearchScope) {
+	scope := ResolveForcedScope(resolver, query, forcedModule)
+	params.Scope = scope
+	return params, scope
+}
+
+// ResolveForcedScope junta a decisão determinística do roteador (modlink) com
+// uma restrição ADICIONAL de módulo, sem nunca ampliar.
+//
+// Semântica (decisão do Don — "confinado quando conhece, explícito quando não
+// conhece, nunca silenciosamente amplo"):
+//   - Sem módulo forçado → exatamente o escopo roteado.
+//   - Com módulo forçado M (já validado no registry pelo chamador):
+//       * rota NoRoute → permanece NoRoute (nunca inventa um espaço);
+//       * M NÃO pertence aos módulos roteados (query incompatível com o escopo
+//         forçado) → NoRoute explícito (0 resultados, nunca amplia);
+//       * M pertence aos módulos roteados → confina ao módulo forçado M.
+func ResolveForcedScope(resolver *modlink.Resolver, query, forcedModule string) *modlink.SearchScope {
+	scope := resolver.Resolve(query)
+	if forcedModule == "" {
+		return scope
+	}
+	if scope.NoRoute {
+		return noRouteScope()
+	}
+	for _, m := range scope.Modules {
+		if m == forcedModule {
+			out := &modlink.SearchScope{Modules: []string{forcedModule}}
+			out.Fingerprint = out.ComputeFingerprint()
+			return out
+		}
+	}
+	return noRouteScope()
+}
+
+// noRouteScope é o estado NO_ROUTE explícito (módulos vazios, com fingerprint),
+// a única resposta para "não sei onde buscar" — nunca um fallback para tudo.
+func noRouteScope() *modlink.SearchScope {
+	s := &modlink.SearchScope{NoRoute: true}
+	s.Fingerprint = s.ComputeFingerprint()
+	return s
+}
+
+// SearchWithRoute é o atalho de uma chamada só (baseline LEGACY / busca atual):
+// resolve a rota para `query`, injeta o escopo e SEMPRE chama engine.Search. O
+// fluxo é query → ResolveRoute → SearchScope → SearchParams.Scope → Search(scope).
+//
+// Na rota desconhecida (NoRoute) o Scope chega com Modules vazio → a busca
+// permanece ILIMITADA (retrocompatível — o invariante do professor; baseline
+// legítimo da Fase A, nunca um erro). Para o comportamento MODULAR (NoRoute →
+// 0 resultados, sem full-scan) use SearchWithRouteModular.
 //
 // FASE B (ADR-013 §3.2): quando a rota resolve um espaço (SearchScope com
 // Modules não-vazio), `params.CandidateIDs` são interpretados como os
@@ -151,5 +214,29 @@ func ApplyScope(resolver *modlink.Resolver, query string, params SearchParams) (
 // com qual módulo(s) é o "onde"; a query original é o "o quê".
 func SearchWithRoute(ctx context.Context, engine *Engine, resolver *modlink.Resolver, query string, params SearchParams) (*SearchResults, error) {
 	scoped, _ := ApplyScope(resolver, query, params)
+	return engine.Search(ctx, scoped)
+}
+
+// SearchWithRouteModular é a forma do modo MODULAR (FASE 1 routing/scope):
+// roteia a query e confina a busca ao espaço roteado. Uma rota desconhecida
+// (NoRoute) devolve 0 resultados SEM chamar engine.Search — nunca full-scan
+// silencioso ("explícito quando não conhece").
+func SearchWithRouteModular(ctx context.Context, engine *Engine, resolver *modlink.Resolver, query string, params SearchParams) (*SearchResults, error) {
+	scoped, scope := ApplyScope(resolver, query, params)
+	if scope.NoRoute {
+		return &SearchResults{Query: params.Query}, nil
+	}
+	return engine.Search(ctx, scoped)
+}
+
+// SearchWithRouteForcedModular é a forma do modo MODULAR que também honra um
+// módulo forçado (--scope=<module>). O módulo forçado é uma restrição ADICIONAL,
+// nunca um substituto do roteador: rota desconhecida OU escopo forçado
+// incompatível → 0 resultados, sem chamar engine.Search — nunca amplia.
+func SearchWithRouteForcedModular(ctx context.Context, engine *Engine, resolver *modlink.Resolver, query, forcedModule string, params SearchParams) (*SearchResults, error) {
+	scoped, scope := ApplyForcedScope(resolver, query, forcedModule, params)
+	if scope.NoRoute {
+		return &SearchResults{Query: params.Query}, nil
+	}
 	return engine.Search(ctx, scoped)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/kernel"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	pluginspkg "github.com/CoscaAI/cosca/internal/plugins"
@@ -117,6 +118,13 @@ type Server struct {
 
 	// Pipeline services from bootstrap (nil when pipeline is disabled).
 	pipelineServices *PipelineServices
+
+	// routeResolver is the deterministic modular router (FASE 1 routing/scope).
+	// Nil = legacy (no routing). Configured via SetModularSearch so the
+	// /v1/knowledge/search handler can confine the search to a routed scope.
+	routeResolver *modlink.Resolver
+	// searchMode é o modo de busca ("legacy" | "modular").
+	searchMode string
 }
 
 // Config configures the REST API server.
@@ -241,6 +249,14 @@ func New(
 	return s
 }
 
+// SetModularSearch configura o roteador determinístico (modlink) e o modo de
+// busca no servidor REST (FASE 1 routing/scope). Chamado pelo serve com o
+// boot.RouteResolver de bootstrap. Passar nil restaura o comportamento legacy.
+func (s *Server) SetModularSearch(resolver *modlink.Resolver, mode string) {
+	s.routeResolver = resolver
+	s.searchMode = mode
+}
+
 // Use adds middleware to the server's handler chain.
 // Middleware is applied in the order added (outermost first).
 func (s *Server) Use(mw func(http.Handler) http.Handler) {
@@ -262,6 +278,12 @@ var publicPaths = []string{
 // registerRoutes registers all API routes.
 func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt *runtime.Runtime, pipelineSvc *PipelineServices) {
 	kh := handler.NewKnowledgeHandler(k, s.auditStore)
+	// FASE 1 routing/scope: injeta o roteador determinístico e o modo no handler
+	// de /v1/knowledge/search (modular → confina; NoRoute → vazio + no_route).
+	if s.routeResolver != nil {
+		kh.SetRouteResolver(s.routeResolver)
+		kh.SetSearchMode(s.searchMode)
+	}
 	mh := handler.NewMemoryHandler(m, s.auditStore)
 
 	// Single Owner Model (Fase 3): when a runtime daemon is configured,

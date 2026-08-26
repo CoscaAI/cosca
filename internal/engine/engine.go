@@ -12,6 +12,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/chat/executor"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/safeerror"
@@ -274,6 +275,8 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 	// ── 2a. Pre-turn: Retrieve memories and knowledge ────────────────────
 	var memories []string
 	var knowledge []string
+	var knowledgeNoRoute bool
+	var knowledgeScope *modlink.SearchScope
 
 	if e.memoryRetriever != nil {
 		results, err := e.memoryRetriever.Search(ctx, userInput, MemorySearchOptions{
@@ -292,9 +295,16 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 			Query: userInput,
 			Limit: 3,
 		})
-		if err == nil && len(results.Results) > 0 {
-			for _, r := range results.Results {
-				knowledge = append(knowledge, r.Content)
+		if err == nil {
+			if results.NoRoute {
+				// FASE 1: NO_ROUTE no modo modular — semantic retrieval é 0
+				// (sem full-scan silencioso); o sinal é propagado para o contexto.
+				knowledgeNoRoute = true
+				knowledgeScope = results.Scope
+			} else if len(results.Results) > 0 {
+				for _, r := range results.Results {
+					knowledge = append(knowledge, r.Content)
+				}
 			}
 		}
 	}
@@ -309,6 +319,7 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 	})
 
 	builtCtx := e.contextBldr.Build(ctx, agentName, msgs, nil, memories, knowledge)
+	builtCtx = applyKnowledgeNoRoute(builtCtx, knowledgeNoRoute, knowledgeScope)
 
 	// ── 3. Session management ───────────────────────────────────────────
 	var sessionID string
@@ -550,43 +561,53 @@ func (e *AgentEngine) RunStream(ctx context.Context, userInput string, history [
 		agentName = routeResult.Agent
 	}
 
-	// ── 2a. Pre-turn: Retrieve memories and knowledge ────────────────────
-	var memories []string
-	var knowledge []string
+		// ── 2a. Pre-turn: Retrieve memories and knowledge ────────────────────
+		var memories []string
+		var knowledge []string
+		var knowledgeNoRoute bool
+		var knowledgeScope *modlink.SearchScope
 
-	if e.memoryRetriever != nil {
-		results, err := e.memoryRetriever.Search(ctx, userInput, MemorySearchOptions{
-			Limit:  5,
-			Layers: []string{"session", "workspace"},
-		})
-		if err == nil && len(results) > 0 {
-			for _, r := range results {
-				memories = append(memories, r.Content)
+		if e.memoryRetriever != nil {
+			results, err := e.memoryRetriever.Search(ctx, userInput, MemorySearchOptions{
+				Limit:  5,
+				Layers: []string{"session", "workspace"},
+			})
+			if err == nil && len(results) > 0 {
+				for _, r := range results {
+					memories = append(memories, r.Content)
+				}
 			}
 		}
-	}
 
-	if e.knowledge != nil {
-		results, err := e.knowledge.Search(ctx, KnowledgeSearchParams{
-			Query: userInput,
-			Limit: 3,
-		})
-		if err == nil && len(results.Results) > 0 {
-			for _, r := range results.Results {
-				knowledge = append(knowledge, r.Content)
+		if e.knowledge != nil {
+			results, err := e.knowledge.Search(ctx, KnowledgeSearchParams{
+				Query: userInput,
+				Limit: 3,
+			})
+			if err == nil {
+				if results.NoRoute {
+					// FASE 1: NO_ROUTE no modo modular — semantic retrieval é 0
+					// (sem full-scan silencioso); o sinal é propagado ao contexto.
+					knowledgeNoRoute = true
+					knowledgeScope = results.Scope
+				} else if len(results.Results) > 0 {
+					for _, r := range results.Results {
+						knowledge = append(knowledge, r.Content)
+					}
+				}
 			}
 		}
-	}
 
-	// ── 2b. Build context ─────────────────────────────────────────────
-	msgs := make([]chat.Message, len(history), len(history)+1)
-	copy(msgs, history)
-	msgs = append(msgs, chat.Message{
-		Role:    chat.RoleUser,
-		Content: userInput,
-	})
+		// ── 2b. Build context ─────────────────────────────────────────────
+		msgs := make([]chat.Message, len(history), len(history)+1)
+		copy(msgs, history)
+		msgs = append(msgs, chat.Message{
+			Role:    chat.RoleUser,
+			Content: userInput,
+		})
 
-	builtCtx := e.contextBldr.Build(ctx, agentName, msgs, nil, memories, knowledge)
+		builtCtx := e.contextBldr.Build(ctx, agentName, msgs, nil, memories, knowledge)
+		builtCtx = applyKnowledgeNoRoute(builtCtx, knowledgeNoRoute, knowledgeScope)
 
 	// ── 3. Session management ───────────────────────────────────────────
 	var sessionID string

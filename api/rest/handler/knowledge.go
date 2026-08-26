@@ -14,6 +14,7 @@ import (
 	"github.com/CoscaAI/cosca/api/stream"
 	"github.com/CoscaAI/cosca/internal/audit"
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/search"
 )
 
@@ -24,6 +25,13 @@ type KnowledgeHandler struct {
 	engine     *knowledge.Engine
 	auditStore *audit.Store
 	hub        *stream.Hub
+	// resolver é o roteador determinístico (modlink) — FASE 1 routing/scope.
+	// Nil = sem roteamento (legacy), comportamento atual. Configurado via
+	// SetRouteResolver com o boot.RouteResolver do bootstrap.
+	resolver *modlink.Resolver
+	// mode é o modo de busca ("legacy" | "modular"). Só ativa o confinamento por
+	// escopo quando both resolver não-nil e mode=="modular".
+	mode string
 	// lawsPath é o caminho do arquivo runtime das leis do CKL
 	// (.cosca/knowledge/laws.json). Vazio → resolvido por request (cwd,
 	// espelhando o CLI). Campo aditivo — handlers existentes não são afetados.
@@ -70,6 +78,24 @@ func (h *KnowledgeHandler) SetLawsPath(path string) {
 	h.lawsPath = path
 }
 
+// SetRouteResolver configura o roteador determinístico (modlink) para o
+// confinamento por escopo (FASE 1 routing/scope). Passar nil restaura o
+// comportamento atual (legacy, sem roteamento).
+func (h *KnowledgeHandler) SetRouteResolver(resolver *modlink.Resolver) {
+	h.resolver = resolver
+}
+
+// SetSearchMode define o modo de busca ("legacy" | "modular"). Só tem efeito
+// quando um resolver não-nil está configurado e o modo é "modular".
+func (h *KnowledgeHandler) SetSearchMode(mode string) {
+	h.mode = mode
+}
+
+// modularSearchActive reporta se o confinamento por escopo roteado está ativo.
+func (h *KnowledgeHandler) modularSearchActive() bool {
+	return h.resolver != nil && h.mode == search.ModeModular
+}
+
 // SetKnowledgeClient configures the gRPC client for delegating knowledge
 // operations to the runtime daemon (Single Owner Model, Fase 3).
 func (h *KnowledgeHandler) SetKnowledgeClient(client interface {
@@ -114,6 +140,13 @@ type SearchResponse struct {
 	Total      int                       `json:"total"`
 	DurationMs float64                   `json:"duration_ms"`
 	Facets     map[string]map[string]int `json:"facets,omitempty"`
+	// NoRoute (FASE 1 routing/scope, modo modular) sinaliza que o roteador não
+	// encontrou um espaço semântico confiável para a consulta → 0 resultados,
+	// sem full-scan. Sempre false em modo legacy.
+	NoRoute bool `json:"no_route,omitempty"`
+	// Scope lista os módulos aos quais a busca foi confinada (modo modular).
+	// Vazio em modo legacy ou em NoRoute.
+	Scope []string `json:"scope,omitempty"`
 }
 
 // IndexRequest is the JSON body for knowledge index.
@@ -246,6 +279,23 @@ func (h *KnowledgeHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+
+	// FASE 1 routing/scope (modo modular): o roteador determina o espaço de
+	// busca; a busca confina a ele. NoRoute → resposta vazia + no_route:true,
+	// NUNCA full-scan silencioso. Em modo legacy nada muda.
+	if h.modularSearchActive() {
+		scoped, scope := search.ApplyScope(h.resolver, req.Query, params)
+		if scope.NoRoute {
+			writeJSON(w, http.StatusOK, SearchResponse{
+				Results: make([]SearchResult, 0),
+				Total:   0,
+				NoRoute: true,
+			})
+			return
+		}
+		params = scoped
+	}
+
 	results, err := h.engine.Search(ctx, params)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search failed: "+err.Error())
@@ -256,6 +306,9 @@ func (h *KnowledgeHandler) Search(w http.ResponseWriter, r *http.Request) {
 		Results:    make([]SearchResult, 0, len(results.Results)),
 		Total:      results.TotalCount,
 		DurationMs: results.Duration.Seconds() * 1000,
+	}
+	if h.modularSearchActive() && params.Scope != nil {
+		resp.Scope = params.Scope.Modules
 	}
 
 	for _, res := range results.Results {

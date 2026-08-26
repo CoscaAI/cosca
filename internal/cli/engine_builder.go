@@ -17,13 +17,16 @@ import (
 	chatprovider "github.com/CoscaAI/cosca/internal/chat/provider"
 	"github.com/CoscaAI/cosca/internal/chat/sandbox"
 	"github.com/CoscaAI/cosca/internal/chat/tool"
+	"github.com/CoscaAI/cosca/internal/config"
 	"github.com/CoscaAI/cosca/internal/engine"
 	"github.com/CoscaAI/cosca/internal/execpolicy"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/level"
 	"github.com/CoscaAI/cosca/internal/memory"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/models"
 	"github.com/CoscaAI/cosca/internal/plugins"
+	"github.com/CoscaAI/cosca/internal/search"
 	"github.com/CoscaAI/cosca/internal/skills"
 )
 
@@ -339,7 +342,15 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 		if err := knowEngine.Init(); err != nil {
 			log.Warn().Err(err).Msg("failed to init knowledge engine, knowledge disabled")
 		} else {
-			knowSearch = engine.NewKnowledgeAdapter(knowEngine)
+			knowAdapter := engine.NewKnowledgeAdapter(knowEngine)
+			// FASE 1 routing/scope: em modo modular (config search.mode=modular)
+			// o adapter confina a busca de conhecimento ao espaço roteado pelo
+			// modlink — NoRoute → 0 resultados + NoRoute=true, NUNCA full-scan.
+			if c, cErr := config.Load(); cErr == nil && c.Search.Mode == search.ModeModular {
+				knowAdapter = knowAdapter.WithScope(modlink.NewResolver(modlink.DefaultRoutes()), search.ModeModular)
+				log.Debug().Msg("knowledge adapter configured for modular routing")
+			}
+			knowSearch = knowAdapter
 			log.Debug().Msg("knowledge engine initialized")
 		}
 	}

@@ -3,13 +3,16 @@ package knowledge
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/search"
 )
 
@@ -457,6 +460,98 @@ func TestSearchCacheKey_SameParams(t *testing.T) {
 	key1 := searchCacheKey(params)
 	key2 := searchCacheKey(params)
 	assert.Equal(t, key1, key2, "same params should produce same cache key")
+}
+
+// ── FASE 1.5 — Cache Scope Safety ────────────────────────────────────────────
+// A chave do cache deve ser específica ao SearchScope que originou a consulta,
+// para que um resultado de escopo A jamais seja servido para um escopo B.
+
+// routedScope constrói um SearchScope já fingerprinted, no vocabulário real do
+// modlink (módulos são os domínios que a busca confina).
+func routedScope(modules ...string) *modlink.SearchScope {
+	s := &modlink.SearchScope{Modules: modules}
+	s.Fingerprint = s.ComputeFingerprint()
+	return s
+}
+
+// (1) mes(a) query + mesmo escopo → mesma chave.
+func TestSearchCacheKey_SameScopeSameKey(t *testing.T) {
+	t.Parallel()
+	scope := routedScope("adr")
+	a := searchCacheKey(search.SearchParams{Query: "decisão", Scope: scope})
+	b := searchCacheKey(search.SearchParams{Query: "decisão", Scope: scope})
+	assert.Equal(t, a, b, "mesmo query + mesmo escopo deve produzir a mesma chave")
+}
+
+// (2) mesmo query + escopos diferentes → chaves diferentes.
+func TestSearchCacheKey_DifferentScopeDifferentKey(t *testing.T) {
+	t.Parallel()
+	a := searchCacheKey(search.SearchParams{Query: "decisão", Scope: routedScope("adr")})
+	b := searchCacheKey(search.SearchParams{Query: "decisão", Scope: routedScope("memory")})
+	assert.NotEqual(t, a, b, "escopos diferentes devem produzir chaves diferentes")
+}
+
+// (3) query sem escopo vs query scoped → chaves diferentes (um é LEGACY, outro confinado).
+func TestSearchCacheKey_NoScopeVsScoped(t *testing.T) {
+	t.Parallel()
+	noscope := searchCacheKey(search.SearchParams{Query: "decisão"})
+	scoped := searchCacheKey(search.SearchParams{Query: "decisão", Scope: routedScope("adr")})
+	assert.NotEqual(t, noscope, scoped, "busca sem escopo e busca com escopo devem ter chaves diferentes")
+}
+
+// (4) ordem de módulos equivalente → mesma chave (mesma semântica de confinamento).
+func TestSearchCacheKey_EquivalentModuleOrderSameKey(t *testing.T) {
+	t.Parallel()
+	a := searchCacheKey(search.SearchParams{Query: "k", Scope: routedScope("adr", "memory")})
+	b := searchCacheKey(search.SearchParams{Query: "k", Scope: routedScope("memory", "adr")})
+	assert.Equal(t, a, b, "ordem de módulos equivalente deve produzir a mesma chave (semântica igual)")
+}
+
+// (4b) semântica explícita: Scope nil e Scope com Modules vazio são o MESMO
+// estado (sem confinamento / LEGACY) → mesma chave; LEGACY preservado.
+func TestSearchCacheKey_NilScopeEqualsEmptyModules(t *testing.T) {
+	t.Parallel()
+	nilScope := searchCacheKey(search.SearchParams{Query: "k"})
+	emptyScope := searchCacheKey(search.SearchParams{Query: "k", Scope: &modlink.SearchScope{}})
+	assert.Equal(t, nilScope, emptyScope, "nil === Modules vazio: ambos são LEGACY (sem confinamento)")
+}
+
+// Regressão (prova de isolamento do cache): o resultado do escopo A NUNCA é
+// servido para o escopo B. Envenenamos a entrada do escopo A com um decoy e
+// provamos que buscar no escopo B (chave diferente) é um MISS no cache e
+// retorna o resultado real, não o decoy de A.
+func TestCache_ScopeA_NeverServesScopeB(t *testing.T) {
+	t.Parallel()
+	engine := memoryOnlyEngine(t)
+
+	scopeA := routedScope("adr")
+	scopeB := routedScope("memory")
+	keyA := searchCacheKey(search.SearchParams{Query: "q", Scope: scopeA})
+	keyB := searchCacheKey(search.SearchParams{Query: "q", Scope: scopeB})
+	assert.NotEqual(t, keyA, keyB, "chaves de escopos distintos devem diferir")
+
+	// Envenena o cache com um resultado falso sob a chave do escopo A.
+	decoy := &search.SearchResults{Query: "q", TotalCount: 999}
+	raw, err := json.Marshal(decoy)
+	require.NoError(t, err)
+	require.NoError(t, engine.cache.Set(keyA, string(raw), time.Minute))
+
+	// A chave de B não deve existir antes da busca (miss garantido).
+	_, present := engine.cache.Get(keyB)
+	assert.False(t, present, "chave do escopo B não deve estar pré-populada pelo decoy de A")
+
+	// Buscar com o escopo B deve NUNCA devolver o decoy de A (cache miss → busca real).
+	res, err := engine.Search(context.Background(), search.SearchParams{
+		Query:        "q",
+		Scope:        scopeB,
+		EnableFTS:    true,
+		EnableVector: false,
+		EnableGraph:  false,
+		Limit:        5,
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, 999, res.TotalCount,
+		"o resultado do escopo A (999) NÃO pode ser servido para o escopo B")
 }
 
 // ── Config: DefaultConfig consistency ────────────────────────────────────────

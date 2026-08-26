@@ -424,3 +424,158 @@ func TestVectorResults_PropagatesDocumentPath_ScopeKeepsResult(t *testing.T) {
 	assert.Equal(t, ".cosca/fallback/memory/notes.md", res.Results[0].DocumentPath,
 		"contrato: vectorResults deve preencher DocumentPath (nao pode voltar a vazio)")
 }
+
+// ── FASE 1 routing/scope — SearchWithRoute / SearchWithRouteForced ────────────
+
+// adrResolver é um resolver mínimo com apenas a rota real de ADR (trigger
+// nominal do registry DefaultRoutes), para os testes de routing/scope.
+func adrResolver() *modlink.Resolver {
+	return modlink.NewResolver([]modlink.Route{
+		{Trigger: "decisão arquitetural", Module: "adr", Capability: "adr.record", Priority: 1},
+	})
+}
+
+// TestSearchWithRoute_ConfinesToADROnly: uma rota VÁLIDA (query → adr) faz a
+// busca confinar ao módulo "adr" — o hit de outro módulo é DESCARTADO.
+func TestSearchWithRoute_ConfinesToADROnly(t *testing.T) {
+	engine := graphEngineNodes(t,
+		&graph.Node{ID: "adr-1", Type: "", Name: "Decisão arquitetural do banco de dados", Path: ".cosca/fallback/adr/0001-banco.md"},
+		&graph.Node{ID: "docs-1", Type: "", Name: "Guia de decisão arquitetural", Path: ".cosca/fallback/docs/guia.md"},
+	)
+
+	res, err := SearchWithRoute(context.Background(), engine, adrResolver(), "decisão arquitetural do banco", SearchParams{
+		Query:        "decisão arquitetural",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	// Só o hit cujo path tem o segmento "adr" sobrevive.
+	assert.Equal(t, 1, res.TotalCount)
+	require.Len(t, res.Results, 1)
+	assert.Equal(t, "adr-1", res.Results[0].ID)
+}
+
+// TestSearchWithRoute_NoRoute_NeverFullScan: uma consulta SEM rota em modo
+// modular devolve 0 resultados + NoRoute=true, e NUNCA chama engine.Search com
+// Scope nil. Provamos o "não full-scan" comportamentalmente: a MESMA query sem
+// escopo (legacy/full-scan) retornaria os hits amplos — que não aparecem.
+func TestSearchWithRoute_NoRoute_NeverFullScan(t *testing.T) {
+	// Resolver com apenas a rota de ADR: "musica" não casa → NoRoute.
+	resolver := adrResolver()
+
+	// Dois hits amplos que casam com a query "musica" (se houvesse full-scan
+	// retornariam ambos).
+	engine := graphEngineNodes(t,
+		&graph.Node{ID: "m1", Type: "", Name: "Musica do metal", Path: ".cosca/fallback/memory/metal.md"},
+		&graph.Node{ID: "m2", Type: "", Name: "Musica classica", Path: ".cosca/fallback/docs/classica.md"},
+	)
+
+	// (1) A rota desconhecida é explícita: NoRoute=true, sem inventar módulos.
+	scope := resolver.Resolve("musica")
+	assert.True(t, scope.NoRoute, "esperado NoRoute=true para query sem rota")
+	assert.Empty(t, scope.Modules)
+
+	// (2) O caminho MODULAR NUNCA faz full-scan: 0 resultados, sem consultar o engine.
+	res, err := SearchWithRouteModular(context.Background(), engine, resolver, "musica", SearchParams{
+		Query:        "musica",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Equal(t, 0, res.TotalCount,
+		"NoRoute não deve recair no full-scan silencioso (0 resultados)")
+	assert.Empty(t, res.Results)
+
+	// (3) Prova que os hits EXISTEM: um engine.Search sem Scope (legacy) os
+	// retornaria — então o 0 do passo (2) só pode ter vindo do short-circuit,
+	// não de uma busca que achou nada.
+	unscoped := SearchParams{Query: "musica", EnableGraph: true, EnableFTS: false, EnableVector: false, Limit: 20}
+	full, err := engine.Search(context.Background(), unscoped)
+	require.NoError(t, err)
+	assert.Equal(t, 2, full.TotalCount,
+		"a query produziu hits no full-scan — logo o 0 anterior veio do short-circuit, não do engine")
+}
+
+// TestSearchWithRoute_LegacyIntact confirma a compatibilidade do modo LEGACY:
+// os constantes de modo são os nomes esperados e a busca sem escopo (nil) é
+// ilimitada — o comportamento atual permanece intacto.
+func TestSearchWithRoute_LegacyIntact(t *testing.T) {
+	assert.Equal(t, "legacy", ModeLegacy)
+	assert.Equal(t, "modular", ModeModular)
+
+	engine := graphEngineNodes(t,
+		&graph.Node{ID: "m1", Type: "", Name: "Musica do metal", Path: ".cosca/fallback/memory/metal.md"},
+		&graph.Node{ID: "d1", Type: "", Name: "Musica classica", Path: ".cosca/fallback/docs/classica.md"},
+	)
+
+	// Legacy = busca atual: Scope nil → ilimitada (retorna ambos os hits),
+	// mesmo que em modo modular "musica" fosse NoRoute.
+	res, err := engine.Search(context.Background(), SearchParams{
+		Query:        "musica",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, res.TotalCount)
+}
+
+// TestResolveForcedScope_Incompatible_NoRoute: --scope=M é uma restrição
+// ADICIONAL. Se M não está entre os módulos roteados (query incompatível com o
+// escopo forçado), o resultado é NoRoute explícito — nunca amplia.
+func TestResolveForcedScope_Incompatible_NoRoute(t *testing.T) {
+	resolver := adrResolver()
+
+	// Compatível: query roteia para [adr] e --scope=adr é aceito → confina a adr.
+	compat := ResolveForcedScope(resolver, "decisão arquitetural do banco", "adr")
+	assert.False(t, compat.NoRoute)
+	assert.Equal(t, []string{"adr"}, compat.Modules)
+
+	// Incompatível: query roteia para [adr], mas --scope=knowledge não está no
+	// espaço roteado → NoRoute explícito (0 resultados, nunca amplia).
+	incompat := ResolveForcedScope(resolver, "decisão arquitetural do banco", "knowledge")
+	assert.True(t, incompat.NoRoute)
+	assert.Empty(t, incompat.Modules)
+
+	// Sem escopo forçado: devolve exatamente o espaço roteado.
+	noforce := ResolveForcedScope(resolver, "decisão arquitetural do banco", "")
+	assert.False(t, noforce.NoRoute)
+	assert.Equal(t, []string{"adr"}, noforce.Modules)
+}
+
+// TestSearchWithRouteForced_Incompatible_ReturnsZero: no caminho de uma chamada
+// só, um escopo forçado incompatível devolve 0 resultados sem consultar o engine
+// (o roteador já disse NoRoute). A mesma query sem escopo forçado retorna o hit.
+func TestSearchWithRouteForced_Incompatible_ReturnsZero(t *testing.T) {
+	engine := graphEngineNodes(t,
+		&graph.Node{ID: "adr-1", Type: "", Name: "Decisão arquitetural do banco", Path: ".cosca/fallback/adr/0001.md"},
+	)
+
+	forced, err := SearchWithRouteForcedModular(context.Background(), engine, adrResolver(), "decisão arquitetural do banco", "knowledge", SearchParams{
+		Query:        "decisão arquitetural",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, forced.TotalCount, "escopo forçado incompatível → 0, nunca amplia")
+
+	routed, err := SearchWithRouteForcedModular(context.Background(), engine, adrResolver(), "decisão arquitetural do banco", "", SearchParams{
+		Query:        "decisão arquitetural",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, routed.TotalCount, "sem escopo forçado a rota confina e acha o hit")
+	assert.Equal(t, "adr-1", routed.Results[0].ID)
+}

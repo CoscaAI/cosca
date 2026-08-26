@@ -10,6 +10,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
+	"github.com/CoscaAI/cosca/internal/modlink"
 )
 
 // ─── Default Context Limits ───────────────────────────────────────────────────
@@ -189,6 +190,31 @@ func (b *ContextBuilder) Build(
 		ContextLimit:    b.maxTokens,
 		UsagePct:        float64(tokenEstimate) / float64(b.maxTokens) * 100,
 	}
+}
+
+// knowledgeNoRouteLine é a linha curta injetada no SystemPrompt quando a busca
+// de conhecimento está em estado NO_ROUTE (modo modular). Ela diz ao agente,
+// com honestidade, que não há espaço semântico confiável — e nunca fabrica um.
+var knowledgeNoRouteLine = "=== KNOWLEDGE SCOPE === NO_ROUTE (sem espaço semântico confiável para esta consulta)"
+
+// applyKnowledgeNoRoute marcay o BuiltContext com o estado NO_ROUTE e anexa a
+// linha de escopo ao SystemPrompt. É idempotente: chamar de novo não duplica a
+// linha. Quando `noRoute` é false, o contexto permanece intacto (legacy).
+func applyKnowledgeNoRoute(built *BuiltContext, noRoute bool, scope *modlink.SearchScope) *BuiltContext {
+	if built == nil || !noRoute {
+		return built
+	}
+	built.KnowledgeNoRoute = true
+	if scope != nil {
+		built.ScopeInfo = scope
+	}
+	if !strings.Contains(built.SystemPrompt, knowledgeNoRouteLine) {
+		if strings.TrimSpace(built.SystemPrompt) != "" {
+			built.SystemPrompt += "\n\n"
+		}
+		built.SystemPrompt += knowledgeNoRouteLine
+	}
+	return built
 }
 
 // EstimateTokens returns a rough token estimate for the given text.

@@ -264,6 +264,11 @@ type WatchConfig struct {
 
 // SearchConfig configures search functionality.
 type SearchConfig struct {
+	// Mode is the search mode: "legacy" (default — current behaviour, no
+	// routing) or "modular" (routing obrigatório; NoRoute → 0 resultados +
+	// sinal NO_ROUTE, nunca full-scan). Não quebra configs existentes: o
+	// default é sempre "legacy".
+	Mode string `yaml:"mode" json:"mode"`
 	// DefaultLimit is the default search result limit.
 	DefaultLimit int `yaml:"default_limit" json:"defaultLimit"`
 	// MaxResults is the maximum allowed results.
@@ -515,6 +520,7 @@ func DefaultConfig() *Config {
 			MaxFileSize:     10 * 1024 * 1024, // 10 MB
 		},
 		Search: SearchConfig{
+			Mode:           "legacy",
 			DefaultLimit:   DefaultSearchResultLimit,
 			MaxResults:     DefaultSearchMaxResults,
 			MinScore:       0.7,
