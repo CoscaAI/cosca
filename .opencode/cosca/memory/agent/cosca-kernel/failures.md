@@ -133,5 +133,19 @@
 | **Tags** | #loop-do-L434 #hook-windows #fail-closed #ordem-sagrada #conveniencia-vs-seguranca #consigliere-parou #Memoria-velocidade |
 | **Avoidance Pattern** | Antes de investir em automação: perguntar "isso é SEGURANÇA (fail-closed, código) ou CONVENIÊNCIA (auto-)?". Se é conveniência e a infra (git-for-windows) é frágil → PARE, aceita o modelo manual, documenta, registra o aprendizado. Só o que protege de verdade merece insistir. |
 
+### 2026-08-26 — Sobrescrevi arquivos existentes com write (epistemic.go / epistemic_test.go)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Fase 4 (Epistemologia) — criar classe KnowledgeEpistemic |
+| **Failed Approach** | Usei `write` para criar `internal/knowledge/epistemic.go` e `epistemic_test.go` **sem verificar se já existiam** — e eles existiam (CKL `EpistemicStatus`). Sobrescrevi e apaguei os testes originais do CKL. |
+| **Root Cause** | Não verifiquei a existência prévia do arquivo antes de `write`. O build seguiu passando (o código ficou logo), mas os **testes** do CKL sumiram silenciosamente — falha não detectável pelo `go test` que rodei. |
+| **Consequence** | Commit d5ac977 carregou a sobrescrita. Só peguei ao revisar o `git show --stat` (muitas deleções). Corrigi no 072e977 restaurando os 2 arquivos. |
+| **Lesson** | **ANTES de `write`, SEMPRE verificar se o arquivo já existe** (Glob/Test-Path). Se existir → usar `edit` (replace de string exata) ou escolher NOME DE ARQUIVO NOVO. NUNCA sobrescrever um arquivo existente com `write`. E `go test` verde ≠ tudo certo: revisar `git diff --stat` para pegar deleções inesperadas. |
+| **Confidence Impact** | -0.04 |
+| **Tags** | #file-safety #write-overwrite #silent-deletion #epistemic #ckl #verification |
+| **Avoidance Pattern** | `write` em arquivo que pode existir? Primeiro `Test-Path`/`Glob`. Existe → usa `edit` ou renomeia. Depois de qualquer commit, `git show --stat` para confirmar que não entrou deleção não-intencional. |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

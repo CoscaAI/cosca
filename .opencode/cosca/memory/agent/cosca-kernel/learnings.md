@@ -662,3 +662,46 @@
 | **Aplicável quando** | SEMPRE — especialmente em modo experimental/investigação. É o contrapeso ao padrão de "empolgar e sumir". |
 | **Confiança** | 1.0 (ordem direta do Don + professor) |
 | **Next** | Aplicar Sempre. Após qualquer execução, retornar ao Don com resultado CRU + pausa. O upgrade mais importante: **saber quando agir, quando investigar e quando ficar quieto.** |
+
+## 2026-08-25 - SANDBOX DE PROJETO (isolamento total - ordem do Don)
+
+| | |
+|---|---|
+| **Tipo** | arquitetura / isolamento / orquestração |
+| **Problema** | O Don exige: ao criar/ativar um projeto, TUDO do projeto fica no projeto; o cosca root fica read-only; nada vaza. |
+| **Padrao** | PROJECT_SANDBOX_PROTOCOL.md (em .opencode/cosca/shared/). Gatilhos: "criar projeto", "ativar protocolo projeto", "projeto <nome>". |
+| **Implementacao** | 1) gravar marcador <projeto>/.cosca/sandbox.json; 2) fixar workspace = projeto; 3) agents aprendem em <projeto>/.cosca/memory/agent/<nome>/; 4) root read-only. |
+| **Prova** | internal/memory/isolation_test.go + internal/project/sandbox_test.go (5 testes PASS). Runtime ja e scoped via getCoscaDir(workspace)=workspace/.cosca. |
+| **Correcao real** | Aprendizado de agents que trabalharam no runo foi MIGRADO de .opencode/cosca/memory/agent/ (root) para runo/.cosca/memory/agent/. Root restaurado limpo. |
+| **Regra** | Conhecimento DE PROJETO → projeto. Conhecimento do FRAMEWORK (padrao reutilizavel) → framework. Em sandbox, o padrao e gravar no projeto. |
+| **Confianca** | 1.0 (ordem direta do Don + professor §6/§7/§8) |
+| **Next** | Ao ouvir gatilho de projeto, ativar sandbox automaticamente. Agents em sandbox NUNCA gravam no root. |
+
+## 2026-08-25 - FUNDACAO DO COSCA-DESKTOP (independencia + forge - ADR-0007, decisao do Don)
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | arquitetura / fundacao / produto / distribuicao |
+| **Decisao** | O cosca-desktop e um produto INDEPENDENTE e distributivel (roda em qualquer PC/pasta sem o cosca root). Mesmo binario, DOIS modos por DETECCAO do root (nunca por copia): STANDALONE e FORGE. |
+| **Standalone** | ENTRA: Agents (roles/capos) + Skills. **NAO ENTRA**: o KERNEL (a inteligencia que opera/orquestra de verdade) **nem** a memoria/legado da familia. Opera via IA externa/local (preferencia do cliente). |
+| **Forge (no root)** | ENTRA: o KERNEL (a cabeca que comanda) + revela TUDO do root (agents, skills, memoria da familia, config, arquitetura, family chain, DNA). |
+| **Invariante** | O conteudo do root (kernel operacional + legado + estrutura) **NUNCA e copiado para o binario** - e acessado/revelado a partir do root quando o binario o detecta. O binario e sempre o mesmo. |
+| **Tabela** | Standalone: Agents SIM, Skills SIM, Kernel NAO, Memoria/familia NAO. Forge: Agents SIM, Skills SIM, Kernel SIM, Memoria/familia SIM (do root). |
+| **Consequencia** | Standalone = "mao-de-obra + material" sem cabeca e sem alma (nao e o Cosca vivo). Forge = cabeca + alma + estrutura, tudo acessado do root. |
+| **Formato** | ADR-0007 em cosca-desktop/docs/adr/, atualizado ARCHITECTURE.md. |
+| **Confianca** | 1.0 (aprovado direto pelo Don) |
+| **Next** | Ao orquestrar cosca-desktop: standalone carrega agents+skills SEM kernel/memoria; forge no root injeta kernel e revela root. Nunca copiar legado pro binario. |
+
+## 2026-08-25 - PROJECT INTELLIGENCE no cosca-desktop (camada de deteccao por evidencia)
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | feature / arquitetura / produto / agent-context |
+| **Decisao** | Implementar Project Intelligence como camada do Desktop que entende o projeto automaticamente (linguagem, framework, PM, build/lint/test/format, docker, monorepo, git, ci, docs, comandos) POR EVIDENCIA e confianca — nunca por nome de pasta. |
+| **Regra** | PI e READ-ONLY, barato, incremental, nao-destrutivo. NUNCA executa comandos para detectar (STATIC DISCOVERY separado de RUNTIME VALIDATION). NAO e kernel nem memoria do COSCA (ADR-0007). Cache em memoria, nunca em .cosca. |
+| **Modularizacao** | Detect.go 1332 linhas foi ELIMINADO em ~16 arquivos por categoria (feedb do professor: extensivel sem recompilar/inchar). API publica (Analyze, Detect*) intacta; os testes de fixtures provaram que a refatoracao nao mudou comportamento. |
+| **Valor** | AnalyzeProject (binding) + AgentProjectContext (injeta no agente SEM ele perguntar) + AgentSkillMatch (so skills aplicaveis) + AgentPipeline (pipeline auto-descoberto, N/A se sem ferramenta) + Cache incremental (GetOrAnalyze/Invalidate). |
+| **UI** | Painel Intelligence observavel (nome+confianca ✓/•/! + evidencia mono) + bloco "agente ja sabe" (stack+skills+pipeline) + botao Refresh. |
+| **Prova** | ~58 testes PASS (18 projectintel + ~40 app_test) + build frontend OK + EXE compilado/aberto. |
+| **Confianca** | 1.0 (orquestrado e validado; feedback professor incorporado) |
+| **Next** | (1) Editor intelligence + file icons + minimap (missao 16-18, pendente); (2) validar visualmente painel no EXE (NON-VERIFIED->VERIFIED); (3) opcional RUNTIME VALIDATION (executar build/lint detectados c/ approval). |

@@ -63,5 +63,18 @@
 | **Aplicável quando** | Antes de operar QUALQUER máquina/ambiente; ao executar ordem com potencial de WRITE/MUTATING/DESTRUCTIVE; ao encontrar erro de execução. |
 | **Confiança** | 1.0 (ordem direta do Don + professor) |
 
+### 2026-08-26 — Write seguro: verificar existência ANTES de sobrescrever (lição do epistemic)
+
+| Field | Value |
+|-------|-------|
+| **Agente** | cosca-kernel |
+| **Fonte** | Falha real (sobrescrevi epistemic.go/epistemic_test.go, apagando testes do CKL) |
+| **Padrão** | **Antes de `write`, SEMPRE checar se o arquivo-alvo já existe** (Glob / Test-Path). Se existir: (1) usar `edit` (substituição de string exata), ou (2) escolher um NOME DE ARQUIVO NOVO. **NUNCA** sobrescrever um existente com `write` — o `write` substitui silenciosamente. |
+| **Aplicação** | `internal/knowledge/` já tem `epistemic.go` (EpistemicStatus CKL). Ao criar `KnowledgeEpistemic` (Fase 4), o arquivo correto é `epistemic_class.go` — verificar antes evita apagar o CKL. |
+| **Verificação pós-commit** | Depois de cada commit, `git show --stat HEAD` para pegar **deleções** inesperadas (sinal de sobrescrita). `go test` verde NÃO garante que nada foi apagado. |
+| **Tipo** | processo / file-safety / verificação |
+| **Aplicável quando** | Sempre que criar/escrever arquivo (.go, .md, config) cujo nome possa já existir — especialmente em árvores grandes com nomes parecidos (epistemic*.go, *.test.go). |
+| **Confiança** | 1.0 (falha real + correção verificada) |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro
