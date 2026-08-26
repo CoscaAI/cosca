@@ -75,7 +75,7 @@ func TestComputeRelationsEmpty(t *testing.T) {
 
 func TestComputeRelationsSingle(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "a", Position: worldmodel.Vec3{0, 0, 0}},
+		{ID: "a", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
 	}
 	relations := computeRelations(entities)
 	if len(relations) != 0 {
@@ -85,8 +85,8 @@ func TestComputeRelationsSingle(t *testing.T) {
 
 func TestComputeRelationsNearby(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "a", Position: worldmodel.Vec3{0, 0, 0}},
-		{ID: "b", Position: worldmodel.Vec3{1, 0, 0}}, // 1m to the right
+		{ID: "a", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
+		{ID: "b", Position: worldmodel.Vec3{X: 1, Y: 0, Z: 0}}, // 1m to the right
 	}
 	relations := computeRelations(entities)
 
@@ -105,8 +105,8 @@ func TestComputeRelationsNearby(t *testing.T) {
 
 func TestComputeRelationsBehind(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "a", Position: worldmodel.Vec3{0, 0, 0}},
-		{ID: "b", Position: worldmodel.Vec3{0, 0, 3}}, // 3m behind
+		{ID: "a", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
+		{ID: "b", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 3}}, // 3m behind
 	}
 	relations := computeRelations(entities)
 
@@ -121,8 +121,8 @@ func TestComputeRelationsBehind(t *testing.T) {
 
 func TestComputeRelationsTooFar(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "a", Position: worldmodel.Vec3{0, 0, 0}},
-		{ID: "b", Position: worldmodel.Vec3{25, 0, 0}}, // 25m away
+		{ID: "a", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
+		{ID: "b", Position: worldmodel.Vec3{X: 25, Y: 0, Z: 0}}, // 25m away
 	}
 	relations := computeRelations(entities)
 
@@ -133,8 +133,8 @@ func TestComputeRelationsTooFar(t *testing.T) {
 
 func TestComputeRelationsNextTo(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "a", Position: worldmodel.Vec3{0, 0, 0}},
-		{ID: "b", Position: worldmodel.Vec3{0.3, 0, 0}}, // 30cm away
+		{ID: "a", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
+		{ID: "b", Position: worldmodel.Vec3{X: 0.3, Y: 0, Z: 0}}, // 30cm away
 	}
 	relations := computeRelations(entities)
 
@@ -152,9 +152,9 @@ func TestComputeRelationsNextTo(t *testing.T) {
 
 func TestComputeRelationsMultiple(t *testing.T) {
 	entities := []worldmodel.WorldEntity{
-		{ID: "car", Position: worldmodel.Vec3{0, 0, 0}},
-		{ID: "tree", Position: worldmodel.Vec3{5, 0, 0}},
-		{ID: "house", Position: worldmodel.Vec3{0, 0, 25}}, // 25m away — too far
+		{ID: "car", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0}},
+		{ID: "tree", Position: worldmodel.Vec3{X: 5, Y: 0, Z: 0}},
+		{ID: "house", Position: worldmodel.Vec3{X: 0, Y: 0, Z: 25}}, // 25m away — too far
 	}
 	relations := computeRelations(entities)
 
@@ -255,7 +255,7 @@ func TestPipelineIntegration(t *testing.T) {
 	frame := []byte{0x89, 0x50, 0x4E, 0x47} // fake PNG
 
 	pose := worldmodel.Pose6DoF{
-		Position: worldmodel.Vec3{0, 0, 0},
+		Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0},
 		Rotation: worldmodel.IdentityQuat(),
 	}
 
@@ -303,7 +303,7 @@ func TestObservationStructure(t *testing.T) {
 			{
 				ID:         "test-1",
 				Type:       worldmodel.EntityObject,
-				Position:   worldmodel.Vec3{5, 0, 3},
+				Position:   worldmodel.Vec3{X: 5, Y: 0, Z: 3},
 				Label:      "car",
 				Confidence: 0.95,
 				Depth:      5.8,

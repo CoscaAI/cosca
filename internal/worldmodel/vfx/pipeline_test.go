@@ -76,7 +76,7 @@ func TestPipelineNoAdapter(t *testing.T) {
 // ──────────────────────────────────────────────────────────────
 
 func TestDustParticles(t *testing.T) {
-	config := DustParticles(worldmodel.Vec3{1, 2, 3})
+	config := DustParticles(worldmodel.Vec3{X: 1, Y: 2, Z: 3})
 
 	if config.Type != worldmodel.VFXDust {
 		t.Errorf("type: got %v, want dust", config.Type)
@@ -93,7 +93,7 @@ func TestDustParticles(t *testing.T) {
 }
 
 func TestWindEffect(t *testing.T) {
-	config := WindEffect(worldmodel.Vec3{1, 0, 0})
+	config := WindEffect(worldmodel.Vec3{X: 1, Y: 0, Z: 0})
 
 	if config.Type != worldmodel.VFXWind {
 		t.Errorf("type: got %v, want wind", config.Type)
@@ -104,7 +104,7 @@ func TestWindEffect(t *testing.T) {
 }
 
 func TestFireEffect(t *testing.T) {
-	config := FireEffect(worldmodel.Vec3{5, 0, 3})
+	config := FireEffect(worldmodel.Vec3{X: 5, Y: 0, Z: 3})
 
 	if config.Type != worldmodel.VFXFire {
 		t.Errorf("type: got %v, want fire", config.Type)
@@ -118,7 +118,7 @@ func TestFireEffect(t *testing.T) {
 }
 
 func TestSmokeEffect(t *testing.T) {
-	config := SmokeEffect(worldmodel.Vec3{0, 0, 0})
+	config := SmokeEffect(worldmodel.Vec3{X: 0, Y: 0, Z: 0})
 
 	if config.Type != worldmodel.VFXSmoke {
 		t.Errorf("type: got %v, want smoke", config.Type)
@@ -129,7 +129,7 @@ func TestSmokeEffect(t *testing.T) {
 }
 
 func TestFluidEffect(t *testing.T) {
-	config := FluidEffect(worldmodel.Vec3{0, 5, 0})
+	config := FluidEffect(worldmodel.Vec3{X: 0, Y: 5, Z: 0})
 
 	if config.Type != worldmodel.VFXFluids {
 		t.Errorf("type: got %v, want fluids", config.Type)

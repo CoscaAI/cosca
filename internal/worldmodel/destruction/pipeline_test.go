@@ -58,7 +58,7 @@ func TestPipelineNoAdapter(t *testing.T) {
 	}
 	mesh := worldmodel.Mesh{
 		Vertices: []worldmodel.Vec3{
-			{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
+			{X: 0, Y: 0, Z: 0}, {X: 1, Y: 0, Z: 0}, {X: 1, Y: 1, Z: 0}, {X: 0, Y: 1, Z: 0},
 		},
 		Faces: [][3]int{{0, 1, 2}, {0, 2, 3}},
 	}
@@ -151,8 +151,8 @@ func TestComputeStructuralImpactWithFragments(t *testing.T) {
 	}
 	mesh := worldmodel.Mesh{
 		Vertices: []worldmodel.Vec3{
-			{0, 0, 0}, {2, 0, 0}, {2, 2, 0}, {0, 2, 0},
-			{0, 0, 2}, {2, 0, 2}, {2, 2, 2}, {0, 2, 2},
+			{X: 0, Y: 0, Z: 0}, {X: 2, Y: 0, Z: 0}, {X: 2, Y: 2, Z: 0}, {X: 0, Y: 2, Z: 0},
+			{X: 0, Y: 0, Z: 2}, {X: 2, Y: 0, Z: 2}, {X: 2, Y: 2, Z: 2}, {X: 0, Y: 2, Z: 2},
 		},
 	}
 
@@ -181,8 +181,8 @@ func TestEstimateMeshVolumeEmpty(t *testing.T) {
 func TestEstimateMeshVolumeCube(t *testing.T) {
 	mesh := worldmodel.Mesh{
 		Vertices: []worldmodel.Vec3{
-			{0, 0, 0}, {2, 0, 0}, {2, 2, 0}, {0, 2, 0},
-			{0, 0, 2}, {2, 0, 2}, {2, 2, 2}, {0, 2, 2},
+			{X: 0, Y: 0, Z: 0}, {X: 2, Y: 0, Z: 0}, {X: 2, Y: 2, Z: 0}, {X: 0, Y: 2, Z: 0},
+			{X: 0, Y: 0, Z: 2}, {X: 2, Y: 0, Z: 2}, {X: 2, Y: 2, Z: 2}, {X: 0, Y: 2, Z: 2},
 		},
 	}
 	vol := estimateMeshVolume(mesh)

@@ -65,7 +65,7 @@ func TestClusterPointsEmpty(t *testing.T) {
 }
 
 func TestClusterPointsSingle(t *testing.T) {
-	points := []worldmodel.Vec3{{0, 0, 0}}
+	points := []worldmodel.Vec3{{X: 0, Y: 0, Z: 0}}
 	clusters := clusterPoints(points, 1.0)
 	if len(clusters) != 1 {
 		t.Errorf("single point should produce 1 cluster, got %d", len(clusters))
@@ -74,11 +74,11 @@ func TestClusterPointsSingle(t *testing.T) {
 
 func TestClusterPointsGrid(t *testing.T) {
 	points := []worldmodel.Vec3{
-		{0.1, 0, 0},   // cell (0,0,0)
-		{0.5, 0, 0},   // cell (0,0,0)
-		{3.0, 0, 0},   // cell (3,0,0)
-		{3.1, 0, 0},   // cell (3,0,0)
-		{0.1, 3.5, 0}, // cell (0,3,0)
+		{X: 0.1, Y: 0, Z: 0},   // cell (0,0,0)
+		{X: 0.5, Y: 0, Z: 0},   // cell (0,0,0)
+		{X: 3.0, Y: 0, Z: 0},   // cell (3,0,0)
+		{X: 3.1, Y: 0, Z: 0},   // cell (3,0,0)
+		{X: 0.1, Y: 3.5, Z: 0}, // cell (0,3,0)
 	}
 	clusters := clusterPoints(points, 2.0)
 
@@ -120,16 +120,16 @@ func TestComputeSpatialRelationsEmpty(t *testing.T) {
 func TestComputeSpatialRelationsWithPoints(t *testing.T) {
 	pc := worldmodel.PointCloud{
 		Points: []worldmodel.Vec3{
-			{5, 0, 0},   // right of agent
-			{5.1, 0, 0},
-			{5.2, 0, 0},
-			{-3, 0, 0},  // left of agent
-			{-3.1, 0, 0},
-			{-3.2, 0, 0},
+			{X: 5, Y: 0, Z: 0},   // right of agent
+			{X: 5.1, Y: 0, Z: 0},
+			{X: 5.2, Y: 0, Z: 0},
+			{X: -3, Y: 0, Z: 0},  // left of agent
+			{X: -3.1, Y: 0, Z: 0},
+			{X: -3.2, Y: 0, Z: 0},
 		},
 	}
 	pose := worldmodel.Pose6DoF{
-		Position: worldmodel.Vec3{0, 0, 0},
+		Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0},
 	}
 
 	relations := computeSpatialRelations(pc, pose)
@@ -161,13 +161,13 @@ func TestComputeSpatialRelationsWithPoints(t *testing.T) {
 func TestComputeSpatialRelationsNearby(t *testing.T) {
 	pc := worldmodel.PointCloud{
 		Points: []worldmodel.Vec3{
-			{0.3, 0, 0}, // very close
-			{0.31, 0, 0},
-			{0.29, 0, 0},
+			{X: 0.3, Y: 0, Z: 0}, // very close
+			{X: 0.31, Y: 0, Z: 0},
+			{X: 0.29, Y: 0, Z: 0},
 		},
 	}
 	pose := worldmodel.Pose6DoF{
-		Position: worldmodel.Vec3{0, 0, 0},
+		Position: worldmodel.Vec3{X: 0, Y: 0, Z: 0},
 	}
 
 	relations := computeSpatialRelations(pc, pose)
@@ -191,13 +191,13 @@ func TestComputeSpatialRelationsNearby(t *testing.T) {
 func TestSpatialResultStructure(t *testing.T) {
 	result := &SpatialResult{
 		Pose: worldmodel.Pose6DoF{
-			Position: worldmodel.Vec3{1, 2, 3},
+			Position: worldmodel.Vec3{X: 1, Y: 2, Z: 3},
 			Rotation: worldmodel.IdentityQuat(),
 		},
 		PointCloud: worldmodel.PointCloud{
 			Points: []worldmodel.Vec3{
-				{5, 0, 0},
-				{-3, 0, 0},
+				{X: 5, Y: 0, Z: 0},
+				{X: -3, Y: 0, Z: 0},
 			},
 			Timestamp: time.Now(),
 		},
