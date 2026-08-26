@@ -86,6 +86,10 @@ type KnowledgeSearchResult struct {
 	Snippet      string  `json:"snippet,omitempty"`
 	Score        float64 `json:"score"`
 	DocumentPath string  `json:"document_path,omitempty"`
+	// Epistemic é a classe epistêmica do item (FACT, MEASURED, EVIDENCE,
+	// INFERRED, RULE, DECISION, PROFILE) — a NATUREZA do conhecimento, usada
+	// para exibir o prefixo ao agente (FASE 4). Empty = não classificada.
+	Epistemic string `json:"epistemic,omitempty"`
 }
 
 // KnowledgeSearchResults bundles search hits with query metadata.

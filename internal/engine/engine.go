@@ -303,7 +303,7 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 				knowledgeScope = results.Scope
 			} else if len(results.Results) > 0 {
 				for _, r := range results.Results {
-					knowledge = append(knowledge, r.Content)
+					knowledge = append(knowledge, concatEpistemic(r))
 				}
 			}
 		}
@@ -592,7 +592,7 @@ func (e *AgentEngine) RunStream(ctx context.Context, userInput string, history [
 					knowledgeScope = results.Scope
 				} else if len(results.Results) > 0 {
 					for _, r := range results.Results {
-						knowledge = append(knowledge, r.Content)
+						knowledge = append(knowledge, concatEpistemic(r))
 					}
 				}
 			}

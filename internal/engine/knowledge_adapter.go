@@ -117,6 +117,7 @@ func toEngineKnowledgeResults(sr *search.SearchResults) *KnowledgeSearchResults 
 			Snippet:      r.Snippet,
 			Score:        r.Score,
 			DocumentPath: r.DocumentPath,
+			Epistemic:    r.Metadata["epistemic"], // FASE 4 — classe epistêmica do item
 		})
 	}
 
@@ -125,4 +126,15 @@ func toEngineKnowledgeResults(sr *search.SearchResults) *KnowledgeSearchResults 
 		TotalCount: sr.TotalCount,
 		Query:      sr.Query,
 	}
+}
+
+// concatEpistemic prefixa o conteúdo de um resultado de conhecimento com a sua
+// classe epistêmica (FASE 4) — ex.: "[INFERRED] ...", "[FACT] ...". Assim o
+// agente vê a NATUREZA do conhecimento no contexto, e um item INFERRED nunca é
+// lido como fato. Sem classe → conteúdo puro (compatível).
+func concatEpistemic(r KnowledgeSearchResult) string {
+	if r.Epistemic == "" {
+		return r.Content
+	}
+	return "[" + r.Epistemic + "] " + r.Content
 }

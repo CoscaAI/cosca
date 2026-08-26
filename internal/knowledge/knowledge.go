@@ -833,6 +833,12 @@ func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*searc
 		return nil, err
 	}
 
+	// FASE 4.1 — enriquece cada resultado com a classe epistêmica
+	// (metadata_json.epistemic) do documento de origem, para que o agente veja
+	// a NATUREZA do conhecimento ([FACT], [INFERRED], ...) e o filtro
+	// `epistemic=` funcione de ponta a ponta.
+	e.enrichEpistemic(results)
+
 	// Store result in all enabled cache levels with 5-minute TTL
 	if e.cache != nil && results != nil {
 		serialized, jsonErr := json.Marshal(results)
@@ -844,6 +850,94 @@ func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*searc
 	}
 
 	return results, nil
+}
+
+// enrichEpistemic popula `Metadata["epistemic"]` de cada resultado a partir de
+// `documents.metadata_json.epistemic`. Chaveia por `DocumentID` OU
+// `DocumentPath` (os caminhos de resultado preenchem um dos dois, mas nem
+// sempre ambos). FASE 4.1 — torna a classe epistêmica visível no resultado e
+// utilizável pelo filtro `confineEpistemic`. Idempotente e barato.
+func (e *Engine) enrichEpistemic(results *search.SearchResults) {
+	if results == nil || len(results.Results) == 0 {
+		return
+	}
+	e.mu.RLock()
+	db := e.db
+	e.mu.RUnlock()
+	if db == nil {
+		return
+	}
+
+	// Mapeia chave (id ou path) → resultado, coletando os documentos únicos.
+	byKey := make(map[string]*search.SearchResult)
+	ids := make([]string, 0)
+	paths := make([]string, 0)
+	seenID := make(map[string]bool)
+	seenPath := make(map[string]bool)
+	for i := range results.Results {
+		r := &results.Results[i]
+		if r.DocumentID != "" && !seenID[r.DocumentID] {
+			seenID[r.DocumentID] = true
+			ids = append(ids, r.DocumentID)
+			byKey["id:"+r.DocumentID] = r
+		}
+		if r.DocumentPath != "" && !seenPath[r.DocumentPath] {
+			seenPath[r.DocumentPath] = true
+			paths = append(paths, r.DocumentPath)
+			byKey["path:"+r.DocumentPath] = r
+		}
+	}
+	if len(ids) == 0 && len(paths) == 0 {
+		return
+	}
+
+	// Monta cláusulas IN para id e/ou path.
+	placeholders2 := func(n int) string {
+		p := strings.Repeat("?,", n)
+		return p[:len(p)-1]
+	}
+	var where []string
+	var args []any
+	if len(ids) > 0 {
+		where = append(where, "id IN ("+placeholders2(len(ids))+")")
+		for _, id := range ids {
+			args = append(args, id)
+		}
+	}
+	if len(paths) > 0 {
+		where = append(where, "path IN ("+placeholders2(len(paths))+")")
+		for _, p := range paths {
+			args = append(args, p)
+		}
+	}
+
+	rows, err := db.Query(
+		`SELECT id, path, json_extract(metadata_json, '$.epistemic') FROM documents WHERE `+strings.Join(where, " OR "),
+		args...,
+	)
+	if err != nil {
+		log.Warn().Err(err).Msg("enrichEpistemic: query failed")
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, path, epistemic string
+		if err := rows.Scan(&id, &path, &epistemic); err != nil || epistemic == "" {
+			continue
+		}
+		if r, ok := byKey["id:"+id]; ok {
+			if r.Metadata == nil {
+				r.Metadata = make(map[string]string)
+			}
+			r.Metadata["epistemic"] = epistemic
+		}
+		if r, ok := byKey["path:"+path]; ok {
+			if r.Metadata == nil {
+				r.Metadata = make(map[string]string)
+			}
+			r.Metadata["epistemic"] = epistemic
+		}
+	}
 }
 
 // Query performs a simple text search with default parameters.
