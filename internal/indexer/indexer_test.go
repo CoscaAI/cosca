@@ -923,7 +923,7 @@ func TestStoreDocument_ConcurrentSQLiteReplacement(t *testing.T) {
 			doc := &markdown.Document{Title: docID, RawContent: "content", TokenCount: 1}
 			chunks := []chunker.Chunk{{ID: chunkID, DocumentID: docID, Content: "content", Hash: chunkID, TokenCount: 1}}
 			vectors := []vector.VectorRecord{{ID: "vector-" + docID, Vector: []float64{1, 0}, DocumentID: docID, ChunkID: chunkID, Content: "content"}}
-			errs <- idx.storeDocument(docID, filepath.Join(t.TempDir(), docID+".md"), docID, doc, chunks, vectors)
+			errs <- idx.storeDocument(docID, filepath.Join(t.TempDir(), docID+".md"), docID, doc, chunks, vectors, nil)
 		}()
 	}
 	close(start)

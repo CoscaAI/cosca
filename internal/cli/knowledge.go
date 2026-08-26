@@ -89,6 +89,7 @@ Subcommands provide search, graph visualization, statistics, and maintenance.
 		NewKnowledgeMatchCommand(),
 		NewKnowledgeResolveCommand(),
 		NewKnowledgeReadinessCommand(),
+		NewKnowledgeIngestCommand(),
 	)
 
 	return cmd

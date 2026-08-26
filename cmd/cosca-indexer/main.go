@@ -25,6 +25,16 @@ import (
 	"github.com/CoscaAI/cosca/internal/search"
 )
 
+// fileEntry é um candidato a indexação: path + categoria de fonte + subType de
+// registro + agente dono (fontes de agente) + proveniência física (origin).
+type fileEntry struct {
+	path     string
+	category string // "agent", "knowledge", "workflow"
+	subType  string // "learnings", "patterns", "failures", "general"
+	agent    string // agente dono (fontes de agente)
+	origin   string // proveniência física: "opencode" | "fallback" | "embed"
+}
+
 func main() {
 	// Register embedding providers — Ollama (768-dim nomic-embed-text) preferred, local TF-IDF fallback.
 	local.Register()
@@ -87,22 +97,33 @@ func main() {
 	ctx := context.Background()
 
 	// Collect all files to index
-	type fileEntry struct {
-		path     string
-		category string // "agent", "knowledge", "workflow"
-		subType  string // "learnings", "patterns", "failures", "general"
-	}
-
 	var files []fileEntry
 
-	// 1. Agent memory files (.cosca/memory/agent/cosca-*/)
-	agentDir := filepath.Join(projectRoot, ".cosca", "fallback", "memory", "agent")
-	if entries, err := os.ReadDir(agentDir); err == nil {
+	// 1. Fontes de agente. A fonte VIVA de projeto (.opencode/cosca/memory/
+	// agent/**) é ingerida como origem de projeto; a fonte embarcada legada
+	// (.cosca/fallback/memory/agent/**) continua como origem embarcada — NÃO
+	// substitui a viva. AMBAS passam pelo CLASSIFICADOR: só o que for
+	// persistente é indexado (não indexar cegamente tudo em agent/, excluindo
+	// session/**/logs/gold-test/etc).
+	agentRoots := []struct {
+		dir    string
+		origin string
+	}{
+		{filepath.Join(projectRoot, ".opencode", "cosca", "memory", "agent"), "opencode"},
+		{filepath.Join(projectRoot, ".cosca", "fallback", "memory", "agent"), "fallback"},
+	}
+	for _, ar := range agentRoots {
+		entries, err := os.ReadDir(ar.dir)
+		if err != nil {
+			log.Warn().Err(err).Str("dir", ar.dir).Msg("agent memory directory not found")
+			continue
+		}
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
-			agentPath := filepath.Join(agentDir, entry.Name())
+			agentName := entry.Name()
+			agentPath := filepath.Join(ar.dir, agentName)
 			agentFiles, err := os.ReadDir(agentPath)
 			if err != nil {
 				log.Warn().Err(err).Str("dir", agentPath).Msg("skipping agent dir")
@@ -130,11 +151,11 @@ func main() {
 					path:     filepath.Join(agentPath, af.Name()),
 					category: "agent",
 					subType:  subType,
+					agent:    agentName,
+					origin:   ar.origin,
 				})
 			}
 		}
-	} else {
-		log.Warn().Err(err).Msg("agent memory directory not found")
 	}
 
 	// 2. Knowledge files (internal/embed/cosca/knowledge/**/*.md, *.yaml).
@@ -157,6 +178,7 @@ func main() {
 				path:     path,
 				category: "knowledge",
 				subType:  strings.TrimPrefix(filepath.Dir(path), knowledgeDir+string(filepath.Separator)),
+				origin:   "embed",
 			})
 			return nil
 		})
@@ -180,6 +202,7 @@ func main() {
 				path:     filepath.Join(workflowDir, entry.Name()),
 				category: "workflow",
 				subType:  strings.TrimSuffix(entry.Name(), ext),
+				origin:   "embed",
 			})
 		}
 	} else {
@@ -203,7 +226,36 @@ func main() {
 			Str("type", f.subType).
 			Msg("indexing")
 
-		if err := engine.IndexDocument(ctx, f.path); err != nil {
+		// Proveniência semântica => metadata_json (scope/origin/kind/agent).
+		meta := metaFor(f, projectRoot)
+
+		// Fontes de agente passam pelo CLASSIFICADOR (fail-closed): só o que
+		// for persistente é indexado. scope é decidido pelo classificador.
+		if f.category == "agent" {
+			content, rErr := os.ReadFile(f.path)
+			if rErr != nil {
+				log.Warn().Err(rErr).Str("file", relPath).Msg("failed to read for classification, skipping")
+				skipped++
+				continue
+			}
+			cls := knowledge.ClassifyDoc(f.path, nil, string(content), f.agent)
+			if !cls.Persistent {
+				log.Info().
+					Str("file", relPath).
+					Str("reason", cls.Reason).
+					Float64("confidence", cls.Confidence).
+					Msg("skipped by classifier (not persistent)")
+				skipped++
+				continue
+			}
+			meta["scope"] = cls.Scope
+			meta["kind"] = cls.Kind
+			log.Info().Str("file", relPath).Str("kind", cls.Kind).Str("scope", cls.Scope).Msg("classified persistent")
+		}
+
+		// scope=global é reservado ao cérebro embarcado (metaFor já define);
+		// fontes de projeto nunca recebem scope=global (classificador).
+		if err := engine.IndexDocumentWithMeta(ctx, f.path, meta); err != nil {
 			log.Warn().Err(err).Str("file", relPath).Msg("failed to index, skipping")
 			failed++
 			continue
@@ -327,4 +379,48 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// metaFor monta a proveniência semântica de uma fonte embarcada (global) ou
+// de agente (project, sobre-escrita pelo classificador no loop de indexação).
+func metaFor(f fileEntry, projectRoot string) map[string]any {
+	meta := map[string]any{
+		"scope":  scopeFor(f),
+		"origin": f.origin,
+		"kind":   "knowledge",
+	}
+	if f.category == "workflow" {
+		meta["kind"] = "workflow"
+	}
+	if f.agent != "" {
+		meta["agent"] = f.agent
+	}
+	if p := filepath.Base(projectRoot); p != "" && p != "." && p != string(filepath.Separator) {
+		meta["project"] = p
+	}
+	return meta
+}
+
+// scopeFor: scope=global é reservado ao cérebro embarcado (knowledge/workflow
+// de internal/embed/cosca/**). Fontes de agente são scope=project (o valor
+// final é confirmado pelo classificador no loop).
+// scopeFor decide o escopo pela ORIGEM física da fonte (não só pela categoria).
+//   - "opencode" (.opencode/cosca/memory/agent/**) → project (conhecimento VIVO
+//     do projeto — a fonte que o agente produz durante o trabalho).
+//   - "fallback" (.cosca/fallback/**) e "embed" (internal/embed/cosca/**) →
+//     global (cérebro embarcado: uma é a cópia materializada, a outra a fonte;
+//     ambas são conteúdo de framework, não conhecimento único do projeto).
+//
+// Para fontes de agente o loop de indexação SOBRESCREVE com cls.Scope (do
+// classificador), que segue a mesma regra (regra de ouro: origem de projeto
+// nunca vira global).
+func scopeFor(f fileEntry) string {
+	switch f.origin {
+	case "opencode":
+		return knowledge.ScopeProject
+	case "fallback", "embed":
+		return knowledge.ScopeGlobal
+	default:
+		return knowledge.ScopeProject
+	}
 }

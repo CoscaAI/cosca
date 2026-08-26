@@ -179,7 +179,23 @@ func (idx *Indexer) SetProgressCallback(cb ProgressCallback) {
 // (path traversal prevention, C1). Symlinks are resolved so a link inside
 // the root cannot point at arbitrary files (e.g. /etc/passwd), and the file
 // size is enforced before reading so oversized files are never loaded.
+// IndexDocument indexes a single document through the full pipeline (legacy).
+// It delegates to IndexDocumentWithMeta with no extra metadata so behavior is
+// identical to before FASE 2.
 func (idx *Indexer) IndexDocument(ctx context.Context, path string) error {
+	return idx.indexDocument(ctx, path, nil)
+}
+
+// IndexDocumentWithMeta indexes a single document merging extraMeta into the
+// produced metadata_json (preserving what the indexer already writes: title,
+// path, type, headings, links). extraMeta carries the semantic provenance the
+// caller computed (scope/project/origin/kind/agent) — the indexer writes it
+// verbatim into metadata_json alongside its own data.
+func (idx *Indexer) IndexDocumentWithMeta(ctx context.Context, path string, extraMeta map[string]any) error {
+	return idx.indexDocument(ctx, path, extraMeta)
+}
+
+func (idx *Indexer) indexDocument(ctx context.Context, path string, extraMeta map[string]any) error {
 	// Path containment: resolve symlinks and require the target to be equal
 	// to or a descendant of RootDir.
 	absPath, err := validatePathWithin(idx.cfg.RootDir, path)
@@ -252,7 +268,7 @@ func (idx *Indexer) IndexDocument(ctx context.Context, path string) error {
 
 	// Phase 4: Store in SQLite
 	idx.reportProgress(3, 5, "store", nil)
-	if err := idx.storeDocument(docID, absPath, hash, doc, chunks, vectors); err != nil {
+	if err := idx.storeDocument(docID, absPath, hash, doc, chunks, vectors, extraMeta); err != nil {
 		idx.recordError(absPath, err, "store")
 		return fmt.Errorf("store: %w", err)
 	}
@@ -743,7 +759,7 @@ func (idx *Indexer) embeddingFailure(reason string, missing int) ([]vector.Vecto
 	return nil, missing, nil
 }
 
-func (idx *Indexer) storeDocument(docID, path, hash string, doc *markdown.Document, chunks []chunker.Chunk, vectors []vector.VectorRecord) error {
+func (idx *Indexer) storeDocument(docID, path, hash string, doc *markdown.Document, chunks []chunker.Chunk, vectors []vector.VectorRecord, extraMeta map[string]any) error {
 	// SQLite permits one writer. Serialize at the DB wrapper (rather than on
 	// the Indexer) so multiple indexers sharing one database coordinate too.
 	unlockWriter := idx.db.LockWriter()
@@ -809,14 +825,20 @@ func (idx *Indexer) storeDocument(docID, path, hash string, doc *markdown.Docume
 	}
 
 	metadataJSON := "{}"
-	// Build metadata from frontmatter
-	if data, err := toJSON(map[string]interface{}{
+	// Build metadata from frontmatter. extraMeta (proveniência semântica
+	// calculada pelo chamador — scope/project/origin/kind/agent) é MESCLADO,
+	// preservando o que o indexer já produz (title/path/type/headings/links).
+	meta := map[string]interface{}{
 		"title":    doc.Title,
 		"path":     path,
 		"type":     "markdown",
 		"headings": len(doc.Headings),
 		"links":    len(doc.Links),
-	}); err == nil {
+	}
+	for k, v := range extraMeta {
+		meta[k] = v
+	}
+	if data, err := toJSON(meta); err == nil {
 		metadataJSON = data
 	}
 

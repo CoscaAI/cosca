@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/memoryguard"
 	"github.com/spf13/cobra"
@@ -124,6 +125,37 @@ NÃO faz commit nem assina a family chain (ordem sagrada L199).`,
 					formatter.Bullet("  ✗ " + r)
 				}
 			}
+
+			// FASE 2 — ingestão automática pós-registro válido. O bloco
+			// recém-registrado é classificado (fail-closed) e, se persistente,
+			// ingerido no Knowledge Base com proveniência semântica
+			// (scope/origin/kind/agent). Idempotente por SHA256 (nome do bloco).
+			// O scope é decidido pelo classificador: para o cérebro embarcado
+			// (internal/embed/cosca/**) → global; origem de projeto → project.
+			// Ingestão NUNCA promove project→global. Best-effort: a falha de
+			// ingestão não derruba o registro — o aprendizado já está commitado
+			// em chain.dat/merkle.
+			if res.Guard == nil || res.Guard.Approved {
+				if ke, kErr := openKnowledgeEngine(filepath.Join(dir, ".cosca"), false, dir); kErr == nil {
+					if iErr := ke.Init(); iErr == nil {
+						ing, ingErr := ke.IngestLearningBlock(cmd.Context(), res.BlockPath, agent)
+						if ingErr != nil {
+							formatter.Warning(fmt.Sprintf("Ingestão automática falhou: %v", ingErr))
+						} else if ing != nil {
+							switch ing.Status {
+							case knowledge.IngestStatusIngested:
+								formatter.Success(fmt.Sprintf("Ingestado no KB — %s/%s (hash %.16s…)", ing.Scope, ing.Kind, ing.Hash))
+							case knowledge.IngestStatusAlreadyIngested:
+								formatter.Warning("Já estava ingerido no KB (idempotente por SHA256)")
+							case knowledge.IngestStatusSkippedNotPersistent:
+								formatter.Warning(fmt.Sprintf("Bloco NÃO ingerido (fail-closed): %s", ing.Reason))
+							}
+						}
+						_ = ke.Close()
+					}
+				}
+			}
+
 			formatter.Println("")
 			formatter.Println("Próximos passos (não automáticos):")
 			formatter.Bullet("git add + commit (ORDEM SAGRADA: commit ANTES de assinar)")

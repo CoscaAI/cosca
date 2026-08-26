@@ -728,6 +728,23 @@ func (e *Engine) IndexDocument(ctx context.Context, path string) error {
 	return e.indexer.IndexDocument(ctx, path)
 }
 
+// IndexDocumentWithMeta indexes a single document and merges an extra metadata
+// map into the produced metadata_json (see indexer.IndexDocumentWithMeta).
+// It is the entry point for provenance-aware ingestion: the caller computes
+// the semantic provenance (scope/project/origin/kind/agent) and the indexer
+// persists it alongside its own metadata. The legacy IndexDocument continues to
+// call the indexer with no extra metadata.
+func (e *Engine) IndexDocumentWithMeta(ctx context.Context, path string, meta map[string]any) error {
+	e.mu.RLock()
+	if !e.initialized {
+		e.mu.RUnlock()
+		return fmt.Errorf("knowledge engine not initialized")
+	}
+	e.mu.RUnlock()
+
+	return e.indexer.IndexDocumentWithMeta(ctx, path, meta)
+}
+
 // IndexDirectory recursively indexes all supported files.
 func (e *Engine) IndexDirectory(ctx context.Context, dir string) error {
 	e.mu.RLock()
