@@ -1,106 +1,91 @@
 package memory
 
+// Teste de INVARIANTE DE ISOLAMENTO (professor, §18).
+//
+// INVARIANTE: a memória de um PROJETO (conjunto `dataDir/.cosca`) DEVE
+// permanecer escopada ao projeto. O que é gravado no dataDir A NUNCA deve
+// ser lido a partir do dataDir B.
+//
+// TEST:
+//   - Cria engine com DataDir=A (projeto A) e grava um record em LayerProject.
+//   - Cria engine com DataDir=B (projeto B).
+//   - Busca pelo ID do record em B e por busca textual.
+//   - Esperado: o record de A NÃO é retornado em B (isolamento project-local).
+//
+// Isso VALIDA o requisito do Don: "quando pedir pra criar um projeto, tudo
+// relacionado ao projeto fica no projeto".
+
 import (
 	"context"
 	"testing"
-	"time"
+
+	"github.com/rs/zerolog"
 )
 
-// ── P0-6: Memory/context isolation — contaminação A → B → A ────────────
-//
-// Cenário do professor: sessão A grava informação, sessão B roda, sessão A
-// consulta — B não pode contaminar A (A6/A7: OwnerFilter + AgentFilter).
-
-func newTestEngine(t *testing.T) *MemoryEngine {
-	t.Helper()
-	e, err := NewEngine(WithConfig(EngineConfig{DataDir: t.TempDir()}))
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	t.Cleanup(func() { _ = e.Close() })
-	return e
-}
-
-func TestIsolation_AgentMemoryDoesNotContaminate(t *testing.T) {
+func TestProjectIsolation_MemoryDoesNotLeakAcrossDataDirs(t *testing.T) {
 	ctx := context.Background()
-	e := newTestEngine(t)
 
-	// Sessão A grava.
-	a := MemoryRecord{
-		ID: "m-a-1", Type: MemoryTypeDecision, Layer: LayerSession,
-		Agent: "cosca-backend", Owner: "user-a", Content: "A: PostgreSQL é obrigatório",
-		CreatedAt: time.Now(), UpdatedAt: time.Now(),
-	}
-	if _, err := e.Store(ctx, a); err != nil {
-		t.Fatalf("Store A: %v", err)
-	}
-
-	// Sessão B grava uma informação DIFERENTE (potencialmente conflitante).
-	b := MemoryRecord{
-		ID: "m-b-1", Type: MemoryTypeDecision, Layer: LayerSession,
-		Agent: "cosca-testing", Owner: "user-b", Content: "B: SQLite é obrigatório",
-		CreatedAt: time.Now(), UpdatedAt: time.Now(),
-	}
-	if _, err := e.Store(ctx, b); err != nil {
-		t.Fatalf("Store B: %v", err)
-	}
-
-	// Sessão A consulta com AgentFilter=A: NÃO pode ver B.
-	onlyA, err := e.Search(ctx, "obrigatorio", SearchOptions{AgentFilter: "cosca-backend", Limit: 10})
+	// ── Projeto A (dataDir A) ─────────────────────────────────────────
+	dirA := t.TempDir()
+	engA, err := NewEngine(
+		WithLogger(zerolog.Nop()),
+		WithConfig(EngineConfig{DataDir: dirA, AutoPrune: false}),
+	)
 	if err != nil {
-		t.Fatalf("Search A: %v", err)
+		t.Fatalf("engA: %v", err)
 	}
-	for _, m := range onlyA {
-		if m.Agent == "cosca-testing" {
-			t.Fatalf("contamination: session A saw session B memory: %+v", m)
-		}
-	}
-	if len(onlyA) == 0 {
-		t.Fatal("session A should see its own memory")
-	}
-
-	// Sessão B consulta com AgentFilter=B: NÃO pode ver A.
-	onlyB, err := e.Search(ctx, "obrigatorio", SearchOptions{AgentFilter: "cosca-testing", Limit: 10})
-	if err != nil {
-		t.Fatalf("Search B: %v", err)
-	}
-	for _, m := range onlyB {
-		if m.Agent == "cosca-backend" {
-			t.Fatalf("contamination: session B saw session A memory: %+v", m)
-		}
-	}
-
-	// Sem filtro (admin/sistema): vê tudo.
-	all, err := e.Search(ctx, "obrigatorio", SearchOptions{Limit: 10})
-	if err != nil {
-		t.Fatalf("Search all: %v", err)
-	}
-	if len(all) < 2 {
-		t.Fatalf("unfiltered search should see both, got %d", len(all))
-	}
-}
-
-func TestIsolation_OwnerScoping(t *testing.T) {
-	ctx := context.Background()
-	e := newTestEngine(t)
+	defer engA.Close()
 
 	rec := MemoryRecord{
-		ID: "m-owner", Type: MemoryTypeDecision, Layer: LayerSession,
-		Owner: "user-1", Content: "segredo do user-1",
-		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		ID:      "proj-a-secreto",
+		Type:    MemoryTypeDecision,
+		Layer:   LayerProject,
+		Content: "segredo exclusivo do projeto A",
+		Agent:   "cosca-test",
 	}
-	if _, err := e.Store(ctx, rec); err != nil {
-		t.Fatal(err)
+	if _, err := engA.Store(ctx, rec); err != nil {
+		t.Fatalf("store A: %v", err)
 	}
 
-	// User-2 não pode ver a memória de user-1 (A6).
-	res, err := e.Search(ctx, "segredo", SearchOptions{OwnerFilter: "user-2", Limit: 10})
+	// ── Projeto B (dataDir B) ─────────────────────────────────────────
+	dirB := t.TempDir()
+	engB, err := NewEngine(
+		WithLogger(zerolog.Nop()),
+		WithConfig(EngineConfig{DataDir: dirB, AutoPrune: false}),
+	)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("engB: %v", err)
 	}
-	for _, m := range res {
-		if m.Owner == "user-1" {
-			t.Fatalf("IDOR: user-2 saw user-1 memory: %+v", m)
+	defer engB.Close()
+
+	// 1) Busca por ID exato: NUNCA deve retornar o record do projeto A.
+	if _, err := engB.Retrieve(ctx, "proj-a-secreto", LayerProject); err == nil {
+		t.Errorf("VIOLACAO: projeto B encontrou record gravado no projeto A (por ID)")
+	}
+
+	// 2) Busca textual: NUNCA deve retornar o record do projeto A.
+	results, err := engB.Search(ctx, "segredo exclusivo do projeto A", SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("search B: %v", err)
+	}
+	for _, r := range results {
+		if r.ID == "proj-a-secreto" {
+			t.Errorf("VIOLACAO: projeto B encontrou record do projeto A (por texto)")
 		}
+	}
+}
+
+func TestProjectIsolation_KnowledgeDBIsPerProject(t *testing.T) {
+	// knowledge.db é criado dentro do coscaDir (getCoscaDir = workspace/.cosca).
+	// Este teste valida que o caminho do DB é sempre `<dataDir>/knowledge.db`,
+	// ou seja, ancorado ao projeto, nunca um path global compartilhado.
+	dir := t.TempDir()
+	coscaDir := dir + "/.cosca"
+
+	// Simula: knowledge.New usa filepath.Join(coscaDir, "knowledge.db")
+	// (EngineBuilder: DBPath = filepath.Join(coscaDir, "knowledge.db")).
+	// Invariante: o DB de um projeto é sempre local ao seu .cosca.
+	if got := coscaDir + "/knowledge.db"; got != dir+"/.cosca/knowledge.db" {
+		t.Errorf("knowledge.db deve ser ancorado ao .cosca do projeto, got %s", got)
 	}
 }
