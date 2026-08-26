@@ -327,6 +327,14 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 		})
 	}
 
+	// FASE 5.2 — meaning-first (escopo roteado + vetor habilitado): a ordenação é
+	// guiada pelo SIGNIFICADO (score do vetor/cosine), com FTS como recall
+	// suplementar. Só age no espaço roteado do modo modular; o caminho legacy
+	// permanece intacto.
+	if params.Scope != nil && len(params.Scope.Modules) > 0 && params.EnableVector && e.embedFunc != nil {
+		allResults = meaningFirstRank(allResults)
+	}
+
 	// Apply offset and limit
 	totalCount := len(allResults)
 	if params.Offset > 0 && params.Offset < len(allResults) {
@@ -365,7 +373,28 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 	return results, nil
 }
 
-// searchFTS performs full-text search using FTS5.
+// meaningFirstRank ordena para o SIGNIFICADO liderar: resultados que vieram da
+// fase vetorial (Source=="vector", ordenados por cosine/semântica) vêm PRIMEIRO;
+// os demais (FTS/BM25, graph) entram depois, por score, como recall suplementar.
+// Determinístico e aplicado apenas no espaço roteado (meaning-first da FASE 5.2) —
+// nunca no caminho legacy.
+func meaningFirstRank(results []SearchResult) []SearchResult {
+	if len(results) <= 1 {
+		return results
+	}
+	// Estável: preserva a ordem relativa dentro de cada grupo na origem.
+	sort.SliceStable(results, func(i, j int) bool {
+		gi, gj := results[i].Source == "vector", results[j].Source == "vector"
+		if gi != gj {
+			return gi // vetor (significado) sempre à frente
+		}
+		if gi && gj {
+			return results[i].Score > results[j].Score // dentro do vetor: cosine desc
+		}
+		return results[i].Score > results[j].Score // fora do vetor: score desc (recall)
+	})
+	return results
+}
 func (e *Engine) searchFTS(params SearchParams) ([]SearchResult, error) {
 	tableNames := resolveFTSTables(params.Types)
 
