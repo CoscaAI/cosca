@@ -181,6 +181,11 @@ func runRuntimeStart(cmd *cobra.Command, grpcPort int) error {
 	grpcCfg := grpcserver.DefaultConfig()
 	grpcCfg.Host = "127.0.0.1"
 	grpcCfg.Port = grpcPort
+	// FASE 3.5: mirror the project search mode onto the daemon so, in modular
+	// mode, the gRPC server applies the same routing/scope as the local path.
+	if c, loadErr := config.Load(); loadErr == nil {
+		grpcCfg.SearchMode = c.Search.Mode
+	}
 	if s := os.Getenv("COSCA_JWT_SECRET"); s != "" {
 		grpcCfg.JWTSecret = []byte(s)
 	}

@@ -2,27 +2,82 @@ package grpcserver
 
 import (
 	"context"
+	"reflect"
 
 	cospb "github.com/CoscaAI/cosca/api/grpc/pb"
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/modlink"
+	"github.com/CoscaAI/cosca/internal/search"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+// knowledgeEngine is the minimal surface the KnowledgeServiceServer needs from
+// the knowledge engine. It is an interface (rather than the concrete
+// *knowledge.Engine) so tests can inject a spy that counts Search calls —
+// enabling the FASE 3.5 proof that a NoRoute query never reaches the engine
+// (never an un-scoped full-scan). The concrete *knowledge.Engine satisfies it.
+type knowledgeEngine interface {
+	Search(ctx context.Context, params search.SearchParams) (*search.SearchResults, error)
+	IndexDocument(ctx context.Context, path string) error
+	IndexDirectory(ctx context.Context, dir string) error
+	GetStats() (*knowledge.Stats, error)
+	Sync(ctx context.Context) (*knowledge.SyncResult, error)
+}
+
 // KnowledgeServiceServer implements the cosca.v1.KnowledgeServiceServer interface
 // generated from proto/cosca/v1/knowledge.proto. It delegates all RPCs to the
-// underlying knowledge.Engine.
+// underlying knowledge engine.
+//
+// FASE 3.5 (routing/scope): in MODULAR mode the server applies the SAME
+// deterministic router + scope as the local path (single source:
+// modlink.DefaultRoutes() + search.ApplyScope). A query with no known route
+// (NoRoute) returns an empty result WITHOUT calling engine.Search — never an
+// un-scoped full-scan.
 type KnowledgeServiceServer struct {
 	cospb.UnimplementedKnowledgeServiceServer
-	engine *knowledge.Engine
+	engine   knowledgeEngine
+	resolver *modlink.Resolver // nil = no routing (legacy)
+	mode     string            // search.ModeLegacy (default) | search.ModeModular
 }
 
 // NewKnowledgeServiceServer creates a new KnowledgeServiceServer backed by the
 // given knowledge engine. engine may be nil — calls to RPCs will return
-// codes.FailedPrecondition in that case.
-func NewKnowledgeServiceServer(engine *knowledge.Engine) *KnowledgeServiceServer {
-	return &KnowledgeServiceServer{engine: engine}
+// codes.FailedPrecondition in that case. Default mode is legacy (no routing).
+func NewKnowledgeServiceServer(engine knowledgeEngine) *KnowledgeServiceServer {
+	// Normalize a typed-nil (e.g. a nil *knowledge.Engine wrapped in the
+	// interface) to a real nil so the public "nil engine" contract holds:
+	// the engine field must compare == nil.
+	return &KnowledgeServiceServer{engine: normalizeEngine(engine), mode: search.ModeLegacy}
+}
+
+// normalizeEngine collapses a typed-nil inside a knowledgeEngine interface to a
+// real nil interface value. Without this, a nil *knowledge.Engine wrapped in an
+// interface is non-nil and the nil-guards would not fire.
+func normalizeEngine(engine knowledgeEngine) knowledgeEngine {
+	if engine == nil {
+		return nil
+	}
+	rv := reflect.ValueOf(engine)
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return nil
+	}
+	return engine
+}
+
+// WithRouting configures the deterministic router (modlink) and the search mode
+// for this server. To honor the invariant (one router, no second mechanism),
+// the resolver MUST come from modlink.NewResolver(modlink.DefaultRoutes()) — the
+// same single source as the local path. Empty mode defaults to legacy.
+// Returns the server for chaining.
+func (s *KnowledgeServiceServer) WithRouting(resolver *modlink.Resolver, mode string) *KnowledgeServiceServer {
+	s.resolver = resolver
+	if mode == "" {
+		mode = search.ModeLegacy
+	}
+	s.mode = mode
+	return s
 }
 
 // Search performs a hybrid search across all knowledge indexes (FTS, vector,
@@ -37,6 +92,19 @@ func (s *KnowledgeServiceServer) Search(ctx context.Context, req *cospb.SearchRe
 	}
 
 	params := pbToSearchParams(req)
+
+	// FASE 3.5 routing/scope: in MODULAR mode the daemon reuses the SAME router
+	// (modlink.DefaultRoutes()) + search.ApplyScope as the local path. A NoRoute
+	// query returns empty WITHOUT calling engine.Search — never an un-scoped
+	// full-scan (the essential invariant). Legacy mode is unchanged.
+	if s.mode == search.ModeModular && s.resolver != nil {
+		scoped, scope := search.ApplyScope(s.resolver, req.GetQuery(), params)
+		if scope.NoRoute || len(scope.Modules) == 0 {
+			return searchResultsToPb(&search.SearchResults{Query: req.GetQuery()}), nil
+		}
+		params = scoped
+	}
+
 	results, err := s.engine.Search(ctx, params)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "search failed: %v", err)

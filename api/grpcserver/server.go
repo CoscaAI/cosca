@@ -11,6 +11,7 @@ import (
 	cospb "github.com/CoscaAI/cosca/api/grpc/pb"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/runtime"
 
 	"google.golang.org/grpc"
@@ -44,6 +45,11 @@ type Config struct {
 	// TLSKeyFile is the PEM-encoded TLS private key file. Must be provided
 	// together with TLSCertFile. Empty = no TLS.
 	TLSKeyFile string
+	// SearchMode is the knowledge search mode: search.ModeLegacy ("legacy",
+	// no routing — default) or search.ModeModular ("modular", deterministic
+	// routing/scope via modlink + search.ApplyScope). It mirrors the project
+	// config `search.mode`. Empty = legacy (backward-compatible).
+	SearchMode string
 }
 
 // DefaultConfig returns a Config with safe production defaults.
@@ -123,7 +129,11 @@ func New(ke *knowledge.Engine, mem *memory.MemoryEngine, rt *runtime.Runtime, cf
 	}
 
 	// Register KnowledgeService (FASE 2).
-	gs.knowledgeSrv = NewKnowledgeServiceServer(ke)
+	// FASE 3.5: wire the deterministic router (same single source of truth as the
+	// local path — modlink.DefaultRoutes()) + the search mode so the daemon NEVER
+	// does an un-scoped full-scan in modular mode.
+	gs.knowledgeSrv = NewKnowledgeServiceServer(ke).
+		WithRouting(modlink.NewResolver(modlink.DefaultRoutes()), cfg.SearchMode)
 	cospb.RegisterKnowledgeServiceServer(srv, gs.knowledgeSrv)
 
 	// Register MemoryService (FASE 3).

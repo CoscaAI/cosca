@@ -788,6 +788,11 @@ func serveStartServers(
 		grpcCfg := grpcserver.DefaultConfig()
 		grpcCfg.Host = *host
 		grpcCfg.Port = *grpcPort
+		// FASE 3.5: mirror the project search mode onto the daemon so, in modular
+		// mode, the gRPC server applies the same routing/scope as the local path.
+		if c, loadErr := config.Load(); loadErr == nil {
+			grpcCfg.SearchMode = c.Search.Mode
+		}
 		grpcCfg.Reflection = *grpcReflection
 		grpcCfg.JWTSecret = jwtSecret
 		if useTLS {
