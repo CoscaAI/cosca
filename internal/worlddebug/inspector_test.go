@@ -15,13 +15,13 @@ func buildTestWorld() *world.World {
 		Source:  world.Source{Dataset: "osm", Hash: "osm:way:123"},
 	}
 	// Building (observed footprint).
-	b := world.BuildingEntity("building_001", world.Vec3{10, 10, 0}, world.Vec3{12, 9, 18}, prov)
+	b := world.BuildingEntity("building_001", world.Vec3{X: 10, Y: 10, Z: 0}, world.Vec3{X: 12, Y: 9, Z: 18}, prov)
 	w.AddEntity(b)
 	// Road (observed linestring).
-	road := world.RoadEntity("road_001", world.Line{Points: []world.Vec3{{0, 50, 0}, {100, 50, 0}}}, 8, prov)
+	road := world.RoadEntity("road_001", world.Line{Points: []world.Vec3{{X: 0, Y: 50, Z: 0}, {X: 100, Y: 50, Z: 0}}}, 8, prov)
 	w.AddEntity(road)
 	// Tree (inferred type).
-	t := world.TreeEntity("tree_001", "oak", world.Vec3{25, 25, 0}, "mature", prov)
+	t := world.TreeEntity("tree_001", "oak", world.Vec3{X: 25, Y: 25, Z: 0}, "mature", prov)
 	w.AddEntity(t)
 	// Relations.
 	w.AddRelation(world.Relation{Subject: "building_001", Object: "road_001", Relation: world.RelLocatedAt, Confidence: 1})

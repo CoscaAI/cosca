@@ -251,7 +251,7 @@ func populateStreet(w *world.World, street world.Entity, rng *rand.Rand, cfg Cit
 			ID:    fmt.Sprintf("%s_ve%02d", street.ID, v+1),
 			Class: world.ClassVehicle,
 			Type:  "vehicle.car",
-			Transform: world.Transform{Position: pos, Scale: world.Vec3{1, 1, 1}},
+			Transform: world.Transform{Position: pos, Scale: world.Vec3{X: 1, Y: 1, Z: 1}},
 			Properties: map[string]any{
 				"kind": []string{"sedan", "suv", "hatchback"}[v%3],
 			},
