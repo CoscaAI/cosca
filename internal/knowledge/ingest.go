@@ -112,9 +112,10 @@ func (e *Engine) IngestLearningBlock(ctx context.Context, blockPath string, agen
 
 	// 6. Proveniência semântica => metadata_json (merge no indexer).
 	meta := map[string]any{
-		"scope":  cls.Scope,
-		"origin": origin(blockPath),
-		"kind":   cls.Kind,
+		"scope":     cls.Scope,
+		"origin":    origin(blockPath),
+		"kind":      cls.Kind,
+		"epistemic": string(EpistemicFor(cls.Kind)), // FASE 4 — classe epistêmica estrutural
 	}
 	if agent != "" {
 		meta["agent"] = agent

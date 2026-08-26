@@ -196,6 +196,30 @@ func noRouteScope() *modlink.SearchScope {
 	return s
 }
 
+// confineEpistemic mantém apenas os resultados cuja classe epistêmica
+// (`Metadata["epistemic"]`) está na lista permitida. É um filtro determinístico.
+// FAIL-CLOSED: um resultado SEM a classe — ou com classe fora da lista — é
+// descartado (nunca incluído por engano). A classe é case-sensitive e o valor
+// esperado usa o vocabulário do knowledge.KnowledgeEpistemic (FACT, MEASURED,
+// EVIDENCE, INFERRED, RULE, DECISION, PROFILE).
+func confineEpistemic(results []SearchResult, allowed []string) []SearchResult {
+	if len(allowed) == 0 {
+		return results
+	}
+	set := make(map[string]struct{}, len(allowed))
+	for _, a := range allowed {
+		set[a] = struct{}{}
+	}
+	out := make([]SearchResult, 0, len(results))
+	for _, r := range results {
+		ep := r.Metadata["epistemic"]
+		if _, ok := set[ep]; ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // SearchWithRoute é o atalho de uma chamada só (baseline LEGACY / busca atual):
 // resolve a rota para `query`, injeta o escopo e SEMPRE chama engine.Search. O
 // fluxo é query → ResolveRoute → SearchScope → SearchParams.Scope → Search(scope).

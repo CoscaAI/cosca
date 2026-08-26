@@ -250,6 +250,7 @@ func main() {
 			}
 			meta["scope"] = cls.Scope
 			meta["kind"] = cls.Kind
+			meta["epistemic"] = string(knowledge.EpistemicFor(cls.Kind)) // FASE 4 — classe epistêmica estrutural
 			log.Info().Str("file", relPath).Str("kind", cls.Kind).Str("scope", cls.Scope).Msg("classified persistent")
 		}
 

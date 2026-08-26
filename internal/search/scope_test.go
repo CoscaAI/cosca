@@ -576,6 +576,67 @@ func TestSearchWithRouteForced_Incompatible_ReturnsZero(t *testing.T) {
 		Limit:        20,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 1, routed.TotalCount, "sem escopo forçado a rota confina e acha o hit")
+	assert.Equal(t, 1, routed.TotalCount, "sem escopo for�ado a rota confina e acha o hit")
 	assert.Equal(t, "adr-1", routed.Results[0].ID)
+}
+
+// ── FASE 4 — confinamento por classe epistêmica (fail-closed) ────────────────
+
+func TestConfineEpistemic_KeepsOnlyAllowed(t *testing.T) {
+	t.Parallel()
+	results := []SearchResult{
+		{ID: "a", Metadata: map[string]string{"epistemic": "MEASURED"}},
+		{ID: "b", Metadata: map[string]string{"epistemic": "FACT"}},
+		{ID: "c", Metadata: map[string]string{"epistemic": "INFERRED"}},
+	}
+
+	// Só medidos sobrevivem.
+	out := confineEpistemic(results, []string{"MEASURED"})
+	assert.Len(t, out, 1)
+	assert.Equal(t, "a", out[0].ID)
+
+	// FACT + MEASURED.
+	out = confineEpistemic(results, []string{"FACT", "MEASURED"})
+	assert.Len(t, out, 2)
+
+	// Vazio = sem filtro (todos).
+	assert.Len(t, confineEpistemic(results, nil), 3)
+}
+
+func TestConfineEpistemic_FailClosed_UnknownDropped(t *testing.T) {
+	t.Parallel()
+	results := []SearchResult{
+		{ID: "has-ep", Metadata: map[string]string{"epistemic": "FACT"}},
+		{ID: "no-ep", Metadata: map[string]string{}}, // SEM classe epistêmica
+	}
+
+	// FAIL-CLOSED: um resultado sem classe é DESCARTADO quando há filtro —
+	// nunca incluído por engano.
+	out := confineEpistemic(results, []string{"FACT"})
+	assert.Len(t, out, 1)
+	assert.Equal(t, "has-ep", out[0].ID)
+}
+
+func TestSearch_EpistemicFilter(t *testing.T) {
+	t.Parallel()
+	engine := graphEngineNodes(t,
+		&graph.Node{ID: "adr-1", Type: "", Name: "Decisão arquitetural do banco", Path: ".cosca/fallback/adr/0001.md"},
+	)
+
+	// Filtro por epistemic sobre resultados que carregam a classe no Metadata.
+	// (FTS/vector nem sempre populam Metadata["epistemic"] ainda — o filtro é
+	// fail-closed e descarta o que não tem a classe, provado acima.)
+	res, err := engine.Search(context.Background(), SearchParams{
+		Query:        "decisão arquitetural",
+		EnableGraph:  true,
+		EnableFTS:    false,
+		EnableVector: false,
+		Limit:        20,
+		Epistemic:    []string{"MEASURED"},
+	})
+	require.NoError(t, err)
+	// Como o nó do grafo não carrega Metadata["epistemic"], o filtro fail-closed
+	// descarta o resultado (não retorna por engano).
+	assert.Equal(t, 0, res.TotalCount,
+		"sem classe epistêmica, o filtro fail-closed NÃO deve incluir por engano")
 }

@@ -141,6 +141,13 @@ type SearchParams struct {
 	// Fatia 3, condicionada a ter conteúdo de mundo indexado); usa o sinal
 	// honesto já existente: o path do documento (e o entity_type).
 	Scope *modlink.SearchScope
+	// Epistemic, quando não-vazio, restringe os resultados às classes
+	// epistêmicas listadas (FASE 4 — Epistemologia). Cada resultado deve
+	// carregar `Metadata["epistemic"]` (ex.: FACT, MEASURED, EVIDENCE, INFERRED,
+	// RULE, DECISION, PROFILE). FAIL-CLOSED: um resultado SEM a classe — ou com
+	// classe fora da lista — é DESCARTADO, nunca incluído por engano. Vazio =
+	// sem filtro (todas as classes).
+	Epistemic []string
 }
 
 // DefaultSearchParams returns sensible defaults.
@@ -282,6 +289,14 @@ func (e *Engine) Search(ctx context.Context, params SearchParams) (*SearchResult
 	// confinado, e `totalCount` conta apenas os hits in-scope.
 	if params.Scope != nil && len(params.Scope.Modules) > 0 {
 		allResults = confineToScope(allResults, params.Scope.Modules)
+	}
+
+	// Phase 3.6 — confinamento por classe epistêmica (FASE 4).
+	// Fail-closed: um filtro de epistemic NUNCA inclui por engano um resultado
+	// de classe desconhecida/diferente — ele descarta. Assim a consulta
+	// `scope=architecture + epistemic=MEASURED` retorna SÓ o que é medido.
+	if len(params.Epistemic) > 0 {
+		allResults = confineEpistemic(allResults, params.Epistemic)
 	}
 
 	// Phase 4: Re-rank — only when results come from multiple sources.
