@@ -91,6 +91,7 @@ Subcommands provide search, graph visualization, statistics, and maintenance.
 		NewKnowledgeReadinessCommand(),
 		NewKnowledgeIngestCommand(),
 		NewKnowledgeClassifyCommand(),
+		NewKnowledgeVectorsBackfillCommand(),
 	)
 
 	return cmd
