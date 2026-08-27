@@ -145,5 +145,9 @@ func TestLoadQrels_TestdataFixture(t *testing.T) {
 	require.Len(t, qrels, 6)
 	assert.Equal(t, "hot reload atualiza arquivos markdown sem reiniciar o runtime", qrels[0].Query)
 	assert.Equal(t, "47659d61-351f-4d91-9889-d8fc5f31e643", qrels[0].FirstRelevantChunkID)
-	assert.Equal(t, []string{"47659d61-351f-4d91-9889-d8fc5f31e643"}, qrels[0].RelevantChunkIDs)
+	assert.Equal(t, []string{
+		"47659d61-351f-4d91-9889-d8fc5f31e643",
+		"b7783a8a-1baf-4eb2-9ca8-dccde79d65b7",
+		"c6890d0e-a5df-4be3-9e89-827b2c09b1ae",
+	}, qrels[0].RelevantChunkIDs)
 }
