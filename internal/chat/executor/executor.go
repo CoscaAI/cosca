@@ -246,6 +246,15 @@ func (e *Executor) Execute(ctx context.Context, toolCall ToolCall) (res *ToolRes
 		}
 	}()
 
+	// 0. Anti-hallucination of tool parameters (see normalize.go): normalize
+	// the input map up front so BOTH validation (ValidateToolCall) and the
+	// actual tool execution (step 4, json.Marshal) operate on the canonical
+	// key set. If we only normalized inside ValidateToolCall, that step's
+	// struct copy would rewrite its own Input, but the marshal here at step 4
+	// would still see the raw hallucinated keys. This reassigns the local
+	// toolCall so the whole execution path sees canonical keys.
+	normalizeToolCall(&toolCall)
+
 	// 1. Validate the tool call.
 	if err := e.ValidateToolCall(toolCall); err != nil {
 		return &ToolResult{
@@ -449,6 +458,15 @@ func (e *Executor) ValidateToolCall(toolCall ToolCall) error {
 	if toolCall.Input == nil {
 		return fmt.Errorf("tool %q input is required", toolCall.Name)
 	}
+
+	// Anti-hallucination of tool parameters (see normalize.go): rewrite known
+	// hallucinated keys back to their canonical key BEFORE schema validation.
+	// LLMs often echo the prose of a parameter description instead of the
+	// literal schema key (e.g. "userQuery" instead of "query"), which would
+	// otherwise make the JSON Schema validation fail and reject the call.
+	// The normalization is a no-op when the canonical key is already present
+	// or no alias matches.
+	normalizeToolCall(&toolCall)
 
 	// Validate input against the tool's JSON Schema.
 	params, err := json.Marshal(toolCall.Input)

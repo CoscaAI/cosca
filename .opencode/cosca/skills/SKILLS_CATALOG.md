@@ -102,7 +102,12 @@
 > | Disaster Recovery Planning | [reliability/DISASTER_RECOVERY.md](reliability/DISASTER_RECOVERY.md) | Plan disaster recovery procedures |
 > | Incident Response | [reliability/INCIDENT_RESPONSE.md](reliability/INCIDENT_RESPONSE.md) | Structured incident response |
 > 
-> > **Total Skills: 46** | **Last updated**: 2026-07-23
+> ### Semantic (1)
+| Skill | File | Purpose |
+|-------|------|---------|
+| Semantic Visual Embedding | [semantic-visual-embedding/SKILL.md](semantic-visual-embedding/SKILL.md) | Vetorizar/renderizar entidades preservando identidade semântica (não reduzir a categoria/parecido) |
+
+> **Total Skills: 46** | **Last updated**: 2026-07-23
 > > **Maintained by**: Skills Engine | **Audited by**: Governance Chief
 
 ### Backend

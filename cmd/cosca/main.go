@@ -21,16 +21,8 @@ import (
 	"github.com/CoscaAI/cosca/internal/env"
 	"github.com/CoscaAI/cosca/internal/hardening"
 	"github.com/CoscaAI/cosca/internal/memoryintegrity"
-	"github.com/CoscaAI/cosca/internal/providers/anthropic"
-	"github.com/CoscaAI/cosca/internal/providers/azure"
-	"github.com/CoscaAI/cosca/internal/providers/bedrock"
-	"github.com/CoscaAI/cosca/internal/providers/deepseek"
-	"github.com/CoscaAI/cosca/internal/providers/google"
-	"github.com/CoscaAI/cosca/internal/providers/groq"
 	"github.com/CoscaAI/cosca/internal/providers/local"
-	"github.com/CoscaAI/cosca/internal/providers/mistral"
 	"github.com/CoscaAI/cosca/internal/providers/ollama"
-	"github.com/CoscaAI/cosca/internal/providers/openai"
 	"github.com/CoscaAI/cosca/pkg/cosca"
 )
 
@@ -182,18 +174,6 @@ func main() {
 func initProviders() {
 	local.Register()
 	ollama.Register()
-
-	if os.Getenv("COSCA_ENABLE_EXTERNAL_PROVIDERS") == "1" ||
-		strings.EqualFold(os.Getenv("COSCA_ENABLE_EXTERNAL_PROVIDERS"), "true") {
-		openai.Register()
-		anthropic.Register()
-		deepseek.Register()
-		google.Register()
-		azure.Register()
-		mistral.Register()
-		groq.Register()
-		bedrock.Register()
-	}
 }
 
 // propagateProviderEnv loads the config from disk (decrypts the API key)

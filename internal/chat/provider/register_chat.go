@@ -14,11 +14,13 @@ import (
 // Default model identifiers used when neither configuration nor environment
 // variables specify one. Kept in sync with the constructor defaults in this
 // package so a bare RegisterChatProviders call yields usable providers.
+//
+// LEI DO COFRE (fail-closed L46): somente providers LOCAIS são registrados.
+// Providers de nuvem (deepseek/openai/anthropic) foram removidos — o Cosca
+// não usa nuvem sem consentimento explícito. Ollama (local) é o único LLM
+// de produção, com "none" como estado determinístico.
 const (
-	defaultDeepSeekModel  = "deepseek-v4-flash"
-	defaultOpenAIModel    = "gpt-4o"
-	defaultAnthropicModel = "claude-sonnet-4-20250514"
-	defaultOllamaModel    = "llama3"
+	defaultOllamaModel = "llama3"
 )
 
 // RegisterChatProviders registers the chat provider factories into the given
@@ -51,39 +53,10 @@ func RegisterChatProviders(reg *chat.ChatRegistry, cfg map[string]interface{}) e
 		log.Debug().Str("provider", name).Int("priority", priority).Msg("registered chat provider factory")
 	}
 
-	// keyedProvider builds a factory for an API-key-backed provider. The
-	// factory returns an error when the API key env var is empty so that
-	// Select() with AutoDetect skips providers that are not configured.
-	keyedProvider := func(name, envKey, envModel, envBaseURL, defaultModel string, new func(apiKey, model, baseURL string) chat.Provider) chat.ChatProviderFactory {
-		return func(_ context.Context, _ map[string]interface{}) (chat.ChatProvider, error) {
-			apiKey := os.Getenv(envKey)
-			if apiKey == "" {
-				return nil, fmt.Errorf("%s: %s not set", name, envKey)
-			}
-			model := resolveModel(cfg, name, envModel, defaultModel)
-			baseURL := resolveBaseURL(cfg, name, envBaseURL)
-			return NewProviderAdapter(new(apiKey, model, baseURL), model), nil
-		}
-	}
-
-	// External providers gated behind COSCA_ENABLE_EXTERNAL_PROVIDERS.
-	// Set to "1" or "true" to enable cloud providers (DeepSeek, OpenAI, Anthropic).
-	// Ollama (local) and none (deterministic) are always registered.
-	if os.Getenv("COSCA_ENABLE_EXTERNAL_PROVIDERS") == "1" ||
-		strings.EqualFold(os.Getenv("COSCA_ENABLE_EXTERNAL_PROVIDERS"), "true") {
-
-		register("deepseek", "DeepSeek chat provider", 10,
-			keyedProvider("deepseek", "DEEPSEEK_API_KEY", "COSCA_DEEPSEEK_MODEL", "DEEPSEEK_BASE_URL", defaultDeepSeekModel,
-				func(apiKey, model, _ string) chat.Provider { return NewDeepSeek(apiKey, model) }))
-
-		register("openai", "OpenAI chat provider", 20,
-			keyedProvider("openai", "OPENAI_API_KEY", "COSCA_OPENAI_MODEL", "OPENAI_BASE_URL", defaultOpenAIModel,
-				func(apiKey, model, baseURL string) chat.Provider { return NewOpenAI(apiKey, model, baseURL) }))
-
-		register("anthropic", "Anthropic chat provider", 30,
-			keyedProvider("anthropic", "ANTHROPIC_API_KEY", "COSCA_ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL", defaultAnthropicModel,
-				func(apiKey, model, baseURL string) chat.Provider { return NewAnthropic(apiKey, model, baseURL) }))
-	}
+	// LEI DO COFRE (fail-closed): providers de nuvem NÃO são registrados.
+	// O gate COSCA_ENABLE_EXTERNAL_PROVIDERS foi removido — mesmo que a config
+	// ou env var peça um provider externo, ele não existe no registry e o
+	// Select() recusa (fail-closed real). Somente locais (ollama/gpu/none).
 
 	// Ollama is a local provider: it has no API key, so the factory always
 	// succeeds. It acts as a last-resort fallback during auto-detection and

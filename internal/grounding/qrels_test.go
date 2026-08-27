@@ -133,13 +133,17 @@ func TestValidateQrels_Rejections(t *testing.T) {
 	}
 }
 
-// TestLoadQrels_TestdataFixture: o fixture com 4 queries em testdata é válido e
-// carrega 4 gabaritos.
+// TestLoadQrels_TestdataFixture: o fixture com 6 queries REAIS em testdata é
+// válido e carrega 6 gabaritos. As queries e os chunk_ids reais vêm do
+// ground-truth pré-registrado do benchmark (internal/search/vectorevidence_
+// bench_test.go, benchmarkQueries) — NÃO são IDs fictícios.
 func TestLoadQrels_TestdataFixture(t *testing.T) {
 	t.Parallel()
 
 	qrels, err := LoadQrels(filepath.Join("testdata", "qrels-baseline.json"))
 	require.NoError(t, err)
-	require.Len(t, qrels, 4)
-	assert.Equal(t, "Qual é a capital da França?", qrels[0].Query)
+	require.Len(t, qrels, 6)
+	assert.Equal(t, "hot reload atualiza arquivos markdown sem reiniciar o runtime", qrels[0].Query)
+	assert.Equal(t, "47659d61-351f-4d91-9889-d8fc5f31e643", qrels[0].FirstRelevantChunkID)
+	assert.Equal(t, []string{"47659d61-351f-4d91-9889-d8fc5f31e643"}, qrels[0].RelevantChunkIDs)
 }

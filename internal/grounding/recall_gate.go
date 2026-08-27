@@ -8,11 +8,30 @@ import (
 
 // Result é um resultado do retriever para o RecallGate: um chunk recuperado
 // (ordenado por posição) e sua pontuação.
+//
+// FASE 0 (campanha "monolithic vs modular"): os campos NoRoute / RoutedModules /
+// CandidateCount / Scanned são OPCIONAIS e servem à OBSERVABILIDADE do braço
+// roteado (modular). No braço legacy (monolithic) ficam zerados/vazios. São a
+// evidência de que o módulo "recusou" (no-route) ou confinou a busca a um
+// subconjunto (CandidatoCount) — sem isso o modular 'venceria' por recusa
+// silenciosa, não por qualidade.
 type Result struct {
-	// ChunkID é o identificador do chunk (é o que os qrels comparam).
+	// ChunkID é o identificador do chunk (é o que os qrels comparam). Quando a
+	// query é NoRoute, o braço roteado devolve um sentinel com ChunkID vazio e
+	// NoRoute=true (o gate o omite da lista de recuperados — recall zero, sem
+	// inflar).
 	ChunkID string
 	// Score é a pontuação de relevância (BM25/cosíno), se disponível.
 	Score float64
+	// NoRoute é true quando o retriever roteado NÃO encontrou uma rota
+	// determinística para a query (recusa honesta, nunca full-scan).
+	NoRoute bool
+	// RoutedModules são os módulos do escopo roteado desta query.
+	RoutedModules []string
+	// CandidateCount é o número de candidatos de vetor permitidos (len(CandidateIDs)).
+	CandidateCount int
+	// Scanned é o número de vetores efetivamente escaneados na fase vetorial.
+	Scanned int
 }
 
 // Retriever é a interface de recuperação injetada no RecallGate. O gate
@@ -59,6 +78,13 @@ type QueryRecall struct {
 	Errored bool
 	// Err é a mensagem de erro quando Errored.
 	Err string
+	// ── FASE 0 (campanha monolithic vs modular) — observabilidade do braço ──
+	// roteado (opcional; vazios/false no braço legacy). O gate repassa aqui os
+	// metadados que o retriever roteado devolveu no primeiro resultado.
+	NoRoute        bool
+	RoutedModules  []string
+	CandidateCount int
+	Scanned        int
 }
 
 // RecallReport é o relatório agregado do RecallGate.
@@ -175,6 +201,10 @@ func (g *RecallGate) Run(ctx context.Context, retriever Retriever, baseline []Qr
 		if res.Retrieved == nil {
 			res.Retrieved = []string{}
 		}
+		// FASE 0 — repassa a observabilidade do braço roteado (no-route,
+		// módulos, candidatos, scanned) encontrada no primeiro resultado que a
+		// carregue. No braço legacy nada é carregado (campos ficam zerados).
+		applyRoutingMeta(&res, got)
 
 		res.Recall = recallAtK(res.Relevant, res.Retrieved)
 		res.FirstRelevant = firstRelevantMRR(res.Relevant, res.Retrieved)
@@ -280,6 +310,23 @@ func ndcgAtK(relevant, retrieved []string) float64 {
 		return 0
 	}
 	return dcg / idcg
+}
+
+// applyRoutingMeta transfere a observabilidade do braço roteado (FASE 0) dos
+// resultados do retriever para o QueryRecall. O braço modular carrega esses
+// metadados no primeiro resultado da lista (reconhecível por NoRoute, módulos,
+// CandidateCount ou Scanned); o braço legacy não os carrega, então nada é
+// copiado (NoRoute=false, módulos nil, contadores zero).
+func applyRoutingMeta(res *QueryRecall, got []Result) {
+	for i := range got {
+		if got[i].NoRoute || len(got[i].RoutedModules) > 0 || got[i].CandidateCount > 0 || got[i].Scanned > 0 {
+			res.NoRoute = got[i].NoRoute
+			res.RoutedModules = got[i].RoutedModules
+			res.CandidateCount = got[i].CandidateCount
+			res.Scanned = got[i].Scanned
+			return
+		}
+	}
 }
 
 // toStringSet converte uma lista em um set (para interseção O(1)).

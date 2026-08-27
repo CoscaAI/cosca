@@ -51,6 +51,20 @@ func (e EmbeddingSig) Signature() string {
 // um array puro ([...]). Depois de ler, chama ValidateQrels; um Qrels inválido
 // é um erro (fail-closed — baseline corrompido não pode passar o gate).
 func LoadQrels(path string) ([]Qrels, error) {
+	file, err := LoadQrelsFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return file.Queries, nil
+}
+
+// LoadQrelsFile lê um arquivo qrels-baseline.json e devolve o QrelsFile completo
+// (layout envolto com version/embedding), preservando a assinatura de embedding
+// do baseline. Aceita tanto o layout envolto quanto o array puro (neste caso o
+// QrelsFile devolvido tem Version=1 e Embedding vazio). Valida (ValidateQrels)
+// antes de devolver. É a forma de expor o `embedding.model:dim` para a
+// persistência de observabilidade da campanha.
+func LoadQrelsFile(path string) (*QrelsFile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("grounding: load qrels %s: %w", path, err)
@@ -62,7 +76,7 @@ func LoadQrels(path string) ([]Qrels, error) {
 		if err := ValidateQrels(bare); err != nil {
 			return nil, fmt.Errorf("grounding: qrels %s: %w", path, err)
 		}
-		return bare, nil
+		return &QrelsFile{Version: 1, Queries: bare}, nil
 	}
 
 	// Senão o layout envolto.
@@ -73,7 +87,7 @@ func LoadQrels(path string) ([]Qrels, error) {
 	if err := ValidateQrels(file.Queries); err != nil {
 		return nil, fmt.Errorf("grounding: qrels %s: %w", path, err)
 	}
-	return file.Queries, nil
+	return &file, nil
 }
 
 // ValidateQrels valida a lista de gabaritos. Regras (fail-closed):

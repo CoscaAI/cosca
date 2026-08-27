@@ -174,11 +174,39 @@ Flags:
 // dir (DB at <dir>/knowledge.db) with a functional multi-level cache (Memory +
 // SQLite). Used by the fingerprint-cache commands and the --ttl search path.
 func newCLIKnowledgeEngine(dir string) (*knowledge.Engine, error) {
+	// Honor the project config's embedding settings (mirrors serve.go, runtime.go
+	// and knowledge search): without a provider the vector phase fails with
+	// "embed query: no embedding provider selected", collapsing recall to 0.
+	// A config load failure is non-fatal and leaves the provider empty so
+	// auto-detection applies.
+	var (
+		embeddingProvider   string
+		embeddingBaseURL    string
+		embeddingModel      string
+		embeddingDigest     string
+		embeddingAPIKey     string
+		embeddingDimensions int
+	)
+	if c, err := config.Load(); err == nil {
+		embeddingProvider = c.Embedding.Provider
+		embeddingBaseURL = c.Embedding.BaseURL
+		embeddingModel = c.Embedding.Model
+		embeddingDigest = c.Embedding.Digest
+		embeddingAPIKey = c.Embedding.APIKey
+		embeddingDimensions = c.Embedding.Dimensions
+	}
+
 	ke, err := knowledge.New(knowledge.Config{
-		DBPath:      filepath.Join(dir, "knowledge.db"),
-		RootDir:     filepath.Dir(dir),
-		AutoMigrate: true,
-		CacheConfig: knowledge.DefaultConfig().CacheConfig,
+		DBPath:              knowledgeDBPath(dir),
+		RootDir:             filepath.Dir(dir),
+		AutoMigrate:         true,
+		CacheConfig:         knowledge.DefaultConfig().CacheConfig,
+		EmbeddingProvider:   embeddingProvider,
+		EmbeddingBaseURL:    embeddingBaseURL,
+		EmbeddingModel:      embeddingModel,
+		EmbeddingDigest:     embeddingDigest,
+		EmbeddingAPIKey:     embeddingAPIKey,
+		EmbeddingDimensions: embeddingDimensions,
 	})
 	if err != nil {
 		return nil, err

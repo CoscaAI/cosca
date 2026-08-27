@@ -90,3 +90,9 @@ cosca-forex/
 # limite do GitHub) e são lixo transitório. Regra da Decisão 1 (ADR-013, 2026-08-24).
 .cosca/backups/
 .cosca/assets/
+
+# ---- Cosca: artefatos nao sao fonte de verdade (2026-08-27) ----
+cosca.exe
+inst_user_settings.tmp
+.cosca/evals/recall/
+knowledge.db

@@ -6,24 +6,34 @@
   },
   "queries": [
     {
-      "query": "Qual é a capital da França?",
-      "relevant_chunk_ids": ["chunk-france-1", "chunk-france-2"],
-      "first_relevant_chunk_id": "chunk-france-1"
+      "query": "hot reload atualiza arquivos markdown sem reiniciar o runtime",
+      "relevant_chunk_ids": ["47659d61-351f-4d91-9889-d8fc5f31e643", "b7783a8a-1baf-4eb2-9ca8-dccde79d65b7", "c6890d0e-a5df-4be3-9e89-827b2c09b1ae"],
+      "first_relevant_chunk_id": "47659d61-351f-4d91-9889-d8fc5f31e643"
     },
     {
-      "query": "Explique o que é RAG.",
-      "relevant_chunk_ids": ["chunk-rag-1"],
-      "first_relevant_chunk_id": "chunk-rag-1"
+      "query": "continuidade da memoria do kernel entre execucoes",
+      "relevant_chunk_ids": ["e84c5a50-0c7a-47ff-b54a-9bb92c760657", "a883ce3a-bc5f-43ed-92cc-fd5424a508ce", "27be6e41-c6a4-44e2-8a86-3ec36be8e93c", "c2b6d6e2-cb82-4376-892f-5fd9cf74c180", "89c9e139-5c01-4bcb-a6e9-8a6d3db2a550"],
+      "first_relevant_chunk_id": "e84c5a50-0c7a-47ff-b54a-9bb92c760657"
     },
     {
-      "query": "Qual a diferença entre memória e cache?",
-      "relevant_chunk_ids": ["chunk-mem-1", "chunk-cache-1"],
-      "first_relevant_chunk_id": "chunk-mem-1"
+      "query": "como funciona o motor de busca hibrida com fts5 e busca vetorial",
+      "relevant_chunk_ids": ["abc97c26-456f-405f-add7-1e6fd159e519", "99f8492d-2b9e-4e4e-9cbe-5b41559b194f", "66e5e707-3cc6-489e-be59-8fd4248591d5"],
+      "first_relevant_chunk_id": "abc97c26-456f-405f-add7-1e6fd159e519"
     },
     {
-      "query": "Como o grounding previne alucinação?",
-      "relevant_chunk_ids": ["chunk-ground-1"],
-      "first_relevant_chunk_id": "chunk-ground-1"
+      "query": "como o compute fabric gerencia os worker pools por load",
+      "relevant_chunk_ids": ["93758a21-1ca2-45b5-a000-4da525c961c5", "3cce6e59-42cf-4100-a87f-eaaf807ab837", "de30586f-daeb-451f-b25a-c2bb13d6e39a", "a08279c6-2a50-47d5-8b9e-00548c7ac2fc"],
+      "first_relevant_chunk_id": "93758a21-1ca2-45b5-a000-4da525c961c5"
+    },
+    {
+      "query": "como rodar benchmark de performance no cosca",
+      "relevant_chunk_ids": ["6a5911f3-f055-4d12-9d7d-439aa97a9c0f", "4c62fb72-1c4c-4295-b707-25d221195beb", "5db1ec24-961c-4126-8a5e-913082e2751b"],
+      "first_relevant_chunk_id": "6a5911f3-f055-4d12-9d7d-439aa97a9c0f"
+    },
+    {
+      "query": "maquina de estados de seguranca valida autoriza executa verifica audita",
+      "relevant_chunk_ids": ["06d4d3f4-e0fb-4af4-be50-4a05d29719fd", "5dfe285e-b457-4815-b7ad-344b8b5c471f", "80c6456c-ed27-4e4a-a483-3170ab772cf6"],
+      "first_relevant_chunk_id": "06d4d3f4-e0fb-4af4-be50-4a05d29719fd"
     }
   ]
 }
