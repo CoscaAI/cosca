@@ -96,3 +96,6 @@ cosca.exe
 inst_user_settings.tmp
 .cosca/evals/recall/
 knowledge.db
+
+# Chave privada do certificado (NUNCA versionar)
+/security-backup/
