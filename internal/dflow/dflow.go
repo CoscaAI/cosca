@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -169,20 +170,49 @@ type WorkflowCtx struct {
 	// result map para memória da última execução (não persistido).
 	mu      sync.Mutex
 	results map[ActivityKey]any
+	// rng é o gerador determinístico do workflow (I1 mecânico — o corpo usa
+	// wc.Rand(), nunca rand global). Seed fixa por padrão; o Runner pode trocar.
+	rng *rand.Rand
+	// replayPos é a posição corrente no ExecutedOrder durante o replay. Permite
+	// a DETECÇÃO DE DIVERGÊNCIA por ordem (I2 / vercel): se o workflow re-executa
+	// chamando uma activity fora da ordem gravada → erro, nunca "conserta".
+	replayPos int
+	// replayLen é o nº de items gravados no histórico INICIAL (fixo). Serve para
+	// só considerar "replay" os itens que existiam ANTES deste run — novos passos
+	// executados neste run não re-entram no branch de replay (evita falso
+	// "expected X got Y" quando o ExecutedOrder cresce).
+	replayLen int
 }
 
 // ExecActivity executa uma activity de forma idempotente: se o histórico já
 // tem o resultado, devolve-o (replay) sem re-executar o efeito.
+//
+// REPLAY ESTRITO (vercel/workflow — Fase 2 do ADR-023): durante o replay, a
+// ORDEM das activities deve bater com o ExecutedOrder gravado. Se o workflow
+// re-executa chamando uma activity DIFERENTE da esperada → ErrReplayDiverged
+// (fail-closed I2 — nunca "conserta" nem segue sobre dado inconsistente).
 func (wc *WorkflowCtx) ExecActivity(ctx context.Context, a Activity) (any, error) {
 	key := a.Key()
 
 	wc.mu.Lock()
-	if prev, ok := wc.history.ActivityOutcomes[key]; ok {
-		wc.mu.Unlock()
-		if prev.Error != "" {
-			return nil, errors.New(prev.Error)
+	// Divergência por ORDEM (vercel): posição corrente vs próxima gravada do
+	// HISTÓRICO INICIAL (replayLen fixo — não re-entra para passos deste run).
+	if wc.replayPos < wc.replayLen {
+		expected := wc.history.ExecutedOrder[wc.replayPos]
+		if key != expected {
+			wc.mu.Unlock()
+			return nil, fmt.Errorf("%w: at pos %d expected %q got %q", ErrReplayDiverged, wc.replayPos, expected, key)
 		}
-		return prev.Value, nil
+		wc.replayPos++
+		if prev, ok := wc.history.ActivityOutcomes[key]; ok {
+			wc.mu.Unlock()
+			if prev.Error != "" {
+				return nil, errors.New(prev.Error)
+			}
+			return prev.Value, nil
+		}
+		wc.mu.Unlock()
+		return nil, fmt.Errorf("%w: malformed history for %q", ErrReplayDiverged, key)
 	}
 	wc.mu.Unlock()
 
@@ -218,6 +248,19 @@ func (wc *WorkflowCtx) ExecActivity(ctx context.Context, a Activity) (any, error
 	wc.mu.Unlock()
 	return nil, fmt.Errorf("%w: %s: %v", ErrActivityFailed, key, lastErr)
 }
+
+// ErrReplayDiverged é retornado quando o replay do workflow diverge da ordem
+// gravada — fail-closed (I2): nunca segue sobre dado inconsistente.
+var ErrReplayDiverged = errors.New("dflow: replay diverged")
+
+// Now devolve o relógio determinístico do workflow (I1 mecânico — o corpo usa
+// wc.Now(), nunca time.Now() direto, para o replay reproduzir a mesma linha do
+// tempo). Retorna wc.now (injetável; determinístico).
+func (wc *WorkflowCtx) Now() time.Time { return wc.now() }
+
+// Rand devolve o gerador determinístico do workflow (I1 mecânico). A mesma seed
+// → mesmas decisões no replay.
+func (wc *WorkflowCtx) Rand() *rand.Rand { return wc.rng }
 
 // ErrPending é retornado pelo workflow quando ele precisa de um evento externo
 // para continuar (HITL). O Runner trata como SUSPENSÃO, não como falha.
@@ -325,12 +368,19 @@ type Result struct {
 type Runner struct {
 	now   func() time.Time
 	sleep func(context.Context, time.Duration) error
+	// randomSeed é a seed do RNG determinístico do workflow (I1 mecânico).
+	// Default 1; o chamador pode trocar para qualquer seed estável por run.
+	randomSeed int64
 }
 
-// NewRunner cria um runner (sleep real).
+// NewRunner cria um runner (sleep real, seed determinística 1).
 func NewRunner() *Runner {
-	return &Runner{now: time.Now, sleep: defaultSleep}
+	return &Runner{now: time.Now, sleep: defaultSleep, randomSeed: 1}
 }
+
+// SetRandomSeed configura a seed do RNG determinístico (I1). Deve ser estável
+// por run para o replay reproduzir as mesmas decisões.
+func (r *Runner) SetRandomSeed(seed int64) *Runner { r.randomSeed = seed; return r }
 
 func defaultSleep(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
@@ -376,6 +426,8 @@ func (r *Runner) Run(ctx context.Context, wf Workflow, activities []Activity, re
 		now:        r.now,
 		sleep:      r.sleep,
 		results:    make(map[ActivityKey]any),
+		rng:        rand.New(rand.NewSource(r.randomSeed)),
+		replayLen:  len(baseHistory.ExecutedOrder),
 	}
 
 	out, err := wf(ctx, wc)
