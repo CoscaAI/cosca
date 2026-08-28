@@ -31,6 +31,8 @@ world. Cosca interprets entities (buildings/roads/avenues/parks) — not meshes.
 		NewWorldInspectCommand(),
 		NewWorldSpawnCommand(),
 		NewWorldExplainCommand(),
+		NewWorldBuildCommand(),
+		NewWorldLoopCommand(),
 	)
 	return cmd
 }
