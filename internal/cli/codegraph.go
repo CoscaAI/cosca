@@ -23,7 +23,7 @@ Subcomandos:
 		Example: `  cosca codegraph search "http handler" --dir . --limit 5
   cosca codegraph build --dir .`,
 	}
-	cmd.AddCommand(NewCodeGraphBuildCommand(), NewCodeGraphSearchCommand())
+	cmd.AddCommand(NewCodeGraphBuildCommand(), NewCodeGraphSearchCommand(), NewCodeGraphStatsCommand())
 	return cmd
 }
 
@@ -95,6 +95,50 @@ func NewCodeGraphSearchCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "diretório raiz a indexar")
 	cmd.Flags().IntVar(&limit, "limit", 5, "número máximo de resultados")
+	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
+	return cmd
+}
+
+// NewCodeGraphStatsCommand cria `cosca codegraph stats` — a COBERTURA do índice,
+// separada dos fatos (F4, I3/I4): "não registrado ≠ não existe".
+func NewCodeGraphStatsCommand() *cobra.Command {
+	var dir string
+	var dim int
+	cmd := &cobra.Command{
+		Use:   "stats",
+		Short: "Cobertura do índice (arquivos indexados vs pulados), separada dos fatos",
+		Long: `Mostra a COBERTURA do índice — quantos arquivos-fonte existiam, quantos
+foram indexados, quantos pulados, por linguagem. Isto é métrica SOBRE o grafo
+(nunca misturada aos fatos). Best-effort (heurístico v1): "não registrado ≠
+inexistente" (I3/I4).`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+			ix, err := codegraph.BuildIndex(dir, dim)
+			if err != nil {
+				return fmt.Errorf("build index: %w", err)
+			}
+			c := ix.Coverage
+			if useJSON {
+				return printJSON(cmd, map[string]interface{}{"dir": dir, "coverage": c})
+			}
+			formatter.Header("Cobertura do índice (separada dos fatos)")
+			formatter.KeyValue("Diretório", dir)
+			formatter.KeyValue("Arquivos-fonte (totais)", fmt.Sprintf("%d", c.TotalSourceFiles))
+			formatter.KeyValue("Indexados", fmt.Sprintf("%d", c.IndexedFiles))
+			formatter.KeyValue("Pulados (omissão registrada)", fmt.Sprintf("%d", c.SkippedFiles))
+			formatter.KeyValue("Cobre tudo", fmt.Sprintf("%v", c.CoversAll))
+			rows := make([][]string, 0, len(c.Langs))
+			for lang, n := range c.Langs {
+				rows = append(rows, []string{lang, fmt.Sprintf("%d", n)})
+			}
+			formatter.Table([]string{"Linguagem", "Arquivos"}, rows)
+			formatter.Warning("Best-effort (I4): \"não registrado ≠ inexistente\" — o grafo não afirma completude.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&dir, "dir", ".", "diretório raiz a indexar")
 	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
 	return cmd
 }

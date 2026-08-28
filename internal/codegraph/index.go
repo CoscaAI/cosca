@@ -23,14 +23,17 @@ import (
 
 // Index é o índice em memória do code graph + sinais por arquivo.
 type Index struct {
-	Root    string                         `json:"root"`
-	Dim     int                            `json:"dim"`
-	BuiltAt time.Time                      `json:"built_at"`
-	Graph   *graph.Graph                   `json:"graph"`
-	Signals map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
+	Root     string                         `json:"root"`
+	Dim      int                            `json:"dim"`
+	BuiltAt  time.Time                      `json:"built_at"`
+	Graph    *graph.Graph                   `json:"graph"`
+	Signals  map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
+	Coverage Coverage                       `json:"coverage"`
 }
 
-// BuildIndex constrói o índice (RAM-first) do diretório `root`.
+// BuildIndex constrói o índice (RAM-first) do diretório `root`. A Coverage (F4)
+// é computada por arquivo — a omissão (arquivo pulado) é registrada e separada
+// dos fatos do grafo ("não registrado ≠ não existe", I3/I4).
 func BuildIndex(root string, dim int) (*Index, error) {
 	if dim <= 0 {
 		dim = codeembed.DefaultDim
@@ -40,22 +43,28 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		return nil, fmt.Errorf("build graph: %w", err)
 	}
 	ix := &Index{
-		Root:    root,
-		Dim:     dim,
-		BuiltAt: time.Now().UTC(),
-		Graph:   g,
-		Signals: map[string]codeembed.SignalSet{},
+		Root:     root,
+		Dim:      dim,
+		BuiltAt:  time.Now().UTC(),
+		Graph:    g,
+		Signals:  map[string]codeembed.SignalSet{},
+		Coverage: Coverage{Langs: map[string]int{}, BestEffort: true, BuiltAt: time.Now().UTC()},
 	}
-	for _, n := range g.GetAllNodes() {
-		if n.Type != "file" || n.Path == "" {
+
+	// Conta a cobertura por arquivo-fonte (collectFiles é a mesma régua do grafo).
+	files, _ := collectFiles(root)
+	for _, fi := range files {
+		ix.Coverage.TotalSourceFiles++
+		ix.Coverage.Langs[fi.lang]++
+		content, rerr := os.ReadFile(filepath.Join(root, filepath.FromSlash(fi.rel)))
+		if rerr != nil {
+			ix.Coverage.SkippedFiles++ // omissão registrada (I4)
 			continue
 		}
-		content, rerr := os.ReadFile(filepath.Join(root, filepath.FromSlash(n.Path)))
-		if rerr != nil {
-			continue // fail-open: arquivo ilegível é pulado
-		}
-		ix.Signals[n.ID] = codeembed.Signals(string(content), dim)
+		ix.Signals[fi.rel] = codeembed.Signals(string(content), dim)
 	}
+	ix.Coverage.IndexedFiles = len(ix.Signals)
+	ix.Coverage.CoversAll = ix.Coverage.SkippedFiles == 0
 	return ix, nil
 }
 
