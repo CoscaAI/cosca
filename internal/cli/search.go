@@ -179,24 +179,28 @@ func NewSearchCodeCommand() *cobra.Command {
 	var dir string
 	var limit int
 	var dim int
+	var saveIndex string
 	cmd := &cobra.Command{
 		Use:   "code <query>",
 		Short: "Busca semântica determinística de código (para encontrar arquivos)",
 		Long: `Busca os arquivos de código mais similares à consulta, via embedding
 determinístico + fusão de sinais (unigram + bigram + MinHash). Zero LLM, zero
-rede (I1) — determinístico. Retorna os arquivos do codebase que "se parecem" em
-estrutura/semântica com a consulta.`,
+rede (I1) — determinístico. Usa um índice RAM-first (F3) e publica atomicamente
+(opcional: --save-index).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
 			useJSON := IsJSONOutput(cmd)
-			g, err := codegraph.BuildGraph(dir)
+			ix, err := codegraph.BuildIndex(dir, dim)
 			if err != nil {
-				return fmt.Errorf("build code graph: %w", err)
+				return fmt.Errorf("build code index: %w", err)
 			}
-			hits, err := codegraph.SearchSimilar(g, dir, args[0], limit, dim)
-			if err != nil {
-				return fmt.Errorf("code search: %w", err)
+			hits := ix.SearchSimilar(args[0], limit)
+			// F3: publica atômico (fail-closed I2) — nunca deixa índice parcial.
+			if saveIndex != "" {
+				if err := ix.Save(saveIndex); err != nil {
+					formatter.Warning("falha ao salvar índice: " + err.Error())
+				}
 			}
 			if useJSON {
 				return printJSON(cmd, map[string]interface{}{"type": "code", "query": args[0], "results": hits})
@@ -204,6 +208,7 @@ estrutura/semântica com a consulta.`,
 			formatter.Header("Busca de código (semântica, determinística)")
 			formatter.KeyValue("Consulta", args[0])
 			formatter.KeyValue("Diretório", dir)
+			formatter.KeyValue("Arquivos indexados", fmt.Sprintf("%d", len(ix.Signals)))
 			formatter.KeyValue("Resultados", fmt.Sprintf("%d", len(hits)))
 			rows := make([][]string, 0, len(hits))
 			for _, h := range hits {
@@ -220,6 +225,7 @@ estrutura/semântica com a consulta.`,
 	cmd.Flags().StringVar(&dir, "dir", ".", "diretório raiz do codebase a indexar")
 	cmd.Flags().IntVar(&limit, "limit", 8, "número máximo de resultados")
 	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
+	cmd.Flags().StringVar(&saveIndex, "save-index", "", "publicar o índice atômico neste caminho (fail-closed I2)")
 	return cmd
 }
 

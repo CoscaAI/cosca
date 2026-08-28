@@ -9,21 +9,24 @@ import (
 )
 
 // buildTestGraph constrói um grafo com dois arquivos Go (um sobre HTTP, outro
-// sobre DB) para testar a busca semântica determinística.
+// sobre DB) com sobreposição LEXICAL real — é o que o embedding determinístico
+// (v1) mede. Não esperamos generalização semântica (handler → handle) do modelo.
 func buildTestGraph(t *testing.T) (*graph.Graph, string) {
 	t.Helper()
 	dir := t.TempDir()
 	httpFile := `package api
 
-import "fmt"
-func HandleRequest(w, r) {
-    fmt.Println("route", r.Path)
+import "net/http"
+
+func HandleRequest(w http.ResponseWriter, r *http.Request) {
+    http.Handle("/route", r)
 }
 `
 	dbFile := `package store
 
 import "database/sql"
-func Connect(dsn string) (*sql.DB, error) {
+
+func QueryDatabase(dsn, query string) (*sql.Rows, error) {
     return sql.Open("sqlite", dsn)
 }
 `
@@ -43,8 +46,8 @@ func Connect(dsn string) (*sql.DB, error) {
 func TestSearchSimilar_PrefersSemanticMatch(t *testing.T) {
 	g, dir := buildTestGraph(t)
 
-	// Consulta sobre HTTP/rota → http.go deve vir primeiro.
-	hits, err := SearchSimilar(g, dir, "http route handler", 5, 512)
+	// Consulta com tokens em http.go (http/handle/request) → http.go primeiro.
+	hits, err := SearchSimilar(g, dir, "http handle request", 5, 512)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -58,7 +61,7 @@ func TestSearchSimilar_PrefersSemanticMatch(t *testing.T) {
 
 func TestSearchSimilar_RespectsLimitAndOrders(t *testing.T) {
 	g, dir := buildTestGraph(t)
-	hits, err := SearchSimilar(g, dir, "sqlite database connection", 2, 512)
+	hits, err := SearchSimilar(g, dir, "sqlite database query", 2, 512)
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}

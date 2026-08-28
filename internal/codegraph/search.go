@@ -52,7 +52,12 @@ func SearchSimilar(g *graph.Graph, root, query string, limit, dim int) ([]Search
 			Score: score,
 		})
 	}
-	sort.SliceStable(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].Score != hits[j].Score {
+			return hits[i].Score > hits[j].Score
+		}
+		return hits[i].Path < hits[j].Path // tie-break determinístico (I1)
+	})
 	if len(hits) > limit {
 		hits = hits[:limit]
 	}
