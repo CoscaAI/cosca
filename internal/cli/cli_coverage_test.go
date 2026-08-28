@@ -3256,13 +3256,16 @@ func TestSetMetricsEngine_NonNil(t *testing.T) {
 // =============================================================================
 
 func TestOpenBrowser(t *testing.T) {
-	// openBrowser is platform-dependent; test that it does not panic
+	// defaultOpenBrowser não pode abrir janela com URL vazia (guarda). Testa que
+	// não há panic e que retorna erro — sem abrir o File Explorer ("Este Computador").
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("openBrowser panicked: %v", r)
+			t.Errorf("defaultOpenBrowser panicked: %v", r)
 		}
 	}()
-	openBrowser("") // no-op on most systems
+	if err := defaultOpenBrowser(""); err == nil {
+		t.Errorf("defaultOpenBrowser('') deveria falhar (guard de URL vazia)")
+	}
 }
 
 func TestFindLocalDocs_DoesNotPanic(t *testing.T) {

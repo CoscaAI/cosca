@@ -52,8 +52,15 @@ func NewDocsCommand() *cobra.Command {
 	return cmd
 }
 
-// openBrowser opens a URL in the default web browser.
-func openBrowser(url string) error {
+// openBrowser é uma variável de pacote para permitir stub nos testes (não abrir
+// janela real ao rodar `go test`). Em produção usa defaultOpenBrowser.
+var openBrowser = defaultOpenBrowser
+
+// defaultOpenBrowser abre uma URL no navegador padrão da plataforma.
+func defaultOpenBrowser(url string) error {
+	if url == "" {
+		return fmt.Errorf("cannot open empty URL")
+	}
 	switch runtime.GOOS {
 	case "linux":
 		return exec.Command("xdg-open", url).Start()

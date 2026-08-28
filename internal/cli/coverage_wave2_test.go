@@ -2741,12 +2741,15 @@ func TestNewGraphShowCommand_RunE_JSON(t *testing.T) {
 // =============================================================================
 
 func TestOpenBrowser_NonExistentURL(t *testing.T) {
-	// openBrowser calls Start() which returns immediately (async).
-	// We just exercise the code path on Linux.
-	err := openBrowser("https://example.com")
-	// Start() may or may not fail depending on xdg-open availability,
-	// but we're just covering the code path.
-	_ = err
+	// Stub: NÃO abre janela real; só registra a URL passada ao openBrowser.
+	var got []string
+	stubOpenBrowser(t, func(u string) error { got = append(got, u); return nil })
+	if err := openBrowser("https://example.com"); err != nil {
+		t.Fatalf("openBrowser: %v", err)
+	}
+	if len(got) != 1 || got[0] != "https://example.com" {
+		t.Fatalf("esperava abrir %q, abriu %v", "https://example.com", got)
+	}
 }
 
 // =============================================================================

@@ -11,6 +11,15 @@ import (
 	"testing"
 )
 
+// stubOpenBrowser troca o openBrowser por um stub e o restaura ao final do teste,
+// para que os testes de `cosca docs` NÃO abram janelas reais (browser/explorer).
+func stubOpenBrowser(t *testing.T, fn func(string) error) {
+	t.Helper()
+	prev := openBrowser
+	openBrowser = fn
+	t.Cleanup(func() { openBrowser = prev })
+}
+
 // =============================================================================
 // findLocalDocs — additional path (already tested in cli_coverage_test.go)
 // =============================================================================
@@ -28,13 +37,12 @@ func TestFindLocalDocs_DoesNotPanicWhenNoDocs(t *testing.T) {
 // openBrowser — coverage for unsupported platform
 // =============================================================================
 
-func TestOpenBrowser_Linux_EmptyURLReturnsError(t *testing.T) {
-	// openBrowser on linux invokes xdg-open. An empty URL should fail.
-	err := openBrowser("")
-	if err == nil {
-		t.Log("xdg-open succeeded with empty URL (unexpected)")
-	} else {
-		t.Logf("xdg-open correctly returned error: %v", err)
+func TestOpenBrowser_EmptyURLErrors(t *testing.T) {
+	// defaultOpenBrowser NÃO deve abrir janela com URL vazia (guarda em todas as
+	// plataformas). A janela "Este Computador" (rundll32 com URL vazia) era o
+	// sintoma — o guarda impede isso.
+	if err := defaultOpenBrowser(""); err == nil {
+		t.Fatal("defaultOpenBrowser('') deveria falhar (guard de URL vazia)")
 	}
 }
 
@@ -49,17 +57,15 @@ func TestNewDocsCommand_RunE_OnlineMode(t *testing.T) {
 	ctx := newContextWithFormatter(context.Background(), f)
 	cmd.SetContext(ctx)
 
-	// Act — RunE in online mode (no --offline flag)
-	err := cmd.RunE(cmd, nil)
+	// Stub do openBrowser: NÃO abre janela real; só registra a URL.
+	var got []string
+	stubOpenBrowser(t, func(u string) error { got = append(got, u); return nil })
 
-	// Assert — may fail because browser can't open on headless CI,
-	// but the code path is exercised.
-	if err != nil {
-		t.Logf("RunE returned error (expected without browser): %v", err)
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("RunE erro: %v", err)
 	}
-	output := buf.String()
-	if !strings.Contains(output, "Opening https://cosca.enterprise/docs") {
-		t.Logf("verbose output: %s", output)
+	if len(got) != 1 || got[0] != "https://cosca.enterprise/docs" {
+		t.Fatalf("esperava abrir %q, abriu %v", "https://cosca.enterprise/docs", got)
 	}
 }
 
@@ -71,9 +77,14 @@ func TestNewDocsCommand_RunE_OfflineMode(t *testing.T) {
 	cmd.SetContext(ctx)
 	cmd.Flags().Set("offline", "true")
 
-	err := cmd.RunE(cmd, nil)
-	if err != nil {
-		t.Logf("RunE returned error (expected without browser): %v", err)
+	var got []string
+	stubOpenBrowser(t, func(u string) error { got = append(got, u); return nil })
+
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("RunE erro: %v", err)
+	}
+	if len(got) != 1 || got[0] == "" {
+		t.Fatalf("esperava abrir uma URL de docs, abriu: %v", got)
 	}
 }
 
