@@ -65,6 +65,11 @@ type Loader struct {
 
 	// loaded tracks already-loaded plugins to prevent duplicate loads.
 	loaded map[string]Plugin
+
+	// compilationCache compartilha a compilação WASM (wazero) entre todos os
+	// loads — recompilar o mesmo módulo em loads repetidos deixa de ocorrer
+	// (cold-path só compila uma vez). Safe for concurrent use. Mineração LLRT.
+	compilationCache wazero.CompilationCache
 }
 
 // SandboxConfig controls the security sandbox applied to external plugin
@@ -165,8 +170,9 @@ func DefaultLoaderConfig(pluginsDir string) LoaderConfig {
 // NewLoader creates a new plugin loader.
 func NewLoader(config LoaderConfig) *Loader {
 	return &Loader{
-		config: config,
-		loaded: make(map[string]Plugin),
+		config:           config,
+		loaded:           make(map[string]Plugin),
+		compilationCache: wazero.NewCompilationCache(),
 	}
 }
 
@@ -821,8 +827,10 @@ func (l *Loader) loadWASMPlugin(manifest *PluginManifest, path string) (Plugin, 
 	// Create context with cancel
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Create wazero runtime
-	runtime := wazero.NewRuntime(ctx)
+	// Create wazero runtime with a shared compilation cache: recompiling the
+	// same WASM across loads is cached, so the cold-path only compiles once
+	// (mineração LLRT — cold path O(invocação), não O(superfície)).
+	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(l.compilationCache))
 
 	// Configure WASI
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
