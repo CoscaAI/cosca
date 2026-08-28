@@ -25,6 +25,11 @@ type MCPPolicy struct {
 	MaxToolCallsPerTurn int
 	// AuditLog ativa o registro de auditoria das decisões (default true).
 	AuditLog bool
+	// DenySecretExfil (I8, mineração aws/agent-toolkit) — quando true, um argumento
+	// de tool que carrega um valor PAREcido com segredo (API key, bearer, AWS key,
+	// reference a secret) em uma tool de REDE → DENY (bloqueia exfiltração).
+	// Determinístico. Default true.
+	DenySecretExfil bool
 }
 
 // NewMCPPolicy cria um MCPPolicy com os defaults da casa: default-deny para
@@ -37,6 +42,7 @@ func NewMCPPolicy() *MCPPolicy {
 		FileWrite:           false,
 		MaxToolCallsPerTurn: DefaultMaxToolCalls,
 		AuditLog:            true,
+		DenySecretExfil:     true,
 	}
 }
 
@@ -97,8 +103,10 @@ func toolCapability(tool string) Capability {
 //  4. tool de shell       sem Shell=true      → Deny.
 //  5. tool de network     sem Network=true    → Deny.
 //  6. tool de file-write  sem FileWrite=true  → Deny.
-//  7. caso contrário      → Allow.
-func (p *MCPPolicy) Evaluate(tool string, _ map[string]any) (Decision, error) {
+//  7. ARGUMENT-AWARE (I8, mineração aws/agent-toolkit): tool de rede com um
+//     segredo nos argumentos → Deny (bloqueia exfiltração). Determinístico.
+//  8. caso contrário      → Allow.
+func (p *MCPPolicy) Evaluate(tool string, args map[string]any) (Decision, error) {
 	if p == nil {
 		return Deny, errors.New("mcp-policy: nil receiver")
 	}
@@ -122,5 +130,75 @@ func (p *MCPPolicy) Evaluate(tool string, _ map[string]any) (Decision, error) {
 			return Deny, nil
 		}
 	}
+	// Argument-aware deny (I8): tool de rede tentando exfiltrar um segredo.
+	if p.DenySecretExfil && toolCapability(tool) == CapNetwork && argsContainSecret(args) {
+		return Deny, nil
+	}
 	return Allow, nil
+}
+
+// argsContainSecret detecta, de forma determinística (regex), se os argumentos
+// de uma tool carregam um valor PAREcido com segredo (AWS access key, GitHub
+// token, bearer, referência a secret/key/password). Usado para bloquear
+// exfiltração via tool de rede (I8). NÃO é um detector de segredo completo —
+// é uma guarda heurística na borda da política.
+func argsContainSecret(args map[string]any) bool {
+	if len(args) == 0 {
+		return false
+	}
+	return scanArgsForSecret(args, 0)
+}
+
+const maxSecretScanDepth = 4
+
+func scanArgsForSecret(v any, depth int) bool {
+	if depth > maxSecretScanDepth {
+		return false
+	}
+	switch x := v.(type) {
+	case string:
+		return looksLikeSecret(x)
+	case map[string]any:
+		for k, val := range x {
+			if secretKeyName(k) || scanArgsForSecret(val, depth+1) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range x {
+			if scanArgsForSecret(item, depth+1) {
+				return true
+			}
+		}
+	case []string:
+		for _, s := range x {
+			if looksLikeSecret(s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// looksLikeSecret: heurística de formato de segredo (AWS key, GitHub token,
+// bearer). Determinístico.
+func looksLikeSecret(s string) bool {
+	up := strings.ToUpper(strings.TrimSpace(s))
+	switch {
+	case len(up) >= 20 && (strings.HasPrefix(up, "AKIA") || strings.HasPrefix(up, "ASIA")):
+		return true
+	case len(s) >= 36 && (strings.HasPrefix(s, "ghp_") || strings.HasPrefix(s, "gho_") ||
+		strings.HasPrefix(s, "ghu_") || strings.HasPrefix(s, "ghs_")):
+		return true
+	case len(s) >= 20 && strings.HasPrefix(s, "Bearer "):
+		return true
+	}
+	return false
+}
+
+// secretKeyName: chave que sugere que o valor ao lado é um segredo.
+func secretKeyName(k string) bool {
+	kl := strings.ToLower(k)
+	return strings.Contains(kl, "secret") || strings.Contains(kl, "password") ||
+		kl == "key" || strings.Contains(kl, "api_key") || strings.Contains(kl, "token")
 }
