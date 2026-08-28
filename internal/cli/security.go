@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -18,12 +19,14 @@ func NewSecurityCommand() *cobra.Command {
 
 Subcommands:
   scan    Scan project dependencies for known vulnerabilities (OSV database)
+  leak    Detect secret leakage in a file (or stdin) — enforcement mode
 
 Dependency scanning uses Google's osv-scanner against the OSV.dev vulnerability
 database and reports known CVEs/GHSA/OSV advisories affecting the project's
 lockfiles and manifests (go.mod, go.sum, package-lock.json, etc).`,
 	}
 	cmd.AddCommand(NewSecurityScanCommand())
+	cmd.AddCommand(NewSecurityLeakCommand())
 	return cmd
 }
 
@@ -229,4 +232,100 @@ func exitCodeForScan(result *security.ScanResult, exitZero bool) int {
 		return 1
 	}
 	return 0
+}
+
+// NewSecurityLeakCommand cria `cosca security leak` — detecta vazamento de
+// segredos (git-secrets adaptado). Determinístico (I1). `--fail` = fail-closed
+// (I2): presença de segredo → exit 1 (enforcement no fluxo/CI).
+func NewSecurityLeakCommand() *cobra.Command {
+	var fail bool
+	var silent bool
+
+	cmd := &cobra.Command{
+		Use:   "leak [file]",
+		Short: "Detect secret leakage in a file (or stdin) — deterministic",
+		Long: `Detecta vazamento de segredos embutidos em um arquivo (ou na stdin):
+AWS keys, GitHub tokens, JWTs, chaves privadas, bearer tokens e atribuições
+password/secret/api-key. Pura regex (I1 — zero LLM), com mascaramento.
+
+Modo enforcement (fail-closed, I2):
+  cosca security leak creds.txt --fail        exit 1 se houver segredo
+  cat notas.md | cosca security leak --fail   exit 1 se houver segredo
+
+Exit codes:
+  0  nenhum segredo detectado
+  1  segredo detectado (somente com --fail)
+  2  erro (arquivo inexistente, argumentos inválidos)`,
+		Example: `  cosca security leak config.yaml
+  cosca security leak --fail --json < secrets.json
+  cat notes.md | cosca security leak --fail`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+
+			var result *security.SecretScanResult
+			var err error
+
+			if len(args) > 0 {
+				// Arquivo informado como argumento.
+				result, err = security.DetectFile(args[0])
+				if err != nil {
+					if useJSON {
+						_ = printJSON(cmd, map[string]interface{}{"error": err.Error()})
+					} else {
+						formatter.Errorf("scan error: %v", err)
+					}
+					return ExitCodeError{Code: 2}
+				}
+			} else {
+				// stdin.
+				data, rerr := io.ReadAll(cmd.InOrStdin())
+				if rerr != nil {
+					return fmt.Errorf("read stdin: %w", rerr)
+				}
+				result = security.DetectBytes(data, "stdin")
+			}
+
+			if useJSON {
+				if err := printJSON(cmd, result); err != nil {
+					return err
+				}
+			} else {
+				printLeakText(cmd, formatter, result, silent)
+			}
+
+			if fail && result.HasSecrets() {
+				return ExitCodeError{Code: 1}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&fail, "fail", false, "fail-closed: exit 1 ao detectar segredo (enforcement/CI)")
+	cmd.Flags().BoolVar(&silent, "silent", false, "não imprimir os matches (para --fail silencioso em CI)")
+	return cmd
+}
+
+// printLeakText renderiza o relatório de vazamento de segredos.
+func printLeakText(cmd *cobra.Command, f *OutputFormatter, result *security.SecretScanResult, silent bool) {
+	f.Header("Secret Leak Scan")
+	f.KeyValue("Fonte", result.Source)
+
+	if result.Clean {
+		f.Success("Nenhum segredo detectado")
+		return
+	}
+
+	f.KeyValue("Segredos", fmt.Sprintf("%d", len(result.Matches)))
+	if silent {
+		return
+	}
+
+	for _, m := range result.Matches {
+		f.Printf("  [%s] %s linha %d col %d — %s\n",
+			m.Severity, m.Kind, m.Line, m.Column, m.Masked)
+	}
+	f.Println("")
+	f.Errorf("Segredos detectados — redija antes de commitar/persistir (fail-closed I2)")
 }
