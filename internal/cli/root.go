@@ -139,6 +139,7 @@ Documentation: https://cosca.enterprise/docs
 		NewBenchmarkCommand(),
 		NewPerfCommand(),
 		NewCodeEmbedCommand(),
+		NewCodeGraphCommand(),
 		NewStageCommand(),
 		NewSymbolsCommand(),
 		NewEmbedCommand(),
