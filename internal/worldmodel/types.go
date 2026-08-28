@@ -271,6 +271,35 @@ type SpatialObservation struct {
 	AudioEvents []AudioEvent      `json:"audio_events"`  // what the agent hears
 	DepthMap    [][]float32       `json:"depth_map,omitempty"` // depth per pixel
 	PointCloud  []Vec3            `json:"point_cloud,omitempty"` // 3D points (from SLAM)
+	// EPISTEMIC STAMP (gema #3, ADR-022; mineração RuView PoseObservationV2):
+	// a observação SABE o que é — I4 operacionalizado. Cobre "saber vs ver" no
+	// nível da observação inteira.
+	TrustState  TrustState        `json:"trust_state,omitempty"`  // known|degraded|unknown
+	Uncertainty float64           `json:"uncertainty_m,omitempty"` // stddev em metros (0 = certo)
+	Source      ObservationSource `json:"source,omitempty"`      // proveniência (I3)
+}
+
+// TrustState é o estado epistêmico da observação (I4 — "o sistema sabe se sabe").
+type TrustState string
+
+const (
+	TrustKnown    TrustState = "known"    // medido com confiança (MEASURED)
+	TrustDegraded TrustState = "degraded" // disponível mas com incerteza (INFERRED/ruído)
+	TrustUnknown  TrustState = "unknown"  // o sistema NÃO sabe (degradou para prior)
+)
+
+// Trust() informa se a observação é utilizável (known/degraded) vs unknown.
+// Unknown = o sistema recusa e recua para o prior (RuView GateDecision) — I4.
+func (o SpatialObservation) Trust() bool {
+	return o.TrustState != TrustUnknown
+}
+
+// ObservationSource é a proveniência da observação (I3) — de onde veio, se foi
+// autenticada e replay-protegida.
+type ObservationSource struct {
+	SensorID        string `json:"sensor_id,omitempty"`
+	Authenticated   bool   `json:"authenticated,omitempty"`
+	ReplayProtected bool   `json:"replay_protected,omitempty"`
 }
 
 // EntityCount returns the number of entities in the observation.
