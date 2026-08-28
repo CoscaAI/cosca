@@ -68,13 +68,15 @@ func NewCodeEmbedSimCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
 			useJSON := IsJSONOutput(cmd)
-			sim := codeembed.Similarity(codeembed.Embed(args[0], dim), codeembed.Embed(args[1], dim))
+			// Fusão de sinais (F2): unigram + bigram + MinHash, determinístico.
+			sim := codeembed.FuseSimilarity(args[0], args[1], dim)
 			if useJSON {
-				return printJSON(cmd, map[string]interface{}{"similarity": sim, "dim": dim})
+				return printJSON(cmd, map[string]interface{}{"similarity": sim, "dim": dim, "signal": "fusion"})
 			}
-			formatter.Header("Similaridade de código (determinístico)")
+			formatter.Header("Similaridade de código (fusão de sinais, determinístico)")
 			formatter.KeyValue("Dimensão", fmt.Sprintf("%d", dim))
-			formatter.KeyValue("Similaridade", fmt.Sprintf("%.4f", sim))
+			formatter.KeyValue("Similaridade (fusão)", fmt.Sprintf("%.4f", sim))
+			formatter.KeyValue("Sinais", "unigram + bigram + MinHash")
 			return nil
 		},
 	}
