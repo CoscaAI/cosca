@@ -924,10 +924,63 @@ func (p *wasmPlugin) Stop() error {
 	return p.BasePlugin.Stop()
 }
 
+// Run executes o plugin WASM como UMA unidade efêmera ("função"/tool) — fecha o
+// gap de modelo que o LLRT apontou: o wasmPlugin só rodava como hook de ciclo de
+// vida (Start → _start), nunca como chamada de ferramenta.
+//
+// ABI (convenção documentada, em linha com "cold-path O(invocação)"):
+//   - params é passado como argv[1] do WASI (o módulo o lê via args_get);
+//   - a função de entrada é a primeira exportada "efêmera" com 0 parâmetros:
+//     run → execute → main → call (_start é o comando de ciclo de vida, já
+//     auto-executado pelo wazero na instanciação);
+//   - o resultado é o STDOUT capturado do módulo (módulo escreve a resposta).
+//
+// Reusa o CompiledModule PRÉ-AQUECIDO (CompilationCache compartilhado): a
+// compilação já foi feita no load; aqui apenas instanciamos (leve) e chamamos.
+// Determinístico (I1); sem autoridade extra (I8).
+func (p *wasmPlugin) Run(ctx context.Context, params string) (string, error) {
+	if p.runtime == nil || p.compiled == nil {
+		return "", fmt.Errorf("wasm plugin %q: not loaded/compiled", p.NameValue)
+	}
+	var out, errBuf bytes.Buffer
+	cfg := wazero.NewModuleConfig().
+		WithName(p.NameValue + "-run").
+		WithArgs(p.NameValue, params). // params em argv[1]
+		WithStdout(&out).
+		WithStderr(&errBuf)
+
+	mod, err := p.runtime.InstantiateModule(ctx, p.compiled, cfg)
+	if err != nil {
+		return "", fmt.Errorf("wasm run: instantiate: %w", err)
+	}
+	defer mod.Close(ctx)
+
+	fn, err := p.entryFunction(mod)
+	if err != nil {
+		return "", err
+	}
+	if _, err := fn.Call(ctx); err != nil {
+		return "", fmt.Errorf("wasm run: call %s: %w", fn.Definition().Name(), err)
+	}
+	return strings.TrimRight(out.String(), "\n"), nil
+}
+
+// entryFunction devolve a primeira função exportada "efêmera" com 0 parâmetros,
+// na convenção run → execute → main → call (NÃO usa _start, que é o comando de
+// ciclo de vida e já é auto-executado pelo wazero na instanciação). Funções que
+// exigem parâmetros numéricos são ignoradas (ABI indefinida para string).
+func (p *wasmPlugin) entryFunction(mod api.Module) (api.Function, error) {
+	for _, name := range []string{"run", "execute", "main", "call"} {
+		if fn := mod.ExportedFunction(name); fn != nil && len(fn.Definition().ParamTypes()) == 0 {
+			return fn, nil
+		}
+	}
+	return nil, fmt.Errorf("wasm plugin %q: no exported ephemeral entry (run|execute|main|call)", p.NameValue)
+}
+
 // Health returns the health status of the WASM plugin.
 func (p *wasmPlugin) Health() (PluginHealth, error) {
-	if p.runtime == nil {
-		return PluginHealth{
+	if p.runtime == nil {		return PluginHealth{
 			PluginID:  p.IDValue,
 			Status:    "unhealthy",
 			Message:   "WASM runtime not initialized",
