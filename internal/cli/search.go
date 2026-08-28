@@ -180,20 +180,29 @@ func NewSearchCodeCommand() *cobra.Command {
 	var limit int
 	var dim int
 	var saveIndex string
+	var useIndex string
 	cmd := &cobra.Command{
 		Use:   "code <query>",
 		Short: "Busca semântica determinística de código (para encontrar arquivos)",
 		Long: `Busca os arquivos de código mais similares à consulta, via embedding
 determinístico + fusão de sinais (unigram + bigram + MinHash). Zero LLM, zero
 rede (I1) — determinístico. Usa um índice RAM-first (F3) e publica atomicamente
-(opcional: --save-index).`,
+(opcional: --save-index). Pode reusar um índice já publicado (--use-index) para
+buscar sub-ms sem reescrever.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
 			useJSON := IsJSONOutput(cmd)
-			ix, err := codegraph.BuildIndex(dir, dim)
+			// F3: reusa um índice publicado (sub-ms, sem reescrever); senão constrói.
+			ix, err := codegraph.LoadIndex(useIndex)
 			if err != nil {
-				return fmt.Errorf("build code index: %w", err)
+				return fmt.Errorf("load index %q: %w", useIndex, err)
+			}
+			if ix == nil {
+				ix, err = codegraph.BuildIndex(dir, dim)
+				if err != nil {
+					return fmt.Errorf("build code index: %w", err)
+				}
 			}
 			hits := ix.SearchSimilar(args[0], limit)
 			// F3: publica atômico (fail-closed I2) — nunca deixa índice parcial.
@@ -208,6 +217,9 @@ rede (I1) — determinístico. Usa um índice RAM-first (F3) e publica atomicame
 			formatter.Header("Busca de código (semântica, determinística)")
 			formatter.KeyValue("Consulta", args[0])
 			formatter.KeyValue("Diretório", dir)
+			if useIndex != "" && ix != nil {
+				formatter.KeyValue("Índice", "reusado (publicado)")
+			}
 			formatter.KeyValue("Arquivos indexados", fmt.Sprintf("%d", len(ix.Signals)))
 			formatter.KeyValue("Resultados", fmt.Sprintf("%d", len(hits)))
 			rows := make([][]string, 0, len(hits))
@@ -226,6 +238,7 @@ rede (I1) — determinístico. Usa um índice RAM-first (F3) e publica atomicame
 	cmd.Flags().IntVar(&limit, "limit", 8, "número máximo de resultados")
 	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
 	cmd.Flags().StringVar(&saveIndex, "save-index", "", "publicar o índice atômico neste caminho (fail-closed I2)")
+	cmd.Flags().StringVar(&useIndex, "use-index", "", "reusar um índice já publicado (sub-ms, sem reescrever)")
 	return cmd
 }
 

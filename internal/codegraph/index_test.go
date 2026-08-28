@@ -50,6 +50,38 @@ func TestBuildIndex_RAMFirst_NoFileReRead(t *testing.T) {
 	}
 }
 
+func TestIndex_ReuseAfterLoad_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "http.go"), []byte("package api\nimport \"net/http\"\nfunc HandleRequest(w http.ResponseWriter, r *http.Request) { http.Handle(\"/route\", r) }\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "db.go"), []byte("package store\nimport \"database/sql\"\nfunc QueryDatabase(dsn, query string) (*sql.Rows, error) { return sql.Open(\"sqlite\", dsn) }\n"), 0o644)
+
+	ix, err := BuildIndex(dir, 256)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	idxPath := filepath.Join(t.TempDir(), "idx.json")
+	if err := ix.Save(idxPath); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	// Reusa o índice publicado — a busca NÃO pode depender do round-trip do grafo.
+	reused, err := LoadIndex(idxPath)
+	if err != nil || reused == nil {
+		t.Fatalf("load: %v", err)
+	}
+	fresh := ix.SearchSimilar("sqlite database query", 5)
+	loaded := reused.SearchSimilar("sqlite database query", 5)
+	if len(fresh) == 0 || len(loaded) != len(fresh) {
+		t.Fatalf("índice reusado deve dar mesmos resultados: fresh=%d loaded=%d", len(fresh), len(loaded))
+	}
+	if loaded[0].Path != "db.go" {
+		t.Fatalf("índice reusado: db.go deveria ser top, got %s", loaded[0].Path)
+	}
+	if loaded[0].Score != fresh[0].Score {
+		t.Fatalf("reusado deve ser determinístico (mesmo score): %f vs %f", loaded[0].Score, fresh[0].Score)
+	}
+}
+
 func TestIndex_AtomicPublish_FailClosed(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "x.go"), []byte("package x\nfunc F() {}\n"), 0o644)

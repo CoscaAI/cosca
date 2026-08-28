@@ -21,6 +21,14 @@ import (
 	"github.com/CoscaAI/cosca/internal/graph"
 )
 
+// FileMeta é a metadados auto-contida de um arquivo indexado (para a busca NÃO
+// depender do round-trip do grafo — que não é garantido via JSON).
+type FileMeta struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Lang string `json:"lang,omitempty"`
+}
+
 // Index é o índice em memória do code graph + sinais por arquivo.
 type Index struct {
 	Root     string                         `json:"root"`
@@ -28,6 +36,7 @@ type Index struct {
 	BuiltAt  time.Time                      `json:"built_at"`
 	Graph    *graph.Graph                   `json:"graph"`
 	Signals  map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
+	Meta     map[string]FileMeta            `json:"meta"`     // node ID (file) -> metadados (busca auto-contida)
 	Coverage Coverage                       `json:"coverage"`
 }
 
@@ -48,6 +57,7 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		BuiltAt:  time.Now().UTC(),
 		Graph:    g,
 		Signals:  map[string]codeembed.SignalSet{},
+		Meta:     map[string]FileMeta{},
 		Coverage: Coverage{Langs: map[string]int{}, BestEffort: true, BuiltAt: time.Now().UTC()},
 	}
 
@@ -62,6 +72,7 @@ func BuildIndex(root string, dim int) (*Index, error) {
 			continue
 		}
 		ix.Signals[fi.rel] = codeembed.Signals(string(content), dim)
+		ix.Meta[fi.rel] = FileMeta{Name: filepath.Base(fi.rel), Path: fi.rel, Lang: fi.lang}
 	}
 	ix.Coverage.IndexedFiles = len(ix.Signals)
 	ix.Coverage.CoversAll = ix.Coverage.SkippedFiles == 0
@@ -81,15 +92,14 @@ func (ix *Index) SearchSimilar(query string, limit int) []SearchHit {
 	var hits []SearchHit
 	for id, sig := range ix.Signals {
 		score := codeembed.Fuse(q, sig)
-		node, ok := ix.Graph.GetNode(id)
+		meta, ok := ix.Meta[id]
 		if !ok {
 			continue
 		}
-		lang, _ := metadataString(node, "lang")
 		hits = append(hits, SearchHit{
-			File:  node.Name,
-			Path:  node.Path,
-			Lang:  lang,
+			File:  meta.Name,
+			Path:  meta.Path,
+			Lang:  meta.Lang,
 			Score: score,
 		})
 	}
