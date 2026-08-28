@@ -86,7 +86,7 @@ func BenchmarkLimitInt16AVX2_N30M_Dim768(b *testing.B) {
 	chunk := n / workers
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results := make(chan int32, workers)
 		for w := 0; w < workers; w++ {
 			go func(lo, hi int) {

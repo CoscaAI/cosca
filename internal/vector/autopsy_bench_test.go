@@ -140,7 +140,7 @@ func autopsyQuery(dim int) []float64 {
 func BenchmarkAutopsyCosineSimilarity_Dim768(b *testing.B) {
 	a, c := autopsyQuery(autopsyDim), autopsyQuery(autopsyDim)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, _ = CosineSimilarity(a, c)
 	}
 }
@@ -148,7 +148,7 @@ func BenchmarkAutopsyCosineSimilarity_Dim768(b *testing.B) {
 func BenchmarkAutopsyNormalizeVector_Dim768(b *testing.B) {
 	v := autopsyQuery(autopsyDim)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = NormalizeVector(v)
 	}
 }
@@ -156,7 +156,7 @@ func BenchmarkAutopsyNormalizeVector_Dim768(b *testing.B) {
 // A/B: sqrt custom (Newton, até 100 iterações) vs math.Sqrt.
 func BenchmarkAutopsySqrtCustomNewton(b *testing.B) {
 	x := 12345.678
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		x = sqrt(x + 0.0001)
 	}
 	_ = x
@@ -164,7 +164,7 @@ func BenchmarkAutopsySqrtCustomNewton(b *testing.B) {
 
 func BenchmarkAutopsySqrtMathSqrt(b *testing.B) {
 	x := 12345.678
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		x = math.Sqrt(x + 0.0001)
 	}
 	_ = x
@@ -198,7 +198,7 @@ func benchDotFromBytes(b *testing.B, dim int) {
 	scratch := make([]float32, dim)
 	var acc float64
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		acc += dotFromBytes(q, blob, scratch, math.Sqrt(3.0))
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds()/1e9, "Gdots/s")
@@ -220,7 +220,7 @@ func BenchmarkAutopsyDecodeFloat32Only_Dim768(b *testing.B) {
 	scratch := make([]float32, dim)
 	var acc float32
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		for j := range scratch {
 			scratch[j] = math.Float32frombits(uint32(blob[j*4]) | uint32(blob[j*4+1])<<8 | uint32(blob[j*4+2])<<16 | uint32(blob[j*4+3])<<24)
 		}
@@ -240,7 +240,7 @@ func BenchmarkAutopsyBytesToFloat32Slice_Dim768(b *testing.B) {
 		blob[d*4+3] = byte(u >> 24)
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = bytesToFloat32Slice(blob)
 	}
 }
@@ -254,7 +254,7 @@ func BenchmarkAutopsyTopKFullSort_N100000(b *testing.B) {
 		scores[i] = scoredRow{id: fmt.Sprintf("%d", i), score: rng.Float64()}
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		sort.Slice(scores, func(a, c int) bool { return scores[a].score > scores[c].score })
 	}
 }
@@ -283,7 +283,7 @@ func benchScoreSerial(b *testing.B, count, dim int) {
 		normA += v * v
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = scoreSerial(q, rows, 10, math.Sqrt(normA))
 	}
 	b.ReportMetric(float64(count)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -298,7 +298,7 @@ func benchScoreParallel(b *testing.B, count, dim int) {
 		normA += v * v
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = scoreParallel(q, rows, 10)
 	}
 	b.ReportMetric(float64(count)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -335,7 +335,7 @@ func benchSQLiteSearch(b *testing.B, count, dim, limit int) {
 	store := autopsyStore(b, dim, count)
 	q := autopsyQuery(dim)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res, err := store.Search(q, limit)
 		if err != nil {
 			b.Fatalf("search: %v", err)
@@ -357,7 +357,7 @@ func BenchmarkAutopsySQLiteSearchCandidates_N100000_Dim768(b *testing.B) {
 		candidates[i] = fmt.Sprintf("auto-%d", 10000+i)
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res, err := store.SearchWithCandidates(q, 8, candidates, 250, nil)
 		if err != nil {
 			b.Fatalf("candidate search: %v", err)

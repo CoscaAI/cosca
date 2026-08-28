@@ -150,7 +150,7 @@ func BenchmarkFTS5SearchDocuments(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -173,7 +173,7 @@ func BenchmarkFTS5SearchChunks(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -195,7 +195,7 @@ func BenchmarkFTS5SearchAllTables(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -218,7 +218,7 @@ func BenchmarkFTS5SearchSingleTerm(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -242,7 +242,7 @@ func BenchmarkFTS5SearchLargeScale(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -265,7 +265,7 @@ func BenchmarkFTS5WithEdgeCasePhrase(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, count, err := ftsClient.Search(params)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -287,7 +287,7 @@ func BenchmarkFTS5IndexDocument(b *testing.B) {
 	docType := "markdown"
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		// Cleanup previous
 		_, _ = rawConn.Exec("INSERT INTO documents_fts(documents_fts, rowid, title, content, doc_type) VALUES ('delete', ?, '', '', '')", id)
 		err := ftsClient.IndexDocument(id, title, content, docType)
@@ -307,7 +307,7 @@ func BenchmarkFTS5IndexChunk(b *testing.B) {
 	sectionType := "text"
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, _ = rawConn.Exec("INSERT INTO chunks_fts(chunks_fts, rowid, content, heading, section_type) VALUES ('delete', ?, '', '', '')", id)
 		err := ftsClient.IndexChunk(id, content, heading, sectionType)
 		if err != nil {
@@ -323,7 +323,7 @@ func BenchmarkFTS5CountQuery(b *testing.B) {
 	populateFTSBenchDB(b, rawConn, 100, 500, 50, 30)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		var count int
 		err := rawConn.QueryRow("SELECT COUNT(*) FROM documents_fts WHERE documents_fts MATCH ?", "\"performance\"").Scan(&count)
 		if err != nil {
@@ -337,7 +337,7 @@ func BenchmarkFTS5CountQuery(b *testing.B) {
 func BenchmarkSanitizeFTSQuery_Simple(b *testing.B) {
 	query := "knowledge engine performance"
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = SanitizeFTSQuery(query)
 	}
 }
@@ -345,7 +345,7 @@ func BenchmarkSanitizeFTSQuery_Simple(b *testing.B) {
 func BenchmarkSanitizeFTSQuery_Complex(b *testing.B) {
 	query := "search \"FTS5\" optimization (BM25 OR cosine)"
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = SanitizeFTSQuery(query)
 	}
 }
@@ -363,7 +363,7 @@ func BenchmarkFTS5RebuildIndex(b *testing.B) {
 	ftsClient := NewFTSClient(dbi)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		err := ftsClient.RebuildIndex()
 		if err != nil {
 			b.Fatalf("rebuild failed: %v", err)
@@ -378,7 +378,7 @@ func BenchmarkDashboardDocCountQuery(b *testing.B) {
 	populateFTSBenchDB(nil, rawConn, 1000, 5000, 200, 150)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		var count int
 		_ = rawConn.QueryRow("SELECT COUNT(*) FROM documents").Scan(&count)
 	}
@@ -389,7 +389,7 @@ func BenchmarkDashboardChunkCountQuery(b *testing.B) {
 	populateFTSBenchDB(nil, rawConn, 1000, 5000, 200, 150)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		var count int
 		_ = rawConn.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&count)
 	}
@@ -400,7 +400,7 @@ func BenchmarkDashboardAllStatsQueries(b *testing.B) {
 	populateFTSBenchDB(nil, rawConn, 1000, 5000, 200, 150)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		// Simulate GetStats() - 6 separate DB queries
 		var docCount, chunkCount, entityCount, vecCount int
 		_ = rawConn.QueryRow("SELECT COUNT(*) FROM documents").Scan(&docCount)
@@ -421,7 +421,7 @@ func BenchmarkExplainQueryPlan_FTS5(b *testing.B) {
 	populateFTSBenchDB(nil, rawConn, 100, 500, 50, 30)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		rows, err := rawConn.Query("EXPLAIN QUERY PLAN SELECT rank, rowid, title, content, doc_type FROM documents_fts WHERE documents_fts MATCH ?", "\"performance\"")
 		if err != nil {
 			b.Fatalf("explain failed: %v", err)

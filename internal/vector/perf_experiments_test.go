@@ -567,7 +567,7 @@ func BenchmarkExpReadFloor_N100000_Dim768(b *testing.B) {
 	gen := store.index.gen.Load()
 	var acc float64
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		acc += expReadFloor(gen)
 	}
 	b.ReportMetric(float64(100000)*float64(autopsyDim)*4*float64(b.N)/b.Elapsed().Seconds()/1e9, "GB/s")
@@ -584,7 +584,7 @@ func BenchmarkExpDotOnly_N100000_Dim768(b *testing.B) {
 	}
 	gen := store.index.gen.Load()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		dot, nb := expDotOnly(gen, q, 0, gen.n)
 		_ = dot
 		_ = nb
@@ -639,7 +639,7 @@ func BenchmarkExpDotOnlyParallel_N100000_Dim768(b *testing.B) {
 	gen := store.index.gen.Load()
 	var acc float64
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		acc += expDotOnlyParallel(gen, q, 0)
 	}
 	b.ReportMetric(float64(100000)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -696,7 +696,7 @@ func BenchmarkExpReadFloorParallel_N100000_Dim768(b *testing.B) {
 	gen := store.index.gen.Load()
 	var acc float64
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		acc += expReadFloorParallel(gen, 0)
 	}
 	b.ReportMetric(float64(100000)*float64(autopsyDim)*4*float64(b.N)/b.Elapsed().Seconds()/1e9, "GB/s")
@@ -792,7 +792,7 @@ func BenchmarkExpTopKLazyID_N100000_Dim768_L10(b *testing.B) {
 	}
 	sqrtNormA := math.Sqrt(normA)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = expScoreParallelTopKLazyID(gen, q, 10, 0, sqrtNormA)
 	}
 	b.ReportMetric(float64(100000)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -847,7 +847,7 @@ func benchExpKernel(b *testing.B, count, limit, workers int, kernel expKernel) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		var r []scoredRow
 		switch kernel {
 		case expKernelBaseline:

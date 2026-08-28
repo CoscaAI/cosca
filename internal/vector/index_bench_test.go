@@ -31,7 +31,7 @@ func benchSQLPath(b *testing.B, count, dim, limit int) {
 	store.indexEnabled.Store(false)
 	q := autopsyQuery(dim)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res, err := store.Search(q, limit)
 		if err != nil {
 			b.Fatalf("search: %v", err)
@@ -61,7 +61,7 @@ func benchIndexWarm(b *testing.B, count, dim, limit int) {
 		b.Fatalf("warm search: %v", err)
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res, err := store.Search(q, limit)
 		if err != nil {
 			b.Fatalf("search: %v", err)
@@ -81,7 +81,7 @@ func BenchmarkIndexCold_N100000_Dim768(b *testing.B) {
 	store.indexEnabled.Store(true)
 	q := autopsyQuery(autopsyDim)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		store.index.invalidate()
 		res, err := store.Search(q, 10) // reconstrói o snapshot + busca
 		if err != nil {
@@ -100,7 +100,7 @@ func BenchmarkIndexLoad_N100000_Dim768(b *testing.B) {
 	store := autopsyStore(b, autopsyDim, 100000)
 	store.index.invalidate()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		gen, err := store.index.loadGeneration()
 		if err != nil {
 			b.Fatalf("load: %v", err)
@@ -127,7 +127,7 @@ func benchIndexScoreOnly(b *testing.B, count, dim, limit int) {
 	}
 	gen := store.index.gen.Load()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = gen.score(q, limit)
 	}
 	b.ReportMetric(float64(count)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -158,7 +158,7 @@ func benchIndexScoreOnly8(b *testing.B, count, dim, limit int) {
 	}
 	gen := store.index.gen.Load()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = gen.score8(q, limit)
 	}
 	b.ReportMetric(float64(count)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")
@@ -185,7 +185,7 @@ func benchIndexWorkers(b *testing.B, count, workers int) {
 	}
 	sqrtNormA := math.Sqrt(normA)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = gen.scoreParallel(q, 10, workers, sqrtNormA)
 	}
 	b.ReportMetric(float64(count)*float64(b.N)/b.Elapsed().Seconds()/1e6, "Mvec/s")

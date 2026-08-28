@@ -20,7 +20,7 @@ func BenchmarkMemoryStore(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.Store(ctx, record)
 		if err != nil {
 			b.Fatal(err)
@@ -49,7 +49,7 @@ func BenchmarkMemorySearch(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.Search(ctx, "test", SearchOptions{Limit: 20})
 		if err != nil {
 			b.Fatal(err)
@@ -58,7 +58,7 @@ func BenchmarkMemorySearch(b *testing.B) {
 }
 
 func BenchmarkMemoryEngineCreation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		e, err := NewEngine(WithConfig(EngineConfig{DataDir: b.TempDir()}))
 		if err != nil {
 			b.Fatal(err)
@@ -85,7 +85,7 @@ func BenchmarkMemoryRetrieve(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.Retrieve(ctx, saved.ID, LayerProject)
 		if err != nil {
 			b.Fatal(err)
@@ -103,7 +103,7 @@ func BenchmarkMemoryDelete(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		saved, err := e.Store(ctx, MemoryRecord{
 			Type:    MemoryTypeDecision,
 			Layer:   LayerProject,

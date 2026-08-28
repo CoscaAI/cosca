@@ -32,7 +32,7 @@ func BenchmarkFTS5Search(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := engine.Search(ctx, params)
 		if err != nil {
 			b.Fatal(err)
@@ -41,7 +41,7 @@ func BenchmarkFTS5Search(b *testing.B) {
 }
 
 func BenchmarkSearchEngineCreation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = DefaultSearchParams()
 	}
 }
@@ -56,7 +56,7 @@ func BenchmarkSearchParamsValidation(b *testing.B) {
 		EnableFacets: false,
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		if params.Query == "" && len(params.Types) == 0 && params.Path == "" {
 			b.Fatal("query or filter required")
 		}
@@ -72,7 +72,7 @@ func BenchmarkResultSorting(b *testing.B) {
 		}
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		for j := 0; j < len(results); j++ {
 			for k := j + 1; k < len(results); k++ {
 				if results[k].Score > results[j].Score {
@@ -107,7 +107,7 @@ func BenchmarkSearch_GraphOnly(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := engine.Search(context.Background(), params)
 		if err != nil {
 			b.Fatal(err)
@@ -141,7 +141,7 @@ func BenchmarkSearch_VectorOnly(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := engine.Search(context.Background(), params)
 		if err != nil {
 			b.Fatal(err)
@@ -190,7 +190,7 @@ func BenchmarkSearch_Hybrid(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := engine.Search(context.Background(), params)
 		if err != nil {
 			b.Fatal(err)
@@ -224,7 +224,7 @@ func BenchmarkSearch_ResultDedup(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := engine.Search(context.Background(), params)
 		if err != nil {
 			b.Fatal(err)
@@ -260,7 +260,7 @@ func BenchmarkSearch_FacetsEnabled(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := engine.Search(context.Background(), params)
 		if err != nil {
 			b.Fatal(err)
@@ -273,7 +273,7 @@ func BenchmarkSearch_FacetsEnabled(b *testing.B) {
 func BenchmarkSearch_Suggestions(b *testing.B) {
 	engine := NewEngine(nil, nil, nil, nil, nil)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = engine.generateSuggestions("performance optimization")
 	}
 }
@@ -282,7 +282,7 @@ func BenchmarkSearch_Suggestions(b *testing.B) {
 func BenchmarkResolveFTSTables(b *testing.B) {
 	types := []string{"document", "chunk", "entity", "code_block"}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = resolveFTSTables(types)
 	}
 }
@@ -291,7 +291,7 @@ func BenchmarkResolveFTSTables(b *testing.B) {
 func BenchmarkTruncateContent(b *testing.B) {
 	content := "This is a long content string that needs to be truncated for display purposes in search results."
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = truncateContent(content, 50)
 	}
 }
@@ -300,7 +300,7 @@ func BenchmarkTruncateContent(b *testing.B) {
 func BenchmarkGenerateSnippet(b *testing.B) {
 	content := "The Cosca knowledge engine provides hybrid search combining FTS5 full-text search with vector similarity and graph traversal."
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = generateSnippet(content, "hybrid search", 100)
 	}
 }
@@ -308,7 +308,7 @@ func BenchmarkGenerateSnippet(b *testing.B) {
 // BenchmarkSearchResultCreation measures struct allocation overhead.
 func BenchmarkSearchResultCreation(b *testing.B) {
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = SearchResult{
 			ID:           "result-1",
 			Type:         ResultDocument,
@@ -333,7 +333,7 @@ func BenchmarkSearchResultCreation(b *testing.B) {
 func BenchmarkSearch_FTS5TableToResultType(b *testing.B) {
 	tables := []string{"documents_fts", "chunks_fts", "entities_fts", "code_blocks_fts"}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		for _, t := range tables {
 			_ = ftsTableToResultType(t)
 		}

@@ -20,7 +20,7 @@ func BenchmarkPluginManifestValidation(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		if err := m.Validate(); err != nil {
 			b.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func BenchmarkBasePluginLifecycle(b *testing.B) {
 	baseDir := b.TempDir()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		p := &BasePlugin{
 			IDValue:      "bench-plugin",
 			NameValue:    "Bench Plugin",
@@ -58,7 +58,7 @@ func BenchmarkBasePluginHealth(b *testing.B) {
 	_ = p.Start()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := p.Health()
 		if err != nil {
 			b.Fatal(err)
@@ -68,7 +68,7 @@ func BenchmarkBasePluginHealth(b *testing.B) {
 
 func BenchmarkPluginContextCreation(b *testing.B) {
 	baseDir := b.TempDir()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = NewPluginContext(
 			map[string]interface{}{"key": "value"},
 			nil,
@@ -87,7 +87,7 @@ func BenchmarkPluginManifestValidationInvalid(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = m.Validate()
 	}
 }

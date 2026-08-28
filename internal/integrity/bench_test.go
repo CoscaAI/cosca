@@ -26,7 +26,7 @@ func BenchmarkParallelFileHashes(b *testing.B) {
 	block := Block{Number: 1, HashAlgo: HashBLAKE3, Manifest: manifest}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		verifyFileHashes(root, &block, 1)
 	}
 }
@@ -49,7 +49,7 @@ func BenchmarkParallelFileHashesWorkers(b *testing.B) {
 	block := Block{Number: 1, HashAlgo: HashBLAKE3, Manifest: manifest}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		verifyFileHashes(root, &block, fileHashWorkers)
 	}
 }

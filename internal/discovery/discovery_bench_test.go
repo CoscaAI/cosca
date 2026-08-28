@@ -9,13 +9,13 @@ import (
 )
 
 func BenchmarkDiscoveryEngineCreation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = NewEngine()
 	}
 }
 
 func BenchmarkDiscoveryEngineCreationWithOptions(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = NewEngine(
 			WithWorkDir("/tmp"),
 			WithLogger(zerolog.Nop()),
@@ -29,7 +29,7 @@ func BenchmarkDiscoverProject(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.DiscoverProject(ctx)
 		if err != nil {
 			// Project discovery may fail in some environments; not fatal for benchmark
@@ -43,7 +43,7 @@ func BenchmarkDiscoverWorkspace(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.DiscoverWorkspace(ctx)
 		if err != nil {
 			_ = err
@@ -56,7 +56,7 @@ func BenchmarkDiscoverRuntime(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.DiscoverRuntime(ctx)
 		if err != nil {
 			_ = err
@@ -69,7 +69,7 @@ func BenchmarkDiscoverEnvironment(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_, err := e.DiscoverEnvironment(ctx)
 		if err != nil {
 			_ = err

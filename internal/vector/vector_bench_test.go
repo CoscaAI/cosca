@@ -87,7 +87,7 @@ func BenchmarkVectorSearch_100Vectors(b *testing.B) {
 	query := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := store.Search(query, 10)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -102,7 +102,7 @@ func BenchmarkVectorSearch_500Vectors(b *testing.B) {
 	query := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := store.Search(query, 10)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -117,7 +117,7 @@ func BenchmarkVectorSearch_1000Vectors(b *testing.B) {
 	query := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := store.Search(query, 10)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -132,7 +132,7 @@ func BenchmarkVectorSearch_5000Vectors(b *testing.B) {
 	query := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := store.Search(query, 10)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -150,7 +150,7 @@ func BenchmarkVectorSearch_10000Vectors(b *testing.B) {
 	query := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		results, err := store.Search(query, 10)
 		if err != nil {
 			b.Fatalf("search failed: %v", err)
@@ -166,7 +166,7 @@ func BenchmarkVectorStore_Insert(b *testing.B) {
 	vec := generateRandomVector(128)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		records := []VectorRecord{
 			{
 				ID:      fmt.Sprintf("bench-%d", i),
@@ -188,7 +188,7 @@ func BenchmarkVectorStore_BatchInsert(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		records := make([]VectorRecord, 50)
 		for j := 0; j < 50; j++ {
 			records[j] = VectorRecord{
@@ -208,7 +208,7 @@ func BenchmarkVectorStore_BatchInsert(b *testing.B) {
 func BenchmarkFloat32SliceToBytes_128d(b *testing.B) {
 	vec := generateRandomVector(128)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = float32SliceToBytes(vec)
 	}
 }
@@ -217,7 +217,7 @@ func BenchmarkBytesToFloat32Slice_128d(b *testing.B) {
 	vec := generateRandomVector(128)
 	raw := float32SliceToBytes(vec)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		_ = bytesToFloat32Slice(raw)
 	}
 }

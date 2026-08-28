@@ -41,7 +41,7 @@ func benchFullSearch(b *testing.B, count, limit int) {
 		b.Fatalf("warm search: %v", err)
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res, err := store.Search(q, limit)
 		if err != nil {
 			b.Fatalf("search: %v", err)
@@ -65,7 +65,7 @@ func benchScoreOnly(b *testing.B, count, limit int) {
 	}
 	gen := store.index.gen.Load()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		res := gen.score(q, limit)
 		if len(res) > limit {
 			b.Fatalf("results %d > limit %d", len(res), limit)

@@ -1061,7 +1061,7 @@ domain: test
 // ── Benchmark ────────────────────────────────────────────────────────────────
 
 func BenchmarkCompiler_CompileCategory(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		db, err := sql.Open("sqlite", ":memory:")
 		if err != nil {
 			b.Fatal(err)
