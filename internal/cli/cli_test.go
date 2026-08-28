@@ -68,6 +68,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"validate",
 		"benchmark",
 		"perf",
+		"codeembed",
 		"stage",
 		"symbols",
 		"embed",

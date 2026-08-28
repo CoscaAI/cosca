@@ -138,6 +138,7 @@ Documentation: https://cosca.enterprise/docs
 		NewValidateCommand(),
 		NewBenchmarkCommand(),
 		NewPerfCommand(),
+		NewCodeEmbedCommand(),
 		NewStageCommand(),
 		NewSymbolsCommand(),
 		NewEmbedCommand(),
