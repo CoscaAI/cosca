@@ -46,6 +46,9 @@ type SecretMatch struct {
 	Line   int    `json:"line"`
 	Column int    `json:"column"`
 	Length int    `json:"length"`
+	// Start/End são offsets de bytes no texto (para mascaramento por faixa).
+	Start int `json:"start,omitempty"`
+	End   int `json:"end,omitempty"`
 	// Value é o segredo detectado (NUNCA exposto em texto; mascarado).
 	Value string `json:"value,omitempty"`
 	// Masked é a forma segura de exibir (ex: AKIA********...).
@@ -137,6 +140,8 @@ func DetectBytes(data []byte, source string) *SecretScanResult {
 				Line:     line,
 				Column:   col,
 				Length:   end - start,
+				Start:    start,
+				End:      end,
 				Value:    value,
 				Masked:   mask(value),
 			})
