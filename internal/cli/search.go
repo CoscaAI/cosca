@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/config"
+	"github.com/CoscaAI/cosca/internal/codegraph"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/oracle"
 	"github.com/CoscaAI/cosca/internal/search"
@@ -165,8 +166,60 @@ Flags:
 	cmd.Flags().StringVar(&searchTTL, "ttl", "", "fingerprint cache TTL (e.g. 10m, 1h) — enables the fingerprint knowledge cache for this search")
 
 	cmd.AddCommand(NewSearchLayeredCommand())
+	cmd.AddCommand(NewSearchCodeCommand())
 	cmd.AddCommand(NewSearchCacheCommand())
 
+	return cmd
+}
+
+// NewSearchCodeCommand cria `cosca search code <query>` — busca semântica
+// determinística de código (ADR-019), zero LLM/zero rede (I1), dentro do
+// umbrella de busca do conhecimento.
+func NewSearchCodeCommand() *cobra.Command {
+	var dir string
+	var limit int
+	var dim int
+	cmd := &cobra.Command{
+		Use:   "code <query>",
+		Short: "Busca semântica determinística de código (para encontrar arquivos)",
+		Long: `Busca os arquivos de código mais similares à consulta, via embedding
+determinístico + fusão de sinais (unigram + bigram + MinHash). Zero LLM, zero
+rede (I1) — determinístico. Retorna os arquivos do codebase que "se parecem" em
+estrutura/semântica com a consulta.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+			g, err := codegraph.BuildGraph(dir)
+			if err != nil {
+				return fmt.Errorf("build code graph: %w", err)
+			}
+			hits, err := codegraph.SearchSimilar(g, dir, args[0], limit, dim)
+			if err != nil {
+				return fmt.Errorf("code search: %w", err)
+			}
+			if useJSON {
+				return printJSON(cmd, map[string]interface{}{"type": "code", "query": args[0], "results": hits})
+			}
+			formatter.Header("Busca de código (semântica, determinística)")
+			formatter.KeyValue("Consulta", args[0])
+			formatter.KeyValue("Diretório", dir)
+			formatter.KeyValue("Resultados", fmt.Sprintf("%d", len(hits)))
+			rows := make([][]string, 0, len(hits))
+			for _, h := range hits {
+				rows = append(rows, []string{h.Path, fmt.Sprintf("%.3f", h.Score)})
+			}
+			if len(rows) > 0 {
+				formatter.Table([]string{"Arquivo", "Score"}, rows)
+			} else {
+				formatter.Warning("Nenhum arquivo de código correspondente (fail-open).")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&dir, "dir", ".", "diretório raiz do codebase a indexar")
+	cmd.Flags().IntVar(&limit, "limit", 8, "número máximo de resultados")
+	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
 	return cmd
 }
 
