@@ -49,6 +49,13 @@ type Skill struct {
 	// loaded on demand via GetResource.
 	Resources []SkillResource `json:"resources,omitempty" yaml:"resources,omitempty"`
 
+	// Governance holds the F1 artifact metadata (provenance, evidence, version
+	// provenance, author/origin, scope, preconditions, dependencies, benchmark,
+	// success rate, known regressions, TTL/aging, lifecycle status). It is
+	// omitempty so existing skills and serializations are unchanged —
+	// backward compatible (cláusula de avô).
+	Governance SkillGovernance `json:"governance,omitempty" yaml:"governance,omitempty"`
+
 	// Dir is the skill's directory relative to the skills root ("/" separated).
 	Dir string `json:"dir,omitempty" yaml:"dir,omitempty"`
 	// Embedded reports whether the skill was loaded from the compiled-in
@@ -70,6 +77,58 @@ type SkillResource struct {
 	Path string `json:"path" yaml:"path"`
 	Kind string `json:"kind" yaml:"kind"` // script | reference | asset
 }
+
+// SkillGovernance é a metadata de governança do artefato de skill (F1 §3).
+// Todos os campos são omitempty para manter compatibilidade com skills legadas.
+type SkillGovernance struct {
+	// Origin é a origem do artefato: human | agent | evolution | imported (I3).
+	Origin string `json:"origin,omitempty" yaml:"origin,omitempty"`
+	// Scope é o domínio/módulo onde a skill vale (aditivo ao Category).
+	Scope string `json:"scope,omitempty" yaml:"scope,omitempty"`
+	// Preconditions descreve o que precisa existir antes de usar a skill.
+	Preconditions []string `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	// Dependencies são skills/engines/tool/modelos dos quais a skill depende.
+	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	// ProvenanceID referencia um provenance.Claim ("de onde nasceu") — I3.
+	ProvenanceID string `json:"provenance_id,omitempty" yaml:"provenance_id,omitempty"`
+	// EvidenceRefs referenciam trace.Event que justificam a criação — evidência.
+	EvidenceRefs []string `json:"evidence_refs,omitempty" yaml:"evidence_refs,omitempty"`
+	// BenchmarkRef referencia o skilleval benchmark (median+IQR) da skill.
+	BenchmarkRef string `json:"benchmark_ref,omitempty" yaml:"benchmark_ref,omitempty"`
+	// SuccessRate é a taxa de sucesso derivada do benchmark (Condition.MedianScore).
+	SuccessRate float64 `json:"success_rate,omitempty" yaml:"success_rate,omitempty"`
+	// KnownRegressions são os resultados históricos de regressão (holdout).
+	KnownRegressions []string `json:"known_regressions,omitempty" yaml:"known_regressions,omitempty"`
+	// TTL é a política de aging (ex.: "168h") — reusa o conceito das camadas de memória.
+	TTL string `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	// Grandfathered marca skills existentes sem benchmark (cláusula de avô — I1).
+	Grandfathered bool `json:"grandfathered,omitempty" yaml:"grandfathered,omitempty"`
+	// GatePassed registra se o gate determinístico passou (I1/I2).
+	GatePassed bool `json:"gate_passed,omitempty" yaml:"gate_passed,omitempty"`
+	// Status é o estado do ciclo de vida unificado (F1 §5).
+	Status LifecycleState `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
+}
+
+// Lifecycle retorna o estado de ciclo de vida da skill, aplicando a cláusula de
+// avô (default active para skills em produção sem governança explícita).
+func (s *Skill) Lifecycle() LifecycleState {
+	if !ValidLifecycle(s.Governance.Status) {
+		return DefaultLifecycle()
+	}
+	return s.Governance.Status
+}
+
+// SetLifecycle define o estado de ciclo de vida da skill (valida o valor).
+func (s *Skill) SetLifecycle(st LifecycleState) error {
+	if !ValidLifecycle(st) {
+		return fmt.Errorf("invalid lifecycle state %q", st)
+	}
+	s.Governance.Status = st
+	return nil
+}
+
+// IsGrandfathered reports se a skill é legado sem benchmark (cláusula de avô).
+func (s *Skill) IsGrandfathered() bool { return s.Governance.Grandfathered }
 
 // Resource kind constants, matching the Agent Skills standard directory names.
 const (
@@ -1123,7 +1182,22 @@ func parseStatusLine(line string, skill *Skill) {
 		if strings.HasPrefix(pair, "**Version**:") {
 			skill.Version = strings.TrimSpace(strings.TrimPrefix(pair, "**Version**:"))
 		} else if strings.HasPrefix(pair, "**Status**:") {
-			// Store status as a pseudo-category or ignore for now.
+			// Antes ignorado; agora alimenta o ciclo de vida do artefato (F1).
+			st := strings.TrimSpace(strings.TrimPrefix(pair, "**Status**:"))
+			switch strings.ToLower(st) {
+			case "active", "published":
+				skill.Governance.Status = LifecycleActive
+			case "draft", "proposed", "pending":
+				skill.Governance.Status = LifecycleProposed
+			case "quarantined", "quarantine", "validating":
+				skill.Governance.Status = LifecycleQuarantined
+			case "validated", "promoted":
+				skill.Governance.Status = LifecycleValidated
+			case "deprecated", "archived":
+				skill.Governance.Status = LifecycleDeprecated
+			default:
+				// desconhecido → deixa o default (active/avô).
+			}
 		} else if strings.HasPrefix(pair, "**Owner**:") {
 			skill.Category = strings.TrimSpace(strings.TrimPrefix(pair, "**Owner**:"))
 		}
