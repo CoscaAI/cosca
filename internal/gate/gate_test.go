@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // newTestStore abre um GateStore em um diretório temporário.
@@ -486,5 +487,40 @@ func TestNormalizeID(t *testing.T) {
 	}
 	if _, err := NormalizeID("X-0001"); err == nil {
 		t.Error("NormalizeID of a non-gate id should fail")
+	}
+}
+
+// =============================================================================
+// fmtTime deve produzir largura fracionária FIXA (sortable) — regressão para
+// o bug do RFC3339Nano (largura variável quebra ORDER BY updated_at DESC).
+// =============================================================================
+
+func TestFmtTimeSortable_FixedWidth(t *testing.T) {
+	cases := []time.Time{
+		time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC),
+		time.Date(2026, 8, 28, 12, 0, 0, 500000000, time.UTC),
+		time.Date(2026, 8, 28, 12, 0, 1, 1, time.UTC),
+	}
+	for _, c := range cases {
+		s := fmtTime(c)
+		idx := strings.Index(s, ".")
+		if idx < 0 {
+			t.Fatalf("%q: sem ponto fracionário", s)
+		}
+		frac := s[idx+1 : idx+10]
+		if len(frac) != 9 {
+			t.Fatalf("fração não é fixa (esperava 9 dígitos): %q", s)
+		}
+	}
+}
+
+func TestFmtTimeLexicographicMatchesTime(t *testing.T) {
+	before := time.Date(2026, 8, 28, 12, 0, 0, 500000000, time.UTC)
+	after := time.Date(2026, 8, 28, 12, 0, 0, 500000001, time.UTC)
+	sb := fmtTime(before)
+	sa := fmtTime(after)
+	// No código antigo (RFC3339Nano) sb=".5Z" > sa=".500000001Z" → ordena errado.
+	if !(sb < sa) {
+		t.Fatalf("ordem lexicográfica não segue o tempo: %q < %q = %v (bug de largura variável)", sb, sa, sb < sa)
 	}
 }

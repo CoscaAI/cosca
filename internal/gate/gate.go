@@ -475,11 +475,16 @@ func NormalizeID(id string) (string, error) {
 	return NextID(n), nil
 }
 
-// fmtTime serializa um time.Time como RFC3339Nano UTC (texto legível no
-// SQLite). Nano assegura ordenação determinística (updated_at DESC) mesmo
-// para transições no mesmo segundo.
+// fmtTime serializa um time.Time como RFC3339 UTC com FRACÃO FIXA (9 dígitos,
+// zero-padded). Nano é armazenada como TEXT e ordenada com ORDER BY updated_at
+// DESC — para isso a largura da fração DEVE ser fixa: time.RFC3339Nano remove
+// zeros à direita ("0.5Z" vs "0.500000001Z"), e lexicograficamente "0.5Z" >
+// "0.500000001Z" mesmo sendo um instante ANTERIOR → ordenação errada. A forma
+// "0.000000000" é sortable e preserva nanossegundo.
+const sortableRFC3339Nano = "2006-01-02T15:04:05.000000000Z07:00"
+
 func fmtTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
+	return t.UTC().Format(sortableRFC3339Nano)
 }
 
 // parseTime reconstrói um time.Time a partir do texto RFC3339(Nano); devolve
