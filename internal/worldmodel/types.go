@@ -148,6 +148,46 @@ type WorldEntity struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 	LastSeen    time.Time         `json:"last_seen"`
 	Persistent  bool              `json:"persistent"`   // survives between frames
+	// Visibility é o estado EPISTÊMICO (I4) — "saber ≠ ver" (mineração
+	// see-through-walls: a oclusão é um fato epistêmico, não só geometria).
+	// O sistema pode SABER a posição mesmo sem VER a entidade agora.
+	Visibility Visibility `json:"visibility,omitempty"`
+	// OccludedBy lista entidades que ocluem esta (conhecida mas temporariamente
+	// não-visível). Mundo continua sabendo onde ela está.
+	OccludedBy []string `json:"occluded_by,omitempty"`
+}
+
+// Visibility é o estado epistêmico de uma entidade (I4 — conceito "saber vs ver").
+type Visibility string
+
+const (
+	VisibilityCurrent  Visibility = "current"  // vista agora (MEASURED)
+	VisibilityStale    Visibility = "stale"    // última posição conhecida, não vista agora
+	VisibilityInferred Visibility = "inferred" // deduzida (persistente/espacial) — INFERRED
+)
+
+// KnownPosition informa se o sistema SABE a posição da entidade — mesmo quando
+// ela não está sendo vista (ex.: oclusão, "ver através da parede"). I4.
+// Vale para QUALQUER estado epistêmico (current=ver, stale/inferred=saber sem ver).
+func (e WorldEntity) KnownPosition() bool {
+	if e.Persistent {
+		return true
+	}
+	if e.Visibility != "" {
+		return true
+	}
+	return !e.LastSeen.IsZero()
+}
+
+// KnownKind devolve o rótulo epistêmico bruto (I4): CURRENT/STALE/INFERRED.
+func (e WorldEntity) KnownKind() Visibility {
+	if e.Visibility != "" {
+		return e.Visibility
+	}
+	if e.Persistent || !e.LastSeen.IsZero() {
+		return VisibilityStale
+	}
+	return VisibilityCurrent
 }
 
 // Hash returns a content hash of the entity (for deduplication).
