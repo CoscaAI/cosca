@@ -21,6 +21,10 @@ type Symbol struct {
 	Signature string `json:"signature,omitempty"`
 	Package   string `json:"package"`
 	Doc       string `json:"doc,omitempty"`
+	// Offset e Length são o byte-range do símbolo no arquivo cru (para
+	// byte-offset O(1) retrieval — ~80-99% menos tokens, ADR-020).
+	Offset int `json:"offset,omitempty"`
+	Length int `json:"length,omitempty"`
 }
 
 // ExtractFile extrai os símbolos de um único arquivo Go.
@@ -53,6 +57,8 @@ func ExtractFile(path string) ([]Symbol, error) {
 				Signature: sig,
 				Package:   pkgName,
 				Doc:       docText(d.Doc),
+				Offset:    fset.Position(d.Pos()).Offset,
+				Length:    fset.Position(d.End()).Offset - fset.Position(d.Pos()).Offset,
 			})
 		case *ast.GenDecl:
 			for _, spec := range d.Specs {
@@ -74,6 +80,8 @@ func ExtractFile(path string) ([]Symbol, error) {
 					Line:    fset.Position(ts.Pos()).Line,
 					Package: pkgName,
 					Doc:     docText(d.Doc),
+					Offset:  fset.Position(ts.Pos()).Offset,
+					Length:  fset.Position(ts.End()).Offset - fset.Position(ts.Pos()).Offset,
 				})
 			}
 		}

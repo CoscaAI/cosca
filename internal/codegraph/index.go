@@ -12,12 +12,14 @@ package codegraph
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/codeembed"
+	"github.com/CoscaAI/cosca/internal/codeindex"
 	"github.com/CoscaAI/cosca/internal/graph"
 )
 
@@ -37,6 +39,7 @@ type Index struct {
 	Graph    *graph.Graph                   `json:"graph"`
 	Signals  map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
 	Meta     map[string]FileMeta            `json:"meta"`     // node ID (file) -> metadados (busca auto-contida)
+	Symbols  map[string][]codeindex.Symbol  `json:"symbols"`  // Go symbols com byte-offset (O(1) retrieval)
 	Coverage Coverage                       `json:"coverage"`
 }
 
@@ -58,6 +61,7 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		Graph:    g,
 		Signals:  map[string]codeembed.SignalSet{},
 		Meta:     map[string]FileMeta{},
+		Symbols:  map[string][]codeindex.Symbol{},
 		Coverage: Coverage{Langs: map[string]int{}, BestEffort: true, BuiltAt: time.Now().UTC()},
 	}
 
@@ -73,6 +77,12 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		}
 		ix.Signals[fi.rel] = codeembed.Signals(string(content), dim)
 		ix.Meta[fi.rel] = FileMeta{Name: filepath.Base(fi.rel), Path: fi.rel, Lang: fi.lang}
+		// Go: captura símbolos com byte-offset (AST preciso) para O(1) retrieval.
+		if fi.lang == "go" {
+			if syms, serr := codeindex.ExtractFile(filepath.Join(root, filepath.FromSlash(fi.rel))); serr == nil {
+				ix.Symbols[fi.rel] = syms
+			}
+		}
 	}
 	ix.Coverage.IndexedFiles = len(ix.Signals)
 	ix.Coverage.CoversAll = ix.Coverage.SkippedFiles == 0
@@ -153,4 +163,32 @@ func LoadIndex(path string) (*Index, error) {
 		return nil, fmt.Errorf("index load: unmarshal: %w", err)
 	}
 	return &ix, nil
+}
+
+// GetSymbolSource devolve o SOURCE de um símbolo O(1) (byte-offset seek+read),
+// sem re-parses do arquivo — token-efficiency (~80-99% menos tokens, ADR-020).
+// `file` é a chave (rel path); `symIndex` é o índice em Symbols[file].
+func (ix *Index) GetSymbolSource(file string, symIndex int) (string, error) {
+	meta, ok := ix.Meta[file]
+	if !ok {
+		return "", fmt.Errorf("file %q not in index", file)
+	}
+	syms := ix.Symbols[file]
+	if symIndex < 0 || symIndex >= len(syms) {
+		return "", fmt.Errorf("symbol index %d out of range (len %d)", symIndex, len(syms))
+	}
+	s := syms[symIndex]
+	if s.Offset < 0 || s.Length <= 0 {
+		return "", fmt.Errorf("symbol %q has no byte-offset", s.Name)
+	}
+	f, err := os.Open(filepath.Join(ix.Root, filepath.FromSlash(meta.Path)))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	buf := make([]byte, s.Length)
+	if _, err := f.ReadAt(buf, int64(s.Offset)); err != nil && err != io.EOF {
+		return "", err
+	}
+	return string(buf), nil
 }

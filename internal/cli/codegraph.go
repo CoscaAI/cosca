@@ -23,7 +23,7 @@ Subcomandos:
 		Example: `  cosca codegraph search "http handler" --dir . --limit 5
   cosca codegraph build --dir .`,
 	}
-	cmd.AddCommand(NewCodeGraphBuildCommand(), NewCodeGraphSearchCommand(), NewCodeGraphStatsCommand())
+	cmd.AddCommand(NewCodeGraphBuildCommand(), NewCodeGraphSearchCommand(), NewCodeGraphStatsCommand(), NewCodeGraphSymbolCommand())
 	return cmd
 }
 
@@ -135,6 +135,54 @@ inexistente" (I3/I4).`,
 			}
 			formatter.Table([]string{"Linguagem", "Arquivos"}, rows)
 			formatter.Warning("Best-effort (I4): \"não registrado ≠ inexistente\" — o grafo não afirma completude.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&dir, "dir", ".", "diretório raiz a indexar")
+	cmd.Flags().IntVar(&dim, "dim", 512, "dimensão do embedding")
+	return cmd
+}
+
+// NewCodeGraphSymbolCommand cria `cosca codegraph symbol <file> <name>` —
+// byte-offset O(1) retrieval do source de um símbolo (~80-99% menos tokens).
+func NewCodeGraphSymbolCommand() *cobra.Command {
+	var dir string
+	var dim int
+	cmd := &cobra.Command{
+		Use:   "symbol <file> <name>",
+		Short: "Retorna o source de um símbolo Go por byte-offset O(1)",
+		Long: `Constrói o índice e retorna o source EXATO de um símbolo Go (via
+byte-offset, seek+read) — sem re-parses, sem dump do arquivo. Token-efficiency
+(~80-99% menos tokens; ADR-020).`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatter := GetFormatter(cmd)
+			ix, err := codegraph.BuildIndex(dir, dim)
+			if err != nil {
+				return fmt.Errorf("build index: %w", err)
+			}
+			file := args[0]
+			syms := ix.Symbols[file]
+			idx := -1
+			for i, s := range syms {
+				if s.Name == args[1] {
+					idx = i
+					break
+				}
+			}
+			if idx < 0 {
+				return fmt.Errorf("símbolo %q não encontrado em %s (indexados: %d)", args[1], file, len(syms))
+			}
+			src, err := ix.GetSymbolSource(file, idx)
+			if err != nil {
+				return fmt.Errorf("get symbol source: %w", err)
+			}
+			formatter.Header("Byte-offset O(1) retrieval")
+			formatter.KeyValue("Arquivo", file)
+			formatter.KeyValue("Símbolo", args[1])
+			formatter.KeyValue("Bytes", fmt.Sprintf("%d", len(src)))
+			formatter.Println("")
+			formatter.Println(src)
 			return nil
 		},
 	}
