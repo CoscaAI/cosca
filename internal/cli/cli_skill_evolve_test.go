@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoscaAI/cosca/internal/skilleval"
+	"github.com/CoscaAI/cosca/internal/skills"
 )
 
 // chdirSkillEvolveTemp muda para um diretório temporário e restaura o cwd no
@@ -191,10 +192,13 @@ func TestSkillEvolve_NoLLM_CreatesBranchNoAutoDeploy(t *testing.T) {
 		t.Errorf("commit mais recente deve ser o evolve: %q", lines[0])
 	}
 
-	// Working tree limpo: o commit capturou a mudança.
+	// Working tree: o commit capturou a mudança da skill. Em um repo real o
+	// ledger de versões (F1.5) é gitignorado; aqui (repo de teste sem .gitignore)
+	// ele aparece como o único artefato novo intencional. NENHUM outro arquivo
+	// deve ter sido varrido/alvo da evolução.
 	status := gitRun(t, dir, "status", "--porcelain")
-	if status != "" {
-		t.Errorf("working tree deve estar limpo após o commit, got: %q", status)
+	if status != "" && !strings.Contains(status, ".cosca/skill-version-ledger/") {
+		t.Errorf("working tree deve conter apenas o artefato F1.5 (skill-version-ledger), got: %q", status)
 	}
 
 	// SEM auto-deploy: não há remote configurado (nada para push).
@@ -243,6 +247,50 @@ func TestSkillEvolve_NoLLM_DryRunOnlyShowsDiff(t *testing.T) {
 	}
 	if string(after) != evolveSkillFrontmatter+evolveSkillBody {
 		t.Errorf("dry-run não deve alterar a SKILL.md")
+	}
+}
+
+// =============================================================================
+// skill evolve — registro de versão governado (F1.5)
+// =============================================================================
+
+func TestSkillEvolve_WritesVersionRecord(t *testing.T) {
+	dir := chdirSkillEvolveTemp(t)
+	writeEvolveSkill(t, dir, "demo-skill")
+	initEvolveRepo(t, dir)
+
+	cmd := NewSkillEvolveCommand()
+	_ = cmd.ParseFlags([]string{"--no-llm"})
+	out, err := runSkillEvolveCommand(t, cmd, []string{"demo-skill"})
+	if err != nil {
+		t.Fatalf("skill evolve --no-llm: %v", err)
+	}
+	if !strings.Contains(out, "Versão registrada") {
+		t.Errorf("output deve declarar a versão registrada (F1.5): %q", out)
+	}
+
+	// Abre o ledger de versões e confirma o registro imutável (I5).
+	coscaDir := filepath.Join(dir, ".cosca")
+	store, err := skills.NewLedgerVersionStore(coscaDir)
+	if err != nil {
+		t.Fatalf("open version ledger: %v", err)
+	}
+	defer store.Close()
+	rec, err := store.Get(skills.VersionKey("demo-skill", "1.0"))
+	if err != nil {
+		t.Fatalf("versão 1.0 não registrada no ledger: %v", err)
+	}
+	if rec.Lifecycle != skills.LifecycleValidated {
+		t.Errorf("lifecycle = %q, want validated (gate-pass, aguardando PR)", rec.Lifecycle)
+	}
+	if rec.Origin != skills.OriginEvolution {
+		t.Errorf("origin = %q, want evolution", rec.Origin)
+	}
+	if !rec.GatePassed {
+		t.Error("gate_passed deve ser true (o holdout passou)")
+	}
+	if rec.Grandfathered {
+		t.Error("skill evoluída não é grandfathered")
 	}
 }
 

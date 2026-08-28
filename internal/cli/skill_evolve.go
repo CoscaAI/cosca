@@ -261,6 +261,16 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 		return fmt.Errorf("skill evolve %q: regression gate failed on holdout: %s", name, strings.Join(regResult.Gate.Details, "; "))
 	}
 
+	// ── F1.5 — registro de versão governado (antes da PR, fail-closed/I5) ──
+	// A versão candidata (already evoluída e gate-pass) é gravada de forma
+	// imutável no ledger (reuso do "Caderno da Família"), carregando
+	// proveniência/autor + benchmark + regressões + status=validated. Se a
+	// gravação falhar, NÃO se cria a PR (nada entra sem registro auditável).
+	versionRec, verr := recordEvolveVersion(coscaDir, name, skill, regResult, result)
+	if verr != nil {
+		return fmt.Errorf("skill evolve %q: falha ao registrar versão governada (F1.5): %w", name, verr)
+	}
+
 	// Promoção via PR: nunca auto-deploy. Só cria o branch e o commit local.
 	newContent := best.Apply()
 	if err := promoteViaPR(cwd, mdPath, newContent, sessionName, name, result); err != nil {
@@ -273,8 +283,54 @@ func runSkillEvolve(cmd *cobra.Command, name string, opts skillEvolveOptions) er
 	formatter.KeyValue("Score", fmt.Sprintf("%.4f", result.Score))
 	formatter.KeyValue("Similarity", fmt.Sprintf("%.3f", similarity))
 	formatter.KeyValue("Holdout regression", fmt.Sprintf("passed=%v reg_delta=%.4f", regResult.Gate.Passed, regResult.RegDelta))
+	formatter.KeyValue("Versão registrada", fmt.Sprintf("%s@%s (status %s)", versionRec.Skill, versionRec.Version, versionRec.Lifecycle))
 	formatter.Warning("JAMAIS auto-deploy: revise o diff e a PR antes de merge/push.")
 	return nil
+}
+
+// recordEvolveVersion compõe e persiste o SkillVersionRecord de uma skill
+// evoluída (F1.5). Ela reusa o ledger como store imutável de versões e aplica o
+// estado validated (gate-pass, aguardando ativação via PR). A cláusula de avô
+// não se aplica aqui: uma skill evoluída é sempre uma versão nova (nunca
+// grandfathered).
+func recordEvolveVersion(coscaDir, name string, skill *skills.Skill, regResult *skilleval.PromotionResult, result *skilleval.GEPAResult) (*skills.SkillVersionRecord, error) {
+	if coscaDir == "" {
+		return nil, fmt.Errorf("cosca dir is required to version a skill")
+	}
+	version := skill.Version
+	if version == "" {
+		version = "1.0"
+	}
+
+	// Taxa de sucesso: prioriza o median do candidato no holdout (median+IQR,
+	// nunca média — coerente com o skilleval), senão o score do GEPA.
+	successRate := result.Score
+	if regResult != nil && regResult.CandidateHoldout != nil {
+		successRate = regResult.CandidateHoldout.With.MedianScore
+	}
+
+	regressions := []string{}
+	if regResult != nil && regResult.Gate != nil {
+		regressions = regResult.Gate.Details
+	}
+
+	governance := skills.SkillGovernance{
+		Origin:            skills.OriginEvolution,
+		Status:            skills.LifecycleValidated,
+		GatePassed:        regResult != nil && regResult.Gate != nil && regResult.Gate.Passed,
+		BenchmarkRef:      filepath.Join(skilleval.EvalDirName, name+".benchmark.json"),
+		SuccessRate:       round4(successRate),
+		KnownRegressions:  regressions,
+		Grandfathered:     false,
+	}
+
+	store, err := skills.NewLedgerVersionStore(coscaDir)
+	if err != nil {
+		return nil, fmt.Errorf("open version ledger: %w", err)
+	}
+	defer store.Close()
+
+	return skills.RecordVersion(store, name, version, governance, "")
 }
 
 // resolveEvolveEngine picks the scorer + mutator. With --no-llm it is the

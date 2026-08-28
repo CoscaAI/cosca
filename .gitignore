@@ -22,6 +22,11 @@
 *.db-wal
 *.db-shm
 
+# Skill version ledger (F1) — runtime/derived state produced by `cosca skill evolve`.
+# Like knowledge.db it is a DERIVED, regenerable index (rebuildable from the
+# versioned SKILL.md + git history), not the immutable core. Not versioned.
+.cosca/skill-version-ledger/
+
 
 # Accidental .cosca dirs in subdirectories (created by tests running cosca with CWD in subdirs)
 # NOTE: `*/**/.cosca/` (NOT `**/.cosca/`) — requires >=1 parent dir so the root
