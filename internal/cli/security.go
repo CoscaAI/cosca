@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -268,8 +269,21 @@ Exit codes:
 			var err error
 
 			if len(args) > 0 {
-				// Arquivo informado como argumento.
-				result, err = security.DetectFile(args[0])
+				// Caminho informado: arquivo OU diretório (varredura repo-wide).
+				info, serr := os.Stat(args[0])
+				if serr != nil {
+					if useJSON {
+						_ = printJSON(cmd, map[string]interface{}{"error": serr.Error()})
+					} else {
+						formatter.Errorf("scan error: %v", serr)
+					}
+					return ExitCodeError{Code: 2}
+				}
+				if info.IsDir() {
+					result, err = security.ScanSecretsDir(args[0])
+				} else {
+					result, err = security.DetectFile(args[0])
+				}
 				if err != nil {
 					if useJSON {
 						_ = printJSON(cmd, map[string]interface{}{"error": err.Error()})
@@ -323,8 +337,13 @@ func printLeakText(cmd *cobra.Command, f *OutputFormatter, result *security.Secr
 	}
 
 	for _, m := range result.Matches {
-		f.Printf("  [%s] %s linha %d col %d — %s\n",
-			m.Severity, m.Kind, m.Line, m.Column, m.Masked)
+		if m.File != "" {
+			f.Printf("  [%s] %s %s:%d:%d — %s\n",
+				m.Severity, m.Kind, m.File, m.Line, m.Column, m.Masked)
+		} else {
+			f.Printf("  [%s] %s linha %d col %d — %s\n",
+				m.Severity, m.Kind, m.Line, m.Column, m.Masked)
+		}
 	}
 	f.Println("")
 	f.Errorf("Segredos detectados — redija antes de commitar/persistir (fail-closed I2)")

@@ -1,6 +1,8 @@
 package security
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -82,5 +84,46 @@ func TestDetectBytes_ReportsLineColumn(t *testing.T) {
 	}
 	if m.Masked == "" {
 		t.Fatal("Masked vazio")
+	}
+}
+
+func TestScanSecretsDir_DetectsAndSkipsBinary(t *testing.T) {
+	dir := t.TempDir()
+
+	// Arquivo de texto com segredo.
+	if err := os.WriteFile(filepath.Join(dir, "creds.txt"), []byte("AKIAIOSFODNN7EXAMPLE"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Arquivo limpo.
+	if err := os.WriteFile(filepath.Join(dir, "clean.txt"), []byte("sem segredo"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Subdir .git com segredo — deve ser pulado.
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "hooks.sh"), []byte("AKIAIOSFODNN7EXAMPLE"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ScanSecretsDir(dir)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if !res.HasSecrets() {
+		t.Fatal("esperava detectar segredo em creds.txt")
+	}
+	// Só o creds.txt; nada do .git.
+	for _, m := range res.Matches {
+		if filepath.ToSlash(m.File) == filepath.ToSlash(filepath.Join(dir, ".git", "hooks.sh")) {
+			t.Fatalf(".git não deveria ser varrido: %s", m.File)
+		}
+		if filepath.ToSlash(m.File) == filepath.ToSlash(filepath.Join(dir, "clean.txt")) {
+			t.Fatalf("clean.txt não deveria ter match")
+		}
+	}
+	if len(res.Matches) != 1 {
+		t.Fatalf("esperava exatamente 1 match (creds.txt), got %d", len(res.Matches))
 	}
 }

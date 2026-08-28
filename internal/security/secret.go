@@ -18,7 +18,10 @@ package security
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 )
 
 // SecretKind classifica o tipo de segredo detectado.
@@ -38,9 +41,11 @@ const (
 type SecretMatch struct {
 	Kind     SecretKind `json:"kind"`
 	Severity string     `json:"severity"`
-	Line     int        `json:"line"`
-	Column   int        `json:"column"`
-	Length   int        `json:"length"`
+	// File é o arquivo de origem (preenchido por ScanSecretsDir).
+	File   string `json:"file,omitempty"`
+	Line   int    `json:"line"`
+	Column int    `json:"column"`
+	Length int    `json:"length"`
 	// Value é o segredo detectado (NUNCA exposto em texto; mascarado).
 	Value string `json:"value,omitempty"`
 	// Masked é a forma segura de exibir (ex: AKIA********...).
@@ -79,8 +84,9 @@ var padPrivateKey = regexp.MustCompile(`-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP
 // padBearer: "Bearer <token>" (>=20 chars base64).
 var padBearer = regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}={0,2}\b`)
 
-// padCredAssign: atribuição genérica password/secret/token/api-key/access-key.
-var padCredAssign = regexp.MustCompile(`(?i)(?:password|passwd|secret|access[_-]?key|api[_-]?key|auth[_-]?token|private[_-]?key)\s*[=:]\s*['"]?[A-Za-z0-9_\-./+]{16,}`)
+// padCredAssign: atribuição genérica PERIGOSA (password/passwd/secret/client_secret/
+// auth_token). NÃO casa "apiKey:"/"accessKey:" — nomes de campo Go comuns (FP).
+var padCredAssign = regexp.MustCompile(`(?i)(?:password|passwd|secret|client_secret|auth_token)\s*[=:]\s*['"]?[A-Za-z0-9_\-./+]{16,}`)
 
 // detectors ordena por prioridade (mais específico primeiro) para atribuir o
 // Kind mais preciso quando vários padrões casam.
@@ -148,6 +154,101 @@ func DetectFile(path string) (*SecretScanResult, error) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	return DetectBytes(data, path), nil
+}
+
+// =============================================================================
+// Varredura de diretório (git-secrets: enforcement no fluxo, repo-wide)
+// =============================================================================
+
+// maxSecretScanBytes: limite de tamanho de arquivo para varrer (evita BLOBs).
+const maxSecretScanBytes = 512 * 1024 // 512 KB
+
+// skipScanDirs: diretórios que nunca são varridos.
+var skipScanDirs = map[string]bool{
+	".git":      true,
+	"node_modules": true,
+	"dist":      true,
+	"build":     true,
+	"bin":       true,
+	"vendor":    true,
+	".cosca":    true,
+}
+
+// binaryExts: extensões comprovadamente binárias que não são texte.
+var binaryExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".bmp": true,
+	".wasm": true, ".exe": true, ".dll": true, ".so": true, ".dylib": true,
+	".a": true, ".o": true, ".db": true, ".db-wal": true, ".db-shm": true,
+	".zip": true, ".gz": true, ".tar": true, ".7z": true, ".pdf": true,
+	".bin": true, ".ico": true, ".ttf": true, ".woff": true, ".mp3": true,
+	".mp4": true, ".mov": true, ".svg": true,
+}
+
+// ScanSecretsDir varre um diretório em busca de segredos embutidos em arquivos
+// de texto (esquece .git, BLOBs e arquivos grandes). Determinístico (I1).
+func ScanSecretsDir(root string) (*SecretScanResult, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", root, err)
+	}
+
+	res := &SecretScanResult{Source: abs, Clean: true}
+	var walkErr error
+
+	_ = filepath.Walk(abs, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			walkErr = err
+			return filepath.SkipDir
+		}
+		if info.IsDir() {
+			if path != abs && skipScanDirs[info.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Não varre arquivos grandes (prováveis blobs/binários).
+		if info.Size() > maxSecretScanBytes {
+			return nil
+		}
+		// Não varre extensões binárias.
+		if binaryExts[strings.ToLower(filepath.Ext(path))] {
+			return nil
+		}
+		data, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return nil // ignora erros de leitura por arquivo
+		}
+		if fileRes := DetectBytes(data, path); fileRes.HasSecrets() {
+			for _, m := range fileRes.Matches {
+				res.Matches = append(res.Matches, SecretMatch{
+					Kind:     m.Kind,
+					Severity: m.Severity,
+					File:     path,
+					Line:     m.Line,
+					Column:   m.Column,
+					Length:   m.Length,
+					Value:    m.Value,
+					Masked:   m.Masked,
+				})
+			}
+		}
+		return nil
+	})
+
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	// Ordena por arquivo (source) e linha para saída estável.
+	sort.SliceStable(res.Matches, func(i, j int) bool {
+		if res.Matches[i].Line != res.Matches[j].Line {
+			return res.Matches[i].Line < res.Matches[j].Line
+		}
+		return res.Matches[i].Column < res.Matches[j].Column
+	})
+
+	res.Clean = len(res.Matches) == 0
+	return res, nil
 }
 
 // mask redige o segredo mantendo o prefixo e o sufixo (base para auditoria),
