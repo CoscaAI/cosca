@@ -40,6 +40,7 @@ type Index struct {
 	Signals  map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
 	Meta     map[string]FileMeta            `json:"meta"`     // node ID (file) -> metadados (busca auto-contida)
 	Symbols  map[string][]codeindex.Symbol  `json:"symbols"`  // Go symbols com byte-offset (O(1) retrieval)
+	Hashes   map[string]string              `json:"hashes"`   // content-hash por arquivo (incremental, P2.5)
 	Coverage Coverage                       `json:"coverage"`
 }
 
@@ -62,6 +63,7 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		Signals:  map[string]codeembed.SignalSet{},
 		Meta:     map[string]FileMeta{},
 		Symbols:  map[string][]codeindex.Symbol{},
+		Hashes:   map[string]string{},
 		Coverage: Coverage{Langs: map[string]int{}, BestEffort: true, BuiltAt: time.Now().UTC()},
 	}
 
@@ -77,6 +79,7 @@ func BuildIndex(root string, dim int) (*Index, error) {
 		}
 		ix.Signals[fi.rel] = codeembed.Signals(string(content), dim)
 		ix.Meta[fi.rel] = FileMeta{Name: filepath.Base(fi.rel), Path: fi.rel, Lang: fi.lang}
+		ix.Hashes[fi.rel] = hashBytes(content)
 		// Go: captura símbolos com byte-offset (AST preciso) para O(1) retrieval.
 		if fi.lang == "go" {
 			if syms, serr := codeindex.ExtractFile(filepath.Join(root, filepath.FromSlash(fi.rel))); serr == nil {

@@ -193,7 +193,8 @@ buscar sub-ms sem reescrever.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
 			useJSON := IsJSONOutput(cmd)
-			// F3: reusa um índice publicado (sub-ms, sem reescrever); senão constrói.
+			// F3/P2.5: reusa um índice publicado e faz Update INCREMENTAL (só
+			// re-embute o que mudou; noop ~ms se nada mudou). Senão, BuildIndex.
 			ix, err := codegraph.LoadIndex(useIndex)
 			if err != nil {
 				return fmt.Errorf("load index %q: %w", useIndex, err)
@@ -202,6 +203,11 @@ buscar sub-ms sem reescrever.`,
 				ix, err = codegraph.BuildIndex(dir, dim)
 				if err != nil {
 					return fmt.Errorf("build code index: %w", err)
+				}
+			} else {
+				ix, err = ix.Update(dir, dim)
+				if err != nil {
+					return fmt.Errorf("update code index: %w", err)
 				}
 			}
 			hits := ix.SearchSimilar(args[0], limit)
