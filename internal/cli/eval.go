@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/CoscaAI/cosca/internal/evalgo"
 	"github.com/CoscaAI/cosca/internal/evals"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 )
@@ -51,6 +52,7 @@ Examples:
 		newEvalRunCommand(),
 		newEvalSmokeCommand(),
 		newEvalReportCommand(),
+		newEvalPromoteCommand(),
 		newEvalOracleCommand(),
 		newEvalAblationCommand(),
 	)
@@ -300,6 +302,94 @@ reference, or a bare bundled name. Reports are read from
 			printEvalReport(formatter, report)
 			return nil
 		},
+	}
+}
+
+func newEvalPromoteCommand() *cobra.Command {
+	var (
+		minPassRate float64
+		minCases    int
+		blockSigs   []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "promote <suite>",
+		Short: "Apply the fail-closed promotion gate to a suite's last report",
+		Long: `Apply the fail-closed promotion gate (evalgo) to the last persisted
+report of a suite — deciding whether the run should be PROMOTED.
+
+The gate composes over the existing suite results (no parallel eval): it
+clusters failures by signature ("where the agent errs consistently") and only
+promotes if the pass rate meets the threshold AND no blocking signature fired.
+Blocking signatures (fail-closed I2) include infra error/timeout and any extra
+signatures passed with --block (e.g. a leaked secret).
+
+Flags:
+  --min-pass-rate <f>   minimum pass rate to promote (default 0.8)
+  --min-cases <n>       minimum number of cases for the run to be significant (default 3)
+  --block <sig>         extra blocking failure signature (repeatable)`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("resolve working directory: %w", err)
+			}
+			reportsDir := filepath.Join(dir, ".cosca", "evals", "reports")
+
+			name := args[0]
+			if s, err := evals.LoadSuite(name); err == nil {
+				name = s.Suite
+			}
+
+			report, err := evals.LatestReport(reportsDir, name)
+			if err != nil {
+				return err
+			}
+
+			opts := []evalgo.GateOption{
+				evalgo.WithMinPassRate(minPassRate),
+				evalgo.WithMinCases(minCases),
+				evalgo.WithBlockingSignatures("status:error", "status:timeout"),
+			}
+			if len(blockSigs) > 0 {
+				opts = append(opts, evalgo.WithBlockingSignatures(blockSigs...))
+			}
+			promotion := evals.PromoteGate(report, evalgo.NewGate(opts...))
+
+			formatter := GetFormatter(cmd)
+			if IsJSONOutput(cmd) {
+				return printJSON(cmd, promotion)
+			}
+			printEvalPromotion(formatter, report.Suite, promotion)
+			return nil
+		},
+	}
+
+	cmd.Flags().Float64Var(&minPassRate, "min-pass-rate", 0.8, "minimum pass rate to promote")
+	cmd.Flags().IntVar(&minCases, "min-cases", 3, "minimum number of cases for the run to be significant")
+	cmd.Flags().StringSliceVar(&blockSigs, "block", nil, "extra blocking failure signature (repeatable)")
+
+	return cmd
+}
+
+// printEvalPromotion renders the promotion verdict plus failure clusters.
+func printEvalPromotion(formatter *OutputFormatter, suite string, p evals.Promotion) {
+	formatter.Header(fmt.Sprintf("Promotion gate — %s (%d/%d aprovados, %.1f%%)", suite, p.Passed, p.Total, p.PassRate*100))
+	verdict := "NÃO PROMOVE"
+	if p.Decision.Promoted {
+		verdict = "PROMOVE"
+	}
+	formatter.KeyValue("Verdict", verdict)
+	formatter.KeyValue("Resumo", p.Decision.Summary)
+
+	if len(p.Clusters) > 0 {
+		formatter.Header("Clusters de falha (onde o agente erra)")
+		headers := []string{"Assinatura", "Tipo", "Casos"}
+		rows := make([][]string, 0, len(p.Clusters))
+		for _, c := range p.Clusters {
+			rows = append(rows, []string{c.Signature, c.Kind, strings.Join(c.Cases, ", ")})
+		}
+		formatter.Table(headers, rows)
 	}
 }
 
