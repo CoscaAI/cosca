@@ -74,6 +74,16 @@ func (l *BeliefLedger) Accept(id string) error {
 	return nil
 }
 
+// AcceptSound aceita uma crença SÓ se a CADEIA DE PROVENIÊNCIA não está
+// contaminada (professor: "contaminação não vira verdade por propagação");
+// fail-closed — uma crença derivada de fonte contaminada NUNCA é aceita.
+func (l *BeliefLedger) AcceptSound(id string, chain ProvenanceChain) error {
+	if chain.DecisionBlocked() {
+		return fmt.Errorf("belief: provenance chain contaminated (fail-closed I2/I4)")
+	}
+	return l.Accept(id)
+}
+
 // Reject rebaixa uma crença para Rejected E faz CONTAINMENT transitivo:
 // todo dependente aceito (direta ou transitivamente) volta a Pending. I4/I5.
 func (l *BeliefLedger) Reject(id string) error {
