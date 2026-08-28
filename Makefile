@@ -41,7 +41,10 @@ JAULA       := $(COSCA_HOME)/bin/cosca
 
 # --- Flags -------------------------------------------------------------------
 GOFLAGS   := -mod=mod
-GCFLAGS   := -gcflags="all=-N -l"  # debug symbols
+# Build flags — PRODUÇÃO otimizada (default do Go compiler: -N/-l DESLIGADOS).
+# O alvo build/install/serve usa GCFLAGS (=otimizado). Dev/debug usa GCFLAGS_DEV.
+GCFLAGS    :=                        # produção: otimizado (inlining + otimizacoes ON)
+GCFLAGS_DEV := -gcflags="all=-N -l"  # dev/debug (delve-friendly): sem otimizacao/inlining
 TAGS      :=
 CGO_ENABLED ?= 0
 
@@ -76,7 +79,7 @@ build:
 build-dev:
 	@echo "  >  Building $(BINARY) v$(VERSION) (DEV)..."
 	@mkdir -p $(BINDIR)
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) $(GCFLAGS) $(LDFLAGS) \
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) $(GCFLAGS_DEV) $(LDFLAGS) \
 		-tags "$(TAGS)" \
 		-o $(BINDIR)/$(BINARY) \
 		$(MAIN_FILE)
