@@ -30,6 +30,15 @@ type Genome struct {
 	// kept for semantic preservation and provenance, so a mutated body can be
 	// diffed against the baseline without re-parsing the identity.
 	Source string
+	// Frontmatter is the raw YAML frontmatter block (between the `---`
+	// delimiters), captured verbatim at parse time. It is preserved so Apply
+	// can re-emit every frontmatter field already present in the source
+	// (version, category, status, license, compatibility, metadata,
+	// allowed-tools, ...) instead of dropping them — the legacy behavior only
+	// re-marshalled name/description/level, silently destroying versioning
+	// during evolution. Since the genome only ever mutates Body, the
+	// frontmatter is re-emitted unchanged.
+	Frontmatter string
 }
 
 // frontmatter is the YAML identity block parsed from the top of a SKILL.md.
@@ -56,7 +65,7 @@ func ParseSkill(path string) (*Genome, error) {
 
 	raw := normalizeNewlines(strings.TrimPrefix(string(data), "\ufeff"))
 
-	fm, body, err := splitFrontmatter(raw)
+	fm, fmRaw, body, err := splitFrontmatter(raw)
 	if err != nil {
 		return nil, fmt.Errorf("skilleval: %s: %w", path, err)
 	}
@@ -72,8 +81,9 @@ func ParseSkill(path string) (*Genome, error) {
 			Level:       fm.Level,
 			Body:        body,
 		},
-		Body:   body,
-		Source: raw,
+		Body:         body,
+		Source:       raw,
+		Frontmatter:  fmRaw,
 	}
 	return g, nil
 }
@@ -90,13 +100,13 @@ func normalizeNewlines(s string) string {
 // frontmatter block and its body. It requires a leading `---` delimiter line
 // and a matching closing `---` line, and returns errNoSkillName when the
 // frontmatter has no non-empty `name`.
-func splitFrontmatter(raw string) (frontmatter, string, error) {
+func splitFrontmatter(raw string) (frontmatter, string, string, error) {
 	lines := strings.Split(raw, "\n")
 
 	// A SKILL.md must open with a frontmatter delimiter; otherwise there is no
 	// identity to preserve and the genome contract cannot be honored.
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return frontmatter{}, "", errNoFrontmatter
+		return frontmatter{}, "", "", errNoFrontmatter
 	}
 
 	end := -1
@@ -107,22 +117,22 @@ func splitFrontmatter(raw string) (frontmatter, string, error) {
 		}
 	}
 	if end == -1 {
-		return frontmatter{}, "", errNoFrontmatter
+		return frontmatter{}, "", "", errNoFrontmatter
 	}
 
 	var fm frontmatter
 	fmRaw := strings.Join(lines[1:end], "\n")
 	if err := yaml.Unmarshal([]byte(fmRaw), &fm); err != nil {
-		return frontmatter{}, "", fmt.Errorf("parse frontmatter: %w", err)
+		return frontmatter{}, "", "", fmt.Errorf("parse frontmatter: %w", err)
 	}
 	if strings.TrimSpace(fm.Name) == "" {
-		return frontmatter{}, "", errNoSkillName
+		return frontmatter{}, "", "", errNoSkillName
 	}
 
 	// The body is everything after the closing delimiter; the standard blank
 	// line that separates frontmatter from body is not part of the body itself.
 	body := strings.TrimLeft(strings.Join(lines[end+1:], "\n"), "\n")
-	return fm, body, nil
+	return fm, fmRaw, body, nil
 }
 
 // Apply remonte a SKILL.md string from the genome's identity + body.
@@ -134,16 +144,20 @@ func splitFrontmatter(raw string) (frontmatter, string, error) {
 //   - The body appended is exactly Body; the frontmatter is never re-inserted
 //     into the body, and the body can never duplicate the frontmatter.
 func (g *Genome) Apply() string {
-	fm := frontmatter{
-		Name:        g.Identity.Name,
-		Description: g.Identity.Description,
-		Level:       g.Identity.Level,
+	fm := strings.TrimSpace(g.Frontmatter)
+	if fm == "" {
+		// Fallback (e.g. a manually constructed Genome): render the identity
+		// from name/description/level, matching the historical behavior.
+		f := frontmatter{
+			Name:        g.Identity.Name,
+			Description: g.Identity.Description,
+			Level:       g.Identity.Level,
+		}
+		fmYAML, err := yaml.Marshal(&f)
+		if err != nil {
+			fmYAML = []byte(fmt.Sprintf("name: %s\nlevel: %d\n", f.Name, f.Level))
+		}
+		fm = strings.TrimSpace(string(fmYAML))
 	}
-	fmYAML, err := yaml.Marshal(&fm)
-	if err != nil {
-		// A struct of scalars cannot realistically fail to marshal; this is a
-		// guarded fallback that still preserves identity deterministically.
-		fmYAML = []byte(fmt.Sprintf("name: %s\nlevel: %d\n", fm.Name, fm.Level))
-	}
-	return "---\n" + string(fmYAML) + "---\n" + g.Body
+	return "---\n" + fm + "\n---\n" + g.Body
 }
