@@ -3,13 +3,14 @@ package integrity
 import "testing"
 
 func TestIsKernelIdentity(t *testing.T) {
+	resetIdentityForTest()
 	// Sem digest configurado → fail-closed (IDNoConfig).
 	if v := IsKernelIdentity("abc"); v != IDNoConfig {
 		t.Errorf("sem config deveria ser IDNoConfig, foi %s", v)
 	}
 
 	// Configura o digest canônico.
-	SetIdentityDigest("digest-canonic-da-alma")
+	setIdentityForTest("digest-canonic-da-alma")
 
 	if v := IsKernelIdentity("digest-canonic-da-alma"); v != IDOk {
 		t.Errorf("digest certo deveria ser IDOk, foi %s", v)
@@ -53,7 +54,8 @@ func TestIsLoyaltyEdge(t *testing.T) {
 }
 
 func TestVerifyIdentityComposto(t *testing.T) {
-	SetIdentityDigest("digest-canonic-da-alma")
+	resetIdentityForTest()
+	setIdentityForTest("digest-canonic-da-alma")
 
 	// Caso A — tudo certo → OK.
 	v, reason := VerifyIdentity("digest-canonic-da-alma", "consigliere do Don, guardiao da autoridade, honestidade, identidade e memoria, lealdade personificada", "kernel->don")

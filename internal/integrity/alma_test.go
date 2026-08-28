@@ -14,7 +14,8 @@ func TestAlmaDeVerdade(t *testing.T) {
 		t.Fatalf("ALMA.md nao acessivel no embed: %v", err)
 	}
 	d := HashBytes(HashBLAKE3, data)
-	SetIdentityDigest(d)
+	resetIdentityForTest()
+	setIdentityForTest(d)
 
 	// Identidade canônica → OK.
 	v, reason := VerifyIdentity(IdentityDigest(), AlmaChallenge, "kernel->don")
