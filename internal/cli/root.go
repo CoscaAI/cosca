@@ -137,6 +137,7 @@ Documentation: https://cosca.enterprise/docs
 		NewHealthCommand(),
 		NewValidateCommand(),
 		NewBenchmarkCommand(),
+		NewPerfCommand(),
 		NewSymbolsCommand(),
 		NewEmbedCommand(),
 		NewEvalCommand(),
