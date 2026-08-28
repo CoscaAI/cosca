@@ -34,15 +34,15 @@ import (
 
 // OrchestratorConfig configures the Living World orchestrator.
 type OrchestratorConfig struct {
-	Vision       *VisionPipelineConfig       `json:"vision,omitempty"`
-	Spatial      *SpatialPipelineConfig      `json:"spatial,omitempty"`
-	VFX          *VFXPipelineConfig          `json:"vfx,omitempty"`
-	Audio        *AudioPipelineConfig        `json:"audio,omitempty"`
-	Destruction  *DestructionPipelineConfig  `json:"destruction,omitempty"`
-	Simulation   *SimulationPipelineConfig   `json:"simulation,omitempty"`
-	Asset        *AssetPipelineConfig        `json:"asset,omitempty"`
-	MaxEntities  int                          `json:"max_entities"`
-	UpdateRate   float64                      `json:"update_rate"` // Hz
+	Vision      *VisionPipelineConfig      `json:"vision,omitempty"`
+	Spatial     *SpatialPipelineConfig     `json:"spatial,omitempty"`
+	VFX         *VFXPipelineConfig         `json:"vfx,omitempty"`
+	Audio       *AudioPipelineConfig       `json:"audio,omitempty"`
+	Destruction *DestructionPipelineConfig `json:"destruction,omitempty"`
+	Simulation  *SimulationPipelineConfig  `json:"simulation,omitempty"`
+	Asset       *AssetPipelineConfig       `json:"asset,omitempty"`
+	MaxEntities int                        `json:"max_entities"`
+	UpdateRate  float64                    `json:"update_rate"` // Hz
 }
 
 // AssetPipelineConfig configures the asset pipeline.
@@ -95,7 +95,7 @@ func DefaultOrchestratorConfig() OrchestratorConfig {
 
 // FrameInput represents a single frame from the camera/sensors.
 type FrameInput struct {
-	Camera     []byte    `json:"camera"`      // PNG/JPEG bytes
+	Camera     []byte    `json:"camera"`        // PNG/JPEG bytes
 	IMU        []float64 `json:"imu,omitempty"` // IMU data (accel + gyro)
 	Timestamp  time.Time `json:"timestamp"`
 	AudioData  []byte    `json:"audio_data,omitempty"` // audio chunk
@@ -109,36 +109,36 @@ type FrameInput struct {
 // FrameResult contains everything the agent learned and did from one frame.
 type FrameResult struct {
 	// Perception
-	Vision   *VisionResult  `json:"vision,omitempty"`
-	Spatial  *SpatialResult `json:"spatial,omitempty"`
-	Audio    *AudioPerception `json:"audio,omitempty"`
+	Vision  *VisionResult    `json:"vision,omitempty"`
+	Spatial *SpatialResult   `json:"spatial,omitempty"`
+	Audio   *AudioPerception `json:"audio,omitempty"`
 
 	// World state
-	State    WorldState     `json:"state"`
+	State WorldState `json:"state"`
 
 	// Multi-agent
-	Agents   []*AgentInfo   `json:"agents,omitempty"`
-	Tasks    []*TaskInfo    `json:"tasks,omitempty"`
+	Agents []*AgentInfo `json:"agents,omitempty"`
+	Tasks  []*TaskInfo  `json:"tasks,omitempty"`
 
 	// Actions taken
-	Actions  []ActionResult `json:"actions,omitempty"`
+	Actions []ActionResult `json:"actions,omitempty"`
 
 	// Performance
-	Latency  time.Duration  `json:"latency"`
-	Step     int64          `json:"step"`
+	Latency time.Duration `json:"latency"`
+	Step    int64         `json:"step"`
 }
 
 // VisionResult wraps vision pipeline output.
 type VisionResult struct {
-	Entities   []WorldEntity    `json:"entities"`
+	Entities   []WorldEntity     `json:"entities"`
 	Relations  []SpatialRelation `json:"relations"`
-	Confidence float64          `json:"confidence"`
+	Confidence float64           `json:"confidence"`
 }
 
 // SpatialResult wraps spatial pipeline output.
 type SpatialResult struct {
-	Pose       Pose6DoF         `json:"pose"`
-	PointCloud PointCloud       `json:"point_cloud"`
+	Pose       Pose6DoF          `json:"pose"`
+	PointCloud PointCloud        `json:"point_cloud"`
 	Relations  []SpatialRelation `json:"relations"`
 }
 
@@ -150,10 +150,10 @@ type AudioPerception struct {
 
 // AgentInfo is a snapshot of an agent's state.
 type AgentInfo struct {
-	ID       string    `json:"id"`
-	Role     string    `json:"role"`
-	Position Vec3      `json:"position"`
-	Status   string    `json:"status"`
+	ID       string `json:"id"`
+	Role     string `json:"role"`
+	Position Vec3   `json:"position"`
+	Status   string `json:"status"`
 }
 
 // TaskInfo is a snapshot of a task.
@@ -167,9 +167,9 @@ type TaskInfo struct {
 
 // ActionResult describes what action was taken.
 type ActionResult struct {
-	Type     string            `json:"type"`     // "vfx", "audio", "destruction", "simulation"
-	Action   string            `json:"action"`   // specific action name
-	Target   string            `json:"target"`   // target entity/position
+	Type     string            `json:"type"`   // "vfx", "audio", "destruction", "simulation"
+	Action   string            `json:"action"` // specific action name
+	Target   string            `json:"target"` // target entity/position
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
@@ -181,12 +181,18 @@ type ActionResult struct {
 type Orchestrator struct {
 	config OrchestratorConfig
 	state  WorldState
+	// lister é o CACHE DE CRENÇA com selo epistêmico (I3/I4, ADR-023 item 5):
+	// espelha as entidades do mundo com Source/TrustState/Revision por entidade.
+	// É a visão enriquecida para o reconciler de mundo — o estado de visão
+	// (state.Entities) é o snapshot; o lister é a crença (saber ≠ ver, I4).
+	lister *Lister
 }
 
 // NewOrchestrator creates a Living World orchestrator.
 func NewOrchestrator(config OrchestratorConfig) *Orchestrator {
 	return &Orchestrator{
 		config: config,
+		lister: NewLister(),
 		state: WorldState{
 			Step: 0,
 			Climate: ClimateState{
@@ -290,6 +296,12 @@ func (o *Orchestrator) processAudio(ctx context.Context, audioData []byte, sampl
 // mergeEntities merges newly detected entities into the world state.
 func (o *Orchestrator) mergeEntities(newEntities []WorldEntity) {
 	for _, new := range newEntities {
+		// Informa o cache de crença (selo epistêmico I3/I4). Manter a crença e a
+		// visão separadas é o coração do "saber ≠ ver" (ADR-021): o lister retém
+		// entidades STALE (última posição conhecida) mesmo quando o snapshot de
+		// visão as poda.
+		o.listerUpsert(new)
+
 		found := false
 		for i, existing := range o.state.Entities {
 			if existing.ID == new.ID {
@@ -317,6 +329,34 @@ func (o *Orchestrator) mergeEntities(newEntities []WorldEntity) {
 		}
 	}
 	o.state.Entities = pruned
+}
+
+// listerUpsert espelha uma entidade no cache de crença com selo epistêmico.
+// AsOf = LastSeen (se zero, agora) — fencing do Lister evita regressão temporal.
+func (o *Orchestrator) listerUpsert(e WorldEntity) {
+	asOf := e.LastSeen
+	if asOf.IsZero() {
+		asOf = time.Now()
+	}
+	o.lister.Upsert(e, ObservationSource{SensorID: "orchestrator", Authenticated: true}, TrustKnown, asOf)
+}
+
+// Lister devolve o cache de crença (stamped) do mundo. O reconciler lê daqui
+// (I3/I4 por construção) — nunca de uma única request.
+func (o *Orchestrator) Lister() *Lister {
+	return o.lister
+}
+
+// ResyncWorld reconcilia o mundo contra um snapshot autoritativo — a entrada de
+// AUTO-CURA da Fase 3 (ADR-023 item 5): entidades perdidas no snapshot (drop)
+// são removidas, novas entram, atualizadas sobem revision. Reenche tanto a
+// crença (lister) quanto o snapshot de visão (state.Entities). Fail-closed I2:
+// a divergência é exposta em ResyncDiff, nunca "consertada" em silêncio.
+func (o *Orchestrator) ResyncWorld(snapshot []WorldEntity, src ObservationSource, trust TrustState, asOf time.Time) ResyncDiff {
+	diff := o.lister.Resync(snapshot, src, trust, asOf)
+	o.state.Entities = make([]WorldEntity, len(snapshot))
+	copy(o.state.Entities, snapshot)
+	return diff
 }
 
 // copyState returns a deep copy of the current world state.
@@ -390,7 +430,8 @@ func (o *Orchestrator) InjectEvent(event WorldEvent) {
 	case "spawn":
 		// Entity will be added on next vision frame
 	case "destroy":
-		// Remove entity
+		// Remove entity da visão e da crença (a entidade deixou de existir).
+		o.lister.Delete(event.EntityID)
 		pruned := o.state.Entities[:0]
 		for _, e := range o.state.Entities {
 			if e.ID != event.EntityID {
@@ -442,9 +483,9 @@ func (o *Orchestrator) GenerateAsset(ctx context.Context, req AssetRequest) (*As
 // becomes a real object the agent can perceive and interact with.
 func (o *Orchestrator) registerAssetEntity(result *AssetResult) {
 	entity := WorldEntity{
-		ID:         result.ID,
-		Type:       EntityObject,
-		Label:      fmt.Sprintf("asset_%s", result.Type),
+		ID:    result.ID,
+		Type:  EntityObject,
+		Label: fmt.Sprintf("asset_%s", result.Type),
 		Metadata: map[string]string{
 			"asset_path":   result.Path,
 			"asset_hash":   result.Hash,
