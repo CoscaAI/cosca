@@ -44,6 +44,26 @@
 
 ---
 
+### 2026-08-29 — Regression Tests Cérebro 3D (readActivityLog + brainweb)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-qa |
+| **Task** | Implementar testes de regressão auditados do cérebro neural 3D (módulo read-only) — API rest + internal/brainweb |
+| **Technique** | Level 3 — Implementação AAA + table-driven respeitando a forma do projeto; descoberta de assinatura real via glob/read (getActivityLog, Activity struct, handler mount, embed, observatory builder) ANTES de escrever; adaptação defensiva a mudança concorrente de produção (campo `Prompt`→`Action` no brainweb.Activity) em vez de assert cego |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Confidence (domínio primário)** | **≥ 0.75** (subida por: 6 testes novos todos verdes em `go test -count=1`; build prod resolvido por agente concorrente sem eu tocar o código de produção; assert ajustado para o comportamento correto pós-fix de segurança) |
+| **Tags** | #regression #brainweb #activity-log #path-traversal #observatory #prompt-leak #g6 #table-driven #aaa #go-test |
+| **Related** | api/rest/activity_log_test.go, internal/brainweb/brainweb_regression_test.go, server.go readActivityLog, graph.go Activity, observatory.go, handler.go mount/contentType, embed.go WebFS |
+| **Learned** | 1) O bug G6 foi corrigido por RENOMEAR o campo de atividade: `Prompt` (vazava entrada do usuário) virou `Action` que carrega SÓ o rótulo seguro ("COMMAND_EXECUTED"), nunca args/prompt. `readActivityLog` segue mapeando `Action: ra.Action`. 2) Teste de regressão de security não deve assert cego — precisa se adaptar ao comportamento correto pós-fix (aqui: nenhum campo Prompt, e guarda reflect de que `Activity` NÃO tem campo `Prompt`). 3) `readActivityLog` é testável em branco (package `rest` = white-box), devolve as mais recentes primeiro (at desc), pulom linha malformada (json mismatch) E vazia, usa `roll = agent || actor` para o ID `at-roll`. 4) path traversal: mount faz `ReplaceAll(name,"..","")` + `path.Clean`; variações URL-encoded (`%2f`, `%2e%2e`) e `....//` são normalizadas e caem em 404 (Open de `web/<clean>` inexistente). 5) Assets do brainweb: `contentType` por extensão (.css→text/css, .js→application/javascript, .obj→text/plain) — assert deve usar prefixo pois há `; charset=utf-8`; corpo não-vazio garante que o go:embed realmente embutiu. 6) `statsFn` do observatório popula `Cognitive.Agents`/`.Skills`; item com `Status==""` cai no ramo `st=="UNKNOWN"`. |
+| **What worked well** | Ler `handler.go`/`embed.go`/`observatory.go`/`graph.go` e `go.mod` antes de escrever; confirmar colisão de nomes de teste via grep; `go build ./api/rest/` para separar erro de produção (unused `io`, concorrente) dos meus; usar `-run` + `-count=1` para ver cada subteste sem cache. Guarda reflect contra reintrodução do campo `Prompt` recompensa o esforço. |
+| **What was difficult** | O build inicial de `go test ./api/rest` falhou 2x por causa de PRODUÇÃO em mudança (unused `io` + campo Prompt antigo), não pelos meus testes — exigiu diferenciar erro de produção de erro de teste e NÃO corrigir prod. Decidir o assert correto após o fix G6 (Action = rótulo seguro, NÃO ação real), pois o prompt do enunciado conflitava com o fix aplicado; segui a cláusula "ajuste o assert para o comportamento correto". |
+| **Improvement points** | 1) Para testes de regressão de security, sempre verificar o estado REAL do struct via leitura fresca (o grafo muda por agentes concorrentes) antes de assert cego. 2) Adicionar guarda reflect `TestActivity_SemCampoPrompt` como padrão em projeções de payload público. 3) Rodar `go build` no pacote antes dos testes para separar lint/build de produção dos meus. 4) Para `readActivityLog`, considerar teste de `limit<=0` (fallback p/de 30 no `Recent`) — gap em aberto. |
+| **Next** | Level 4: adicionar teste de `limit<=0`/fallback no `executionActivitySource.Recent`; validar que os assets do observatório cobrem todos os 6 estados epistemológicos + STALE; medir coverage diff do brainweb pós-teste. |
+
+---
+
 ## Seed Knowledge (Legacy)
 
 ### 2026-07-27 — Quality Baseline

@@ -236,17 +236,24 @@ Load the [Discovery Engine](engines/discovery/SKILL.md) and [Context Engine](eng
 - Transition to DISCOVERING state
 
 ### Step 3: Memory Loading
-Following the canonical [MEMORY_MODEL.md](MEMORY_MODEL.md), load from:
-| Memory | Location | What to Load |
+> **PRINCÍPIO DO CÉREBRO LEVE (ordem do Don, 2026-08-27):** o Kernel carrega no contexto **apenas o índice/referência** de cada memória (caminho, tipo, tags, resumo em 1 linha). O **conteúdo completo NUNCA é carregado em bulk** — para não poluir o cérebro, gastar tokens e arriscar agir por informação irrelevante. O conteúdo é puxado **sob demanda**, por busca semântica (`cosca knowledge search "#tag"`), apenas quando a tarefa exige.
+
+Following the canonical [MEMORY_MODEL.md](MEMORY_MODEL.md), load **indexes/references** (not bulk content) from:
+| Memory | Location | What to Load (index only) |
 |--------|----------|-------------|
-| Project | `.cosca/memory/project/` | Features, modules, releases |
-| Architecture | `.cosca/memory/architecture/` | ADRs, design patterns, contracts |
-| Decision | `.cosca/memory/decision/` | Past decisions and rationale |
-| Bug (global) | `${MEMORY_GLOBAL}/bug/` | Known bug patterns |
-| Agent (global) | `${MEMORY_GLOBAL}/agent/` | Agent performance data |
-| Long | `.cosca/memory/long/` | Cross-session project knowledge |
-| Pattern | `${MEMORY_GLOBAL}/pattern/` | Cross-project wisdom |
+| Project | `.cosca/memory/project/` | Reference: features, modules, releases (not full text) |
+| Architecture | `.cosca/memory/architecture/` | Reference: ADR ids, design patterns, contracts |
+| Decision | `.cosca/memory/decision/` | Reference: decision ids and rationale summaries |
+| Bug (global) | `${MEMORY_GLOBAL}/bug/` | Reference: bug pattern names |
+| Agent (global) | `${MEMORY_GLOBAL}/agent/` | Reference: agent performance metadata |
+| Long | `.cosca/memory/long/` | Reference: cross-session knowledge index |
+| Pattern | `${MEMORY_GLOBAL}/pattern/` | Reference: pattern names + paths (INDEX.md) |
 | Short | `.cosca/memory/short/` | Active session context |
+
+**Sequência de busca sob demanda (lazy):**
+1. No boot: carregar só os índices referenciados acima + 4 arquivos de contexto essencial (`context/session.md`, `sessions/active/current.md`, `codebase/overview.md`, `project/overview.md`).
+2. Antes de cada tarefa: `cosca knowledge search "#<domínio>"` para puxar do índice semântico as memórias relevantes por significado.
+3. Se o agente dono / documento específico for necessário, ler o arquivo individual **naquele momento** — nunca em massa.
 
 Publish `MemoryLoaded` event. Transition to LOADING_MEMORY state.
 

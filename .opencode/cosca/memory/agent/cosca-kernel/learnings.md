@@ -705,3 +705,229 @@
 | **Prova** | ~58 testes PASS (18 projectintel + ~40 app_test) + build frontend OK + EXE compilado/aberto. |
 | **Confianca** | 1.0 (orquestrado e validado; feedback professor incorporado) |
 | **Next** | (1) Editor intelligence + file icons + minimap (missao 16-18, pendente); (2) validar visualmente painel no EXE (NON-VERIFIED->VERIFIED); (3) opcional RUNTIME VALIDATION (executar build/lint detectados c/ approval). |
+
+## 2026-08-28 - ADR-023 COMPLETO (Control Loop + Engine-gated) + evalgo/evals + b.Loop
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | execucao / avaliacao / mundo / determinismo / refactor |
+| **Problema** | Mineracao big-tech (kubernetes/sample-controller/vercel-workflow/n8n/aws-agent-toolkit/google-agents-cli) confirmou a tese Crystallization (ADR-017 s1). O Cosca nao precisa de "IA mais esperta" - precisa cristalizar mecanismos que a IA demonstra. |
+| **Fase 1** | argument-aware deny (DenySecretExfil) 55aa4bf + ControlLoop Continuo 11cc9d8. |
+| **Fase 2** | ExecGate (I1 dentro do workflow) 6469b76 + determinismo mecanico/replay estrito no dflow 8aebb9f (wc.Now/Rand, ErrReplayDiverged, replayLen/replayPos). |
+| **Fase 3** | Lister+resync world (selo epistemico por entidade) 7b06581 + eval-as-flywheel c/ gate c194b1d. |
+| **Licao 1 (evalgo vs evals)** | ANTES de criar subsistema NOVO, COMPARE. Ja existia internal/evals (suite/oracle/ablation/canary/report) exposto como `cosca eval`. Criar `cosca evalgo` seria EPISTEMOLOGIA PARALELA (regra do Don). SOLUCAO: evalgo = ATOMO (Criterion/Clusters/Gate fail-closed); evals = SUITE end-to-end; compor via `cosca eval promote` (9adabc2). |
+| **Licao 2 (teste engolindo erro)** | Fail de teste pode ser DO TESTE, nao do codigo. TestReplayDivergence_FailClosed falhou porque o wf2 usava `_, _ = ExecActivity()` engolindo o ErrReplayDiverged. A deteccao funcionava; o teste nao PROPAGAVA o erro. |
+| **Licao 3 (b.N -> b.Loop)** | Go 1.26 moderniza `for i:=0; i<b.N; i++` -> `for b.Loop()`. Forma index-safe: `for i := 0; b.Loop(); i++`. b.Loop NAO pode ser ANINHADO (nested permanece b.N). b.ResetTimer fica redundante (b.Loop reseta o timer na 1a chamada; setup antes do loop nao e medido). |
+| **Licao 4 (PowerShell regex tab)** | Em single-quoted PS, `t NAO vira tab (vira literal 't' que quebra o arquivo). Use [string][char]9 para tab em replacement de regex. |
+| **Licao 5 (flakes)** | internal/ingest/TestGoldenSliceFrozen e um golden flaky (sensivel a ordem), passa 3/3 isolado, NAO e regressao. Regressao: 169 ok, 0 panic, 1 flake. Preferir `go test ./pkg -run X` isolado para confirmar flake. |
+| **Prova** | build ./... + vet limpos; regressao 169 ok; commits 0c169d6, 7b06581, c194b1d, 9adabc2. |
+| **Confianca** | 1.0 (mecanismos entregues + testados + regressao verde) |
+| **Next** | (1) Wiring do Item 5 no Orchestrator (mergeEntities naive -> Lister); (2) flip ADR-021/023 p/ Accepted apos sig-page do Don/CTO; (3) ampliar evalgo p/ casos reais de skills/agentes. |
+
+## 2026-08-28 - AUDITORIA "orgaos vs ferramenta" + WorldSpec (ADR-024)
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | arquitetura / auditoria / estrategia / world-authoring |
+| **Problema** | Apos minerar Roblox + auditar o substrato, a 1a conclusao foi "COSCA ja tem 80% de um World Studio". O professor CORRIGIU: a distincao certa e ORGANOS (pecas de infraestrutura desconectadas) vs FERRAMENTA (sistema nervoso). A ambicao nao e "fazer um concorrente do Unreal", e "autorar mundos independente do motor". |
+| **Correcao-chave** | Nao construir "COSCA Engine". Construir o SISTEMA NERVOSO: WorldSpec (linguagem comum) + pipeline (LLM Intent -> Proposal -> WorldPlanner -> WorldSpec -> Gate -> Apply -> Provenance) + EngineAdapter (corpo, fina) + loop AUTHOR->SIMULATE->OBSERVE->EVALUATE->MODIFY. |
+| **WorldSpec** | Contrato canonico JSON versionado (via internal/contracts, bump aditivo), deterministico (seed, I1), declarativo, com provenance (I3/I4). DECISAO: estender internal/gameengine.Scene (ja ECS declarativo JSON) + terrain/nav/env/simulation/provenance - NAO criar tipo novo gigante. |
+| **O que separa gerar de experimentar** | OBSERVE = worldmodel TrustState (I4, observacao qualificada); EVALUATE = evalgo/sciengine (metrica+significancia+gate, nunca "parece melhor"); MODIFY = proposal->gate->apply->provenance (proof-gated). Sem isso e um gerador de cenario. |
+| **Nuance (subsidio)** | worldmodel.Adapter atual e adapter de FERRAMENTA (CLIP/SAM/Whisper - percepcao/subprocesso). EngineAdapter (Unreal/Roblox/Blender como corpo) e OUTRA abstracao, nova e fina. NaO reusar semantica de ferramenta. |
+| **Padrao repetido** | A mineracao encontra repetidamente: "vou importar uma capacidade inteira" -> o COSCA responde "calma, ja tenho 60% espalhado em 4 diretorios". Fase de mineracao deve ser IDEIA -> AUDITORIA (procurar no proprio COSCA) -> GAP REAL -> PROVA, antes de desenhar. |
+| **Substrato existente** | internal/world (+nav A*), worldmodel (Living World I4), scene, gameengine (ECS Scene JSON), procgen, tdengine (3D OBJ/glTF), asset (content-addressable), sciengine+evalgo (avaliacao), provenance+evolution, gate. |
+| **Prova** | ADR-024 commitado 4419848. Auditoria + design em E:\cosca-tmp\roblox-mining (COSCA-WORLD-STUDIO-AUDIT.md, COSCA-WORLDSPEC-DESIGN.md). docs-only, zero codigo no bin. |
+| **Confianca** | 1.0 (auditoria direta de codigo + correcao do professor valida) |
+| **Next** | Fase 1 do ADR-024: detalhar esquema do WorldSpec (design). Depois Fase 2: WorldPlanner (cidade) + roblox-adapter = prova do nervo. Nao implementar no bin sem sign-off Don+CTO. |
+
+## 2026-08-28 - WORLD STUDIO: AUDITORIA + WorldSpec + POC provando o "nervo"
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | arquitetura / world-authoring / prova-de-conceito / loop-cognitivo |
+| **Correcao do professor** | O COSCA NAO tem "80% de um World Studio pronto como produto" - tem ORGANOS desconectados. A ambicao nao e "fazer concorrente do Unreal", e "autorar mundos independente do motor". Unreal/Roblox/Blender = orgaos perifericos. |
+| **WorldSpec = lingua comum** | Contrato canonico (estender gameengine.Scene + terrain/nav/env/simulation/provenance) versionado via internal/contracts, deterministico (seed, I1), declarativo, com provenance (I3/I4). O COSCA emite "este e o mundo"; o adapter materializa no corpo. |
+| **Pipeline (nervo)** | LLM(Intent)->Proposal->WorldPlanner->WorldSpec->Gate->Apply->Provenance. O LLM NUNCA escreve no mundo; o planner deterministico constroi o estado valido. |
+| **Nuance** | worldmodel.Adapter atual e adapter de FERRAMENTA (CLIP/SAM/Whisper). EngineAdapter (Unreal/Roblox/Blender corpo) e OUTRA abstracao, fina e nova. |
+| **POC (E:\cosca-tmp\poc-city)** | Go puro, fora do bin. Intent->WorldPlanner->WorldSpec->roblox-adapter->projeto Rojo no disco. VALIDADO: rojo build -> .rbxl OK; selene -> 0 errors/0 warnings/0 parse errors. |
+| **Loop (engine cognitiva)** | AUTHOR->SIMULATE->OBSERVE->EVALUATE->MODIFY rodou. Mediu (norte 0.15->1.00 apos correcao), avaliou (threshold 30%), corrigiu estruturalmente (edge no grafo), e GATE recusou proposta invalida (conectar a no inexistente) - fail-closed I2. |
+| **Padrao repetido** | "vou importar capacidade inteira" -> COSCA responde "calma, ja tenho 60% espalhado em 4 diretorios". Mineracao deve ser IDEIA->AUDITORIA (procurar no proprio COSCA)->GAP REAL->PROVA antes de desenhar. |
+| **Prova** | ADR-024 (4419848) + POC validada (rojo 7.7.0 + selene 0.31.0 instalados em E:\cosca-tmp\roblox-tools). Leitura: gameengine.Scene e o nucleo mais limpo do WorldSpec. |
+| **Confianca** | 1.0 (auditoria direta de codigo + POC validada com toolchain real + loop rodou) |
+| **Next** | (1) Inteirar ao COSCA real (internal/world/gameengine/procgen/worldmodel + contracts) - toca o bin, requer OK Don+CTO; (2) luau-analyze p/ type-check estrito; (3) evoluir loop p/ simulacao real + observacao worldmodel. |
+
+## 2026-08-28 - WORLD STUDIO MATERIALIZADO NO BIN: worldspec + engineadapter + worldloop + CLI
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | world-authoring / engine-adapter / loop-cognitivo / CLI |
+| **Percurso** | Mapa A-J -> AUDITORIA ("orgaos vs ferramenta") -> ADR-024 -> design (F1/F2/loop) -> POC (E:\cosca-tmp, qualquer modalidade + toolchain validado) -> MATERIALIZACAO NO BIN. |
+| **Commit 1** | bbe40a3 internal/worldspec: contrato canonico (reusa gameengine.Entity como ECS; composicao dos backbones; seed/proveniencia/validadacao fail-closed I1/I4; Hash I5). |
+| **Commit 2** | 8a5f0a2 internal/engineadapter: EngineAdapter (Target+Materialize) DISTINTA do adapter de ferramenta; RobloxAdapter gera projeto Rojo/Luau (AuthorityMode=Server, DataStore CAS/antidupe, RemoteEvent never-trust-client) + configs toolchain. |
+| **Commit 3** | e087a51 internal/worldloop: SIMULATE->OBSERVE(I4)->EVALUATE(evalgo)->MODIFY. AccessibilitySimulator + ConnectIsolated (mudanca ESTRUTURAL) + gate bloqueia "isolated:*" (fail-closed I2). |
+| **Commit 4** | da56f98 cli: `cosca world build <spec>` (->Rojo) e `world loop <spec>` como SUBCOMANDOS do grupo world existente (inspect/spawn/explain) - sem duplicar. loadSpec valida fail-closed. |
+| **Licao (não duplicar CLI)** | Ja existia `cosca world` (inspect/spawn/explain). ANTES de criar comando novo, procurar o existente e ADICIONAR subcomandos - mesmo padrao da auditoria: compare, nao recrie. |
+| **Licao (selene vs luau-analyze)** | TENSÃO real: luau-analyze quer type-annotation, selene (0.31) NAO parseia `local x: { [any]: number }`. Em POC, priorizar o SELENE como gate de "limpo" (0/0/0); luau-analyze so limpo com roblox.d.luau (404). |
+| **Prova** | Regressao 173 ok / 0 fail / 0 panic. Testes: worldspec 5, engineadapter 1, worldloop 2, cli build/loop/loadSpec 3. build ./... + vet + gofmt limpos. |
+| **Confianca** | 1.0 (materializado no bin + regressao verde + testes por pacote) |
+| **Next** | (1) Integracao funda: world/scene/gameengine emitirem WorldSpec nativamente - toca existentes -> CTO; (2) granular/worldstudio no CLI (incremental); (3) evoluir loop p/ FPS/racing no bin (nao so acessibilidade). |
+
+## 2026-08-28 - PENDENTE (fazer depois): varredura por openers de janela no repo
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | pending / teste-qualidade / caça-a-janelas |
+| **Origem** | Don relatou que `go test` abria janelas (browser/explorer). Corrigi os 3 casos (docs.go openBrowser: c:/Este Computador, cosca.enterprise/docs, example.com) via injecao de dependencia (var openBrowser + stubOpenBrowser + guarda de URL vazia). commit 4b221fe. |
+| **Tarefa PENDENTE** | **Varrer TODO o repo por outros "openers" de janela** (browser/explorer/localhost/`exec.Command "start"`/rundll32/xdg-open/open/ShellExecute) em NAVIO DE TESTE, para garantir que nenhum outro teste abra janela. O padrão a aplicar: injetar o opener (var de pacote) + stubOpenBrowser no teste. |
+| **Como detectar** | `rg -n "rundll32|xdg-open|exec.Command.*(start|explorer|open)|ShellExecute|url.dll,FileProtocolHandler|localhost.*open" --glob "*.go"` e revisar cada chamada dentro de `*_test.go`/comandos chamados em teste. |
+| **Padrao de fix** | (1) Toda abertura de janela vira variavel de pacote estubavel; (2) guarda anti-URL-vazia (anti "Este Computador"); (3) testes usam stub + validam a URL/arg passado (nao abrem). |
+| **Confianca** | N/A (tarefa pendente) |
+| **Next** | Ao retomar: rodar a varredura, listar todos os openers, corrigir os que aparecem em teste, rodar regressao. |
+
+## 2026-08-28 - VERTICAL SLICE jogavel: mundo PRÉ-COLOCADO via .model.json (nao so por script)
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | product-first / roblox / poc / fixed |
+| **Origem** | Don pediu produto (nao arquitetura) -> COSCA fabricou um tycoon vertical slice jogavel (E:\cosca-tmp\poc-tycoon). |
+| **Resultado** | ojo build gera .rbxl; selene 0/0/0; Don confirmou "funcionou tudo como planejado". |
+| **LIAO CENTRAL** | O MUNDO (chao/spawn/moedas) tem que ser **PARTES REAIS pré-colocadas na build** via .model.json, NAO construido so por script no runtime. Motivo: (1) RobloxStudioBeta.exe "<arquivo>.rbxl" via linha de comando NAO carrega o lugar de forma confiavel -> Studio abre a tela inicial; (2) se o mundo so existe por script de servidor, e o script nao roda/erra, o personagem cai no vazio ("so ceu, sol e lua"). Pre-colocado o chao existe mesmo sem Play. |
+| **Schema .model.json (Rojo 7)** | Rojo 6+ IGNORA campo top-level "Name" (nome vem do NOME DO ARQUIVO). Campo class da instancia. Properties: "Size":[x,y,z]; "Anchored":true; "CanCollide":false; "Shape":"Ball" (token 0); "Color":[r,g,b] 0..1 -> vira Color3uint8; "Position":[x,y,z]. Children aninhados (ex.: ClickDetector). Verificar com ojo build --output ...rbxlx (XML) e ler o XML. |
+| **Tipos de script Rojo** | .server.luau -> Script (servidor); .client.luau -> LocalScript; sem sufixo sob ReplicatedStorage/Packages -> ModuleScript. ojo sourcemap mostra a arvore + classes (NAO mostra Parts, so scripts). |
+| **Ferramentas** | rojo 7.7.0, selene 0.31.0 em E:\cosca-tmp\roblox-tools. selene precisa "std = roblox"; regras: 1 statement por linha, sem variavel nao usada (usar _), funcao multi-linha. |
+| **Cliente vs servidor** | ClickDetector.MouseClick dispara no CLIENT; servidor valida (typeof==Instance e Parent==Coins folder) e destrói a moeda; RemoteEvent p/ coletar, RemoteFunction p/ buy/upgrade, RemoteEvent p/ empurrar dinheiro ao HUD (MoneyEvent). |
+| **Confianca** | Alta (validado por build + selene + Play do Don). |
+| **Next** | Passo 4 do roadmap (professor): DAR PRA ALGUEM JOGAR + MEDIR abandono. Requer publicar o .rbxl no Roblox (rojo upload / Studio publish) -> decidir escopo (privado/amigos/publico) -> compartilhar link. Avancar SO com aprovacao do Don (decisao estrategica). |
+
+## 2026-08-28 - STUDIO MCP descoberto (teste do "sistema nervoso") + diretriz do professor
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | capability-discovery / roblox / mcp / design-decisao |
+| **Origem** | Prof. perguntou "Tem como ele ver o que ta fazendo?" e abriu a tese do sistema nervoso (AD Rubrica 017): COSCA criar -> olhar -> julgar -> corrigir a propria criacao. |
+| **DESCOBERTA** | Studio MCP E REAL. Confirmado: StudioMCP.exe (6.1MB) na pasta da versao do Studio ("MCP proxy for Roblox Studio", v1.0.0, opcoes --stdio/--verbose/--version). Robinho/MCP embutido. Voce pode conectar um cliente MCP ao Studio para ler o DataModel, editar scripts, rodar Luau e testar no modo Play. |
+| **Dois tipos de "ver" (mapeados)** | (1) Estrutural — ler WorldSpec/arvore/transforms (ja fazemos bem). (2) Do engine — executar e testar comportamento (anda? clique da moeda? upgrade? bloco cresce?). (3) VISAO REAL — screenshot da cena -> CLIP/SAM -> "casa torta"/"parcela fora da cerca"/"HUD sobrepoe" -> Evaluate -> MODIFY. A (3) fecha o negocio. |
+| **Arquitetura proposta (2 pernas)** | Rojo = fonte de verdade (filesystem/declarativo/versionavel). Studio MCP = olhos + maos (interagir com sessao viva). |
+| **DIRETRIZ (professor)** | NAO construir essa integracao como arquitetura AGORA (mesma conclusao: nada antecipado). Fazer EXPERIMENTO MANUAL: conectar COSCA ao Studio MCP que ja existe -> abrir a farm -> inspecionar o mundo real -> fazer 1 alteracao visual -> rodar/testar -> observar se o ciclo fecha. Se fechar -> a realidade revelou uma capacidade nova. Depois perguntar: e Roblox-especifico ou capacidade operacional p/ QUALQUER corpo (Blender/Unreal/CAD/navegador/software)? Se aparecer em todos -> CRISTALIZAR. |
+| **Prioridade imediata** | 1) TERMINAR a fazenda visual (v2 aberto; aguardar veredito do Don no design). 2) DEPOIS o experimento MCP (create->look->judge->fix) sobre a propria fazenda. |
+| **Confianca** | Alta (StudioMCP.exe verificado). Setup exato de habilitacao (porta/flag) a descobrir no experimento — nao investigar mais agora. |
+
+## 2026-08-28 - LOOP VISUAL create->look->judge->fix PROVADO (screenshot+visao) + bugs pegos
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | capability-proven / roblox / vision / mcp |
+| **VITORIA** | O loop create->look->judge->fix FUNCIONOU de ponta a ponta, SEM precisar do MCP. COSCA criou a farm -> pegou screenshot da janela do Studio -> LEU a imagem (modelo com visao) -> JULGOU -> CAPTOU bug real -> CORRIGIU -> RE-OLHOU e confirmou o fix. |
+| **BUG REAL #1 (corrigido)** | A HUD nao aparecia em Play. Causa: Frame.BorderRadius (propriedade recente) quebrava o cliente no inicio (Frame nao tem o membro -> error -> HUD nunca construida). FIX: remover o uso de BorderRadius no helper frame(). Confirmado: depois do fix a HUD (painel dinheiro/energia/dia, toolbar ferramentas, painel Acbes) renderiza. |
+| **Como ver (sem MCP)** | 1) %LOCALAPPDATA%\Roblox\RobloxStudio\AutoSaves\*.rbxl (apagar p/ nao dar dialogo de recuperacao). 2) PowerShell: enumerar janelas visiveis do RobloxStudioBeta (EnumWindows+IsWindowVisible+GetWindowRect, pegar a MAIOR), Graphics.CopyFromScreen, salvar PNG. 3) Ler o PNG com o Read (modelo com visao). 4) F5 (Play) + aguardar ~6s p/ mundo+personagem carregarem. 5) SetForegroundWindow + WScript.Shell SendKeys p/ F5/ESC. Caveat: $pid/Rd/Send/rame sao alias/colisoes no PS — usar nomes unicos. |
+| **MCP roteamento (descoberto, NAO em uso)** | Proxy StudioMCP.exe: metodo/tool list_roblox_studios (via tools/call) lista instancias; TODA tool call exige argumento studio_id; protocolo handshake initialize ok; fala por WebSocket (str ws_server, Pong from WS host, patch /studio). BLOQUEIO REAL: list_roblox_studios retornou studios: [] e o log do Studio mostra DebugUTPLauncherWebSocketUri='' wsOptIn=0 -> o endpoint WS do Studio NAO esta no ar (precisa reiniciar o Studio APOS habilitar MCP no Assistant; nunca forcar arquitetura). |
+| **Observacoes visuais (fase atual)** | Personagem spawna DE COSTAS para o campo (olha para a casa); campo/parcelas ficam atras. Money label no topo-esquerda e sobreposto pelo hint "Digite 1~9" do Roblox (nossa HUD). Melhoria futura: orientar spawn para +z (campo) e relocar painel. |
+| **Confianca** | Alta (loop provado end-to-end + bug real corrigido e confirmado por re-visao). |
+| **Next** | Reportar ao Don. Decicoes: (a) pequeno polish de spawn-facing; (b) restart do Studio para ativar Studio MCP WS e entao usar list_roblox_studios+studio_id; (c) seguir densificando a fazenda. |
+
+## 2026-08-28 - AUONOMO: fazenda grande + bug do "cai" (CanCollide) + escala/camera
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | autononol / roblox / build / fixed |
+| **BUG DO "CAI" (resolvido)** | Don reportou "nao da pra andar e cai". Causa: helper part() gerava TODOS os Parts com CanCollide=false, INCLUSIVE o baseplate -> personagem atravessava o chao e caia no vazio. FIX: funcao solid() (CanCollide=true) para chao + parede da casa; decoracoes (arvores/cerca/parcelas) ficam sem colisao para nao travar. Confirmado por visao: personagem fica em pe. |
+| **Escala/camera (lacao)** | Baseplate 140x140 = camera de Play mostra o mapa INTEIRO (personagem minusculo) -> parece vazio. Baseplate ~64x64 + campo grande no centro = camera enquadra. Dica: forcando a movimento (SendKeys W) a camera de Play segue o personagem e mostra o campo de perto. Roblox Play camera faz "home" no personagem; semelhante a 3a pessoa. |
+| **Layout final (big farm)** | Baseplate 64x64 (Material Grass + CanCollide). Campo: 20 parcelas procurgeradas em grade 4 rows x 5 cols (x -16..16, z -12..20) + 5 bloqueadas (Locked1..5 em z=20, desbloqueiam no celeiro). Casa grande (-24,-14), celeiro no build (24,-14) [buildBarn atualizado no server], lago (26,18), 10 arvores ao redor, cerca, caminho (linha de pedras de spawn ate o campo). Spawn (0,-26) orientado 180 para +z (de frente pro campo). |
+| **MCP** | Ainda studios: [] — o WS do Studio nao sobe ate reiniciar com "Studio as MCP server" ativo. Decisao: nao travar; usar screenshot+visao. |
+| **Confianca** | Alta (build + selene 0/0/0 + visao confirmando chao colide e campo grande). |
+| **Next** | Continuar autonomo: melhorar "cara de fazenda de verdade" (cor de solo mais escura/profunda, Talvez Terrain), verificar o gameplay end-to-end (plantar->regar->dormir->colher->vender). |
+
+## 2026-08-28 - ARQUITETURA DE JOGO DE VERDADE (modular + server-authority) NO AR
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | roblox / arquitectura / built / milestone |
+| **O QUE** | Reconstrui o farming em arquitetura profissional (apos analisar Place1 + Export-2 + mining multi-genero): E:\cosca-tmp\poc-farm-modular\out\vale-verde. |
+| **ESTRUTURA MODULAR** | ReplicatedStorage/Packages: GameShared.luau (config) + Rules.luau (regras PURAS compartilhadas). ServerScriptService/Server: GameManager (Script, orquestrador/dono do estado/cria remotes/replica) + CropSystem, EconomySystem, DayCycleSystem, BuildSystem, Visuals (ModuleScripts). StarterPlayerScripts: Game.client.luau (LocalScript FINO: so envia intencao via RemoteFunction e renderiza snapshot). |
+| **PROVA** | rojo build OK (farm_modular2.rbxl, 11789 bytes); selene 0/0/0; sourcemap mostra as classes corretas; jogando no Studio a HUD renderiza (Dinheiro:0, Dia 1, toolbar, acbes) -> servidor subiu, remotes criados, client conectou e recebeu estado. |
+| **LICAO / BUG REAL** | equire(script.CropSystem) FALHA: os modulos sao IRMAOS do GameManager (na pasta Server), nao filhos -> equire(script.Parent.CropSystem). O sintoma classico de arquitetura: quando o servidor nao sobe, ele nao cria os remotes, e o client WaitForChild de um Remote bloqueia -> HUD some. |
+| **CONCEITO CENTRAL** | server-authority: estado 100% no servidor; client so manda intencao (RemoteFunction IntentRemote); servidor VALIDA via Rules + aplica via Systems + replica via StateEvent(snapshot). Rules.luau (funcoes puras canTill/canPlant/canWater/canHarvest/growTick) = fonte unica de regra, compartilhada. |
+| **PASSOS FUTUROS** | (1) testar o loop de clique (arar->plantar->rega->dormir->colher->vender->cas/celeiro) de ponta a ponta. (2) escalar: Terrain real, kit-bash level design, times/match se quiser outro genero, persistencia ProfileStore, UI React-lua. |
+| **Confianca** | Alta (build+selene+renderizacao verificada por visao). |
+
+## 2026-08-28 - PERCEPCAO DETERMINISTIC-FIRST (POC provada) + captura limpa de janela
+
+| Field | Value |
+|-------|-------|
+| **Tipo** | capability-poc / roblox / vision / deterministic-first |
+| **EXPERIMENTO** | E:\cosca-tmp\video-percept (Go puro, fora do bin): ffprobe (metadata) -> ffmpeg ExtractFrame -> tesseract OCR -> pixel-diff (Go) -> dados por frame -> eventos. PROVADO: extrai metadados, texto, numeros de UI, mudanca de cena, e deriva eventos tipo currency_changed SEM VLM. |
+| **LICOES MEDIDAS** | (1) internal\/media OPERACIONAL (ffmpeg/ffprobe). (2) internal\/vision OCR OPERACIONAL (tesseract, so eng/osd no Windows — sem por; precisa -l eng e tessdata). (3) Pipeline estruturado GroundingDINO/SAM2/CLIP/Depth = CODIGO-COMPLETO mas NAO OPERACIONAL no Windows: scripts adapters/vision/*.py NAO existem, runSubprocess chama 'python3' (Unix) -> quebra, sem deps/modelos/GPU. (4) 'codigo existe' != 'capacidade operacional existe'. |
+| **CAPTURA LIMPA DE JANELA (resolvido)** | PrintWindow(PW_RENDERFULLCONTENT) em Roblox Studio -> FRAMES EM BRANCO (DirectX 3D nao captura). SOLUCAO: CopyFromScreen no retangulo da janela do Studio + console do PowerShell OCULTO (ShowWindow(h,0) ou -WindowStyle Hidden) + SetForegroundWindow -> frames limpos (763KB, 1920x884). |
+| **GAP RESTANTE** | As frames capturadas mostraram o EDITOR (OCR leu menu "Arquivo/Editar/... Workspace"), nao a HUD em jogo, porque o F5 (Play) nao engatou via SendKeys (foco frsagil). Para dados de HUD reais precisa o jogo em Play (o Don aperta Play, ou resolver foco). |
+| **DECISAO (professor)** | NAO cristalizar arquitetura so porque parece boa. Cristalizar o que foi PROVADO. Passo 1: aquisicao limpa + repetir (feito -> captura limpa OK, falta frame em Play). Passo 2: se bom, integrar ao Go/COSCA como capacidade real. NAO instalar GroundingDINO/SAM/CLIP/Depth, NAO corrigir python3 ainda (~trabalho separado de portabilidade), NAO puxar Qwen. |
+| **FRAME CAPTURE como lab** | A Farm virou laboratorio de capacidades: COSCA cria -> executa -> observa (deterministico). Proximo salto: comparar observado vs esperado -> mudanca -> evento -> decidir -> executar. |
+| **CONFIANCA** | Alta (pipeline + captura limpa provados por execucao). |
+| **Next** | Rodar experimento com frame REAL em Play (HUD), e decidir integracao. Depois, se necessario: portabilidade python3 / adapters structured (trabalho separado). |
+
+## 2026-08-28 - COSCA aprendeu W->RESPAWN por experimento (stack MINIMO, sem VLM) + virada do professor
+
+| Field | Value |
+|-------|-------|
+| **MARCO** | COSCA detectou PLAYER_RESPAWNED apos W repetido, usando APENAS: ffmpeg/frames + pixel-diff + YOLOv8n + tracker epistemologico + epistemologia. SEM VLM/SAM/CLIP/Depth. |
+| **EVIDENCIA DO RESPAWN** | frame s9->s10: mudanca abrupta de cena = 51% dos pixels + avatar reapparece OBSERVED (person conf 0.84, posicao estavel 802.5,633.5). Epistemologia: avatar sumiu=UNKNOWN; sumiu+cena mudou+reapareceu=OBSERVED/EVIDENCE (respawn); 'porque W levou pra fora'=INFERRED (nao FACT). |
+| **STACK MINIMO FUNCIONANDO** | Capturar midia->extrair frames->detectar mudanca->identificar entidade(YOLO8n person)->rastrear+estados->trajetoria->detectar consequencia(respawn)->registrar evidencia->separar OBSERVED/INFERRED. |
+| **LICAO HEURISTICAS** | Heuristica blob-escuro FALHA (UI dominante); heuristica nao-fundo FALHA (cenas grandes dominam). O problema e IDENTIDADE ESPACIAL (qual entidade e o avatar e acompanhar entre frames) -> exigiu detector (YOLOv8n) + tracker. |
+| **FERIDA/INSTALADO no Windows** | ffmpeg/ffprobe (media), tesseract OCR (eng), ultralytics YOLOv8n + torch/numpy ja instalados (Python 3.14), opencv disponivel. GroundingDINO/SAM/CLIP/Depth = codigo-fantasma (python3 quebra, scripts ausentes) - NAO portar ainda. |
+| **DIRETRIZ PROFESSOR (crucial)** | (1) NAO adicionar mais visao. (2) NAO ensinar a proxima regra: fazer EXPERIMENTO INVERSO - dar W, A, D, S e deixar o COSCA descobrir (W->displacement->repetido->respawn; A->? D->? S->?). (3) PROVA CRUEL: apos descobrir W->respawn, TROCAR o mapa/plataforma/distancia/posicao inicial e ver se ele percebe que o modelo antigo nao explica, experimenta, atualiza a hipotese, nao vira regra universal. (4) NAO transformar em arquitetura universal agora - deixar a Farm bater no COSCA; se a estrutura aparecer naturalmente em software/outros mundos, a abstração sera DESCOBERTA, nao inventada. |
+| **HIERARQUIA** | 0 midia✅ 1 mudanca✅ 2 entidade✅ 3 estado/cinematica✅ 4 consequencia(respawn)✅ 5 modelo operacional: emergindo. Proximo: acumular experiencia (A/D/S) -> modelo do ambiente -> teste cruel de mudar o mapa. |
+| **Confianca** | Alta (evidencia medida; respawn detectado com corroboracao). |
+| **Next** | (1) Acumular modelo do ambiente: executar A, D, S, observar consequencias, construir action->consequence (W->respawn; A->? D->? S->?). (2) Teste cruel: mudar mapa/plataforma e verificar atualizacao da hipotese. (3) NAO portar GroundingDINO/SAM/CLIP/Depth. |
+
+## 2026-08-28 - PROVA CRUEL FASE 1 PASSOU: COSCA revisou modelo sob CONTRADICAO (condicional ao estado)
+
+| Field | Value |
+|-------|-------|
+| **PROVA** | Mundo mudou em UMA variavel causal (plataforma 64x64 -> 64x240, borda removida no eixo +z). Mesmo avatar/controle/W/camera/logica. |
+| **CONTEXTO A (pequena)** | W -> deslocamento -> borda -> RESPAWN (mudanca cena 51% + re-aparece). |
+| **CONTEXTO B (maior)** | W -> deslocamento, avatar OBSERVED estavel (795.2,622.0 conf 0.78-0.87), pixel-diff MAXIMO 0.097 (sem salto abrupto), SEM RESPAWN. |
+| **REACAO DO COSCA** | Detectou a CONTRADICAO (modelo antigo W->respawn nao se aplica). NAO concluiu 'W agora e seguro' (um negativo nao prova). Revise para HIPOTESE CONDICIONAL: a consequencia depende da GEOMETRIA/estado do mundo (plataforma pequena->respawn; grande->nao). = AÇÃO + ESTADO DO MUNDO -> CONSEQUENCIA. |
+| **HONESTIDADE** | Posicao em tela estavel (camera-follow). Evidencia central da contradicao = AUSENCIA do padrao respawn (sem salto abrupto + avatar mantido OBSERVED). |
+| **HIERARQUIA** | 0-4 cruzado; 5 modelo operacional (conditional); **6 aprender a aprender / revisar sob contradicao: CRUZADO**. |
+| **DIRETRIZ PROFESSOR (Fase 2)** | Circunstancia C: manter plataforma grande (nao respawn no ponto antigo) mas colocar NOVA borda em outro lugar (ex.: gap/buraco em outro z, ou plataforma estreita nas laterais). Testar W (ou A/D) e OBSERVAR COMO ele aprende. NAO deixar ele consultar modelo antigo como regra pronta: distinguir MEMORIA ('W causou respawn no ctx A') vs MODELO ('hipotese: W+config espacial pode levar a respawn') vs EXPERIMENTO vs RESULTADO vs ATUALIZACAO. Deixar ele ser 'meio burro' (5 ou 20 experimentos, hipotese errada depois corrigida = dado). MEDIR SAMPLE EFFICIENCY: quantas experiencias para adquirir uma propriedade operacional; n de hipoteses erradas; n de contradicoes; n de experimentos para corrigir; reutiliza conhecimento; sabe quando incerto; transfere para nova geometria. |
+| **IRONIA** | Comecou querendo 'entender video frame a frame'; virou video->percepcao->entidade->estado->acao->consequencia->hipotese->contradicao->revisao->modelo operacional. O VIDEO foi so o SENSOR; o interessante acontece DEPOIS dele. |
+| **Next** | FASE 2: modificar mundo (nova borda em outro lugar) -> rebuild -> Play -> executar W/A/D -> observar aprendizagem + medir sample efficiency. Sem novo modelo/arquitetura/abstracao. |
+| **Confianca** | Alta (fase 1 medida + honesta). |
+
+## 2026-08-28 - BASELINE CONGELADO: aprendizagem experimental condicionada (fase 1 + 2)
+
+| Field | Value |
+|-------|-------|
+| **BASELINE (FRAMING HONESTO DO PROFESSOR)** | NAO registrar 'COSCA aprendeu causalidade geral' (exageraria). Registrar: 'COSCA demonstrou APRENDIZAGEM EXPERIMENTAL CONDICIONADA em ambiente controlado, com REVISAO DE HIPOTESE diante de contradicao e TRANSFERENCIA PRELIMINAR de uma relacao acao-estado-consequencia.' |
+| **PROVADO (fase 1 e 2)** | ctx A (pequena): W+borda->RESPAWN. ctx B (grande, sem borda): W->SEM RESPAWN. ctx C (grande+gap): W+gap->RESPAWN. => W nao e perigoso em si; depende da GEOMETRIA/borda. Contradicao detectada em B (fase 1), confirmacao em C (fase 2). |
+| **EVIDENCIA-RESPAWN** | padrao UNKNOWN (avatar some) -> mudanca abrupta de cena (0.19-0.51) -> avatar re-OBSERVED em posicao (levemente) diferente. Posicoes em tela estaveis (camera-follow) - evidencia central e o padrao de reset, nao a posicao. |
+| **STACK MINIMO** | ffmpeg/frames + pixel-diff + YOLOv8n (person) + tracker epistemologico (OBSERVED/TRACKED/PREDICTED/UNKNOWN) + epistemologia. SEM VLM/SAM/CLIP/Depth/abstracao. |
+| **PLANO DE MEDICAO (ordem professor)** | 1) REPETIBILIDADE: repetir A/B/C varias vezes com seeds/posicoes diferentes - chega a mesma regra? (10x consistente = solido). 2) SAMPLE EFFICIENCY: experimentos ate 1a hipotese / hipotese correta / contradicoes / hipoteses descartadas / acoes desperdicadas / confianca antes-depois / observacoes necessarias => 'quantas experiencias para aprender uma propriedade operacional?' (METRICA-CHAVE). 3) TRANSFERENCIA (a mais importante): depois 'ACAO+GEOMETRIA->CONSEQUENCIA', mudar o que NAO deveria importar (posicao inicial, orientacao, tamanho da plataforma, distancia ao gap, visual) e ver se ele transfere a ESTRUTURA da regra (nao os pixels). Mundo A (W+gap->respawn) -> modelo -> Mundo B (W+gap->?): se testar MENOS vezes no B porque ja sabe o que procurar = transferencia. |
+| **IRONIA** | A Farm comecou como produto p/ testar o COSCA e virou LABORATORIO EXPERIMENTAL do proprio COSCA. |
+| **FRONTEIRA FUTURA** | Se passar os 3 testes -> ver o mesmo mecanismo bater em Unreal/software/outra ferramenta SEM construir abstracao especifica. NAO cristalizar arquitetura universal agora. |
+| **Confianca** | Alta (fases 1 e 2 medidas e honestas). |
+
+## 2026-08-28 - NATIVO NO COSCA: o que foi cristalizado (provado) da sessao
+
+| Field | Value |
+|-------|-------|
+| **PRINCIPIO (professor)** | Cristalizar o que foi PROVADO, nao o que parece bom. Nao criar 'UniversalVisionCognitiveOrchestrator'. A contribuicao que generaliza e a PRIMITIVA CEREBRAL, nao um sistema de visao. |
+| **NATIVO (ja adicionado, build+vet+test ok)** | (1) internal/vision backend **llava** (VLM via Ollama) - Options.Backend:'llava'/'auto'/'tesseract', retrocompativeis (default tesseract). (2) **Primitiva EPISTEMICA** internal/vision/observation.go: EstadoEpistemico (OBSERVED/TRACKED/PREDICTED/UNKNOWN), struct Observation (Epistemic, Text, Object, Value, Confidence, Corroborated/Bе), EvidenceLevel (NONE/LOW/MEDIUM/HIGH), metodos IsReported/IsCertain/Corroborate/Level(). |
+| **JA NATIVO antes** | internal/media (ffmpeg/ffprobe: Probe/ExtractFrame/ExtractAudio/Transcode/ConvertAudio/Validate), internal/vision (ocr tesseract), internal/worldmodel/vision (pipeline estruturado GroundingDINO/SAM/CLIP/Depth - codigo-fantasma no Windows). |
+| **PROVADO (POC fora do bin, E:\cosca-tmp)** | pipeline deterministico (probe->extractFrame->ocr->pixel-diff->eventos) + YOLOv8n+tracker+epistemologia -> detectou RESPAWN + revisao de hipotese sob contradicao (ctx A/B/C). |
+| **REGRA (nao cristalizar ainda)** | O pipeline deterministico completo (media+ocr+yolo+tracker) e a 'aprendizagem experimental' estao provados em 1 dominio (Roblox). Nao virar arquitetura universal ate aparecer naturalmente em 2-3 dominios (Unreal/software/outro mundo). A primitiva epistemica e o que pode generalizar desde ja. |
+| **PENDENCIA DE COMMIT** | As mudancas em internal/vision (llava + observation.go) sao ADITIVAS e nao commitadas (aguardando ordem do Don). |
+| **Confianca** | Alta (build+vet+test ok; POC medido e honesto). |
+
+## 2026-08-29 - ORQUESTRACAO da sessao "cerebro neural 3D" (Nao-implementador; coordenacao)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Orquestrar a sessao 2026-08-29 (tema cerebro neural 3D / observatorio / activity log) coordenando os Chiefs: architecture (mineracao Qdrant + ADR-027), security (auditoria /brain publico + P1 prompt-leak), qa (testes de regressao do cerebro), backend (readActivityLog tail-read/cache), frontend (views 3D do cerebro em app.js), database (auditoria de integridade). |
+| **Tecnica** | Delegar-never-implement (Principio 6 do Kernel): planejar ONDE e com QUEM, cada Chief executou no seu dominio; coordenar a fronteira /brain (read-only publico) para nao regredir a exposicao; garantir que o ADR-027 (decisao de NAO adotar Qdrant) saisse document-only (document-only, nao roda build/test). |
+| **Level** | 3 |
+| **Outcome** | success (coordenacao) |
+| **Confianca** | 0.80 (orquestracao) |
+| **Tags** | #orquestracao #kernel #nao-implementador #delegate-never-implement #cerebro-3d #qdrant #adr-027 #brainweb #coordenacao |
+| **Related** | internal/brainweb/*, api/rest/server.go, internal/cli/root.go, docs/adr/ADR-027-qdrant-decision-payload-index.md |
+| **Learned** | 1) O papel do Kernel NAO e implementar — e escolher os Chiefs certos por fronteira e manter a divisao de responsabilidade estanque (architecture decidiu o ADR; security fez o threat model + P1; qa escreveu a regressao; backend refatorou o log; frontend construiu os views; database atestou a integridade). 2) Coordenacao de uma superficie publica read-only (/brain) exige uma pessoa unica (security) segurando o "nao expor" e as demais trabalhindo read-only por baixo — ponto de confianca unico evita regressao de exposicao. 3) Deixar ADR-027 document-only (sem build/test) foi decisao correta: uma decisao de arquitetura nao deve simular implementacao. 4) O Kernel NAO alterou arquivos de producao nesta sessao (manteve o Principio 6) — a acao de coordenar e de verificar o estado real dos artefatos (brainweb/app.js, ADR-027, testes de regressao) e a contribuicao. |

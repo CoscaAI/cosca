@@ -4,6 +4,13 @@
     "auto": false,
     "prune": false
   },
+  "mcp": {
+    "Roblox_Studio": {
+      "type": "local",
+      "command": ["cmd.exe", "/c", "%LOCALAPPDATA%\\Roblox\\mcp.bat"],
+      "enabled": true
+    }
+  },
   "command": {
     "deploy": {
       "description": "Start deployment workflow",

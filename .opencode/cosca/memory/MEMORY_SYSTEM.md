@@ -82,11 +82,13 @@ This document explains how the Kernel's memory system works, how it evolves, and
 
 ## Load Order (Session Startup)
 
+> **PRINCÍPIO DO CÉREBRO LEVE (ordem do Don, 2026-08-27):** o load da sessão é **index-first** — carrega só contexto essencial e referências. O conteúdo completo das memórias **não** é injetado no contexto; ele é recuperado **sob demanda** por busca semântica (`cosca knowledge search "#tag"`) quando a tarefa exige. Assim o cérebro nunca é poluído com memórias irrelevantes.
+
 1. `context/session.md` — Essential context (<1s)
 2. `sessions/active/current.md` — What we're doing
 3. `codebase/overview.md` — Where files are
 4. `project/cosca-overview.md` — What we're building
-5. On-demand: specific files as needed
+5. **On-demand (nunca em bulk):** the specific file/doc is read only when the current task domain requires it — via semantic search, not eager loading
 
 ---
 

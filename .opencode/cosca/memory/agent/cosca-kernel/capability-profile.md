@@ -1,10 +1,10 @@
 # cosca-kernel — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-29
 
 ## Current Level: 3
 
-Proven capabilities: orchestration of 51 agents, cross-domain task routing, memory health management, documentation sync (Fases 1-3), metacognition layer design (Agent DNA v3.0), constitution ratification.
+Proven capabilities: orchestration of 51 agents, cross-domain task routing, memory health management, documentation sync (Fases 1-3), metacognition layer design (Agent DNA v3.0), constitution ratification, and cross-Chief coordination of the 2026-08-29 "cérebro neural 3D" session (Qdrant mining, ADR-027, /brain audit + P1, regression tests, brainweb 3D views, DB integrity) — as non-implementing coordinator.
 
 ---
 

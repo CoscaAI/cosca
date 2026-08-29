@@ -1,10 +1,10 @@
 # cosca-backend — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-29
 
 ## Current Level: 3
 
-Achieved via: 2 successful API architecture audits, 1 full API surface mapping (36 endpoints, 19 handlers, middleware chain), 1 endpoint coverage audit.
+Achieved via: 2 successful API architecture audits, 1 full API surface mapping (36 endpoints, 19 handlers, middleware chain), 1 endpoint coverage audit, and a production readActivityLog tail-read/cache refactor with shadowing fix.
 
 ---
 
@@ -17,10 +17,11 @@ Achieved via: 2 successful API architecture audits, 1 full API surface mapping (
 | Go HTTP Services | 0.88 | 10 | success | ↑ |
 | Auth Implementation | 0.72 | 5 | success | ↑ |
 | Database Integration | 0.50 | 3 | success | ↑ |
+| Log/tail-read & stream I/O (io.NewSectionReader, cache, ordering) | 0.75 | readActivityLog refactor | success | ↑ |
 | Distributed Tracing | 0.15 | 0 | — | — |
 | High Scale Architecture | 0.10 | 0 | — | — |
 
-**Global Confidence:** 0.59 (avg of non-zero domains)
+**Global Confidence:** 0.62 (avg of non-zero domains)
 
 ---
 
@@ -30,6 +31,7 @@ Achieved via: 2 successful API architecture audits, 1 full API surface mapping (
 - **Middleware Chain Composition**: Understanding ordering implications (SecurityHeaders → Auth → CSRF → RateLimit → CORS → Logging → Mux). Can trace request lifecycle end-to-end.
 - **Go HTTP Services**: Idiomatic `net/http` usage. Handler pattern, context propagation, typed context keys.
 - **API Surface Mapping**: Can audit and document complete API surfaces across handler files, middleware chains, and route registrations.
+- **Read-most-recent log consumption**: Refactored `readActivityLog` with a tail-read (via `io.NewSectionReader` over the last `activityReadWindow` bytes) + an activity cache, preserving correctness (descending order, skipping malformed/empty lines) and removing the dangerous variable shadowing (int64 offset vs int index). Only the safe `Action` label ("COMMAND_EXECUTED") is exposed — never prompt args.
 - **RBAC Design**: Tier-based role hierarchy (admin/editor/viewer), admin bypass pattern, per-route authorization.
 
 ---

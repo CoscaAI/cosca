@@ -17,6 +17,8 @@ Layer 4: Wisdom     (Cross-project)  → ${MEMORY_GLOBAL}/pattern/, ${MEMORY_GLO
 Layer 5: Agent      (Cross-project)  → ${MEMORY_GLOBAL}/agent/
 ```
 
+> **PRINCÍPIO DO CÉREBRO LEVE (ordem do Don, 2026-08-27):** a memória é **armazenada em bulk** (indexada), mas **nunca carregada em bulk** no contexto do agente. O load padrão entrega **índices/referências** (caminho, tipo, tags, resumo). O **conteúdo completo** é recuperado **sob demanda**, via busca semântica por significado (`cosca knowledge search`), apenas quando o domínio da tarefa exige. Isso mantém o cérebro enxuto e saudável, evita poluição de tokens e impede ação baseada em informação irrelevante ou obsoleta.
+
 ---
 
 ## Memory Types
@@ -163,8 +165,8 @@ metric_type: performance | preference | learning
 | Operation | Description | Trigger |
 |-----------|-------------|---------|
 | **Store** | Write record to appropriate store | Auto (decisions, bugs, patterns) or manual (agents) |
-| **Retrieve** | Read records by key, tags, or time range | Session start, context loading |
-| **Search** | Full-text search across stores | Agent queries, pattern matching |
+| **Retrieve** | Read **index/reference** (path, type, tags, summary) of records by key, tags, or time range — NOT bulk content | Session start, context loading |
+| **Search** | **Content on-demand** — semantic (meaning-first) or full-text search across stores, pulled only when the task domain requires it | Agent queries, pattern matching |
 | **Index** | Rebuild search metadata | After batch writes |
 | **Prune** | Archive old/irrelevant records | Periodic (Evolution Engine) |
 | **Promote** | Move record from short to long memory | Session end |
