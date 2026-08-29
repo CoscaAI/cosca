@@ -30,7 +30,7 @@ func runServer(t *testing.T, engine *Engine, lines ...string) string {
 
 func TestInitialize_Handshake(t *testing.T) {
 	out := runServer(t, NewEngine(),
-		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}`)
 	var resp map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
 		t.Fatalf("unmarshal resp: %v", err)
@@ -44,11 +44,30 @@ func TestInitialize_Handshake(t *testing.T) {
 	if err := json.Unmarshal(resp["result"], &result); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
-	if result.ProtocolVersion != "0.1.0" {
-		t.Fatalf("protocolVersion = %q", result.ProtocolVersion)
+	if result.ProtocolVersion != "2024-11-05" {
+		t.Fatalf("protocolVersion = %q, esperava 2024-11-05", result.ProtocolVersion)
 	}
 	if result.ServerInfo.Name != "cosca-mcp" {
 		t.Fatalf("serverInfo.name = %q", result.ServerInfo.Name)
+	}
+}
+
+func TestInitialize_EchoesClientVersion(t *testing.T) {
+	// O servidor EC OA a versão que o cliente pediu (não impõe a sua).
+	out := runServer(t, NewEngine(),
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`)
+	var resp map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var result struct {
+		ProtocolVersion string `json:"protocolVersion"`
+	}
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if result.ProtocolVersion != "2025-06-18" {
+		t.Fatalf("protocolVersion = %q, esperava 2025-06-18 (eco)", result.ProtocolVersion)
 	}
 }
 

@@ -157,11 +157,22 @@ func (s *Server) handleLine(line []byte) (response, bool) {
 
 // ─── Handlers por método ─────────────────────────────────────────────────
 
-// initialize responde o handshake MCP. Espelha o cliente: protocolVersion
-// "0.1.0", e anuncia o servidor.
+// initialize responde o handshake MCP. O servidor ECOA a versão de protocolo
+// que o cliente pediu (params.protocolVersion) — no MCP moderno o servidor
+// suporta a versão compatível com o cliente, não impõe a sua. Fallback: a
+// versão moderna padrão "2024-11-05" (a "0.1.0" é legacy e o OpenCode rejeita).
 func (s *Server) handleInitialize(req request) response {
+	protocolVersion := "2024-11-05"
+	var params struct {
+		ProtocolVersion string `json:"protocolVersion"`
+	}
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err == nil && params.ProtocolVersion != "" {
+			protocolVersion = params.ProtocolVersion
+		}
+	}
 	result := map[string]interface{}{
-		"protocolVersion": "0.1.0",
+		"protocolVersion": protocolVersion,
 		"capabilities": map[string]interface{}{
 			"tools": map[string]interface{}{},
 		},
