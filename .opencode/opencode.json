@@ -9,6 +9,15 @@
       "type": "local",
       "command": ["cmd.exe", "/c", "%LOCALAPPDATA%\\Roblox\\mcp.bat"],
       "enabled": true
+    },
+    "cosca": {
+      "type": "local",
+      "command": ["bin\\cosca.exe", "mcp", "serve"],
+      "environment": {
+        "COSCA_ENABLE_MCP": "1",
+        "COSCA_ALLOW_NO_ROOT": "1"
+      },
+      "enabled": true
     }
   },
   "command": {
