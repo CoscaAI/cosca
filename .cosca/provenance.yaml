@@ -209,3 +209,9 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.98
       created_at: "2026-08-24T00:00:00Z"
+    - id: mcp-vs-cli-checkup
+      statement: 'Divisao de trabalho cosca: checkup de infra (processo/porta/hardware/doctor/serve/security-scan) usa CLI binario; busca de conhecimento/memoria/contexto usa MCP cosca_cosca_* (context/recall/project/trace/reason/learn) com fonte epistemica (EVIDENCE, trace_id). O MCP do cosca esta registrado em .opencode/opencode.json (cosca mcp serve, COSCA_ENABLE_MCP=1) e NAO expoe doctor/hardware/serve. No checkup do carro (2026-08-29) o kernel usou bash+curl quando tinha o MCP na mao; o Don apontou o erro. Regra: nunca trocar um pelo outro. Nota: porta real do serve difere do runbook (14139 vs 14120).'
+      kind: observation
+      source: Don+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-08-29T00:00:00Z"

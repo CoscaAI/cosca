@@ -85,21 +85,24 @@ Architecture, design, code, testing, and security patterns — cross-project reu
 | [`implementation-plan.md`](implementation-plan.md) | Cosca Living World — Implementation Plan: auditoria completa (32 packages, 92 CLI, 52 REST), gap matrix (6 gaps), arquitetura (Cosca=cognition, Unreal=body, Adapters=nervous system), 7 fases (Foundation→Vision→Spatial→VFX→Audio→Destruction→Simulation→Multi-Agent), vertical slice (camera→vision→spatial→world model→decide→action), riscos, recursos (30-43 dias), critérios de sucesso | 0.88 | 2026-08-23 |
 | [`unreal-integration-map.md`](unreal-integration-map.md) | Unreal Engine Integration Map — inspeção da instalação UE_5.8 (32 tecnologias: C++ API, Blueprint, Gameplay Framework, Actors/Components, World/Subsystems, World Partition, Enhanced Input, GAS, AI Controller, Behavior Trees, Mass Entity, NavMesh, Perception, Chaos, Niagara, MetaSounds, PCG, Python API, Remote Control, WebSocket/HTTP, UDP/TCP, Subsystems, Data Assets, Serialization, SaveGame, Plugins, Headless, Automation, Functional, External Process, Unreal↔Blender, External AI). 12 descobertas verificadas no disco. 14 respostas (Unreal=SERVIDOR WebSocket, UCoscaWorldSubsystem, Cosca=cerébro/Unreal=corpo, contrato JSON/WS+GameplayTags, Chaos executa/Cosca decide). Sem arquitetura paralela | 0.92 | 2026-08-23 |
 | [`unreal-implementation-plan.md`](unreal-implementation-plan.md) | Unreal Implementation Plan — vertical slice mínimo Cosca↔Unreal: 2 peças novas (WebSocketClient no Cosca + plugin CoscaRuntime no Unreal), reusa interface Client + contrato do internal/bridge, 8 etapas (E1-E8), estratégia de teste, esforço (~6-9 dias), princípios (Cosca=cerébro/corpo, decisão vs execução física, reconcile com ack) | 0.90 | 2026-08-23 |
+| [`scrapling-patterns.md`](scrapling-patterns.md) | Scrapling Patterns (76k★, scraping adaptativo; 13 padrões: engine por mixins, Response(Selector) unificado, ferramenta adaptativa save/retrieve/relocate+score, PageInfo/PagePool state machine, session-factory merge diferido, msgspec struct+defaults cache, SessionManager lazy, gradação de escala fingerprint-dedup+AutoThrottle+checkpoints, ProxyRotator plugável, camaleão de fingerprint Patchright, detector Cloudflare como quality gate, spiders/crawl confiável, AI-Sanitized-Markdown anti-prompt-injection, MCP-tool-surface, Skill-SKILL.md portátil, escalation-ladder) | 0.88 | 2026-08-27 |
+| [`public-apis-patterns.md`](public-apis-patterns.md) | Public-APIs Patterns (471k★, catálogo de fontes do mundo; 12 categorias mapeadas para capacidades de agente — Geocoding/Weather/ML/Open Data/Science/Transportation/Environment/Social/Games; 9 diamantes keyless (Open-Meteo, Nominatim, Jina+HF, Wikipedia+Wikidata, Groq+Gemini, USGS+Open Notify+NASA, OpenSky, OpenAQ, APILayer suite); leitura de padrão: tabela 5 campos + Auth/CORS como bússola + taxonomia por capacidade, não por domínio) | 0.86 | 2026-08-27 |
+| [`world-acquisition-relations.md`](world-acquisition-relations.md) | World Acquisition Relations — mapa ponta-a-ponta public-apis×scrapling×Cosca; 5 relações (Skill-to-Skill, Fonte→Aquisição, Aquisição→Grounding, LLM-directed aqi.py, Catálogo de capacidades); diagnóstico [TÊM] vs [GAP]; achados críticos: internal/chat/tool/web_fetch.go é STUB e acquisition preso a GitHub README; top 3 elos: acquirer de qualquer página, DataSourceRegistry (public-apis), chunker+sanitizador HTML→markdown→SourceChunk; diagrama completo | 0.87 | 2026-08-27 |
 
 ## Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total patterns | 48 |
+| Total patterns | 51 |
 | Architecture patterns | 3 |
 | Design patterns | 3 |
 | Go-specific patterns | 3 |
 | Integration patterns | 2 |
 | AI/Generation patterns | 1 |
 | Enterprise Platform patterns | 19 |
-| Agent patterns | 4 |
+| Agent patterns | 8 |
 | Confidence range | 0.78 – 0.96 |
-| Average confidence | ~0.92 |
+| Average confidence | ~0.91 |
 
 ## Confidence & Usage Tracking
 

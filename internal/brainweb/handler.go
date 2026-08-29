@@ -16,15 +16,42 @@ import (
 	"github.com/CoscaAI/cosca/internal/trace"
 )
 
+// Perception é o resultado read-only da percepção determinística frame-a-frame
+// (visão sem VLM externa). Modelado a partir de vision.PipelineResult.
+type Perception struct {
+	GeneratedAt time.Time `json:"generated_at"`
+	Source      string    `json:"source,omitempty"`
+	Events      []PEvent  `json:"events"`
+	Frames      int       `json:"frames"`
+	Duration    float64   `json:"duration_seconds,omitempty"`
+}
+
+// PEvent é um evento derivado da percepção (frame-a-frame) com a primitiva
+// epistêmica — o que o Cosca "viu" e em que nível de certeza.
+type PEvent struct {
+	Kind        string `json:"kind"` // currency_changed | unknown_interaction | none
+	Frame       int    `json:"frame"`
+	NeedsVLM    bool   `json:"needs_vlm"`
+	Explanation string `json:"explanation"`
+	Epistemic   string `json:"epistemic"`    // OBSERVED | UNKNOWN
+	Level       string `json:"evidence_level"` // NONE | LOW | MEDIUM | HIGH
+}
+
+// PerceptionSource fornece a percepção determinística real do Cosca.
+type PerceptionSource interface {
+	Perceive() *Perception
+}
+
 // Handler serve o visualizador 3D (/brain) e o contrato de dados (/brain/graph,
-// /brain/activity, /brain/observatory). A rota base /brain é pública (adicionada
-// a publicPaths) e serve HTML estático self-hostado; os endpoints devolvem as
-// projeções mínimas sanitizadas (read-only).
+// /brain/activity, /brain/observatory, /brain/perception). A rota base /brain é
+// pública (adicionada a publicPaths) e serve HTML estático self-hostado; os
+// endpoints devolvem as projeções mínimas sanitizadas (read-only).
 type Handler struct {
 	builder      *Builder
 	static       fs.FS
 	activity     ActivitySource
 	observatory  *ObservatoryBuilder
+	perception   PerceptionSource
 }
 
 // ActivitySource fornece as ações recentes do cérebro. Implementado no
@@ -46,6 +73,12 @@ func NewHandler(agentsMgr *agents.Manager, skillsMgr *skills.Manager, version st
 // WithActivity injeta a fonte de ações reais (executions + traces).
 func (h *Handler) WithActivity(src ActivitySource) *Handler {
 	h.activity = src
+	return h
+}
+
+// WithPerception injeta a fonte da percepção determinística (visão frame-a-frame).
+func (h *Handler) WithPerception(src PerceptionSource) *Handler {
+	h.perception = src
 	return h
 }
 
@@ -82,6 +115,19 @@ func (h *Handler) Activity(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"activities": []Activity{}})
+}
+
+// Perception devolve a percepção determinística frame-a-frame (read-only) —
+// o "sensor" do cérebro, sem VLM externa. Nil-safe: sem fonte → vazio.
+func (h *Handler) Perception(w http.ResponseWriter, _ *http.Request) {
+	if h.perception != nil {
+		p := h.perception.Perceive()
+		if p != nil {
+			writeJSON(w, http.StatusOK, p)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, &Perception{GeneratedAt: time.Now().UTC(), Events: []PEvent{}})
 }
 
 // Serve devolve o index.html do visualizador na raiz /brain.

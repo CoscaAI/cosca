@@ -48,3 +48,28 @@
 - `go build ./...`, `go vet ./...`, `go test ./internal/results/... ./internal/policy/...` verdes (go 1.26.7, Windows).
 - `internal/embed/cosca` é intocável (P8) — nada foi alterado lá.
 - Erros sempre envolvidos com contexto (`fmt.Errorf("...: %w", err)`); nunca `panic`.
+### 2026-08-29 - MCP cognitive tools: trace_id gerado mas nunca gravado no flight recorder (auditoria do cerebro)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-backend-service |
+| **Task** | Corrigir bug: tools de LEITURA (recall/context/project/reason) geravam TraceID novo via NewContextPacket mas NUNCA chamavam e.Trace.Append - cosca.trace <id> devolvia "sem eventos". |
+| **Technique** | Manager pattern: Engine.Trace nil-able. Helper DRY (e *Engine) recordTraceEvent(packet *ContextPacket, action, details string) faz Append best-effort Actor:"mcp", Result via esultFor(len(packet.Context)) ("success"/"empty"). Reaproveita o packet ja criado (mesmo TraceID). _ = ignora erro p/ nunca abortar (trace = auditoria, nao pre-requisito). Nao alterou callLearn (ja gravava) nem callTrace (leitor do proprio trace). |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #mcpserver #trace #flight-recorder #best-effort #auditoria #context-packet #manager-pattern |
+| **Related** | internal/mcpserver/tools.go, internal/trace/store.go Append (append-only, db==nil ou TraceID invalido retornam erro), internal/mcpserver/context_packet.go NewContextPacket (so gera ID, nao grava) |
+| **Learned** | (1) NewContextPacket gera TraceID mas NAO escreve no ledger - a gravacao e responsabilidade de quem consome o packet. (2) Append de trace e best-effort por design: se e.Trace == nil ou db falha, a tool NUNCA deve falhar - sempre devolver o packet. (3) Reutilizar o packet, nao regenerar - gravar com o MESMO TraceID devolvido, senao cosca.trace nao acha. (4) 	race.Store.Append retorna erro se s.db == nil ou TraceID invalido - por isso o guard if e.Trace == nil. (5) mustTraceStore(t) (trace.NewStore(t.TempDir()+"/trace.db")) e o helper p/ testar auditoria com SQLite temporario. |
+| **Next** | Aplicar o mesmo a callObserve e reavaliar callTrace se o escopo expandir (nao alterado sem ordem). |
+
+### 2026-08-29 - Fechamento do flight recorder: callObserve grava OBSERVE + callTrace carrega trace_id LIDO
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-backend-service |
+| **Task** | Fechar os 2 pontos restantes: (1) callObserve gerava TraceID novo mas NAO gravava no ledger; (2) callTrace lia args.TraceID mas devolvia packet com trace_id NOVO (imprecisao semantica / auto-referencia). |
+| **Technique** | (1) Em callObserve: capturar o packet em variavel, chamar e.recordTraceEvent(packet,"OBSERVE",fmt.Sprintf(...)) com video/frames/events/items (guarda nil-safe p/ result), devolver o MESMO packet. (2) Em callTrace: trocar NewContextPacket(...) por construcao manual &ContextPacket{Query,Context,Confidence:packetConfidence,TraceID:args.TraceID} — o packet carrega o trace LIDO, nao um novo. Removido o retorno IsError do caso vazio: agora devolve packet honesto (context vazio + confidence 0) com o trace lido. NUNCA chamar recordTraceEvent dentro de callTrace (leitor; gravar criaria loop do trace lendo a si mesmo). |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #mcpserver #trace #flight-recorder #callObserve #callTrace #auto-referencia #context-packet #semantica-lida |
+| **Related** | internal/mcpserver/tools.go callObserve/callTrace; internal/trace/store.go Get (Parse invalido retorna erro); internal/mcpserver/context_packet.go packetConfidence; TestObserve_RecordTraceEvent + TestTrace_EmptyReturnsSameTraceID (tools_test.go) |
+| **Learned** | (1) Leitura de trace NAO se auto-audita: as tools de leitura de AGIR (recall/context/reason/project/observe) gravam no ledger; callTrace E O LEITOR do ledger e, por isso, NAO deve gravar — se gravasse, o trace registraria a si proprio (loop). (2) callTrace precisa montar o packet manualmente (Query/Context/Confidence/TraceID) para carregar o trace LIDO; NewContextPacket geraria ID novo. (3) Caso vazio de callTrace NAO deve virar IsError de texto: deve voltar packet honesto (context vazio, confidence 0) com o trace lido — assim o cliente decodifica um ContextPacket real (contrato ADR-028 §3). (4) packetConfidence([]) == 0 (honesto "nao sei") e len(packet.Context) e 0 quando trace vazio. (5) TestVisionFunc deterministica (testObserveVision) injeta um vision.PipelineResult com 1 PerceptEvent OBSERVED p/ testar callObserve sem video real. Compatibilidade: TestReadTools_RecordTraceEvent (recall/context/reason) e TestReadTools_NilTraceIsBestEffort continuam verdes. |
+| **Next** | Rodada completa: cerebro grava toda reacao de leitura (recall/context/reason/project/observe) no flight recorder e callTrace carrega o trace lido corretamente. |

@@ -18,6 +18,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/trace"
+	"github.com/CoscaAI/cosca/internal/vision"
 )
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -175,6 +176,177 @@ func TestLearn_WriteWhenAllowed(t *testing.T) {
 	}
 }
 
+// ─── Teste: tools de leitura gravam evento no flight recorder ─────────────
+
+// TestReadTools_RecordTraceEvent (padrão AAA, table-driven) verifica que, ao
+// chamar uma tool de leitura que gera context packet, o evento do Trace ID é
+// GRAVADO no flight recorder (e.Trace.Append) com Action semântica e Actor
+// "mcp". A auditoria da reação do cérebro passa a ser rastreável via cosca.trace.
+func TestReadTools_RecordTraceEvent(t *testing.T) {
+	tests := []struct {
+		name           string
+		tool           string
+		args           string
+		expectedAction string
+	}{
+		{name: "recall", tool: ToolRecall, args: `{"query":"provenance","limit":5}`, expectedAction: "RECALL"},
+		{name: "context", tool: ToolContext, args: `{"query":"provenance","limit":5}`, expectedAction: "CONTEXT"},
+		{name: "reason", tool: ToolReason, args: `{"sequence":["A","B","C"]}`, expectedAction: "REASON"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Arrange — engine real (knowledge FTS) + trace store injetado.
+			ts := mustTraceStore(t)
+			eng := NewEngine(
+				WithKnowledge(newTestKnowledgeEngine(t)),
+				WithTrace(ts),
+			)
+
+			// Act — chama a tool de leitura.
+			res, err := eng.Call(context.Background(), tc.tool, json.RawMessage(tc.args))
+			if err != nil {
+				t.Fatalf("Call %s: %v", tc.tool, err)
+			}
+			if res.IsError {
+				t.Fatalf("%s retornou isError: %v", tc.tool, res.Content)
+			}
+			packet := decodePacket(t, res)
+
+			// Assert — o mesmo TraceID do packet GRAVA 1+ evento no ledger.
+			events, gErr := ts.Get(packet.TraceID)
+			if gErr != nil {
+				t.Fatalf("Trace.Get(%s): %v", packet.TraceID, gErr)
+			}
+			if len(events) == 0 {
+				t.Fatalf("esperava >=1 evento no flight recorder para %s, veio 0", packet.TraceID)
+			}
+			var found bool
+			for _, ev := range events {
+				if ev.TraceID == packet.TraceID && ev.Action == tc.expectedAction && ev.Actor == "mcp" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("esperava evento Action=%q Actor=mcp para %s, eventos=%+v",
+					tc.expectedAction, packet.TraceID, events)
+			}
+		})
+	}
+}
+
+// ─── Teste: e.Trace == nil — gravação é best-effort (não panica) ──────────
+
+// TestReadTools_NilTraceIsBestEffort verifica que, sem trace store injetado, a
+// tool de leitura NÃO panica e NÃO quebra a resposta — apenas devolve o packet
+// normalmente (o trace é auditoria, nunca pré-requisito).
+func TestReadTools_NilTraceIsBestEffort(t *testing.T) {
+	// Arrange — engine sem trace store (e.Trace == nil).
+	eng := NewEngine(WithKnowledge(newTestKnowledgeEngine(t)))
+
+	// Act — chama a tool de leitura.
+	res, err := eng.Call(context.Background(), ToolRecall, json.RawMessage(`{"query":"provenance","limit":5}`))
+	if err != nil {
+		t.Fatalf("Call recall: %v", err)
+	}
+
+	// Assert — resposta íntegra, com TraceID, apesar de e.Trace ser nil.
+	if res.IsError {
+		t.Fatalf("recall retornou isError: %v", res.Content)
+	}
+	packet := decodePacket(t, res)
+	if packet.TraceID == "" {
+		t.Fatal("packet deveria ter TraceID mesmo sem trace store")
+	}
+	if _, ok := trace.Parse(packet.TraceID); !ok {
+		t.Fatalf("trace_id inválido: %q", packet.TraceID)
+	}
+}
+
+// ─── Teste: cosca.observe grava evento OBSERVE no flight recorder ────────
+
+// TestObserve_RecordTraceEvent (AAA) verifica que, ao chamar a tool de
+// percepção, o evento do Trace ID do packet é GRAVADO no flight recorder
+// (e.Trace.Append) com Action "OBSERVE" e Actor "mcp" — a reação perceptiva
+// do cérebro passa a ser auditável via cosca.trace (paridade com
+// recall/context/reason/project).
+func TestObserve_RecordTraceEvent(t *testing.T) {
+	// Arrange — vision func determinística + trace store injetado.
+	eng := NewEngine(
+		WithVision(testObserveVision),
+		WithTrace(mustTraceStore(t)),
+	)
+
+	// Act — chama a tool de percepção.
+	res, err := eng.Call(context.Background(), ToolObserve, json.RawMessage(`{"video":"clip.mp4"}`))
+	if err != nil {
+		t.Fatalf("Call observe: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("observe retornou isError: %v", res.Content)
+	}
+	packet := decodePacket(t, res)
+	if len(packet.Context) == 0 {
+		t.Fatal("esperava >=1 item de contexto de percepção")
+	}
+
+	// Assert — o mesmo TraceID do packet GRAVA 1+ evento OBSERVE no ledger.
+	events, gErr := eng.Trace.Get(packet.TraceID)
+	if gErr != nil {
+		t.Fatalf("Trace.Get(%s): %v", packet.TraceID, gErr)
+	}
+	if len(events) == 0 {
+		t.Fatalf("esperava >=1 evento no flight recorder para %s, veio 0", packet.TraceID)
+	}
+	var found bool
+	for _, ev := range events {
+		if ev.TraceID == packet.TraceID && ev.Action == "OBSERVE" && ev.Actor == "mcp" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("esperava evento Action=OBSERVE Actor=mcp para %s, eventos=%+v", packet.TraceID, events)
+	}
+}
+
+// ─── Teste: cosca.trace — trace_id LIDO, não um novo (caso vazio) ─────────
+
+// TestTrace_EmptyReturnsSameTraceID (AAA) verifica a SEMÂNTICA do callTrace:
+// a tool lê um trace (args.TraceID) e devolve um packet que carrega o MESMO
+// trace_id lido — NÃO um recém-gerado. No caso sem eventos (trace store
+// vazio), o packet é honesto (context vazio, confidence 0), mas o TraceID é o
+// que foi consultado (evita auto-referência/loop: o trace não registra a si
+// mesmo).
+func TestTrace_EmptyReturnsSameTraceID(t *testing.T) {
+	const traceID = "TRACE-20260829-ABC12345"
+
+	// Arrange — trace store Vazio (sem eventos para o id) injetado.
+	eng := NewEngine(WithTrace(mustTraceStore(t)))
+
+	// Act — lê um trace id que não tem eventos.
+	res, err := eng.Call(context.Background(), ToolTrace, json.RawMessage(`{"trace_id":"`+traceID+`"}`))
+	if err != nil {
+		t.Fatalf("Call trace: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("trace retornou isError: %v", res.Content)
+	}
+	packet := decodePacket(t, res)
+
+	// Assert — o packet carrega o MESMO trace_id lido (não um novo).
+	if packet.TraceID != traceID {
+		t.Fatalf("packet.TraceID = %q, esperava o MESMO trace lido %q (NÃO um novo)", packet.TraceID, traceID)
+	}
+	if len(packet.Context) != 0 {
+		t.Fatalf("esperava context vazio para trace sem eventos, veio %d", len(packet.Context))
+	}
+	if packet.Confidence != 0 {
+		t.Fatalf("esperava confidence 0 (honesto) para trace sem eventos, veio %v", packet.Confidence)
+	}
+}
+
 // ─── Teste: nil-safe — sem órgão, tool devolve erro claro ─────────────────
 
 func TestCall_NilSafeNoKnowledge(t *testing.T) {
@@ -198,6 +370,40 @@ func mustMemoryEngine(t *testing.T) *memory.MemoryEngine {
 	}
 	t.Cleanup(func() { _ = me.Close() })
 	return me
+}
+
+// testObserveVision é uma VisionFunc determinística para o teste de observe:
+// devolve um PipelineResult com 1 evento de percepção (OBSERVED, corroborável),
+// suficiente para gerar um item de contexto e um trace OBSERVE auditável.
+func testObserveVision(ctx context.Context, video string, opts vision.PipelineOptions) (*vision.PipelineResult, error) {
+	return &vision.PipelineResult{
+		Frames: []vision.FrameRecord{{Frame: 5, Time: 0.5}},
+		Events: []vision.PerceptEvent{
+			{
+				Kind:        vision.EventCurrencyChanged,
+				Frame:       5,
+				Explanation: "moeda detectada no balcão",
+				Observation: vision.Observation{
+					Epistemic:  vision.EpistemicObserved,
+					Object:     "currency_counter",
+					Value:      3,
+					Confidence: 0.9,
+				},
+			},
+		},
+	}, nil
+}
+
+// mustTraceStore cria um trace store SQLite temporário (flight recorder) para
+// os testes de auditoria das tools de leitura.
+func mustTraceStore(t *testing.T) *trace.Store {
+	t.Helper()
+	s, err := trace.NewStore(filepath.Join(t.TempDir(), "trace.db"))
+	if err != nil {
+		t.Fatalf("trace.NewStore: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	return s
 }
 
 // decodePacket extrai o ContextPacket do resultado de uma tool call.

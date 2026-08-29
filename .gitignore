@@ -107,5 +107,12 @@ inst_user_settings.tmp
 .cosca/evals/recall/
 knowledge.db
 
+# ---- Artefatos binarios de build/modelo soltos (lixo, nao fonte de verdade) ----
+# cosca-indexer.exe: binario de build gerado (o gitignore cobria /cosca-indexer
+# sem extensao; o .exe compilado escapava). yolov8n.pt: peso de modelo YOLOv8
+# baixado para testes/vision — regeneravel, pesado, nao versionado.
+/cosca-indexer.exe
+/yolov8n.pt
+
 # Chave privada do certificado (NUNCA versionar)
 /security-backup/

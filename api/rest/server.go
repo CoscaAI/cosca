@@ -42,6 +42,7 @@ import (
 	secretspkg "github.com/CoscaAI/cosca/internal/secrets"
 	"github.com/CoscaAI/cosca/internal/skills"
 	"github.com/CoscaAI/cosca/internal/trace"
+	"github.com/CoscaAI/cosca/internal/vision"
 	"github.com/CoscaAI/cosca/internal/workflows"
 	coscapkg "github.com/CoscaAI/cosca/pkg/cosca"
 )
@@ -299,6 +300,7 @@ var publicPaths = []string{
 	"/brain/graph",
 	"/brain/activity",
 	"/brain/observatory",
+	"/brain/perception",
 }
 
 // registerRoutes registers all API routes.
@@ -621,15 +623,66 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	// Cérebro 3D — visualizador da organização (rota pública, dados sanitizados).
 	// /brain serve o HTML/estático self-hostado (go:embed); /brain/graph devolve
 	// a projeção mínima (organograma); /brain/activity devolve as ações recentes;
-	// /brain/observatory devolve o Observatório Cognitivo (epistemologia + traces).
+	// /brain/observatory devolve o Observatório Cognitivo; /brain/perception
+	// devolve a percepção determinística frame-a-frame (sensor sem VLM externa).
 	brainH := brainweb.NewHandler(s.agentsManager, s.skillsManager, coscapkg.Version).
 		WithActivity(newExecutionActivitySource(s.config.ActivityLogPath)).
-		WithObservatory(knowledgeItemsFn(k), traceReplayFn(s.traceStore), cognitiveStatsFn(s, rt))
+		WithObservatory(knowledgeItemsFn(k), traceReplayFn(s.traceStore), cognitiveStatsFn(s, rt)).
+		WithPerception(newPerceptionSource())
 	s.mux.HandleFunc("GET /brain", brainH.Serve)
 	s.mux.HandleFunc("GET /brain/", brainH.Serve)
 	s.mux.HandleFunc("GET /brain/graph", brainH.Graph)
 	s.mux.HandleFunc("GET /brain/activity", brainH.Activity)
 	s.mux.HandleFunc("GET /brain/observatory", brainH.Observatory)
+	s.mux.HandleFunc("GET /brain/perception", brainH.Perception)
+}
+
+// perceptionSource implementa brainweb.PerceptionSource: roda a percepção
+// determinística frame-a-frame (visão sem VLM externa) sobre um vídeo do
+// projeto. Read-only e best-effort — sem vídeo, devolve vazio sem pânico.
+type perceptionSource struct{}
+
+func newPerceptionSource() *perceptionSource { return &perceptionSource{} }
+
+// Perceive roda vision.AnalyzeVideo e converte para a projeção mínima do cérebro.
+func (s *perceptionSource) Perceive() *brainweb.Perception {
+	video := os.Getenv("COSCA_BRAIN_VIDEO")
+	if video == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return &brainweb.Perception{GeneratedAt: time.Now().UTC(), Events: []brainweb.PEvent{}}
+		}
+		video = filepath.Join(cwd, "data", "brain.mp4")
+	}
+	if _, err := os.Stat(video); err != nil {
+		return &brainweb.Perception{GeneratedAt: time.Now().UTC(), Events: []brainweb.PEvent{}}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	res, err := vision.AnalyzeVideo(ctx, video, vision.PipelineOptions{FPS: 1})
+	if err != nil || res == nil {
+		return &brainweb.Perception{GeneratedAt: time.Now().UTC(), Events: []brainweb.PEvent{}}
+	}
+
+	p := &brainweb.Perception{
+		GeneratedAt: time.Now().UTC(),
+		Source:      video,
+		Frames:      len(res.Frames),
+		Duration:    res.Probe.DurationSeconds(),
+		Events:      make([]brainweb.PEvent, 0, len(res.Events)),
+	}
+	for _, ev := range res.Events {
+		p.Events = append(p.Events, brainweb.PEvent{
+			Kind:        ev.Kind,
+			Frame:       ev.Frame,
+			NeedsVLM:    ev.NeedsVLM,
+			Explanation: ev.Explanation,
+			Epistemic:   string(ev.Observation.Epistemic),
+			Level:       string(ev.Observation.Level()),
+		})
+	}
+	return p
 }
 
 // executionActivitySource implementa brainweb.ActivitySource sobre fontes

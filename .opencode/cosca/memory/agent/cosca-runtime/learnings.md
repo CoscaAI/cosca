@@ -29,3 +29,16 @@
 | **Related** | internal/runtime/metrics.go |
 | **Learned** | Metrics uses atomic operations for counters (8x sync/atomic), custom sorted-slice durationHistogram for percentile calculation (insertion-sort on Record, binary search on Snapshot), sync.Map for component health tracking. No external metrics library (no Prometheus client, no OpenTelemetry SDK). MetricsSnapshot is the public API type (generated on-demand). Some public RuntimeStatus fields (ActiveAgents, ActiveWorkflows, LoadedPlugins, Mode) exist only in pkg/cosca/ API layer — not backed by engine metrics. |
 | **Next** | Level 2: Add OpenTelemetry export for metrics, implement Prometheus /metrics endpoint |
+
+### 2026-08-29 — MCP Serve Hot-Rebuild & Surgical Restart
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-runtime |
+| **Task** | Rebuild bin\cosca.exe with flight-recorder writes fix in internal/mcpserver/tools.go and restart ONLY the MCP server (`mcp serve`), never touching the 14139 daemon |
+| **Technique** | Level 2 — Exact-PID surgical restart with file-lock awareness |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #mcp #build #restart #go #windows #pid |
+| **Related** | internal/mcpserver/tools.go, cmd/cosca |
+| **Learned** | 1) `go build -o bin\cosca.exe ./...` FAILS on this repo (multiple main pkgs: cmd/cosca, cmd/acquireall, cmd/cosca-check, cmd/cosca-indexer, cmd/cosca-merkle, internal/voice/cmd/demo). The real binary is `./cmd/cosca` — build with `go build -o bin\cosca.exe ./cmd/cosca`. 2) The output `bin\cosca.exe` is file-LOCKED while any cosca.exe process runs, so `go build` fails with "O arquivo já está sendo usado por outro processo." → must Stop-Process the target ADJUST FIRST, then build. 3) On Windows, `mcp serve` is a stdio server — but `Start-Process -WindowStyle Hidden` returns immediately (no pipeline block) and spawns it detached with inherited env; `$env:COSCA_ENABLE_MCP=1; $env:COSCA_ALLOW_NO_ROOT=1`. 4) `Get-CimInstance Win32_Process -Filter "Name='cosca.exe'"` distinguishes mcp target vs daemon by CommandLine matching. 5) opencode does NOT auto-relaunch mcp serve on the same session; a fresh client session is required for it to come back as opencode's child (as opencode is what ties the stdio pipes). |
+| **Next** | Persist a helper that maps `mcp serve` vs `serve --host` PID by CommandLine; document the stdio caveat that a real reconnect requires a new opencode session. |

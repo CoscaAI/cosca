@@ -261,7 +261,9 @@ func (e *Engine) callRecall(ctx context.Context, raw json.RawMessage) (*CallResu
 			})
 		}
 	}
-	return resultFromPacket(NewContextPacket(args.Query, items)), nil
+	packet := NewContextPacket(args.Query, items)
+	e.recordTraceEvent(packet, "RECALL", fmt.Sprintf("query=%q items=%d", args.Query, len(items)))
+	return resultFromPacket(packet), nil
 }
 
 // ─── Tool: cosca.context (central) ────────────────────────────────────────
@@ -323,7 +325,9 @@ func (e *Engine) callContext(ctx context.Context, raw json.RawMessage) (*CallRes
 		return nil, fmt.Errorf("cosca.context: sem knowledge nem memory (sem corpo) para contextualizar")
 	}
 
-	return resultFromPacket(NewContextPacket(args.Query, items)), nil
+	packet := NewContextPacket(args.Query, items)
+	e.recordTraceEvent(packet, "CONTEXT", fmt.Sprintf("query=%q items=%d", args.Query, len(items)))
+	return resultFromPacket(packet), nil
 }
 
 // ─── Tool: cosca.learn (única escrita — GATEADA) ──────────────────────────
@@ -417,7 +421,15 @@ func (e *Engine) callObserve(ctx context.Context, raw json.RawMessage) (*CallRes
 			})
 		}
 	}
-	return resultFromPacket(NewContextPacket("observe:"+args.Video, items)), nil
+	packet := NewContextPacket("observe:"+args.Video, items)
+	var frames, events int
+	if result != nil {
+		frames = len(result.Frames)
+		events = len(result.Events)
+	}
+	e.recordTraceEvent(packet, "OBSERVE", fmt.Sprintf("video=%q frames=%d events=%d items=%d",
+		args.Video, frames, events, len(items)))
+	return resultFromPacket(packet), nil
 }
 
 // ─── Tool: cosca.trace ────────────────────────────────────────────────────
@@ -451,13 +463,20 @@ func (e *Engine) callTrace(ctx context.Context, raw json.RawMessage) (*CallResul
 			Relevance: 1.0,
 		})
 	}
-	if len(items) == 0 {
-		return &CallResult{
-			IsError: true,
-			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.trace: sem eventos para %s (flight recorder vazio para este trace)", args.TraceID)}},
-		}, nil
+	// Packet honesto da LEITURA: carrega o MESMO trace_id que foi lido (não um
+	// recém-gerado). A imprecisão anterior (NewContextPacket) gerava um trace_id
+	// NOVO a cada leitura — o que criava auto-referência/loop. Trace sem eventos
+	// → packet com context vazio e confidence 0 (honesto: "não há registro para
+	// este trace"), mas SEMPRE com o trace_id lido. NÃO chamamos recordTraceEvent
+	// aqui: esta tool é o LEITOR do trace; gravar um evento nela faria o trace
+	// registrar a si mesmo (loop).
+	packet := &ContextPacket{
+		Query:      "trace:" + args.TraceID,
+		Context:    items,
+		Confidence: packetConfidence(items),
+		TraceID:    args.TraceID,
 	}
-	return resultFromPacket(NewContextPacket("trace:"+args.TraceID, items)), nil
+	return resultFromPacket(packet), nil
 }
 
 // ─── Tool: cosca.reason ───────────────────────────────────────────────────
@@ -511,7 +530,9 @@ func (e *Engine) callReason(ctx context.Context, raw json.RawMessage) (*CallResu
 		}, nil
 	}
 
-	return resultFromPacket(NewContextPacket(name, items)), nil
+	packet := NewContextPacket(name, items)
+	e.recordTraceEvent(packet, "REASON", fmt.Sprintf("subject=%q items=%d", name, len(items)))
+	return resultFromPacket(packet), nil
 }
 
 // ─── Tool: cosca.project ──────────────────────────────────────────────────
@@ -573,7 +594,10 @@ func (e *Engine) callProject(ctx context.Context) (*CallResult, error) {
 		}, nil
 	}
 
-	return resultFromPacket(NewContextPacket("project", items)), nil
+	packet := NewContextPacket("project", items)
+	e.recordTraceEvent(packet, "PROJECT", fmt.Sprintf("runtime=%v knowledge=%v memory=%v kernel=%v",
+		e.Runtime != nil, e.Knowledge != nil, e.Memory != nil, e.Kernel != nil))
+	return resultFromPacket(packet), nil
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -597,6 +621,33 @@ func resultFromPacket(packet *ContextPacket) *CallResult {
 	return &CallResult{
 		Content: []ContentItem{{Type: "text", Text: string(raw)}},
 	}
+}
+
+// resultFor devolve o Result de um evento de trace de leitura: "success" se o
+// packet trouxe itens, "empty" se nenhum (auditoria honesta do cérebro).
+func resultFor(n int) string {
+	if n > 0 {
+		return "success"
+	}
+	return "empty"
+}
+
+// recordTraceEvent registra (best-effort, NUNCA falha a tool) um evento no
+// flight recorder para o Trace ID de um packet de leitura. Append é
+// append-only e serve de auditoria: se o trace store estiver nil ou o append
+// falhar, o packet NÃO é abortado — a resposta é sempre devolvida (o trace é
+// auditoria, não pré-requisito).
+func (e *Engine) recordTraceEvent(packet *ContextPacket, action, details string) {
+	if e.Trace == nil || packet == nil {
+		return
+	}
+	_ = e.Trace.Append(trace.Event{
+		TraceID: packet.TraceID,
+		Actor:   "mcp",
+		Action:  action,
+		Result:  resultFor(len(packet.Context)),
+		Details: details,
+	})
 }
 
 // contentFromResult monta o conteúdo de um resultado de busca.
