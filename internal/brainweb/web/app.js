@@ -20,7 +20,11 @@ const state = {
   scene: null, camera: null, renderer: null, clock: null,
   controls: null, raycaster: null,
   reducedMotion: false, webglOk: true,
-  propagateSignals: false,  // regime PURO: desliga a cascata (só acende quem agiu). Toggle sem remover código.
+  // Propagação LIGADA, mas ADAPTATIVA: reativa a cascata, porém a intensidade
+  // (profundidade signalDepth) é controlada pela taxa de atividade REAL (ver
+  // pollActivity). Uso intenso = mais passagens; pouco/parado = quase nada.
+  // Nunca "bisca bisca" constante — só acompanha o uso real do Don.
+  propagateSignals: true,
   // Sistema neural
   brainVertices: [],       // Vector3 dos vértices do cérebro (amostrados)
   neurons: [],             // objetos Neuron (pos, size, color, connection)
@@ -47,6 +51,7 @@ const SETTINGS = {
   currentMaxSignals: 1200,
   limitSignals: 3000,
   refractorySeconds: 3.5,    // janela refratária após disparar (mantém a rede viva)
+  signalDepth: 2,            // máx de saltos da cascata (foco, não o cérebro todo)
 };
 
 /* ---------- Paleta por departamento (dados reais) ---------- */
@@ -480,18 +485,23 @@ function buildSignalMesh() {
   state.scene.add(state.signalPoints);
 }
 
-function releaseSignalAt(neuron) {
+function releaseSignalAt(neuron, depth) {
   if (state.allSignals.length >= SETTINGS.currentMaxSignals) return;
   neuron.firedCount += 1;
   // Período refratário: durante ~3.5s este neurônio não re-dispara em cadeia.
   neuron.refractoryUntil = state.clock.getElapsedTime() + SETTINGS.refractorySeconds;
   neuron.receivedSignal = false;
+  // depth = nº de saltos desde a ação real. Limita a cascata a um FOCO (raios
+  // próximos), não o cérebro inteiro — senão vira "tudo piscando" (ruído).
+  if (depth === undefined) depth = 0;
+  const maxDepth = SETTINGS.signalDepth ?? 2;
   for (const c of neuron.connection) {
     if (c.axon !== neuron.prevAxon && state.allSignals.length < SETTINGS.limitSignals) {
       const speed = SETTINGS.signalMinSpeed + Math.random() * (SETTINGS.signalMaxSpeed - SETTINGS.signalMinSpeed);
       state.allSignals.push({
         t: c.end === "A" ? 0 : 1, speed, alive: true,
         axon: c.axon, end: c.end, particle: getParticle(),
+        depth: depth + 1,
       });
     }
   }
@@ -499,18 +509,46 @@ function releaseSignalAt(neuron) {
 }
 
 /* Atividade REAL do Cosca: busca /brain/activity e dispara pulsos nos
-   neurônios-marcadores dos agents que realmente agiram. Read-only. */
+   neurônios-marcadores dos agents que realmente agiram. Read-only.
+   Deduplica por ID (activitySeen): o cérebro SÓ pisca quando há atividade
+   NOVA — quando o Don está fazendo algo. Sem novidade, fica parado. */
 async function pollActivity() {
   try {
     const res = await fetch("/brain/activity", { headers: { Accept: "application/json" } });
     if (!res.ok) return;
     const data = await res.json();
     const acts = data.activities || [];
-    acts.forEach((a) => {
+
+    // Separa só as atividades NOVAS (ainda não vistas).
+    const seen = state.activitySeen;
+    const fresh = [];
+    for (const a of acts) {
+      const id = a.id || (a.at + "-" + a.agent);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      fresh.push(a);
+    }
+    // Limita o set p/ não crescer indefinidamente.
+    if (seen.size > 300) {
+      const arr = [...seen];
+      state.activitySeen = new Set(arr.slice(arr.length - 300));
+    }
+
+    // Acende apenas o que é NOVO (atividade real no momento).
+    fresh.forEach((a) => {
+      state._actSeed = (a.description || a.action || a.agent || "") + "|" + (a.at || "");
       const neuron = findNeuronForAgent(a.agent);
       if (neuron && neuron.connection.length) releaseSignalAt(neuron);
     });
-    renderActivityFeed(acts);
+
+    // PROPAGAÇÃO ADAPTATIVA: a intensidade das passagens pelos neurônios
+    // acompanha a taxa de atividade REAL no momento. Pouco uso = pouca
+    // cascata (depth baixo); uso intenso = mais passagens (depth alto).
+    // Nunca é fake: é proporcional a quantas ações novas chegaram agora.
+    const rate = fresh.length;
+    SETTINGS.signalDepth = rate >= 5 ? 3 : rate >= 2 ? 2 : rate >= 1 ? 1 : 0;
+
+    if (fresh.length) renderActivityFeed(fresh);
   } catch (e) { /* best-effort */ }
 }
 
@@ -539,17 +577,8 @@ function statusClass(st) {
   return "act-status";
 }
 
-function renderActivityFeed(acts) {
-  if (!state.activityList || !acts || !acts.length) return;
-  const seen = state.activitySeen;
-  const fresh = [];
-  for (const a of acts) {
-    const id = a.id || (a.at + "-" + a.agent);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    fresh.push(a);
-  }
-  if (!fresh.length) return;
+function renderActivityFeed(fresh) {
+  if (!state.activityList || !fresh || !fresh.length) return;
   const rows = fresh.map(a => {
     const agent = a.agent || "agente";
     const action = a.description || a.action || "";  // descrição breve (nome do comando)
@@ -567,30 +596,55 @@ function renderActivityFeed(acts) {
 }
 
 /* Associa um nome de agente real a um neurônio-marcador do cérebro.
-   Os marcadores guardam a referência do node original (marker.node). */
+   Para agentes genéricos (ex.: "kernel"/"don", que o activity log usa para TODO
+   comando), escolhemos um neurônio DENTRO DA REDE conectada (não só os poucos
+   marcadores fixos) — variando o ponto pelo seed do comando/timestamp, para o
+   flash se MOVER pelo volume do cérebro (nunca fixo no mesmo lugar relativo).
+   Stay honest: são neurônios com conexões reais, atividade real, só espalhados. */
+let agentCursor = 0;
 function findNeuronForAgent(agentName) {
   if (!agentName) return null;
   const name = agentName.toLowerCase();
-  // Percorre os neurônios procurando o marcador cujo node casa com o agente.
+
+  // 1) Casamento exato com um agente real específico (capo com nome único).
   for (const n of state.neurons) {
     const node = n.marker && n.marker.node;
     if (!node) continue;
-    if (node.id.toLowerCase() === name || node.name.toLowerCase() === name) return n;
-    // fuzzy: "backend" casa com "backend chief"
+    if (node.id.toLowerCase() === name) return n; // exato
+  }
+
+  // 2) Agente genérico (kernel/don/opencode que aparece em todo comando):
+  //    escolhe dentro de TODOS os neurônios conectados (pool grande), variando
+  //    pelo seed do comando. O flash se move pelo volume do cérebro.
+  const isGeneric = name === "kernel" || name === "don" || name === "opencode";
+  if (isGeneric) {
+    const pool = state.neurons.filter((n) => n.connection.length > 0);
+    if (pool.length === 0) return null;
+    let off = 0;
+    if (state._actSeed) { off = hashString(state._actSeed) % pool.length; }
+    agentCursor = (agentCursor + 1 + off) % pool.length;
+    return pool[agentCursor];
+  }
+
+  // 3) Capo buscado por nome aproximado (fuzzy) — usa o marcador dele.
+  for (const n of state.neurons) {
+    const node = n.marker && n.marker.node;
+    if (!node) continue;
     if (node.name.toLowerCase().includes(name) || name.includes(node.name.toLowerCase())) return n;
   }
   return null;
 }
 
 function updateSignals(dt) {
+  const maxDepth = SETTINGS.signalDepth ?? 2;
   for (let i = state.allSignals.length - 1; i >= 0; i--) {
     const s = state.allSignals[i];
     if (s.end === "A") {
       s.t += s.speed * dt;
-      if (s.t >= 1) { s.t = 1; s.alive = false; s.axon.neuronB.receivedSignal = true; s.axon.neuronB.prevAxon = s.axon; }
+      if (s.t >= 1) { s.t = 1; s.alive = false; if (s.depth <= maxDepth) s.axon.neuronB.receivedSignal = true; s.axon.neuronB.prevAxon = s.axon; }
     } else {
       s.t -= s.speed * dt;
-      if (s.t <= 0) { s.t = 0; s.alive = false; s.axon.neuronA.receivedSignal = true; s.axon.neuronA.prevAxon = s.axon; }
+      if (s.t <= 0) { s.t = 0; s.alive = false; if (s.depth <= maxDepth) s.axon.neuronA.receivedSignal = true; s.axon.neuronA.prevAxon = s.axon; }
     }
     const pos = s.axon.curve.getPoint(s.t);
     s.particle.set(pos.x, pos.y, pos.z);
@@ -646,11 +700,12 @@ function updateNeuronColors(dt, t) {
       // encolhe com o flash), reforçando a "explosão" do agente que agiu.
       sizeAttr.array[i] = n.size * (1 + f * 3.0);
     } else {
-      // Pulso de respiração sutil (leve variação de brilho). Repouso contido.
-      const pulse = 1 + Math.sin(t * 2 + i * 0.1) * 0.08;
-      colAttr.array[i*3] = Math.min(1, base.r * pulse);
-      colAttr.array[i*3+1] = Math.min(1, base.g * pulse);
-      colAttr.array[i*3+2] = Math.min(1, base.b * pulse);
+      // REPOUSO ESTÁTICO (sem breathing): a cor fica fixa na base. O cérebro
+      // NÃO pisca sozinho — só acende quando há ATIVIDADE REAL (flash _flash).
+      // Movimento sem evento real é decoração; parado = parado de verdade.
+      colAttr.array[i*3] = base.r;
+      colAttr.array[i*3+1] = base.g;
+      colAttr.array[i*3+2] = base.b;
       sizeAttr.array[i] = n.size;
     }
   });
