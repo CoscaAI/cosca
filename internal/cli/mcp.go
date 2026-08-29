@@ -3,11 +3,19 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/chat/config"
+	"github.com/CoscaAI/cosca/internal/kernel"
+	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/mcpserver"
+	"github.com/CoscaAI/cosca/internal/memory"
+	"github.com/CoscaAI/cosca/internal/runtime"
+	"github.com/CoscaAI/cosca/internal/trace"
+	"github.com/CoscaAI/cosca/internal/vision"
 )
 
 // ─── Feature Gate ────────────────────────────────────────────────────────────
@@ -146,5 +154,109 @@ func NewMCPCommand() *cobra.Command {
 	}
 	mcpCmd.AddCommand(mcpRemoveCmd)
 
+	mcpServeCmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Serve the Cosca MCP stdio server (cognitivas tools)",
+		Long: `Serve the Cosca MCP stdio server (JSON-RPC 2.0 over stdio/NDJSON).
+
+The COSCA is a consultable brain — NOT a runtime inside the OpenCode. This
+launches the MCP SERVER (the "sistema nervoso") that exposes the cognitive
+tools: cosca.recall, cosca.context, cosca.learn, cosca.observe, cosca.reason,
+cosca.trace, cosca.project.
+
+Each tool returns an honest context packet ({query, context[{content,source,
+relevance}], confidence, trace_id}) built from the Knowledge/Memory/Runtime
+of the current workspace (.cosca). Zero-LLM: confidence is derived
+deterministically from the epistemic class + relevance.
+
+Read-only-first: cosca.learn is the ONLY write and is GATED — it fails closed
+unless COSCA_MCP_ALLOW_WRITE=1 is set.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := mcpEnabled(); err != nil {
+				return err
+			}
+
+			engine := buildMCPServerEngine()
+			if engine == nil {
+				return fmt.Errorf("mcp serve: falha ao montar dependências do runtime (cérebro indisponível)")
+			}
+			defer func() { _ = engine.Close() }()
+
+			// O servidor MCP fala JSON-RPC 2.0 sobre stdio (NDJSON) — o mesmo
+			// transporte que o cliente MCP (internal/chat/mcp) usa.
+			srv := mcpserver.NewServer(engine, os.Stdin, os.Stdout)
+			if err := srv.Serve(cmd.Context()); err != nil {
+				return fmt.Errorf("mcp serve: %w", err)
+			}
+			return nil
+		},
+	}
+	mcpCmd.AddCommand(mcpServeCmd)
+
 	return mcpCmd
 }
+
+// buildMCPServerEngine monta o Engine do servidor MCP ligado ao runtime atual:
+// knowledge, memory, runtime (corpo), kernel (cérebro / kill-switch), trace
+// (flight recorder) e a percepção determinística (vision). Nil-safe e
+// best-effort: um órgão que falha ao inicializar é apenas omitido — as tools
+// que dele dependem devolvem erro claro em vez de pânico.
+func buildMCPServerEngine() *mcpserver.Engine {
+	workspace, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	coscaDir := filepath.Join(workspace, ".cosca")
+
+	var opts []mcpserver.Option
+
+	// Corpo (runtime) + cérebro (kernel kill-switch).
+	rtCfg := runtime.DefaultRuntimeConfig()
+	rtCfg.DataDir = coscaDir
+	opts = append(opts,
+		mcpserver.WithRuntime(runtime.New(runtime.WithConfig(rtCfg))),
+		mcpserver.WithKernel(kernel.NewEmergencyManager()),
+		mcpserver.WithAllowWrite(isTruthy(os.Getenv("COSCA_MCP_ALLOW_WRITE"))),
+	)
+
+	// Conhecimento (órgão de busca semântica).
+	if ke, kErr := knowledge.New(knowledge.Config{
+		DBPath:      filepath.Join(coscaDir, "knowledge.db"),
+		RootDir:     workspace,
+		AutoMigrate: true,
+	}); kErr == nil {
+		if iErr := ke.Init(); iErr == nil {
+			opts = append(opts, mcpserver.WithKnowledge(ke))
+		}
+	}
+
+	// Memória (órgão de aprendizado).
+	if me, mErr := memory.NewEngine(memory.WithConfig(memory.EngineConfig{
+		DataDir:   coscaDir,
+		AutoPrune: false,
+	})); mErr == nil {
+		opts = append(opts, mcpserver.WithMemory(me))
+	}
+
+	// Trace (flight recorder append-only).
+	if ts, tErr := trace.NewStore(filepath.Join(coscaDir, "trace.db")); tErr == nil {
+		opts = append(opts, mcpserver.WithTrace(ts))
+	}
+
+	// Percepção determinística frame-a-frame.
+	opts = append(opts, mcpserver.WithVision(vision.AnalyzeVideo))
+
+	return mcpserver.NewEngine(opts...)
+}
+
+// isTruthy interpreta uma string de ambiente como booleano (fail-closed).
+func isTruthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
