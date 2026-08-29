@@ -215,3 +215,9 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.95
       created_at: "2026-08-29T00:00:00Z"
+    - id: mcp-operacao-redondo-e-seguro-20260829
+      statement: 'OPERACAO MCP "REDONDO E SEGURO" (2026-08-29). MCP Cosca validado 100%: handshake initialize (protocolVersion 2024-11-05, serverInfo cosca-mcp 1.5.0), tools/list anuncia 7 tools cognitivas, tools/call cosca.project devolve packet com context+confidence+trace_id. Seguranca confirmada (todos os gates falham como devem): cosca.learn fail-closed read-only sem COSCA_MCP_ALLOW_WRITE (isError:true "nada foi gravado"); tool inexistente → default-deny -32602; trace com ID invalido → -32000. DESCOBERTA CHAVE: cosca.project reporta runtime "uninitialized/unknown" NAO e bug — buildMCPServerEngine() (internal/cli/mcp.go) cria runtime.New wrapper que NUNCA e Initialize()'ado, estado honesto de runtime so-leitura; o daemon real da porta 14139 e outro objeto healthy. Limpeza de orfao: matar apenas mcp serve com parent morto, nunca o que tem parent=opencode. Commit e446ec8 (14 arquivos, +1076/-19): auditoria flight recorder nas tools de leitura, /brain/perception read-only sem VLM, .gitignore para cosca-indexer.exe/yolov8n.pt (lixo binario). trace.db propositalmente fora do commit (binario derivado append-only, suja a tree). Build: go build ./... ok. Vet: go vet limpo. Testes: mcpserver/brainweb/api/rest(+handler) verdes.'
+      kind: observation
+      source: Don+cosca-kernel
+      confidence: 0.97
+      created_at: "2026-08-29T00:00:00Z"
