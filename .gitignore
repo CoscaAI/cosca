@@ -22,6 +22,11 @@
 *.db-wal
 *.db-shm
 
+# Activity log transitório (append-only, rotacionado) — não é fonte de verdade;
+# .1 é o backup da rotação. Regenerável, nunca commitado.
+.cosca/activity.jsonl
+.cosca/activity.jsonl.1
+
 # Skill version ledger (F1) — runtime/derived state produced by `cosca skill evolve`.
 # Like knowledge.db it is a DERIVED, regenerable index (rebuildable from the
 # versioned SKILL.md + git history), not the immutable core. Not versioned.
