@@ -130,7 +130,7 @@ function renderLegend() {
     { c: "hsl(var(--viz-kernel))", l: "Kernel", n: 1 },
     { c: "hsl(var(--viz-tenente))", l: "Tenentes", n: countTier(1) },
     { c: "#3B82F6", l: "Capos", n: countTier(2) },
-    { c: "#9fe8ff", l: "Sinais", n: 0 },
+    { c: "#9fe8ff", l: "Sinais", n: state.allSignals ? state.allSignals.length : 0 },
   ];
   $("#legend-rows").innerHTML = rows.map(r =>
     `<div class="legend-row"><span class="legend-dot" style="background:${r.c};color:${r.c}"></span>
@@ -727,6 +727,13 @@ function loop() {
   fireNeurons(t);
   updateSignalMesh();
   updateNeuronColors(dt, t);
+
+  // Legenda "A Família" viva: atualiza o nº de Sinais quando muda (a cada 0.5s),
+  // para refletir a atividade real no momento (não fixo em 0).
+  if (!state._legendT || t - state._legendT > 0.5) {
+    state._legendT = t;
+    renderLegend();
+  }
 
   if (state.controls) {
     state.controls.autoRotate = !state.reducedMotion;
