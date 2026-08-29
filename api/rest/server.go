@@ -2,11 +2,17 @@
 package rest
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,6 +26,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/agents"
 	auditpkg "github.com/CoscaAI/cosca/internal/audit"
 	authpkg "github.com/CoscaAI/cosca/internal/auth"
+	"github.com/CoscaAI/cosca/internal/brainweb"
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/department"
 	"github.com/CoscaAI/cosca/internal/grpcclient"
@@ -36,6 +43,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/skills"
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/workflows"
+	coscapkg "github.com/CoscaAI/cosca/pkg/cosca"
 )
 
 // PipelineServices bundles pipeline components from bootstrap so they can
@@ -148,6 +156,12 @@ type Config struct {
 	// engine (API-only mode — `cosca serve --api-only`, FASE 2
 	// DDNA-2026-08-07-001). Nil keeps the historical in-process behavior.
 	RuntimeClient *grpcclient.RuntimeClient
+
+	// ActivityLogPath, when set, overrides the activity log source path
+	// (.cosca/activity.jsonl) used by the /brain/activity feed. If empty,
+	// the default `<cwd>/.cosca/activity.jsonl` is used. Injectable so tests
+	// can point the observatory at a temporary file.
+	ActivityLogPath string
 }
 
 // DefaultConfig returns a default REST API server configuration.
@@ -273,6 +287,18 @@ var publicPaths = []string{
 	"/v1/auth/logout",
 	"/v1/csrf-token",
 	"/v1/ws",
+	"/brain",
+	"/brain/",
+	"/brain/index.html",
+	"/brain/style.css",
+	"/brain/app.js",
+	"/brain/three.module.js",
+	"/brain/jsm/controls/OrbitControls.js",
+	"/brain/jsm/loaders/OBJLoader.js",
+	"/brain/models/brain.obj",
+	"/brain/graph",
+	"/brain/activity",
+	"/brain/observatory",
 }
 
 // registerRoutes registers all API routes.
@@ -591,6 +617,256 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	// WebSocket real-time event gateway.
 	wsH := handler.NewWebSocketHandler(s.wsHub, s.jwtSecret, zlog.Logger, s.wsAllowedOrigins)
 	s.mux.Handle("GET /v1/ws", wsH)
+
+	// Cérebro 3D — visualizador da organização (rota pública, dados sanitizados).
+	// /brain serve o HTML/estático self-hostado (go:embed); /brain/graph devolve
+	// a projeção mínima (organograma); /brain/activity devolve as ações recentes;
+	// /brain/observatory devolve o Observatório Cognitivo (epistemologia + traces).
+	brainH := brainweb.NewHandler(s.agentsManager, s.skillsManager, coscapkg.Version).
+		WithActivity(newExecutionActivitySource(s.config.ActivityLogPath)).
+		WithObservatory(knowledgeItemsFn(k), traceReplayFn(s.traceStore), cognitiveStatsFn(s, rt))
+	s.mux.HandleFunc("GET /brain", brainH.Serve)
+	s.mux.HandleFunc("GET /brain/", brainH.Serve)
+	s.mux.HandleFunc("GET /brain/graph", brainH.Graph)
+	s.mux.HandleFunc("GET /brain/activity", brainH.Activity)
+	s.mux.HandleFunc("GET /brain/observatory", brainH.Observatory)
+}
+
+// executionActivitySource implementa brainweb.ActivitySource sobre fontes
+// REAIS de atividade. Fonte primária: o activity log (activity.jsonl, escrito
+// por todo comando cosca — CLI direto ou invocação de agentes/opencode). É o
+// feed que alimenta o cérebro com o que realmente aconteceu. Read-only.
+// execActivityTTL é a janela do cache do feed de atividade (evita I/O em disco
+// a cada request do observatório). Mantido curto: 2s.
+const execActivityTTL = 2 * time.Second
+
+// executionActivitySource implementa brainweb.ActivitySource sobre fontes
+// REAIS de atividade. Fonte primária: o activity log (activity.jsonl, escrito
+// por todo comando cosca — CLI direto ou invocação de agentes/opencode). É o
+// feed que alimenta o cérebro com o que realmente aconteceu. Read-only.
+//
+// activityPath é o caminho do activity.jsonl; quando vazio, cai no default
+// `<cwd>/.cosca/activity.jsonl`. Um caminho explícito (injetado via Config e
+// nos testes) permite apontar o feed para um arquivo temporário.
+type executionActivitySource struct {
+	activityPath string
+
+	mu       sync.Mutex
+	cache    []brainweb.Activity
+	cacheAt  time.Time
+	cacheLim int
+}
+
+func newExecutionActivitySource(activityPath string) *executionActivitySource {
+	return &executionActivitySource{activityPath: activityPath}
+}
+
+func (s *executionActivitySource) Recent(limit int) []brainweb.Activity {
+	if limit <= 0 {
+		limit = 30
+	}
+	// Cache curto (2s) — evita re-ler o activity log a cada request do feed.
+	s.mu.Lock()
+	if s.cache != nil && time.Since(s.cacheAt) < execActivityTTL && s.cacheLim >= limit {
+		out := s.cache
+		if limit < len(out) {
+			out = out[:limit]
+		}
+		s.mu.Unlock()
+		return out
+	}
+	s.mu.Unlock()
+
+	acts := s.load(limit)
+
+	s.mu.Lock()
+	s.cache = acts
+	s.cacheAt = time.Now()
+	s.cacheLim = limit
+	s.mu.Unlock()
+	return acts
+}
+
+// load lê a fonte real de atividade (activity log → fallback executions).
+func (s *executionActivitySource) load(limit int) []brainweb.Activity {
+	path := s.activityPath
+	if path == "" {
+		coscaDir := filepath.Join(".", ".cosca")
+		if cwd, err := os.Getwd(); err == nil {
+			coscaDir = filepath.Join(cwd, ".cosca")
+		}
+		path = filepath.Join(coscaDir, "activity.jsonl")
+	}
+	activities := readActivityLog(path, limit)
+	if len(activities) > 0 {
+		return activities
+	}
+
+	// Fallback: executions (quando o activity log não existe).
+	store := orchestration.GetExecutionStore()
+	if store == nil {
+		return []brainweb.Activity{}
+	}
+	execs, _ := store.List(limit, 0, "", "", "")
+	acts := make([]brainweb.Activity, 0, len(execs))
+	for _, e := range execs {
+		if e == nil {
+			continue
+		}
+		acts = append(acts, brainweb.Activity{
+			ID:         e.ID,
+			Agent:      e.Agent,
+			Status:     e.Status,
+			DurationMs: e.DurationMs,
+			SkillsUsed: e.SkillsUsed,
+			Provider:   e.Provider,
+			Model:      e.Model,
+			At:         e.CreatedAt.UnixMilli(),
+		})
+	}
+	return acts
+}
+
+// activityReadWindow é a janela de bytes lidos no tail-read do activity.jsonl.
+const activityReadWindow int64 = 512 * 1024 // 512KB — lê só a cauda do arquivo.
+
+// readActivityLog lê as últimas N linhas do activity.jsonl (append-only).
+// Retorna a projeção mínima (agent/status/action/at) para o observatório.
+// Apenas o rótulo seguro da ação é exposto (constante "COMMAND_EXECUTED");
+// prompts/args sensíveis NUNCA são mapeados para o payload público.
+func readActivityLog(path string, limit int) []brainweb.Activity {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	type rawActivity struct {
+		At     int64  `json:"at"`
+		Actor  string `json:"actor"`
+		Action string `json:"action"`
+		Agent  string `json:"agent"`
+		Prompt string `json:"prompt"`        // nome do comando (sanitizado — nunca args)
+		Status string `json:"status"`
+	}
+	// Tail-read: lê apenas a cauda (últimos ~512KB) do arquivo append-only,
+	// evitando varrer o arquivo inteiro em cada request de /brain/activity.
+	info, err := f.Stat()
+	if err != nil {
+		return nil
+	}
+	size := info.Size()
+	readStart := int64(0)
+	if size > activityReadWindow {
+		readStart = size - activityReadWindow
+	}
+	var all []rawActivity
+	sc := bufio.NewScanner(io.NewSectionReader(f, readStart, size-readStart))
+	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
+	lineNo := 0
+	for sc.Scan() {
+		lineNo++
+		// Se começamos no meio do arquivo, a primeira "linha" é um fragmento
+		// parcial — descarta para não corromper o JSON.
+		if lineNo == 1 && readStart > 0 {
+			continue
+		}
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var ra rawActivity
+		if err := json.Unmarshal([]byte(line), &ra); err != nil {
+			continue
+		}
+		all = append(all, ra)
+	}
+
+	// Devolve as últimas N (mais recentes por at desc).
+	startIdx := 0
+	if len(all) > limit {
+		startIdx = len(all) - limit
+	}
+	out := make([]brainweb.Activity, 0, len(all)-startIdx)
+	for i := len(all) - 1; i >= startIdx; i-- {
+		ra := all[i]
+		roll := ra.Agent
+		if roll == "" {
+			roll = ra.Actor
+		}
+		out = append(out, brainweb.Activity{
+			ID:     fmt.Sprintf("%d-%s", ra.At, roll),
+			Agent:  roll,
+			Status: ra.Status,
+			Action: ra.Action,          // rótulo seguro ("COMMAND_EXECUTED"), nunca args
+			Description: ra.Prompt,     // nome do comando/ação (seguro — nunca args sensíveis)
+			At:     ra.At,
+		})
+	}
+	return out
+}
+
+// knowledgeItemsFn devolve os itens de conhecimento do CKL a partir do engine
+// real (read-only). Nil-safe: engine indisponível → lista vazia (a UI mostra
+// "não sei" em vez de erro).
+func knowledgeItemsFn(engine *knowledge.Engine) func() []knowledge.KnowledgeItem {
+	return func() []knowledge.KnowledgeItem {
+		path := knowledge.ProjectLawsPath()
+		items, err := knowledge.ListKnowledgeItems(path)
+		if err != nil {
+			return []knowledge.KnowledgeItem{}
+		}
+		return items
+	}
+}
+
+// traceReplayFn devolve a cadeia causal da execução mais recente a partir do
+// trace store real (read-only). Nil-safe: sem store ou sem trace → vazio.
+func traceReplayFn(store *trace.Store) func() ([]trace.CausalNode, []trace.CausalEdge, string) {
+	return func() ([]trace.CausalNode, []trace.CausalEdge, string) {
+		if store == nil {
+			return nil, nil, ""
+		}
+		latest, err := store.Latest(1)
+		if err != nil || len(latest) == 0 {
+			return nil, nil, ""
+		}
+		traceID := latest[0].TraceID
+		events, err := store.Get(traceID)
+		if err != nil || len(events) == 0 {
+			return nil, nil, ""
+		}
+		cg := trace.BuildCausalGraph(events)
+		return cg.Nodes, cg.Edges, cg.TraceID
+	}
+}
+
+// cognitiveStatsFn devolve o snapshot cognitivo a partir de managers reais.
+func cognitiveStatsFn(s *Server, rt *runtime.Runtime) func() brainweb.CognitiveSnapshot {
+	return func() brainweb.CognitiveSnapshot {
+		cs := brainweb.CognitiveSnapshot{Epistemology: map[string]int{}}
+		if s.agentsManager != nil {
+			cs.Agents = len(s.agentsManager.List())
+		}
+		if s.skillsManager != nil {
+			cs.Skills = len(s.skillsManager.List())
+		}
+		if rt != nil {
+			cs.UptimeSeconds = int64(rt.State().Get().Uptime.Seconds())
+		}
+		// Epistemologia real do CKL (se disponível).
+		items, err := knowledge.ListKnowledgeItems(knowledge.ProjectLawsPath())
+		if err == nil {
+			for _, it := range items {
+				st := string(it.Status)
+				if st == "" {
+					st = "UNKNOWN"
+				}
+				cs.Epistemology[st]++
+			}
+		}
+		return cs
+	}
 }
 
 // handleHealth handles GET /health — simple liveness probe for Kubernetes.

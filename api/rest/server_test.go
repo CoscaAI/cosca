@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,6 +143,74 @@ func TestServer_RouteRegistration(t *testing.T) {
 		if w.Code < rt.minCode || w.Code > rt.maxCode {
 			t.Errorf("%s %s: code %d outside [%d,%d]", rt.method, rt.path, w.Code, rt.minCode, rt.maxCode)
 		}
+	}
+}
+
+func TestServer_BrainWebRoutes(t *testing.T) {
+	agentsMgr := agents.NewManager("test")
+	skillsMgr := skills.NewManager("test")
+	providersMgr := providers.NewManager()
+	workflowsMgr := workflows.NewManager("test")
+
+	cfg := DefaultConfig()
+	cfg.Port = 9996
+
+	s := New(
+		nil, nil, nil,
+		agentsMgr, skillsMgr, providersMgr, workflowsMgr,
+		nil, nil,
+		[]byte("test-secret-32-bytes-long!!"),
+		cfg, nil, nil, nil, nil, nil,
+		false, nil, nil, nil, nil,
+	)
+
+	// /brain/graph deve servir JSON 200 mesmo sem token (rota pública,
+	// dados sanitizados). A rota atravessa auth fall-closed.
+	req := httptest.NewRequest(http.MethodGet, "/brain/graph", nil)
+	w := httptest.NewRecorder()
+	s.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("/brain/graph: expected 200, got %d (body=%s)", w.Code, w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("/brain/graph: content-type=%q, expected application/json", ct)
+	}
+
+	// /brain deve servir o index.html 200 sem token.
+	req2 := httptest.NewRequest(http.MethodGet, "/brain", nil)
+	w2 := httptest.NewRecorder()
+	s.mux.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("/brain: expected 200, got %d", w2.Code)
+	}
+	if ct := w2.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Fatalf("/brain: content-type=%q, expected text/html", ct)
+	}
+
+	// /brain/activity deve servir JSON 200 sem token (read-only).
+	req3 := httptest.NewRequest(http.MethodGet, "/brain/activity", nil)
+	w3 := httptest.NewRecorder()
+	s.mux.ServeHTTP(w3, req3)
+
+	if w3.Code != http.StatusOK {
+		t.Fatalf("/brain/activity: expected 200, got %d", w3.Code)
+	}
+	if ct := w3.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("/brain/activity: content-type=%q, expected application/json", ct)
+	}
+
+	// /brain/observatory deve servir JSON 200 sem token (read-only).
+	req4 := httptest.NewRequest(http.MethodGet, "/brain/observatory", nil)
+	w4 := httptest.NewRecorder()
+	s.mux.ServeHTTP(w4, req4)
+
+	if w4.Code != http.StatusOK {
+		t.Fatalf("/brain/observatory: expected 200, got %d", w4.Code)
+	}
+	if ct := w4.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("/brain/observatory: content-type=%q, expected application/json", ct)
 	}
 }
 

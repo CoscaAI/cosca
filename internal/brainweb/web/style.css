@@ -1,0 +1,150 @@
+/* ============================================================
+   Cosca — Cérebro Neural (design fiel ao Neural-Network-Nav)
+   Fundo teal/verde escuro, loading spinner, canvas. Read-only.
+   ============================================================ */
+:root {
+  --viz-don: 45 92% 55%;
+  --viz-kernel: 220 13% 91%;
+  --viz-tenente: 330 81% 70%;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  overflow: hidden;
+  color: #fff;
+  background: radial-gradient(#000d0c 0%, #012927 35%, #027b76 100%);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+canvas { display: block; vertical-align: top; }
+
+#app { position: fixed; inset: 0; }
+#scene { position: absolute; inset: 0; }
+#fallback-canvas { position: absolute; inset: 0; display: none; }
+
+/* ---------- HUD ---------- */
+.hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; pointer-events: none; user-select: none; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center; font-weight: 800; font-size: 22px;
+  color: hsl(var(--viz-don)); border: 1px solid hsl(var(--viz-don) / 0.5);
+  background: hsl(var(--viz-don) / 0.08); box-shadow: 0 0 18px hsl(var(--viz-don) / 0.25);
+}
+.brand-text h1 { margin: 0; font-size: 18px; letter-spacing: 0.28em; font-weight: 700; }
+.brand-sub { margin: 0; font-size: 12px; opacity: 0.75; }
+.hud-stats {
+  display: flex; gap: 18px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px;
+  background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255,255,255,0.12);
+  padding: 8px 14px; border-radius: 10px; backdrop-filter: blur(6px);
+}
+.hud-stats .stat { display: flex; flex-direction: column; align-items: center; }
+.hud-stats .stat b { font-size: 16px; }
+.hud-stats .stat span { font-size: 10px; opacity: 0.7; letter-spacing: 0.05em; }
+
+/* ---------- Legend ---------- */
+.legend {
+  position: fixed; bottom: 16px; left: 20px; padding: 12px 16px; max-width: 240px;
+  background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+  backdrop-filter: blur(6px); z-index: 20; font-size: 12px;
+}
+.legend-title { font-weight: 700; letter-spacing: 0.08em; margin-bottom: 8px; }
+.legend-rows { display: flex; flex-direction: column; gap: 6px; }
+.legend-row { display: flex; align-items: center; gap: 8px; opacity: 0.85; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.legend-label { flex: 1; }
+.legend-count { font-family: ui-monospace, monospace; opacity: 0.8; }
+
+/* ---------- Annotation (fiel ao design original) ---------- */
+.annotation {
+  position: absolute; top: 15px; left: 15px; z-index: 1;
+  padding: 1em; width: 220px; color: #fff;
+  background: rgba(0, 0, 0, 0.8); border-radius: 0.5em;
+  font-size: 12px; line-height: 1.4;
+  margin-left: 15px; margin-top: 60px;
+}
+.annotation p { margin: 0 0 6px; }
+.annotation strong { color: hsl(var(--viz-don)); letter-spacing: 0.05em; }
+
+/* ---------- Badge read-only ---------- */
+.readonly-badge {
+  position: fixed; bottom: 16px; right: 20px; z-index: 25;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #fff; padding: 6px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); user-select: none; pointer-events: none;
+}
+
+/* ---------- Activity feed (read-only, teal/semitransparente) ---------- */
+.activity-feed {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: min(520px, calc(100vw - 40px)); max-height: 240px; overflow: hidden;
+  padding: 10px 12px; z-index: 20; pointer-events: none; user-select: none;
+  font-size: 11.5px; font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: #fff; background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(128, 255, 235, 0.22); border-radius: 12px;
+  backdrop-filter: blur(6px);
+}
+.activity-title {
+  font-weight: 700; letter-spacing: 0.08em; font-size: 11px;
+  margin-bottom: 6px; opacity: 0.85;
+}
+.activity-list { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: hidden; }
+.act-item {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.act-item:first-child { border-top: none; }
+.act-time { color: rgba(255, 255, 255, 0.55); flex: 0 0 auto; }
+.act-agent {
+  color: #9fe8ff; flex: 0 0 auto; max-width: 140px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.act-action { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+.act-status {
+  flex: 0 0 auto; text-transform: uppercase; font-size: 10px;
+  letter-spacing: 0.06em; opacity: 0.7;
+}
+.act-status.is-ok { color: #7ef0c0; opacity: 1; }
+.act-status.is-error { color: #ff7d7d; opacity: 1; }
+
+/* ---------- Loading spinner (fiel) ---------- */
+#loading {
+  width: 100%; height: 100%; z-index: 10;
+  background: radial-gradient(#000d0c 0%, #012927 35%, #027b76 100%);
+  position: absolute; top: 0; left: 0;
+}
+.spinner {
+  width: 50px; height: 30px; text-align: center; font-size: 10px;
+  position: absolute; top: 50%; left: 50%; margin-left: -25px; margin-top: -15px;
+}
+.spinner > div {
+  background-color: #fff; height: 100%; width: 6px; display: inline-block;
+  -webkit-animation: stretchdelay 1.2s infinite ease-in-out; animation: stretchdelay 1.2s infinite ease-in-out;
+}
+.spinner .rect2 { -webkit-animation-delay: -1.1s; animation-delay: -1.1s; }
+.spinner .rect3 { -webkit-animation-delay: -1.0s; animation-delay: -1.0s; }
+.spinner .rect4 { -webkit-animation-delay: -0.9s; animation-delay: -0.9s; }
+.spinner .rect5 { -webkit-animation-delay: -0.8s; animation-delay: -0.8s; }
+@-webkit-keyframes stretchdelay {
+  0%, 40%, 100% { -webkit-transform: scaleY(0.4); }
+  20% { -webkit-transform: scaleY(1.0); }
+}
+@keyframes stretchdelay {
+  0%, 40%, 100% { transform: scaleY(0.4); -webkit-transform: scaleY(0.4); }
+  20% { transform: scaleY(1.0); -webkit-transform: scaleY(1.0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 720px) {
+  .legend { display: none; }
+  .annotation { display: none; }
+  .readonly-badge { display: none; }
+  .activity-feed { display: none; }
+}

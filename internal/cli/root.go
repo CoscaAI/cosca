@@ -8,11 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
+	"time"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
 	"github.com/CoscaAI/cosca/internal/config"
 	"github.com/CoscaAI/cosca/internal/telemetry"
 )
@@ -233,7 +232,84 @@ func persistentPreRun(cmd *cobra.Command, args []string) error {
 		"args":    args,
 	})
 
+	// Registra a ação como evento real no activity log — alimenta o "cérebro"
+	// (observatório read-only) com atividade REAL tanto do CLI quanto das
+	// invocações internas (opencode/kernel/agents). Best-effort: nunca bloqueia
+	// nem altera o comportamento do comando. Quando o sistema está parado, o
+	// cérebro descansa; quando há atividade, ele pulsa.
+	recordCommandActivity(cmd, args)
+
 	return nil
+}
+
+// recordCommandActivity grava um evento de ação no activity log (append-only,
+// JSONL em .cosca/activity.jsonl). É o ponto único de captura de atividade
+// real: cobre comandos do CLI direto e comandos invocados por agentes/opencode
+// que rodam o binário. Silencioso e best-effort.
+//
+// NOTA: usa um log dedicado (activity.jsonl), NÃO o trace flight recorder —
+// o trace.db é controlado por opt-in (--trace) no approve/gate, e criar o
+// arquivo por padrão quebraria essa garantia de segurança.
+func recordCommandActivity(cmd *cobra.Command, args []string) {
+	if cmd == nil {
+		return
+	}
+	name := cmd.Name()
+	if name == "" || name == "help" || name == "completion" || name == "version" {
+		return
+	}
+
+	// Actor: distingue invocação direta (Don/CLI) de invocação interna
+	// (opencode/kernel/agent) via ambiente, sem falso positivo.
+	actor := "don"
+	if os.Getenv("COSCA_ACTOR") != "" {
+		actor = os.Getenv("COSCA_ACTOR")
+	} else if os.Getenv("OPENCODE") != "" || os.Getenv("COSCA_INTERNAL") != "" {
+		actor = "kernel"
+	}
+
+	// Resolve o diretório .cosca do projeto (mesma regra do serve).
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	coscaDir := filepath.Join(cwd, ".cosca")
+	if err := os.MkdirAll(coscaDir, 0o700); err != nil {
+		return
+	}
+
+	// REDAÇÃO DE ARGS: grava apenas o nome do comando — NUNCA os args
+	// (strings) que podem conter dados sensíveis (chaves, caminhos, prompts).
+	// Mantemos apenas o rótulo seguro "COMMAND_EXECUTED"; o prompt/descrição
+	// público é o próprio nome do comando, nunca a linha completa.
+	rec := map[string]interface{}{
+		"at":     time.Now().UnixMilli(),
+		"actor":  actor,
+		"action": "COMMAND_EXECUTED",
+		"agent":  actor,
+		"prompt": name, // apenas o comando, nunca args
+		"status": "success",
+	}
+	line, err := json.Marshal(rec)
+	if err != nil {
+		return
+	}
+	logPath := filepath.Join(coscaDir, "activity.jsonl")
+	// Rotação simples: se o log excede ~5MB, renomeia para activity.jsonl.1
+	// (mantendo só 1 backup) e recomeça em um arquivo novo. Evita crescimento
+	// indefinido ao longo de meses de operação. Best-effort — nunca bloqueia o
+	// comando e nunca descarta dados sem antes preservá-los no backup.
+	if info, err := os.Stat(logPath); err == nil && info.Size() > 5*1024*1024 {
+		backup := logPath + ".1"
+		_ = os.Remove(backup)
+		_ = os.Rename(logPath, backup)
+	}
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(line, '\n'))
 }
 
 // initConfig initializes viper configuration.

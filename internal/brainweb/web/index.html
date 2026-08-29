@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cosca — Cérebro Neural</title>
+  <meta name="description" content="Cérebro neural do Cosca: o organismo cognitivo em funcionamento, com dados reais. Read-only." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23012a27'/%3E%3Ctext x='16' y='23' font-family='Arial' font-size='20' font-weight='800' fill='%23fbbf24' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/brain/style.css" />
+</head>
+<body>
+  <!-- Loading spinner (fiel ao design de referência) -->
+  <div id="loading">
+    <div class="spinner">
+      <div class="rect1"></div>
+      <div class="rect2"></div>
+      <div class="rect3"></div>
+      <div class="rect4"></div>
+      <div class="rect5"></div>
+    </div>
+  </div>
+
+  <!-- Annotation -->
+  <div class="annotation">
+    <p><strong>O Cérebro do Cosca</strong></p>
+    <p>Organismo cognitivo em funcionamento — conhecimento, agentes e sinais percorrendo a rede. Somente leitura.</p>
+  </div>
+
+  <div id="app">
+    <div id="scene" role="status" aria-label="Cérebro neural do Cosca"></div>
+    <canvas id="fallback-canvas" aria-hidden="true"></canvas>
+  </div>
+
+  <!-- HUD / Identidade -->
+  <header id="hud" class="hud">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <div class="brand-text">
+        <h1>COSCA</h1>
+        <p class="brand-sub">Cérebro Neural</p>
+      </div>
+    </div>
+    <div class="hud-stats" id="hud-stats" aria-live="polite"></div>
+  </header>
+
+  <!-- Legend -->
+  <footer id="legend" class="legend">
+    <div class="legend-title">A Famiglia</div>
+    <div class="legend-rows" id="legend-rows"></div>
+  </footer>
+
+  <div id="readonly-badge" class="readonly-badge">somente leitura</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/brain/three.module.js",
+        "three/addons/": "/brain/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="/brain/app.js"></script>
+</body>
+</html>
