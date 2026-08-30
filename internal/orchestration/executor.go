@@ -633,10 +633,25 @@ func (e *Executor) buildSystemPrompt(agentName, agentRole, agentDept, agentDesc 
 		sb.WriteString("\n--- END MEMORY ---\n")
 	}
 
+	// Tools available to this agent (derived from role/department). Enumerating
+	// them here is what makes the model actually invoke them — without the list,
+	// a provider like deepseek tends to answer in prose instead of calling a tool.
+	tools := e.deriveTools(data)
+	if len(tools) > 0 {
+		sb.WriteString("\n--- AVAILABLE TOOLS ---\n")
+		sb.WriteString("You have the following tools you MUST use to accomplish the task:\n")
+		for i, t := range tools {
+			params := t.Function.Parameters
+			fmt.Fprintf(&sb, "%d. %s: %s. Parameters: %v\n", i+1, t.Function.Name, t.Function.Description, params)
+		}
+		sb.WriteString("When a task requires creating/editing files or running commands, use the appropriate tool rather than describing what you would do. Call the tool directly.\n")
+		sb.WriteString("--- END AVAILABLE TOOLS ---\n")
+	}
+
 	// General instructions.
 	sb.WriteString("\nProvide a thorough, well-reasoned response. ")
 	sb.WriteString("Use the available context above when relevant. ")
-	sb.WriteString("If you need to use tools, call them as needed.")
+	sb.WriteString("If a task needs a tool, CALL it (never describe the action without invoking the tool).")
 
 	return sb.String()
 }
