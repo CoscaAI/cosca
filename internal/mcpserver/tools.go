@@ -263,7 +263,7 @@ func (e *Engine) handleRecall(ctx context.Context, raw json.RawMessage) (*CallRe
 	}
 	packet := NewContextPacket(args.Query, items)
 	e.recordTraceEvent(packet, "RECALL", fmt.Sprintf("query=%q items=%d", args.Query, len(items)))
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolRecall, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.context (central) ────────────────────────────────────────
@@ -327,7 +327,7 @@ func (e *Engine) handleContext(ctx context.Context, raw json.RawMessage) (*CallR
 
 	packet := NewContextPacket(args.Query, items)
 	e.recordTraceEvent(packet, "CONTEXT", fmt.Sprintf("query=%q items=%d", args.Query, len(items)))
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolContext, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.learn (única escrita — GATEADA) ──────────────────────────
@@ -381,7 +381,7 @@ func (e *Engine) handleLearn(ctx context.Context, raw json.RawMessage) (*CallRes
 	}}
 	packet := NewContextPacket("learn:"+args.Content, items)
 	packet.TraceID = saved.ID
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolLearn, "ok"), nil
 }
 
 // ─── Tool: cosca.observe ──────────────────────────────────────────────────
@@ -429,7 +429,7 @@ func (e *Engine) handleObserve(ctx context.Context, raw json.RawMessage) (*CallR
 	}
 	e.recordTraceEvent(packet, "OBSERVE", fmt.Sprintf("video=%q frames=%d events=%d items=%d",
 		args.Video, frames, events, len(items)))
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolObserve, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.trace ────────────────────────────────────────────────────
@@ -476,7 +476,7 @@ func (e *Engine) handleTrace(ctx context.Context, raw json.RawMessage) (*CallRes
 		Confidence: packetConfidence(items),
 		TraceID:    args.TraceID,
 	}
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolTrace, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.reason ───────────────────────────────────────────────────
@@ -532,7 +532,7 @@ func (e *Engine) handleReason(ctx context.Context, raw json.RawMessage) (*CallRe
 
 	packet := NewContextPacket(name, items)
 	e.recordTraceEvent(packet, "REASON", fmt.Sprintf("subject=%q items=%d", name, len(items)))
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolReason, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.project ──────────────────────────────────────────────────
@@ -597,7 +597,7 @@ func (e *Engine) handleProject(ctx context.Context, _ json.RawMessage) (*CallRes
 	packet := NewContextPacket("project", items)
 	e.recordTraceEvent(packet, "PROJECT", fmt.Sprintf("runtime=%v knowledge=%v memory=%v kernel=%v",
 		e.Runtime != nil, e.Knowledge != nil, e.Memory != nil, e.Kernel != nil))
-	return resultFromPacket(packet), nil
+	return resultFromToolCall(packet, ToolProject, statusFor(len(items))), nil
 }
 
 // ─── Tool: cosca.cost (Token Efficiency — ADR-031) ────────────────────────
@@ -773,8 +773,41 @@ func (e *Engine) handleCLI(ctx context.Context, raw json.RawMessage) (*CallResul
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 // resultFromPacket serializa o packet como o de conteúdo da tool call.
+// Envolve o ContextPacket no envelope padronizado (status/capability) do
+// "cérebro instrumentado": o OpenCode recebe o que o COSCA sabe + o que fez.
 func resultFromPacket(packet *ContextPacket) *CallResult {
-	raw, _ := json.Marshal(packet)
+	return resultFromToolCall(packet, "", "ok")
+}
+
+// resultFromToolCall serializa o packet no envelope cognitivo padronizado
+// (status, capability, trace_id, confidence, epistemic_class, contexte,
+// artifacts, decisions, cost). `capability` é o nome da tool; `status` é
+// 'ok' | 'empty' | 'error'. O resultado CONTÉM o packet (não apenas um string).
+func resultFromToolCall(packet *ContextPacket, capability, status string) *CallResult {
+	// Garante que campos opcionais não vazam como null/[] indevido.
+	env := map[string]interface{}{
+		"status":    status,
+		"capability": capability,
+	}
+	if packet != nil {
+		env["trace_id"] = packet.TraceID
+		env["query"] = packet.Query
+		env["context"] = packet.Context
+		env["confidence"] = packet.Confidence
+		if packet.EpistemicClass != "" {
+			env["epistemic_class"] = packet.EpistemicClass
+		}
+		if len(packet.Artifacts) > 0 {
+			env["artifacts"] = packet.Artifacts
+		}
+		if len(packet.Decisions) > 0 {
+			env["decisions"] = packet.Decisions
+		}
+		if packet.Cost != nil {
+			env["cost"] = packet.Cost
+		}
+	}
+	raw, _ := json.Marshal(env)
 	return &CallResult{
 		Content: []ContentItem{{Type: "text", Text: string(raw)}},
 	}
@@ -785,6 +818,16 @@ func resultFromPacket(packet *ContextPacket) *CallResult {
 func resultFor(n int) string {
 	if n > 0 {
 		return "success"
+	}
+	return "empty"
+}
+
+// statusFor devolve o status do envelope cognitivo: "ok" (teve resultado) ou
+// "empty" (consultou mas nada encontrou — honesto). Mesma semântica de
+// resultFor, nomeada para o envelope.
+func statusFor(n int) string {
+	if n > 0 {
+		return "ok"
 	}
 	return "empty"
 }

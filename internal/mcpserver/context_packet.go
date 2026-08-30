@@ -40,6 +40,37 @@ type ContextPacket struct {
 	Context    []ContextItem `json:"context"`
 	Confidence float64       `json:"confidence"`
 	TraceID    string        `json:"trace_id"`
+
+	// ── Instrumentação do "cérebro instrumentado" (evolução do professor) ──
+	// Campos opcionais (omitempty) para retrocompatibilidade: o packet base
+	// (query/context/confidence/trace_id) é preservado; estes enriquecem a
+	// resposta para o Auto-Audit e para o OpenCode raciocinar sobre o que o
+	// COSCA fez (não só o que sabe).
+	Capability    string       `json:"capability,omitempty"`
+	EpistemicClass string      `json:"epistemic_class,omitempty"` // classe predominante do packet
+	Artifacts     []ArtifactRef `json:"artifacts,omitempty"`      // o que foi produzido (ADR-031)
+	Decisions     []DecisionRef `json:"decisions,omitempty"`      // o que foi decidido
+	Cost          *CostRef     `json:"cost,omitempty"`            // tokens + useful work
+}
+
+// ArtifactRef referência um artefato produzido por uma execução (ADR-031).
+type ArtifactRef struct {
+	Kind string `json:"kind"` // write_file | build | test | ...
+	Name string `json:"name"` // caminho/identidade do artefato
+}
+
+// DecisionRef referência uma decisão (divergência, inferência, roteamento).
+type DecisionRef struct {
+	Kind    string `json:"kind"`  // semantic_high | divergence | fallback | ...
+	Details string `json:"details,omitempty"`
+}
+
+// CostRef resume o custo/valor de uma execução (Token Efficiency / ADR-031).
+type CostRef struct {
+	InputTokens  int     `json:"input_tokens"`
+	OutputTokens int     `json:"output_tokens"`
+	TokensTotal  int     `json:"tokens_total"`
+	UsefulWork   float64 `json:"useful_work"`
 }
 
 // ─── Epistemologia → source ───────────────────────────────────────────────
