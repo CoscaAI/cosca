@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
+	"github.com/CoscaAI/cosca/internal/contentfit"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
 	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/kernel"
@@ -1048,6 +1049,13 @@ func organStatus(present bool) string {
 type webArgs struct {
 	URL    string `json:"url"`
 	MaxLen int    `json:"max_len"`
+	// Preview (custo-benefit, padrão PinchTab): true retorna só status + título
+	// + snippet (BARATO); false retorna o corpo (full). O agente usa preview
+	// primeiro e escala para full só quando o barato não resolve.
+	Preview bool `json:"preview"`
+	// Fit (padrão crawl4ai): true extrai só o conteúdo ESSENCIAL do HTML
+	// (remove script/style/nav/footer), reduzindo volume/token antes do LLM.
+	Fit bool `json:"fit"`
 }
 
 // handleWeb faz um GET seguro, validando a URL contra SSRF (usando o guard de
@@ -1099,12 +1107,29 @@ func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResul
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
 
+	// Custo-benefit (padrão PinchTab/crawl4ai): em modo preview retorna só o
+	// início (status + snippet barato); em modo fit extrai só o conteúdo
+	// essencial do HTML (remove lixo); full retorna o corpo inteiro.
+	var content string
+	if args.Preview {
+		snippet := string(body)
+		if len(snippet) > 600 {
+			snippet = snippet[:600] + "…"
+		}
+		content = fmt.Sprintf("status=%d length=%d preview_preview=true\n%s", resp.StatusCode, len(body), snippet)
+	} else if args.Fit {
+		fit := contentfit.Extract(string(body))
+		content = fmt.Sprintf("status=%d length=%d fit=true chars=%d\n%s", resp.StatusCode, len(body), fit.CharCount, fit.Text)
+	} else {
+		content = fmt.Sprintf("status=%d length=%d\n%s", resp.StatusCode, len(body), string(body))
+	}
+
 	// Conteúdo de página = dado NÃO-CONFIÁVEL (nunca tratado como instrução).
 	// Envelopamos com contenttrust (nonce + length-delimited + JSON-escaped)
 	// para o modelo NÃO forjar o fechamento nem seguir instrução da página.
 	wrapped := contenttrust.Envelope(contenttrust.Default(
 		contenttrust.OriginMCP,
-		fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(body)),
+		content,
 		"web:"+u.String(),
 	))
 	packet := NewContextPacket("web:"+u.String(), []ContextItem{{
