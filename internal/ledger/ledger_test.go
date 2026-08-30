@@ -476,3 +476,32 @@ func mustRead(t *testing.T, path string) []byte {
 	}
 	return data
 }
+
+// TestRecordInverse_UndoPrimitivo valida o padrão Penpot (:undo-changes):
+// given um Record de put/delete, a Inverse() devolve a operação inversa
+// (undo O(1), sem replay do WAL).
+func TestRecordInverse_UndoPrimitivo(t *testing.T) {
+	// put que sobrescreveu: value=novo, undo_value=antigo → inverse restaura antigo.
+	r := Record{Op: OpPut, Key: "k", Value: []byte("novo"), UndoValue: []byte("antigo"), Version: 3}
+	inv := r.Inverse()
+	if inv.Op != OpPut || string(inv.Value) != "antigo" {
+		t.Fatalf("put inverse deveria restaurar 'antigo', got op=%v val=%q", inv.Op, inv.Value)
+	}
+	if string(inv.UndoValue) != "novo" {
+		t.Fatalf("inverse deveria guardar 'novo' como undo, got %q", inv.UndoValue)
+	}
+
+	// put de chave NOVA (undo_value nil) → inverse é delete.
+	r2 := Record{Op: OpPut, Key: "k2", Value: []byte("v"), UndoValue: nil, Version: 1}
+	inv2 := r2.Inverse()
+	if inv2.Op != OpDel {
+		t.Fatalf("put novo inverse deveria ser delete, got op=%v", inv2.Op)
+	}
+
+	// delete → inverse restaura o valor removido.
+	r3 := Record{Op: OpDel, Key: "k3", UndoValue: []byte("removido"), Version: 5}
+	inv3 := r3.Inverse()
+	if inv3.Op != OpPut || string(inv3.Value) != "removido" {
+		t.Fatalf("delete inverse deveria restaurar 'removido', got op=%v val=%q", inv3.Op, inv3.Value)
+	}
+}

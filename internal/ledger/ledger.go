@@ -105,6 +105,11 @@ type Cell struct {
 }
 
 // Record é um registro imutável do caderno (uma linha do WAL).
+//
+// Carry de undo-primitivo (padrão Penpot `:undo-changes`): cada put/delete
+// carrega o valor ANTIGO da chave (UndoValue) para reconstruir o estado
+// anterior SEM replay de todo o WAL — undo/redo O(1) por operação, com audit
+// trail completo. UndoValue é nil para escritas de chave nova (undo delete).
 type Record struct {
 	Seq      uint64   // sequência global monotônica (ordem total)
 	Op       Op       // operação
@@ -114,6 +119,10 @@ type Record struct {
 	PrevHash [32]byte // hash do registro anterior (ou raiz do snapshot)
 	Hash     [32]byte // hash deste registro (SHA-256)
 	TS       int64    // timestamp (unix nano)
+
+	// UndoValue é o valor ANTERIOR da chave (para desfazer esta operação).
+	// Nil quando a chave não existia antes (undo de put novo = delete).
+	UndoValue []byte `json:"undo_value,omitempty"`
 }
 
 // hashInput é a serialização canônica (determinística) que entra no hash. É
@@ -343,6 +352,11 @@ func (l *Ledger) Put(key string, value []byte, expectedVersion uint64) (uint64, 
 		PrevHash: l.lastHash,
 		TS:       time.Now().UnixNano(),
 	}
+	// Undo-primitivo (Penpot :undo-changes): guarda o valor ANTERIOR para
+	// desfazer sem replay do WAL. Nil quando a chave é nova (undo = delete).
+	if ok {
+		rec.UndoValue = append([]byte(nil), cur.Value...)
+	}
 	rec.Hash = rec.computeHash()
 
 	if err := l.append(rec); err != nil {
@@ -376,6 +390,8 @@ func (l *Ledger) Delete(key string, expectedVersion uint64) error {
 		Version:  cur.Version + 1,
 		PrevHash: l.lastHash,
 		TS:       time.Now().UnixNano(),
+		// Undo-primitivo: recuperar o valor atual após o delete (undo = put).
+		UndoValue: append([]byte(nil), cur.Value...),
 	}
 	rec.Hash = rec.computeHash()
 
@@ -387,6 +403,38 @@ func (l *Ledger) Delete(key string, expectedVersion uint64) error {
 	l.apply(rec)
 	l.maybeCompactLocked()
 	return nil
+}
+
+// Inverse devolve a RECORD inversa (undo-primitivo, padrão Penpot
+// :undo-changes): um put que sobrescreveu vira um put com o valor anterior;
+// um delete vira um put restaurando o valor. Não escreve no WAL — devolve a
+// operação inversa para o caller aplicar/reversar. UndoValue==nil numa chave
+// nova → inversa é um delete.
+//
+// Isso habilita undo/redo O(1) por operação (sem replay de todo o WAL) com
+// audit trail completo — o refinamento mais valioso do padrão AppFlowy/Penpot.
+func (r Record) Inverse() Record {
+	inv := Record{
+		Op:      OpPut,
+		Key:     r.Key,
+		Version: r.Version,
+	}
+	if r.Op == OpPut {
+		if r.UndoValue == nil {
+			// chave era nova antes do put → undo = delete.
+			inv.Op = OpDel
+			inv.Version = r.Version - 1
+			return inv
+		}
+		// undo de sobrescrita → restaurar o valor anterior.
+		inv.Value = append([]byte(nil), r.UndoValue...)
+		inv.UndoValue = append([]byte(nil), r.Value...)
+		return inv
+	}
+	// OpDel → undo = put restaurando o valor removido.
+	inv.Value = append([]byte(nil), r.UndoValue...)
+	inv.UndoValue = nil
+	return inv
 }
 
 // Get devolve o valor e a versão atuais da chave (O(1), P4). ok=false se a
