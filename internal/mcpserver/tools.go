@@ -16,7 +16,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/netip"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
 	"github.com/CoscaAI/cosca/internal/cost"
@@ -25,6 +31,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/runtime"
 	"github.com/CoscaAI/cosca/internal/search"
+	"github.com/CoscaAI/cosca/internal/security"
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/vision"
 )
@@ -41,6 +48,7 @@ const (
 	ToolCost    = "cosca.cost"
 	ToolCLI     = "cosca.cli"
 	ToolSelf    = "cosca.self"
+	ToolWeb     = "cosca.web"
 )
 
 // VisionFunc é a assinatura de vision.AnalyzeVideo (injetável para teste).
@@ -1024,4 +1032,71 @@ func organStatus(present bool) string {
 		return "operational"
 	}
 	return "unavailable"
+}
+
+// ─── Tool: cosca.web (fetch HTTP seguro — anti-SSRF) ──────────────────────
+
+type webArgs struct {
+	URL    string `json:"url"`
+	MaxLen int    `json:"max_len"`
+}
+
+// handleWeb faz um GET seguro, validando a URL contra SSRF (usando o guard de
+// rede anti-SSRF do COSCA). Só http/https são permitidos; o host é resolvido e
+// validado (IP público) antes de qualquer dial. Conteúdo retornado é tratado
+// como DADO NÃO-CONFIÁVEL (risco prompt-injection).
+func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	args, err := requireInput[webArgs](raw)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.URL) == "" {
+		return nil, fmt.Errorf("cosca.web: 'url' é obrigatório")
+	}
+	u, perr := url.Parse(args.URL)
+	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, fmt.Errorf("cosca.web: apenas http/https são permitidos (SSRF guard)")
+	}
+	if u.Hostname() == "" {
+		return nil, fmt.Errorf("cosca.web: URL sem host")
+	}
+
+	// Resolve o host e valida contra SSRF (todas as IPs devem ser públicas).
+	ips, rerr := net.DefaultResolver.LookupIP(ctx, "ip", u.Hostname())
+	if rerr != nil || len(ips) == 0 {
+		return nil, fmt.Errorf("cosca.web: falha ao resolver host: %v", rerr)
+	}
+	for _, ip := range ips {
+		addr, ok := netip.AddrFromSlice(ip)
+		if !ok {
+			return nil, fmt.Errorf("cosca.web: IP %v inválido (SSRF guard)", ip)
+		}
+		if err := security.ValidatePublicIP(addr); err != nil {
+			return nil, fmt.Errorf("cosca.web: %w", err)
+		}
+	}
+
+	// HTTP client com timeout.
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, herr := client.Get(u.String())
+	if herr != nil {
+		return nil, fmt.Errorf("cosca.web: GET falhou: %w", herr)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	limit := args.MaxLen
+	if limit <= 0 || limit > 20000 {
+		limit = 8000
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
+
+	// Conteúdo de página = dado NÃO-CONFIÁVEL (nunca tratado como instrução).
+	packet := NewContextPacket("web:"+u.String(), []ContextItem{{
+		Content:   fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(body)),
+		Source:    string(knowledge.EpistemicEVIDENCE),
+		Relevance: 1.0,
+	}})
+	packet.Capability = ToolWeb
+	packet.Decisions = append(packet.Decisions, DecisionRef{Kind: "ssrf_guard_ok", Details: "host resolvido + IP publico validado"})
+	return resultFromToolCall(packet, ToolWeb, statusFor(len(packet.Context))), nil
 }

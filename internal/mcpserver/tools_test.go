@@ -72,11 +72,11 @@ func buildTestEngine(opts ...Option) *Engine {
 func TestToolsList_HasSevenCognitiveTools(t *testing.T) {
 	eng := buildTestEngine(WithKernel(kernel.NewEmergencyManager()))
 	tools := eng.Tools()
-	if len(tools) != 10 {
-		t.Fatalf("esperava 10 tools, veio %d (%v)", len(tools), toolNames(tools))
+	if len(tools) != 11 {
+		t.Fatalf("esperava 11 tools, veio %d (%v)", len(tools), toolNames(tools))
 	}
 
-	want := []string{ToolRecall, ToolContext, ToolLearn, ToolObserve, ToolReason, ToolTrace, ToolProject, ToolCost, ToolCLI, ToolSelf}
+	want := []string{ToolRecall, ToolContext, ToolLearn, ToolObserve, ToolReason, ToolTrace, ToolProject, ToolCost, ToolCLI, ToolSelf, ToolWeb}
 	got := toolNames(tools)
 	for i, w := range want {
 		if i >= len(got) || got[i] != w {
@@ -424,4 +424,5 @@ func decodePacket(t *testing.T, res *CallResult) *ContextPacket {
 func validEpistemicSource(s string) bool {
 	return knowledge.KnowledgeEpistemic(s).Valid()
 }
+
 

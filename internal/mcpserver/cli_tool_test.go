@@ -92,3 +92,29 @@ func TestCallSelf_InspectsOrgans(t *testing.T) {
 		t.Fatalf("output nao tem estados operational/unavailable: %s", res.Content[0].Text)
 	}
 }
+
+// TestCallWeb_SSRFBlocked valida que cosca.web bloqueia URL apontando para
+// rede interna (host que resolve para IP privado) — fail-closed via SSRF guard.
+func TestCallWeb_SSRFBlocked(t *testing.T) {
+	eng := NewEngine(WithKernel(nil))
+	// URL que resolve para loopback (localhost) deve ser bloqueada.
+	_, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"http://localhost:3000"}`))
+	if err == nil {
+		t.Fatal("URL localhost deveria ser bloqueada pelo SSRF guard")
+	}
+	if !strings.Contains(err.Error(), "não é público") {
+		t.Fatalf("erro deveria ser instrutivo (SSRF): %v", err)
+	}
+}
+
+// TestCallWeb_BadScheme valida que apenas http/https são aceitos.
+func TestCallWeb_BadScheme(t *testing.T) {
+	eng := NewEngine(WithKernel(nil))
+	_, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"file:///etc/passwd"}`))
+	if err == nil {
+		t.Fatal("file:// deveria ser rejeitado (apenas http/https)")
+	}
+	if !strings.Contains(err.Error(), "http/https") {
+		t.Fatalf("erro deveria indicar apenas http/https: %v", err)
+	}
+}
