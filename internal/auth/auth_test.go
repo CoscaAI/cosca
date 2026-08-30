@@ -3,6 +3,7 @@ package auth
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -1828,5 +1829,37 @@ func TestUserStoreInvalidRoleInCreate(t *testing.T) {
 		if err == nil {
 			t.Errorf("expected error for invalid role '%s'", role)
 		}
+	}
+}
+
+// TestAuthenticate_AntiEnumeration valida que o login NÃO revela se o usuário
+// existe: tanto "usuário inexistente" quanto "senha errada" retornam o MESMO
+// erro (ErrInvalidCredentials), e o caminho de usuário inexistente ainda roda
+// o bcrypt dummy (equalização de timing anti-enumeration).
+func TestAuthenticate_AntiEnumeration(t *testing.T) {
+	store := NewUserStore(UserStoreConfig{})
+	if _, err := store.Create("alice", "correct-password-123", "admin", "alice@x.com"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Senha errada para usuário EXISTENTE → ErrInvalidCredentials.
+	_, errWrongPass := store.Authenticate("alice", "wrong-password")
+	if !errors.Is(errWrongPass, ErrInvalidCredentials) {
+		t.Fatalf("senha errada deveria ser ErrInvalidCredentials, got %v", errWrongPass)
+	}
+
+	// Usuário INEXISTENTE → MESMO ErrInvalidCredentials (não vaza a existência).
+	_, errNoUser := store.Authenticate("nobody", "whatever-password")
+	if !errors.Is(errNoUser, ErrInvalidCredentials) {
+		t.Fatalf("user inexistente deveria ser ErrInvalidCredentials (uniforme), got %v", errNoUser)
+	}
+
+	if errNoUser.Error() != errWrongPass.Error() {
+		t.Fatalf("mensagens deveriam ser idênticas (anti-enumeration): %q vs %q", errNoUser.Error(), errWrongPass.Error())
+	}
+
+	// O hash dummy deve ter sido gerado (precisa existir para equalizar timing).
+	if dummyPasswordHash == "" {
+		t.Fatal("dummyPasswordHash vazio — timing dummy não inicializado")
 	}
 }

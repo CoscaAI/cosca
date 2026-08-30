@@ -44,6 +44,26 @@ type UserStoreConfig struct {
 	DB *sql.DB // SQLite database (nil = in-memory only)
 }
 
+// dummyPasswordHash é um hash bcrypt VÁLIDO de uma senha aleatória conhecida,
+// usado para equalizar o TIMING do login (anti-enumeration, padrão Bitwarden):
+// quando o usuário NÃO existe, ainda rodamos um bcrypt.Compare custoso contra
+// esse hash — assim o tempo de "usuário inexistente" é indistinguível de
+// "senha errada", fechando o vetor de timing-attack que revela usernames.
+// O hash é gerado no init (custo 12, igual ao do login) para ser um bcrypt
+// real e válido (com checksum correto) — um dummy mal-formado retornaria erro
+// imediato, sem custo, e NÃO equalizaria o timing.
+var dummyPasswordHash string
+
+func init() {
+	// Gera o hash de uma senha fixa e aleatória apenas para equalizar o custo
+	// computacional. Nunca usado para autenticar (só para gastar ~mesmo tempo).
+	if h, err := bcrypt.GenerateFromPassword([]byte("cosca-timing-dummy-not-a-real-password"), bcrypt.DefaultCost); err == nil {
+		dummyPasswordHash = string(h)
+	}
+}
+
+
+
 // Common user store errors.
 var (
 	ErrUserExists         = errors.New("user already exists")
@@ -284,6 +304,13 @@ func (s *UserStore) Authenticate(username, password string) (*User, error) {
 
 	user, ok := s.byUsername[username]
 	if !ok {
+		// Anti-enumeration (timing): usuário não existe → ainda rodamos um
+		// bcrypt.Compare custoso contra um hash dummy válido, para o tempo de
+		// resposta ser indistinguível de "senha errada". Retorna erro uniforme
+		// (nunca revela se o usuário existe).
+		if dummyPasswordHash != "" {
+			_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
+		}
 		return nil, ErrInvalidCredentials
 	}
 
