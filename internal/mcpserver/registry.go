@@ -26,7 +26,9 @@ import (
 	"fmt"
 )
 
-// RiskLevel classifica o risco de uma tool para o gate de permissão.
+// RiskLevel classifica o POTENCIAL DE IMPACTO de uma tool (o que ela pode
+// mudar), para o gate de permissão. Distinto de Permission: Risk é "quão
+// perigoso é se executada"; Permission é "quem pode executar".
 type RiskLevel string
 
 const (
@@ -39,6 +41,14 @@ const (
 	RiskWrite RiskLevel = "write"
 )
 
+// PermissionLevel classifica QUEM pode executar a tool (autorização).
+const (
+	// PermissionPublic — qualquer chamador (read-only cognitivo, default).
+	PermissionPublic = "public"
+	// PermissionOwner — apenas o dono/operador autorizado do COSCA (write/op).
+	PermissionOwner = "owner"
+)
+
 // ToolHandler é a assinatura de execução de uma tool registrada.
 type ToolHandler func(ctx context.Context, args json.RawMessage) (*CallResult, error)
 
@@ -47,7 +57,8 @@ type ToolDef struct {
 	Name        string      // nome canônico (ex: cosca.recall)
 	Domain      string      // família (cognition/knowledge/runtime/audit/cost/...)
 	Organ       string      // órgão responsável (knowledge/memory/trace/runtime/...)
-	Risk        RiskLevel   // nível de risco (read|operate|write)
+	Risk        RiskLevel   // potência do impacto (read|operate|write)
+	Permission  string      // quem pode executar (public|owner)
 	Description string      // descrição para tools/list
 	InputSchema string      // JSON schema (string) — serializado em ToolInfo
 	Handler     ToolHandler // função de execução (nil-safe)
@@ -64,13 +75,22 @@ func newRegistry() *registry {
 	return &registry{byName: make(map[string]*ToolDef)}
 }
 
-// register adiciona um ToolDef ao registry. Nome duplicado sobrescreve
-// (última vitória) — assert de integridade para o desenvolvimento.
+// register adiciona um ToolDef ao registry. Duplicidade de capability é ERRO
+// ARQUITETURAL (não comportamento desejável): duas tools com o mesmo nome
+// fariam `Tools()` (order) divergir de `Call()` (byName) — a lista e o dispatch
+// apontariam para defs diferentes. Falhamos (panic) em dev para capturar o
+// defeito cedo, em vez de silenciosamente divergir.
 func (r *registry) register(def ToolDef) {
-	if _, exists := r.byName[def.Name]; !exists {
-		r.order = append(r.order, &def)
+	if _, exists := r.byName[def.Name]; exists {
+		panic(fmt.Sprintf("mcpserver: tool %q registrada em duplicidade (capability registry)", def.Name))
+	}
+	// Default de Permission: public (read-only) — a não ser que o ToolDef
+	// declare explicitamente PermissionOwner (escrita/operação sensível).
+	if def.Permission == "" {
+		def.Permission = PermissionPublic
 	}
 	r.byName[def.Name] = &def
+	r.order = append(r.order, &def)
 }
 
 // get devolve o ToolDef pelo nome, ou nil.
@@ -142,6 +162,7 @@ func (e *Engine) registerTools() {
 		Domain:      "cognition",
 		Organ:       "memory",
 		Risk:        RiskWrite,
+		Permission:  PermissionOwner,
 		Description: "Aprender — registrar aprendizado com proveniência. Escrita GATEADA (require COSCA_MCP_ALLOW_WRITE=1); default read-only.",
 		InputSchema: `{"type":"object","properties":{"content":{"type":"string"},"type":{"type":"string"},"layer":{"type":"string"},"scope":{"type":"string"}},"required":["content"]}`,
 		Handler:     e.handleLearn,
@@ -210,3 +231,4 @@ func (e *Engine) registerTools() {
 		Handler:     e.handleSelf,
 	})
 }
+

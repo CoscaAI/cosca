@@ -193,17 +193,21 @@ func (e *Engine) Call(ctx context.Context, name string, args json.RawMessage) (*
 	if e.Kernel != nil && e.Kernel.IsHalted() {
 		return nil, fmt.Errorf("cosca.mcp: kernel kill-switch ativo (halted/stop) — execução bloqueada")
 	}
+	// Nil-safe (contrato do Engine): sem registry, nenhuma tool existe.
+	if e.registry == nil {
+		return nil, fmt.Errorf("cosca.mcp: capability registry indisponível (engine sem tools)")
+	}
 	def := e.registry.get(name)
 	if def == nil {
 		return nil, fmt.Errorf("cosca.mcp: tool %q desconhecida (default-deny)", name)
 	}
 
-	// Gate de escrita (AllowWrite) — a única escrita é cosca.learn, maskada
-	// como RiskWrite. Read-only-first: sem AllowWrite, RiskWrite falha.
-	if def.Risk == RiskWrite && !e.AllowWrite {
+	// Gate de escrito (PermissionOwner): toda tool de escrita exige autorização
+	// explícita (COSCA_MCP_ALLOW_WRITE). Read-only-first (ADR-028 §1.2).
+	if def.Permission == PermissionOwner && !e.AllowWrite {
 		return &CallResult{
 			IsError: true,
-			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.mcp: %s é escrita (RiskWrite) — modo read-only (fail-closed); defina COSCA_MCP_ALLOW_WRITE=1 para permitir. Nada foi feito.", name)}},
+			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.mcp: %s é escrita (PermissionOwner) — modo read-only (fail-closed); defina COSCA_MCP_ALLOW_WRITE=1 para permitir. Nada foi feito.", name)}},
 		}, nil
 	}
 
