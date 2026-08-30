@@ -21,6 +21,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/adapter"
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/compute"
+	"github.com/CoscaAI/cosca/internal/di"
 	"github.com/CoscaAI/cosca/internal/diagnostics"
 	"github.com/CoscaAI/cosca/internal/embed"
 	"github.com/CoscaAI/cosca/internal/integrity"
@@ -170,6 +171,14 @@ type Result struct {
 	// Fabric is the compute fabric with worker pools, GPU executor, and
 	// backpressure. Nil when RuntimeStandalone is true.
 	Fabric *compute.Fabric
+
+	// Services is the declarative dependency-injection container
+	// (Backstage/Spotify Pattern #2). Built-in engines (knowledge, memory)
+	// are exposed as root-scoped singleton services so agents and
+	// departments can declare the deps they need and have them injected,
+	// instead of reaching into this struct by name. Never nil after
+	// Compose (empty container if no engines were built).
+	Services *di.Container
 }
 
 // Compose initializes the engine stack: knowledge, memory, runtime,
@@ -474,6 +483,14 @@ func Compose(cfg Config) (*Result, error) {
 				Msg("pipeline components initialized")
 		}
 	}
+
+	// ── Declarative Service Registry (Backstage/Spotify Pattern #2) ────
+	// Expose the built engines as DI services so agents and sub-systems can
+	// declare dependencies and have them injected. Additive — the explicit
+	// wiring above remains the source of truth for lifecycle.
+	res.Services = RegisterEngines(res)
+	cfg.Logger.Info().Str("services", res.Services.String()).
+		Msg("declarative service registry initialized")
 
 	return res, nil
 }

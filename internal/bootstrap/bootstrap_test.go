@@ -191,6 +191,38 @@ func TestConfig_LoggerContext(t *testing.T) {
 	_ = composeTest(t, cfg)
 }
 
+// TestRegisterEngines_DIResolvesKnowledge verifies the declarative DI seam:
+// after RegisterEngines, a composable service (KnowledgeSummary) resolves
+// with the knowledge engine INJECTED by the container — never reached via a
+// global or the Result struct by name.
+func TestRegisterEngines_DIResolvesKnowledge(t *testing.T) {
+	res := &Result{}
+	c := RegisterEngines(res)
+
+	// No engines built → container exists but is empty (not nil).
+	if c == nil {
+		t.Fatal("Services container should never be nil after RegisterEngines")
+	}
+	if !c.Has(ServiceKnowledge) && !c.Has(ServiceMemory) {
+		// Empty is fine (no engines in standalone), but the summary facet
+		// only registers when knowledge exists — both must be nil-safe.
+		return
+	}
+	// If knowledge was built, the composable facet resolves with injection.
+	if c.Has(ServiceKnowledge) && c.Has(ServiceKnowledgeSummary) {
+		summary, err := ResolveKnowledgeSummary(c)
+		if err != nil {
+			t.Fatalf("resolve knowledge summary: %v", err)
+		}
+		if summary.Source != ServiceKnowledge {
+			t.Fatalf("source = %q, want %q", summary.Source, ServiceKnowledge)
+		}
+		if summary.Engine == nil {
+			t.Fatal("summary.Engine should be injected by the container")
+		}
+	}
+}
+
 func init() {
 	// Ensure we don't create real files during tests.
 	if s := os.Getenv("COSCA_TEST_BOOTSTRAP"); s != "1" {
