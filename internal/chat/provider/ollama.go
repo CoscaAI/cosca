@@ -279,6 +279,10 @@ func (p *OllamaProvider) parseStreamResponse(ctx context.Context, body io.Reader
 			}
 		}
 
+		if len(chunk.Message.ToolCalls) > 0 {
+			ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: chunk.Message.ToolCalls}
+		}
+
 		if chunk.Message.Content != "" {
 			ch <- chat.ChatEvent{Type: chat.ChatEventDelta, Delta: chunk.Message.Content}
 		}
@@ -300,6 +304,10 @@ func (p *OllamaProvider) parseNonStreamResponse(ctx context.Context, body io.Rea
 		return
 	}
 
+	// Surface tool calls as first-class events (never discard them).
+	if len(resp.Message.ToolCalls) > 0 {
+		ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: resp.Message.ToolCalls}
+	}
 	if resp.Message.Content != "" {
 		ch <- chat.ChatEvent{Type: chat.ChatEventDelta, Delta: resp.Message.Content}
 	}

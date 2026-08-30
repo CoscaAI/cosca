@@ -349,20 +349,60 @@ func (m *Manager) List() []Agent {
 	return result
 }
 
-// Get returns a specific agent by name (case-insensitive).
+// Get returns a specific agent by name (case-insensitive). It also resolves
+// by Department and by normalized alias, so an explicit `--agent` hint like
+// "cosca-specialist-backend-service" (the harness's directory-derived id)
+// resolves the registry agent whose Department is "specialist-backend-service"
+// / Name is "BACKEND SERVICE SPECIALIST".
 func (m *Manager) Get(name string) (*Agent, error) {
-	// Try exact match first
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("agent %q not found", name)
+	}
+
+	// 1. Exact match
 	if a, ok := m.agents[name]; ok {
 		return a, nil
 	}
-	// Case-insensitive fallback
+
+	// 2. Case-insensitive exact on Name or Department
 	lower := strings.ToLower(name)
 	for key, a := range m.agents {
-		if strings.ToLower(key) == lower {
+		if strings.ToLower(key) == lower || strings.ToLower(a.Department) == lower {
 			return a, nil
 		}
 	}
+
+	// 3. Normalized alias equality: strip cases/spaces/hyphens/underscores and
+	// match on FULL alias equality in both directions (query↔name,
+	// query↔department). This makes "cosca-specialist-backend-service" and
+	// "specialist-backend-service" resolve to the same agent WITHOUT the
+	// permissiveness that lets a partial token like "chief" match any agent
+	// that merely contains it. Full alias equality keeps it precise.
+	normQuery := normalizeAgentAlias(name)
+	if normQuery != "" {
+		for _, a := range m.agents {
+			normName := normalizeAgentAlias(a.Name)
+			normDept := normalizeAgentAlias(a.Department)
+			if normName == normQuery || normDept == normQuery ||
+				normQuery == normName || normQuery == normDept {
+				return a, nil
+			}
+		}
+	}
+
 	return nil, fmt.Errorf("agent %q not found", name)
+}
+
+// normalizeAgentAlias lowercases s and strips whitespace, hyphens, and
+// underscores so alias matching tolerates "cosca-specialist-backend-service",
+// "cosca specialist backend service", and "specialist-backend-service" alike.
+func normalizeAgentAlias(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, " ", "")
+	return s
 }
 
 // Search searches for agents by query string (case-insensitive).

@@ -185,18 +185,26 @@ const (
 	ChatEventDone ChatEventType = "done"
 	// ChatEventError signals that the stream encountered an error.
 	ChatEventError ChatEventType = "error"
+	// ChatEventToolCall carries one or more tool invocations requested by the
+	// model. Following the Vercel AI SDK "typed part, nothing discarded"
+	// principle, tool-call parts are surfaced as first-class events instead of
+	// being dropped: the core normalizes them into ChatResponse.Message.ToolCalls
+	// so the orchestration tool-loop can execute them.
+	ChatEventToolCall ChatEventType = "tool_call"
 )
 
 // ChatEvent represents a single event in a streaming chat response. The Type
 // field discriminates the event kind:
-//   - delta: Delta carries the incremental text token.
-//   - done:  Usage carries the final token counts; no more events follow.
-//   - error: Error carries the failure; no more events follow.
+//   - delta:     Delta carries the incremental text token.
+//   - tool_call: ToolCalls carries model-requested tool invocations (never dropped).
+//   - done:      Usage carries the final token counts; no more events follow.
+//   - error:     Error carries the failure; no more events follow.
 type ChatEvent struct {
-	Type  ChatEventType `json:"type"`
-	Delta string        `json:"delta,omitempty"`
-	Error error         `json:"error,omitempty"`
-	Usage *Usage        `json:"usage,omitempty"`
+	Type      ChatEventType `json:"type"`
+	Delta     string        `json:"delta,omitempty"`
+	ToolCalls []ToolCall    `json:"tool_calls,omitempty"`
+	Error     error         `json:"error,omitempty"`
+	Usage     *Usage        `json:"usage,omitempty"`
 }
 
 // ToolResult contains the outcome of a tool execution.

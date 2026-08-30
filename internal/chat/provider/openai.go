@@ -239,6 +239,25 @@ type openAIStreamDelta struct {
 func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader, ch chan<- chat.ChatEvent) {
 	reader := bufio.NewReader(body)
 
+	// Tool calls arrive as index-addressable deltas (name+id on the first
+	// fragment, arguments fragmented across later chunks). Accumulate them by
+	// index and flush the assembled set once, before the Done event, so the
+	// tool-loop never sees a partially-discarded tool call (Vercel principle).
+	toolCallByIndex := map[int]*chat.ToolCall{}
+	var toolOrder []int
+
+	flushToolCalls := func() {
+		if len(toolOrder) == 0 {
+			return
+		}
+		toolCalls := make([]chat.ToolCall, 0, len(toolOrder))
+		for _, idx := range toolOrder {
+			toolCalls = append(toolCalls, *toolCallByIndex[idx])
+		}
+		ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: toolCalls}
+		toolOrder = nil
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -250,8 +269,8 @@ func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				// Stream ended normally — send done if we haven't already
-				// (usually the final chunk carries usage)
+				// Stream ended normally — flush any accumulated tool calls.
+				flushToolCalls()
 				return
 			}
 			ch <- chat.ChatEvent{Type: chat.ChatEventError, Error: fmt.Errorf("openai: read stream: %w", err)}
@@ -271,6 +290,7 @@ func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader
 
 		// End-of-stream marker
 		if data == "[DONE]" {
+			flushToolCalls()
 			return
 		}
 
@@ -282,6 +302,7 @@ func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader
 
 		// If usage is present, send a done event
 		if chunk.Usage != nil {
+			flushToolCalls()
 			ch <- chat.ChatEvent{Type: chat.ChatEventDone, Usage: chunk.Usage}
 			return
 		}
@@ -295,10 +316,36 @@ func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader
 				}
 			}
 
+			// Accumulate tool-call fragments by index.
+			if len(choice.Delta.ToolCalls) > 0 {
+				for _, tc := range choice.Delta.ToolCalls {
+					idx := tc.Index
+					existing, ok := toolCallByIndex[idx]
+					if !ok {
+						cp := tc
+						toolCallByIndex[idx] = &cp
+						toolOrder = append(toolOrder, idx)
+						continue
+					}
+					if tc.ID != "" && existing.ID == "" {
+						existing.ID = tc.ID
+					}
+					if tc.Type != "" && existing.Type == "" {
+						existing.Type = tc.Type
+					}
+					if tc.Function.Name != "" {
+						existing.Function.Name += tc.Function.Name
+					}
+					if tc.Function.Arguments != "" {
+						existing.Function.Arguments += tc.Function.Arguments
+					}
+				}
+			}
+
 			// If finish reason is set, this is the final chunk — usage may follow
 			if choice.FinishReason != nil && *choice.FinishReason != "" {
-				// Don't return yet; a subsequent chunk may carry usage
-				// We'll wait for it or for the [DONE] marker
+				// Don't return yet; a subsequent chunk may carry usage.
+				// Tool calls are flushed when usage/[DONE]/EOF arrives.
 			}
 		}
 	}
@@ -333,6 +380,17 @@ func (p *OpenAIProvider) parseNonStreamResponse(ctx context.Context, body io.Rea
 	if err := json.NewDecoder(body).Decode(&resp); err != nil {
 		ch <- chat.ChatEvent{Type: chat.ChatEventError, Error: fmt.Errorf("openai: decode response: %w", err)}
 		return
+	}
+
+	// Surface tool calls as first-class events (Vercel AI SDK principle: the
+	// provider emits typed parts; the core preserves them for the tool-loop).
+	// Tool calls must NEVER be discarded, otherwise the orchestration executor
+	// always sees toolCalls==nil and the agent can only "talk", never act.
+	if len(resp.Choices) > 0 && len(resp.Choices[0].Message.ToolCalls) > 0 {
+		ch <- chat.ChatEvent{
+			Type:      chat.ChatEventToolCall,
+			ToolCalls: resp.Choices[0].Message.ToolCalls,
+		}
 	}
 
 	// Send full content as a single delta

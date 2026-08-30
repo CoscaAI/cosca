@@ -149,6 +149,21 @@ func (s *eventChatStream) Recv() (*chat.ChatStreamChunk, error) {
 			},
 		}, nil
 
+	case chat.ChatEventToolCall:
+		// Forward tool-call parts as a stream delta so the executor's
+		// tool-loop can merge and execute them (Vercel principle: never drop).
+		return &chat.ChatStreamChunk{
+			ID:    "",
+			Model: s.model,
+			Choices: []chat.StreamChoice{
+				{
+					Delta: chat.Message{
+						ToolCalls: event.ToolCalls,
+					},
+				},
+			},
+		}, nil
+
 	case chat.ChatEventDone:
 		s.mu.Lock()
 		s.done = true
@@ -209,11 +224,16 @@ func collectNonStreamResponse(eventCh <-chan chat.ChatEvent) (*chat.ChatResponse
 
 	var contentBuilder string
 	var usage *chat.Usage
+	var toolCalls []chat.ToolCall
 
 	for event := range eventCh {
 		switch event.Type {
 		case chat.ChatEventDelta:
 			contentBuilder += event.Delta
+		case chat.ChatEventToolCall:
+			// Tool calls are first-class parts (Vercel principle). Never drop
+			// them — the orchestration tool-loop depends on them.
+			toolCalls = append(toolCalls, event.ToolCalls...)
 		case chat.ChatEventDone:
 			usage = event.Usage
 		case chat.ChatEventError:
@@ -224,6 +244,10 @@ func collectNonStreamResponse(eventCh <-chan chat.ChatEvent) (*chat.ChatResponse
 	}
 
 	resp.Choices[0].Message.Content = contentBuilder
+	if len(toolCalls) > 0 {
+		resp.Choices[0].Message.ToolCalls = toolCalls
+		resp.Choices[0].FinishReason = chat.FinishReasonToolCalls
+	}
 	if usage != nil {
 		resp.Usage = *usage
 	}

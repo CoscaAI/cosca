@@ -195,6 +195,11 @@ Examples:
 				SkillResolver:   skillResolver,
 				ChatProvider:    registry,
 				Config:          orchConfig,
+				// WorkspaceDir liga as ferramentas de sistema (write_file,
+				// read_file, execute_command, etc.) ao executor: sem isso o
+				// agente só "conversa" e não escreve software. Usa o cwd do
+				// cosca run — rode de dentro do projeto alvo para construir nele.
+				WorkspaceDir: dir,
 			})
 
 			// Store engine reference for metrics command.
