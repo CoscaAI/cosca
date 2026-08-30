@@ -62,6 +62,10 @@ type Engine struct {
 	CLIExec CLIExecFunc
 	// AllowWrite habilita a ÚNICA escrita (cosca.learn) via gate. Read-only-first.
 	AllowWrite bool
+
+	// registry é o Capability Registry (MCP Surface). As tools são registradas
+	// declarativamente em registerTools() — o Switch/inventário hardcoded sumiu.
+	registry *registry
 }
 
 // CLIExecFunc executa um comando do CLI do COSCA (allowlist de segurança) e
@@ -102,12 +106,13 @@ func WithCLIExec(fn CLIExecFunc) Option { return func(e *Engine) { e.CLIExec = f
 func WithAllowWrite(v bool) Option { return func(e *Engine) { e.AllowWrite = v } }
 
 // NewEngine cria um Engine a partir das opções. Nil-safe: sem opção o campo
-// fica nil e a tool que depende dele devolve erro claro.
+// fica nil e a tool que dele depende devolve erro claro.
 func NewEngine(opts ...Option) *Engine {
 	e := &Engine{}
 	for _, opt := range opts {
 		opt(e)
 	}
+	e.registerTools()
 	return e
 }
 
@@ -135,66 +140,31 @@ func (e *Engine) Close() error {
 // ─── Tools (ToolInfo — reuso da estrutura do cliente MCP) ────────────────
 
 // Tools devolve o inventário de tools cognitivas anunciado via tools/list.
-// Usa mcp.ToolInfo (mesma estrutura do cliente) — simetria cliente↔servidor.
+// Usa mcp.ToolInfo (mesma estrutura do cliente). Agora deriva do Capability
+// Registry — adicionar uma tool nova = registrar um ToolDef, sem switch.
 func (e *Engine) Tools() []mcp.ToolInfo {
-	tools := []mcp.ToolInfo{
-		{
-			Name:        ToolRecall,
-			Description: "Lembrar — busca semântica híbrida no conhecimento; devolve context packet com source epistêmico, relevância, confidence e trace_id.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer"},"epistemic":{"type":"array","items":{"type":"string"}},"path":{"type":"string"}},"required":["query"]}`),
-		},
-		{
-			Name:        ToolContext,
-			Description: "Contextualizar (tool central) — dado arquivo/projeto/query, devolve o packet do contexto relevante para o agente usar (knowledge + memory).",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"limit":{"type":"integer"}},"required":["query"]}`),
-		},
-		{
-			Name:        ToolLearn,
-			Description: "Aprender — registrar aprendizado com proveniência. Escrita GATEADA (require COSCA_MCP_ALLOW_WRITE=1); default read-only.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"},"type":{"type":"string"},"layer":{"type":"string"},"scope":{"type":"string"}},"required":["content"]}`),
-		},
-		{
-			Name:        ToolObserve,
-			Description: "Perceber — percepção determinística frame-a-frame (OCR/pixel-diff) → eventos com estado epistêmico. Sem VLM.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"video":{"type":"string"},"fps":{"type":"integer"},"ocr_lang":{"type":"string"}},"required":["video"]}`),
-		},
-		{
-			Name:        ToolReason,
-			Description: "Raciocinar — cadeia causal / replay de raciocínio sobre um trace; divergência determinística (sem LLM como autoridade).",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"trace_id":{"type":"string"},"sequence":{"type":"array","items":{"type":"string"}}}}`),
-		},
-		{
-			Name:        ToolTrace,
-			Description: "Rastrear — traces/execuções/grafo causal de uma operação (TRACE-...), do flight recorder append-only.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"trace_id":{"type":"string"}},"required":["trace_id"]}`),
-		},
-		{
-			Name:        ToolProject,
-			Description: "Orientar — estado do projeto (runtime/health, knowledge stats, memory layers) — 'quem está sendo observado?'.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
-		},
-		{
-			Name:        ToolCost,
-			Description: "Custar — Token Efficiency (ADR-031): útil work / tokens por agente/task; agregação causal por task com execuções aninhadas (write_file+build juntos).",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"agent":{"type":"string"},"task":{"type":"string"},"tasks":{"type":"boolean"}}}`),
-		},
-		{
-			Name:        ToolCLI,
-			Description: "Operar o CLI do COSCA — executar um subconjunto SEGURO de comandos (leitura/status/gestão) via allowlist; NUNCA execução arbitrária. Passa pelo kernel gate.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"}},"required":["args"]}`),
-		},
+	if e.registry == nil {
+		return []mcp.ToolInfo{}
+	}
+	defs := e.registry.list()
+	tools := make([]mcp.ToolInfo, 0, len(defs))
+	for _, d := range defs {
+		schema := d.InputSchema
+		if schema == "" {
+			schema = `{"type":"object","properties":{}}`
+		}
+		tools = append(tools, mcp.ToolInfo{
+			Name:        d.Name,
+			Description: d.Description,
+			InputSchema: json.RawMessage(schema),
+		})
 	}
 	return tools
 }
 
 // hasTool reports se a tool existe no inventário (default-deny, I8).
 func (e *Engine) hasTool(name string) bool {
-	for _, t := range e.Tools() {
-		if t.Name == name {
-			return true
-		}
-	}
-	return false
+	return e.registry != nil && e.registry.has(name)
 }
 
 // ─── CallResult (formato MCP de content) ──────────────────────────────────
@@ -222,32 +192,24 @@ func (e *Engine) Call(ctx context.Context, name string, args json.RawMessage) (*
 	if e.Kernel != nil && e.Kernel.IsHalted() {
 		return nil, fmt.Errorf("cosca.mcp: kernel kill-switch ativo (halted/stop) — execução bloqueada")
 	}
-	if !e.hasTool(name) {
+	def := e.registry.get(name)
+	if def == nil {
 		return nil, fmt.Errorf("cosca.mcp: tool %q desconhecida (default-deny)", name)
 	}
 
-	switch name {
-	case ToolRecall:
-		return e.callRecall(ctx, args)
-	case ToolContext:
-		return e.callContext(ctx, args)
-	case ToolLearn:
-		return e.callLearn(ctx, args)
-	case ToolObserve:
-		return e.callObserve(ctx, args)
-	case ToolReason:
-		return e.callReason(ctx, args)
-	case ToolTrace:
-		return e.callTrace(ctx, args)
-	case ToolProject:
-		return e.callProject(ctx)
-	case ToolCost:
-		return e.callCost(ctx, args)
-	case ToolCLI:
-		return e.callCLI(ctx, args)
-	default:
-		return nil, fmt.Errorf("cosca.mcp: tool %q não implementada", name)
+	// Gate de escrita (AllowWrite) — a única escrita é cosca.learn, maskada
+	// como RiskWrite. Read-only-first: sem AllowWrite, RiskWrite falha.
+	if def.Risk == RiskWrite && !e.AllowWrite {
+		return &CallResult{
+			IsError: true,
+			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.mcp: %s é escrita (RiskWrite) — modo read-only (fail-closed); defina COSCA_MCP_ALLOW_WRITE=1 para permitir. Nada foi feito.", name)}},
+		}, nil
 	}
+
+	if def.Handler == nil {
+		return nil, fmt.Errorf("cosca.mcp: tool %q sem handler registrado", name)
+	}
+	return def.Handler(ctx, args)
 }
 
 // ─── Tool: cosca.recall ───────────────────────────────────────────────────
@@ -259,11 +221,11 @@ type recallArgs struct {
 	Path      string   `json:"path"`
 }
 
-func (e *Engine) callRecall(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+func (e *Engine) handleRecall(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
 	if e.Knowledge == nil {
 		return nil, fmt.Errorf("cosca.recall: knowledge engine indisponível (sem corpo)")
 	}
-	args, err := parseArgs[recallArgs](raw)
+	args, err := requireInput[recallArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -307,8 +269,8 @@ type contextArgs struct {
 	Limit int    `json:"limit"`
 }
 
-func (e *Engine) callContext(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
-	args, err := parseArgs[contextArgs](raw)
+func (e *Engine) handleContext(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	args, err := requireInput[contextArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -372,8 +334,8 @@ type learnArgs struct {
 	Scope   string `json:"scope"`
 }
 
-func (e *Engine) callLearn(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
-	args, err := parseArgs[learnArgs](raw)
+func (e *Engine) handleLearn(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	args, err := requireInput[learnArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -426,11 +388,11 @@ type observeArgs struct {
 	WorkDir  string `json:"work_dir"`
 }
 
-func (e *Engine) callObserve(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+func (e *Engine) handleObserve(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
 	if e.Vision == nil {
 		return nil, fmt.Errorf("cosca.observe: pipeline de visão indisponível (sem órgão perceptivo)")
 	}
-	args, err := parseArgs[observeArgs](raw)
+	args, err := requireInput[observeArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -471,11 +433,11 @@ type traceArgs struct {
 	TraceID string `json:"trace_id"`
 }
 
-func (e *Engine) callTrace(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+func (e *Engine) handleTrace(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
 	if e.Trace == nil {
 		return nil, fmt.Errorf("cosca.trace: trace store indisponível (sem flight recorder)")
 	}
-	args, err := parseArgs[traceArgs](raw)
+	args, err := requireInput[traceArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -519,8 +481,8 @@ type reasonArgs struct {
 	Sequence []string `json:"sequence"`
 }
 
-func (e *Engine) callReason(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
-	args, err := parseArgs[reasonArgs](raw)
+func (e *Engine) handleReason(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	args, err := requireInput[reasonArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +532,7 @@ func (e *Engine) callReason(ctx context.Context, raw json.RawMessage) (*CallResu
 
 // ─── Tool: cosca.project ──────────────────────────────────────────────────
 
-func (e *Engine) callProject(ctx context.Context) (*CallResult, error) {
+func (e *Engine) handleProject(ctx context.Context, _ json.RawMessage) (*CallResult, error) {
 	var items []ContextItem
 
 	// Runtime / body — health e estado.
@@ -641,11 +603,11 @@ type costArgs struct {
 	Tasks bool   `json:"tasks"`
 }
 
-func (e *Engine) callCost(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+func (e *Engine) handleCost(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
 	if e.Cost == nil {
 		return nil, fmt.Errorf("cosca.cost: cost store indisponível (sem órgão de custo)")
 	}
-	args, err := parseArgs[costArgs](raw)
+	args, err := requireInput[costArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -752,11 +714,11 @@ var allowedCLIRoot = map[string]bool{
 	"project":    true,
 }
 
-func (e *Engine) callCLI(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+func (e *Engine) handleCLI(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
 	if e.CLIExec == nil {
 		return nil, fmt.Errorf("cosca.cli: executor do CLI indisponível (não injetado)")
 	}
-	args, err := parseArgs[cliArgs](raw)
+	args, err := requireInput[cliArgs](raw)
 	if err != nil {
 		return nil, err
 	}
@@ -804,18 +766,6 @@ func (e *Engine) callCLI(ctx context.Context, raw json.RawMessage) (*CallResult,
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-// parseArgs decodifica os arguments JSON de uma tool call em um struct
-// tipado, com erro claro (%w). JSON inválido → erro.
-func parseArgs[T any](raw json.RawMessage) (T, error) {	var args T
-	if len(raw) == 0 {
-		return args, nil
-	}
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return args, fmt.Errorf("cosca.mcp: argumentos inválidos: %w", err)
-	}
-	return args, nil
-}
 
 // resultFromPacket serializa o packet como o de conteúdo da tool call.
 func resultFromPacket(packet *ContextPacket) *CallResult {
@@ -959,3 +909,13 @@ func emptyOr(s, fallback string) string {
 	}
 	return s
 }
+
+
+
+
+
+
+
+
+
+
