@@ -18,6 +18,13 @@
 .cosca/vector.db
 .cosca/fts.db
 
+# Fase C ADR-030 — state CoW derivado do KnowledgeFS (reconstruível via
+# `cosca knowledge snapshot`, NÃO é fonte). manifest.yaml/lock.yaml (a fonte)
+# CONTINUAM versionados; só os artefatos derivados ficam fora.
+.cosca/knowledge/objects/
+.cosca/knowledge/snapshots/
+.cosca/knowledge/refs/
+
 # Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
 *.db-wal
 *.db-shm
