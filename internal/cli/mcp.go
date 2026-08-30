@@ -180,7 +180,7 @@ unless COSCA_MCP_ALLOW_WRITE=1 is set.`,
 				return err
 			}
 
-			engine := buildMCPServerEngine()
+			engine := buildMCPServerEngine(cmd.Context())
 			if engine == nil {
 				return fmt.Errorf("mcp serve: falha ao montar dependências do runtime (cérebro indisponível)")
 			}
@@ -205,7 +205,7 @@ unless COSCA_MCP_ALLOW_WRITE=1 is set.`,
 // (flight recorder) e a percepção determinística (vision). Nil-safe e
 // best-effort: um órgão que falha ao inicializar é apenas omitido — as tools
 // que dele dependem devolvem erro claro em vez de pânico.
-func buildMCPServerEngine() *mcpserver.Engine {
+func buildMCPServerEngine(ctx context.Context) *mcpserver.Engine {
 	workspace, err := os.Getwd()
 	if err != nil {
 		return nil
@@ -241,32 +241,22 @@ func buildMCPServerEngine() *mcpserver.Engine {
 					Msg("mcp serve: file watcher não iniciado — o índice dependerá de reindexação manual")
 			}
 
-			// GAP P1 — Loop de aprendizado fechado (best-effort): indexa o
-			// workspace na subida para que arquivos suportados e learnings de
-			// sessão entrem no índice sem reindex manual. Ao falhar (ou
-			// estourar o timeout), o MCP segue — o watcher do P0 cobre as
-			// mudanças ao vivo. Bounded: um workspace grande ou um provider de
-			// embeddings lento não pode travar o serve indefinidamente.
-			idxCtx, idxCancel := context.WithTimeout(context.Background(), initialIndexTimeout)
-			if idxErr := ke.IndexDirectory(idxCtx, workspace); idxErr != nil {
-				log.Warn().Err(idxErr).Str("dir", workspace).
-					Msg("mcp serve: indexação inicial falhou (best-effort) — recall dependerá do watcher")
-			}
-			idxCancel()
-
-			// Os learnings de sessão vivem em .opencode/cosca/memory/agent/,
-			// diretório OCULTO que IndexDirectory(workspace) pula (o indexer
-			// ignora diretórios prefixados com "."). Indexamos a raiz dos
-			// learnings explicitamente para fechar o loop também na subida
-			// (best-effort).
-			if learningsDir := filepath.Join(workspace, ".opencode", "cosca", "memory", "agent"); dirExists(learningsDir) {
-				lrCtx, lrCancel := context.WithTimeout(context.Background(), initialIndexTimeout)
-				if lrErr := ke.IndexDirectory(lrCtx, learningsDir); lrErr != nil {
-					log.Warn().Err(lrErr).Str("dir", learningsDir).
-						Msg("mcp serve: indexação de learnings falhou (best-effort)")
-				}
-				lrCancel()
-			}
+			// GAP P1 — Loop de aprendizado (best-effort) em BACKGROUND.
+			//
+			// CORREÇÃO CRÍTICA (do tópico do Don): a indexação inicial estava no
+			// caminho SÍNCRONO do boot, com timeout de initialIndexTimeout. Num
+			// workspace grande (ex: Cosca com ~22k arquivos + knowledge.db de
+			// ~368MB), o servidor ainda varria o diretório quando o host já havia
+			// aberto mão (timeout de 30s no handshake initialize). Resultado:
+			// "cosca Operation timed out after 30000ms".
+			//
+			// Agora a indexação roda numa GOROUTINE em background, ligada ao
+			// ctx do comando. O Serve() nasce imediatamente, o handshake
+			// initialize/tools-list responde em milissegundos, e o índice é
+			// populado em paralelo — o watcher (P0) cobre mudanças ao vivo
+			// enquanto isso. Best-effort: falha ou estouro de timeout apenas
+			// loga; o MCP NUNCA trava o boot por causa da indexação.
+			go indexKnowledgeOnBoot(ctx, ke, workspace)
 		}
 	}
 
@@ -287,6 +277,44 @@ func buildMCPServerEngine() *mcpserver.Engine {
 	opts = append(opts, mcpserver.WithVision(vision.AnalyzeVideo))
 
 	return mcpserver.NewEngine(opts...)
+}
+
+// indexKnowledgeOnBoot popula o índice de conhecimento em BACKGROUND, fora do
+// caminho crítico do handshake MCP. Roda numa goroutine ligada ao ctx do
+// comando: se o comando termina (ctx cancelado), a indexação é interrompida —
+// o servidor nunca fica órfão segurando o engine vivo.
+//
+// Cobre dois alvos best-effort:
+//  1. O workspace inteiro (arquivos suportados entram no índice sem reindex
+//     manual). Um workspace grande ou um provider de embeddings lento NÃO
+//     bloqueia o boot: o timeout initialIndexTimeout limita a varredura e o
+//     watcher (P0) cobre as mudanças ao vivo.
+//  2. A raiz dos learnings de agente em .opencode/cosca/memory/agent/ — um
+//     diretório OCULTO (prefixo ".") que IndexDirectory(workspace) pula.
+//
+// Best-effort: qualquer falha ou estouro apenas loga; o MCP segue vivo.
+func indexKnowledgeOnBoot(ctx context.Context, ke *knowledge.Engine, workspace string) {
+	// Indexa com limite por índice (initialIndexTimeout) + cancelamento do
+	// comando (ctx): um embedding lento ou workspace gigante não pendura a
+	// goroutine além do limite, e o comando encerrando derruba tudo.
+	//
+	// Índice 1 — workspace inteiro.
+	idxCtx, idxCancel := context.WithTimeout(ctx, initialIndexTimeout)
+	if idxErr := ke.IndexDirectory(idxCtx, workspace); idxErr != nil {
+		log.Warn().Err(idxErr).Str("dir", workspace).
+			Msg("mcp serve: indexação inicial falhou (best-effort) — recall dependerá do watcher")
+	}
+	idxCancel()
+
+	// Índice 2 — learnings de agente (diretório oculto).
+	if learningsDir := filepath.Join(workspace, ".opencode", "cosca", "memory", "agent"); dirExists(learningsDir) {
+		lrCtx, lrCancel := context.WithTimeout(ctx, initialIndexTimeout)
+		if lrErr := ke.IndexDirectory(lrCtx, learningsDir); lrErr != nil {
+			log.Warn().Err(lrErr).Str("dir", learningsDir).
+				Msg("mcp serve: indexação de learnings falhou (best-effort)")
+		}
+		lrCancel()
+	}
 }
 
 // initialIndexTimeout limita a indexação best-effort na subida do MCP: de um

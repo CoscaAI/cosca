@@ -1,0 +1,55 @@
+schema_version: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cosca Knowledge — Lock (snapshot reprodutível)
+# ─────────────────────────────────────────────────────────────────────────────
+# Análogo ao package-lock.json: congela EXATAMENTE o que o cérebro carregou num
+# snapshot identificável. Responder "qual conhecimento o cérebro tinha quando
+# tomou esta decisão?" = ler o lock apontado pela decisão (provenance).
+#
+# Regra (professor, 2026-08-29): mesmo conhecimento + embedding model diferente
+# ≠ mesmo índice. O lock MUST registrar o modelo de embedding, senão o snapshot
+# não é reproduzível.
+#
+# Regerar este lock: (após modificar a fonte) cosca knowledge manifest
+# (grava .cosca/knowledge-manifest.json) + atualizar hashes dos módulos abaixo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+knowledge_snapshot: ks_2026_08_29_001
+created_at: 2026-08-29T21:45:00Z
+source: cosca-knowledge
+
+# Hash por módulo — SHA-256 (prefixo 16) da fonte declarativa. Se muda o
+# arquivo, muda o hash, o Git mostra o diff semântico (não "binary changed").
+modules:
+  cosca-core:
+    version: 1.0.0
+    hash: sha256:6097b55d8065fed0
+  cosca-hall-of-fame:
+    version: 1.0.0
+    hash: sha256:eec526c75b7fe651
+  pkg-nest:
+    version: 1.0.0
+    hash: sha256:3558e1bb4ae16193
+  pkg-nextjs:
+    version: 1.0.0
+    hash: sha256:ede7e5574d8aa39a
+  pkg-prisma:
+    version: 1.0.0
+    hash: sha256:48f02f6560944d00
+  pkg-ui:
+    version: 1.0.0
+    hash: sha256:0a8039a82eddfbd4
+
+# Configuração de embeddings neste snapshot — crítica p/ reprodutibilidade.
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  model_hash: sha256:nomic-embed-text@768
+  dimensions: 768
+  normalization: cosine
+
+index:
+  type: hybrid
+  store: sqlite            # knowledge.db — materialização, NÃO a fonte
+  materialized: true

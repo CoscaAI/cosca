@@ -233,3 +233,9 @@ claims:
       source: Don+cosca-kernel+professor
       confidence: 0.95
       created_at: "2026-08-29T00:00:00Z"
+    - id: knowledge-fase1-manifest-lock
+      statement: 'KNOWLEDGE MODULAR FASE 1 (2026-08-29, professor 2026-08-29). Autoridade: o professor orientou que o objetivo NAO e "diminuir o banco (100MB)" mas mudar a natureza da memoria de conhecimento: Git versiona o DNA (definicao/proveniencia) e os artefatos derivados (knowledge.db 368MB, vetores, indices, cache) sao reconstruiveis e NAO versionados. IMPLEMENTADO: .cosca/knowledge/manifest.yaml (ancora composicional: schema_version, modules[], embedding{provider,model,dimensions,normalization}, index{type,store,rebuild_cmd}) + .cosca/knowledge/lock.yaml (snapshot reprodutivel ks_2026_08_29_001: hash SHA-256 por modulo + embedding model_hash). OS DOIS SAO 100% PARSEAVEIS (yaml.v3) E PEQUENOS (manifest 3.2KB, lock 2.3KB) — diffs semanticos no git, nao "binary changed". PRINCIPIO CRAVE: conhecimento.db e MATERIALIZACAO, nao fonte; cosca knowledge rebuild reconstrói. DECISAO DE SEGURANCA: Fase 1 foi ADITIVA (nao moveu acquired/packages/laws.json/hall-of-fame.json — o motor le esses paths fixos; mover quebraria acquire/snapshot/recall. Mandamento III). Fase 2 (Knowledge Resolver + modulos nomeados + decisao↔snapshot) exige ADR + refactor do motor. .gitignore ja versiona so o core (knowledge.db, *.db-wal/shm, logs, cache fora). knowledge.db tracked=0 confirmado. LICAO: proposta do professor alinha ~70% com o que o Cosca ja decidiu (ADR-013, cosca knowledge rebuild/manifest/revalidate/verify ja existem); o gap real e a camada composicional manifest+lock (agora criada).'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.9
+      created_at: "2026-08-29T00:00:00Z"
