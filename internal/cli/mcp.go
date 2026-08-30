@@ -187,7 +187,9 @@ unless COSCA_MCP_ALLOW_WRITE=1 is set.`,
 			defer func() { _ = engine.Close() }()
 
 			// O servidor MCP fala JSON-RPC 2.0 sobre stdio (NDJSON) — o mesmo
-			// transporte que o cliente MCP (internal/chat/mcp) usa.
+			// transporte que o cliente MCP (internal/chat/mcp) usa. O STDOUT é
+			// território EXCLUSIVO do protocolo: nenhum log/banner pode ir pra
+			// lá (regra ADR-028 §3 — qualquer ruído quebra o handshake JSON-RPC).
 			srv := mcpserver.NewServer(engine, os.Stdin, os.Stdout)
 			if err := srv.Serve(cmd.Context()); err != nil {
 				return fmt.Errorf("mcp serve: %w", err)
