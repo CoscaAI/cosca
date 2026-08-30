@@ -263,3 +263,9 @@ claims:
       source: Don+cosca-kernel+professor
       confidence: 0.9
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr031-token-efficiency
+      statement: 'ADR-031 (2026-08-29, professor 2026-08-29): otimizacao de tokens - Token Efficiency (informacao util / tokens) como metrica-guia. TESE: inimigo NAO e volume de tokens e sim desperdicio (100k->150k ok se tarefa mais complexa; desperdicio se contexto repetido/redundante). VERACIDADE AUDITADA: Cosca JA tem telemetria rica (chat.Usage{Prompt,Completion,Total}, engine.TokenUsage, registry.RecordRequest, AgentResponse{TokensUsed,DurationMs}) e cache de BUSCA por fingerprint multi-tier+escopo-aware (cachefingerprint.go, searchCacheKey). O GAP REAL: (1) falta decomposicao do uso + knowledge_gain por execucao; (2) falta cache de RESULTADO de agente (reutilizar descoberta entre agentes paralelos) com chave version-safe hash(task)+knowledge_snapshot+capability (combination com ADR-029); (3) progressive disclosure (contexto em camadas L0-L5); (4) Token Budget Governor dinamico (cresce se produtivo, para se repete); (5) early-stop por suficiencia; (6) resumo operacional de agente filho (nao narrativa). PRIORIDADE: Fase 0 (instrumentacao + knowledge_gain + relatorio cosca cost) PRIMEIRO - barato, nao toca recall; depois Fase 1 (cache resultado agente); Fronte 3-6 depois de metricas mostrarem onde esta o desperdicio (professor: meca antes de otimizar). DECISAO: nao implementar tudo de uma vez; documentar antes. trade-offs: cache precisa invalidacao version-safe; progressive disclosure adiciona round-trip.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.92
+      created_at: "2026-08-29T00:00:00Z"
