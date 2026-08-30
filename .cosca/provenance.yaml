@@ -269,3 +269,9 @@ claims:
       source: Don+cosca-kernel+professor
       confidence: 0.92
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr031-fase0-instrumentacao
+      statement: 'ADR-031 FASE 0 (2026-08-29): instrumentacao de Useful Work / Tokens + relatorio cosca cost. Implementado internal/cost/cost.go (Record vetor decomposto: knowledge_gain/task_progress/artifact_value/evidence_gain/decision_gain; Store JSONL append-only .cosca/cost/records.jsonl gitignored; Aggregate por agent/task; metrica Useful Work/Tokens) + internal/engine/budget.go (elevado BudgetSpent aditivo, nao duplica BudgetTracker) + internal/cli/cost.go (comando cosca cost texto/--json) + wiring internal/cli/run.go (recordRunCost best-effort ao final do run, pipeline.TokenUsage). INCLUI invariancia do professor: Record.Validate() TokensTotal==Input+Output (metrica inconsistente se nao bater). DECOMPOSICAO HONESTA: Decomposed=false (campos existem zero-default; decompor uso e Fase 0.1). CORRECOES do Kernel (backend deixou build vermelho): colisao resolveCoscaDir (reutiliza circadian.go), gitignore .cosca/cost/, invariancia Validate, teste cost_test.go (invariancia+eficiencia+agregacao+round-trip+store). build/vet ok; test internal/cost/engine/cli verdes (TestInstall_DriftKnowledgeDB flaky pre-existente). FASE 0 fecha o loop: cosca cost le de um log que o run escreve. PROXIMO: Fase 0.1 (decompor uso) + Fases 1-6 (cache resultado, progressive disclosure, budget governor, early-stop, resumo) dependem de dados reais coletados.'
+      kind: decision
+      source: Don+cosca-kernel+cosca-backend+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"
