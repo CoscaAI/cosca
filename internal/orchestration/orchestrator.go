@@ -63,6 +63,12 @@ type OrchestratorConfig struct {
 	// 8000 tokens / 20s) — so `cosca run` gets protected out of the box. When
 	// set, it overrides the ceiling on every execution.
 	Budget *CognitiveBudget
+
+	// AllowedCommands é a allowlist de comandos que o toolExecutor pode rodar
+	// via execute_command, confinada ao WorkspaceDir. Quando vazia, usa o
+	// default seguro do executor. Permite ampliar por projeto (ex.: build de
+	// um monorepo JS) SEM abrir comando arbitrário — só o que está listado.
+	AllowedCommands []string
 }
 
 // DefaultOrchestratorConfig returns sensible default configuration.
@@ -142,6 +148,11 @@ func NewEngine(
 			toolCfg := DefaultToolExecutorConfig()
 			toolCfg.WorkspaceDir = config.WorkspaceDir
 			toolCfg.Sandbox = config.Sandbox
+			// Allowlist de comandos ampliada por projeto (ex.: build JS), SEM
+			// abrir comando arbitrário. Se vazia, mantém o default seguro.
+			if len(config.AllowedCommands) > 0 {
+				toolCfg.AllowedCommands = append(toolCfg.AllowedCommands, config.AllowedCommands...)
+			}
 			toolExecutor = NewToolExecutor(toolCfg)
 		}
 		executorCfg := DefaultExecutorConfig()

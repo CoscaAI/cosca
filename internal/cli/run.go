@@ -166,6 +166,18 @@ Examples:
 			}
 			orchConfig.EnableStreaming = streamFlag
 
+			// Allowlist de comandos ampliável POR PROJETO via env (segura:
+			// confinada ao WorkspaceDir + allowlist, nunca comando arbitrário).
+			// Usada para scaffloding/build de monorepos JS/Go (npm, npx, node,
+			// nest, prisma, git, tsx, go). Sem a env, mantém o default seguro.
+			if ac := os.Getenv("COSCA_ALLOWED_COMMANDS"); ac != "" {
+				for _, c := range strings.Split(ac, ",") {
+					if c = strings.TrimSpace(c); c != "" {
+						orchConfig.AllowedCommands = append(orchConfig.AllowedCommands, c)
+					}
+				}
+			}
+
 			if semanticFlag {
 				// Select an actual embedding provider before wiring semantic routing.
 				// GetRegistry always returns a singleton, including an empty one, so

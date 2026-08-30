@@ -731,6 +731,11 @@ func (e *Executor) toolHintsForRole(role, dept string) []toolHint {
 			Description: "Write content to a file",
 			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}, "content": map[string]any{"type": "string"}}},
 		})
+		hints = append(hints, toolHint{
+			Name:        "execute_command",
+			Description: "Execute a shell command (build/test/scaffold), confined to the workspace allowlist",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"command": map[string]any{"type": "string"}}},
+		})
 	}
 
 	if strings.Contains(roleLower, "frontend") || strings.Contains(deptLower, "frontend") {
@@ -738,6 +743,11 @@ func (e *Executor) toolHintsForRole(role, dept string) []toolHint {
 			Name:        "read_file",
 			Description: "Read the contents of a file",
 			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}}},
+		})
+		hints = append(hints, toolHint{
+			Name:        "execute_command",
+			Description: "Execute a shell command (build/test/scaffold), confined to the workspace allowlist",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{"command": map[string]any{"type": "string"}}},
 		})
 	}
 
