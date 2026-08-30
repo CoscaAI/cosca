@@ -249,32 +249,43 @@ Decision → knowledge_snapshot (ADR-029 §2.4)
 
 > **NÃO reescrever tudo de uma vez.** Cada fase é um commit independente, com **baseline de recall** obrigatório (o gate `verify`/`revalidate` não mede recall semântico — lição da revisão do CTO no ADR-029).
 
-### 3.1 Fase A — Objetos imutáveis + deduplicação (CAS no conhecimento)
+### 3.1 Fase A — ~~Objetos imutáveis + deduplicação (CAS no conhecimento)~~ ✅ JÁ IMPLEMENTADO (auditado)
 
-- Criar `internal/knowledge/objects` (ou estender `internal/integrity`): cada `K:<hash>` serializa o conhecimento como objeto imutável content-addressable.
-- O **indice deriva** os objetos no `knowledge.db` por hash — deduplicação por conteúdo.
-- **Baseline de recall** ANTES de tocar o motor.
+> **ACHADO DE AUDITORIA (2026-08-29, verificado em código — não suposição):** o content-addressing e a deduplicação **já existem e funcionam** no motor de indexação. A "Fase A" como escrita originalmente **não é um gap** — re-implementá-la seria duplicar o que já existe (proibido por este ADR: "reutilizar, não duplicar"). Evidência em `internal/indexer/indexer.go`:
+>
+> | Primitiva CAS | Onde | Estado |
+> |---|---|---|
+> | Hash de conteúdo (SHA-256) | `computeHash(content)` — `indexer.go:1175` | ✅ | 
+> | Incremental (skip doc inalterado) | `docHashCache[path]` + `if exists && oldHash == hash` — `indexer.go:232-234` | ✅ |
+> | **Dedup pré-embed** (reusa vetor existente) | `existingVectorForContent` — `indexer.go:587-698` | ✅ |
+> | **Dedup preventivo** (conteúdo igual + com vetor → `dedup_of=<canonical>`, sem vetor novo) | `dedupCache[chunk.Hash]` + coluna `dedup_of` — `indexer.go:854-891` | ✅ |
+
+**Escopo REAL da Fase A (corrigido):** NÃO criar o CAS (já existe). É **elevar/expor** os objetos content-addressable como **unidades de conhecimento persistentes e versionáveis** (o `objects/` no git + `refs`), o que hoje é implícito e derivado dentro do `knowledge.db`. Concretamente:
+- Persistir `K:<hash>` como objeto canônico content-addressable, **referenciável** entre snapshots (não só `docHashCache` em memória + dedup em SQLite).
+- **Baseline de recall** já registrado (`baseline_recall_test.go`, commit `9f8bf3f`) — score top-1 de 0.22–0.62 por query.
 
 ### 3.2 Fase B — DAG de proveniência
 
 - Fazer os objetos apontarem entre si (`derived_from`/`related_to`/`supports`) — o grafo `FACT→EVIDENCE→INFERENCE→DECISION` já existe conceitualmente no `provenance.yaml`; falta materializá-lo como links entre IDs de objeto.
 
-### 3.3 Fase C — Snapshots copy-on-write + refs
+### 3.3 Fase C — Snapshots copy-on-write + refs 🎯 **PRIORIDADE (onde está o valor real)**
 
 - `refs/HEAD/main/experimental` — trocar o snapshot ativo.
 - `knowledge checkout` / `knowledge diff` (diff cognitivo).
+- **Esta é a fase que gera a genealogia, o checkout e o diff cognitivo** — o que o professor enxergou como o diferencial. O CAS/dedup já existe (Fase A); o que dá valor é a **persistência e a navegação** dos snapshots.
 
-### 3.4 Fase D — Separar embeddings do conhecimento + GC
+### 3.4 Fase D — Separar embeddings do conhecimento + GC 🎯 **PRIORIDADE 2**
 
 - Estrutura "um objeto, N representações vetoriais" (por modelo).
 - GC cognitivo: objeto sem referência em snapshot ativo → descartável.
+- **Resolve a distinção conhecimento ≠ memória semântica ≠ índice** (ponto do professor). Atualmente os embeddings vivem junto do chunk (derivados); separá-los permite trocar de modelo sem tocar o conhecimento.
 
 ### 3.5 Fase E — Modules como pacotes (com dependências)
 
 - `manifest` por módulo + `dependencies` resolvidos (package manager de conhecimento).
 - `cosca knowledge list/enable/disable`.
 
-> **Nota de segurança:** a fundação `internal/integrity` (chain assinada, git-anchored, anti-hijack) **deve ser reutilizada**, não duplicada. A migração é **aditiva** — o conhecimento declarativo atual (`acquired/`, `packages/`, `laws.json`, `hall-of-fame.json`) NÃO é movido até que a Fase A prove o CAS de domínio com recall preservado.
+> **Nota de segurança:** a fundação `internal/integrity` (chain assinada, git-anchored, anti-hijack) **deve ser reutilizada**, não duplicada. A migração é **aditiva** — o conhecimento declarativo atual (`acquired/`, `packages/`, `laws.json`, `hall-of-fame.json`) NÃO é movido até que as Fases C/D (snapshots/refs + embeddings separados) estejam validadas com **recall preservado** contra o baseline (`baseline_recall_test.go`). O CAS/dedup do indexer **já existe** (§3.1) — não re-implementar.
 
 ---
 
