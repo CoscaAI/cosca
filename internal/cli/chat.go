@@ -467,6 +467,27 @@ func loadChatEnv(cfg *config.Config) {
 		}
 	}
 
+	// DeepSeek is an OpenAI-compatible cloud provider. Propagate the declared
+	// model/base_url so the deepseek factory (chat/provider/register_chat.go)
+	// honours the config out of the box. The API key is propagated from the
+	// config only when the config actually holds one (config.Load resolves
+	// api_key_env); if it is empty the key must come from the external env —
+	// that is the fail-closed boundary: no key, no cloud call.
+	if cfg != nil && strings.EqualFold(cfg.Provider.Name, "deepseek") {
+		if cfg.Provider.Model != "" && os.Getenv("COSCA_DEEPSEEK_MODEL") == "" {
+			os.Setenv("COSCA_DEEPSEEK_MODEL", cfg.Provider.Model)
+			applied = append(applied, "COSCA_DEEPSEEK_MODEL")
+		}
+		if cfg.Provider.BaseURL != "" && os.Getenv("DEEPSEEK_BASE_URL") == "" {
+			os.Setenv("DEEPSEEK_BASE_URL", cfg.Provider.BaseURL)
+			applied = append(applied, "DEEPSEEK_BASE_URL")
+		}
+		if cfg.Provider.APIKey != "" && os.Getenv("DEEPSEEK_API_KEY") == "" {
+			os.Setenv("DEEPSEEK_API_KEY", cfg.Provider.APIKey)
+			applied = append(applied, "DEEPSEEK_API_KEY")
+		}
+	}
+
 	if len(applied) > 0 {
 		log.Debug().Strs("keys", applied).Msg("chat env applied")
 	}

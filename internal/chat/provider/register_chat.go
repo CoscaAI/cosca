@@ -15,10 +15,12 @@ import (
 // variables specify one. Kept in sync with the constructor defaults in this
 // package so a bare RegisterChatProviders call yields usable providers.
 //
-// LEI DO COFRE (fail-closed L46): somente providers LOCAIS são registrados.
-// Providers de nuvem (deepseek/openai/anthropic) foram removidos — o Cosca
-// não usa nuvem sem consentimento explícito. Ollama (local) é o único LLM
-// de produção, com "none" como estado determinístico.
+// LEI DO COFRE (fail-closed): o Cosca NUNCA chama um provider de nuvem sem
+// uma API key explícita presente no ambiente. As factories de providers de
+// nuvem podem estar registradas, mas retornam erro quando a chave está
+// ausente — o que faz o Select() pular esses providers e recuar para os
+// LOCAIS. Somente providers locais (ollama/gpu) e "none" são selecionáveis
+// sem chave; "none" é o estado determinístico de ausência de IA.
 const (
 	defaultOllamaModel = "llama3"
 )
@@ -53,10 +55,24 @@ func RegisterChatProviders(reg *chat.ChatRegistry, cfg map[string]interface{}) e
 		log.Debug().Str("provider", name).Int("priority", priority).Msg("registered chat provider factory")
 	}
 
-	// LEI DO COFRE (fail-closed): providers de nuvem NÃO são registrados.
-	// O gate COSCA_ENABLE_EXTERNAL_PROVIDERS foi removido — mesmo que a config
-	// ou env var peça um provider externo, ele não existe no registry e o
-	// Select() recusa (fail-closed real). Somente locais (ollama/gpu/none).
+	// DeepSeek is an OpenAI-compatible cloud provider. Per the LEI DO COFRE
+	// (fail-closed) its factory is registered here as a candidate, but it
+	// REFUSES to instantiate when DEEPSEEK_API_KEY is absent — so Select()
+	// skips it and falls back to a local provider. The Cosca never hits a
+	// cloud endpoint without an explicit key: the guard below is the
+	// fail-closed boundary. Priority 10 puts it above the local fallbacks but
+	// below the GPU fabric (5), mirroring the original "cloud above local
+	// default, GPU first" ordering.
+	register("deepseek", "DeepSeek chat provider (OpenAI-compatible)", 10,
+		func(_ context.Context, _ map[string]interface{}) (chat.ChatProvider, error) {
+			apiKey := os.Getenv("DEEPSEEK_API_KEY")
+			if apiKey == "" {
+				return nil, fmt.Errorf("deepseek: API key DEEPSEEK_API_KEY not set (fail-closed: refusing cloud call)")
+			}
+			model := resolveModel(cfg, "deepseek", "COSCA_DEEPSEEK_MODEL", "deepseek-v4-flash")
+			baseURL := resolveBaseURL(cfg, "deepseek", "DEEPSEEK_BASE_URL")
+			return NewProviderAdapter(NewDeepSeekWithBaseURL(apiKey, model, baseURL), model), nil
+		})
 
 	// Ollama is a local provider: it has no API key, so the factory always
 	// succeeds. It acts as a last-resort fallback during auto-detection and

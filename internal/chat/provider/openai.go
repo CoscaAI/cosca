@@ -363,11 +363,23 @@ type DeepSeekProvider struct {
 //   - apiKey: DeepSeek API key.
 //   - model:  model name (default "deepseek-v4-flash").
 func NewDeepSeek(apiKey, model string) *DeepSeekProvider {
+	return NewDeepSeekWithBaseURL(apiKey, model, defaultDeepSeekBaseURL)
+}
+
+// NewDeepSeekWithBaseURL creates a new DeepSeek provider with an explicit base
+// URL. DeepSeek exposes an OpenAI-compatible API, so it reuses the OpenAI
+// transport. An empty baseURL falls back to the built-in DeepSeek endpoint.
+// This is what the chat registry factory uses so a configured override
+// (config base_url / DEEPSEEK_BASE_URL) is honoured at selection time.
+func NewDeepSeekWithBaseURL(apiKey, model, baseURL string) *DeepSeekProvider {
 	if model == "" {
 		model = "deepseek-v4-flash"
 	}
+	if baseURL == "" {
+		baseURL = defaultDeepSeekBaseURL
+	}
 	return &DeepSeekProvider{
-		OpenAIProvider: NewOpenAI(apiKey, model, defaultDeepSeekBaseURL),
+		OpenAIProvider: NewOpenAI(apiKey, model, baseURL),
 	}
 }
 
