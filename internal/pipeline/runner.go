@@ -3,6 +3,8 @@ package pipeline
 import (
 	"context"
 	"time"
+
+	"github.com/CoscaAI/cosca/internal/orchestration"
 )
 
 type Runner interface {
@@ -36,6 +38,11 @@ type RunResult struct {
 	TraceID     string
 	MemoryID    string
 	SkillsUsed  []string
+
+	// ToolExecutions lista as tools realmente executadas (write_file/build/etc).
+	// Alimenta a evidência de artefato do ADR-031 quando o pipeline não tem fase
+	// explícita de build/test (build roda via tool execute_command do agente).
+	ToolExecutions []ToolCallResult
 }
 
 type RunEvent struct {
@@ -61,6 +68,8 @@ type Message struct {
 	Role    string
 	Content string
 }
+
+type ToolCallResult = orchestration.ToolCallResult
 
 type TokenUsage struct {
 	Input  int

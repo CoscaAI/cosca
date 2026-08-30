@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"strings"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -111,6 +112,32 @@ func (r *Record) ApplyValue(ev ValueEvidence) {
 	}
 	if ev.MemStored {
 		r.KnowledgeGain = 1
+	}
+}
+
+// ApplyToolEvidence preenche as dimensões de valor (artifact/evidence) a partir
+// das tools realmente executadas (Caminho A / ADR-031). Ferramentas de escrita
+// (write_file/edit) geram artifact_value; comandos de BUILD/TEST bem-sucedidos
+// geram evidence_gain. É determinístico — não opinião do LLM. Aceita uma
+// projeção mínima (nome da tool + resultado text) para evitar acoplamento com o
+// pacote pipeline/orchestration.
+//
+// PRECISÃO: um execute_command genérico (ls, cat, pwd) NÃO é evidência de
+// trabalho útil — só comandos que verificam build/test produzem evidence_gain.
+func (r *Record) ApplyToolEvidence(toolName, toolResult string, success bool) {
+	toolResult = strings.ToLower(toolResult)
+	switch {
+	case toolName == "write_file" || toolName == "write_file_edit":
+		if success {
+			r.ArtifactValue = 1
+			r.TaskProgress = 1
+		}
+	case toolName == "execute_command" || toolName == "run_command":
+		// Só comando de build/test/validação conta como evidência.
+		if success && (strings.Contains(toolResult, "build") || strings.Contains(toolResult, "test")) {
+			r.EvidenceGain = 1
+			r.TaskProgress = 1
+		}
 	}
 }
 

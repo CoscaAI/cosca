@@ -40,6 +40,11 @@ type Result struct {
 	// the result. May be empty if persistence is disabled.
 	MemoryID string `json:"memory_id,omitempty"`
 
+	// ToolExecutions lista as tools realmente executadas durante o pipeline.
+	// Alimenta a evidência de artefato (ADR-031): write_file/edit/execute_command
+	// bem-sucedidos geram artifact_value; build/test via tool geram evidence_gain.
+	ToolExecutions []ToolCallResult `json:"tool_executions,omitempty"`
+
 	// Duration is the total wall-clock time spent processing the request.
 	Duration time.Duration `json:"duration"`
 }

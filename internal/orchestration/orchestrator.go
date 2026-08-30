@@ -535,12 +535,49 @@ func (e *Engine) buildResult(pc PipelineContext, startTime time.Time) *Result {
 
 	memoryID := pc.Data.MemoryID
 
+	// Extrai as tool executions do PipelineData para alimentar a evidência de
+	// artefato (ADR-031). pc.Data.ToolResults é interface{} (contém
+	// []*ToolCallResult) por compatibilidade legada; normalizamos aqui.
+	toolExecs := normalizeToolResults(pc.Data.ToolResults)
+
 	return &Result{
-		ID:         pc.RequestID,
-		Response:   response,
-		Agent:      agent,
-		SkillsUsed: skillsUsed,
-		MemoryID:   memoryID,
-		Duration:   time.Since(startTime),
+		ID:              pc.RequestID,
+		Response:        response,
+		Agent:           agent,
+		SkillsUsed:      skillsUsed,
+		MemoryID:        memoryID,
+		ToolExecutions:  toolExecs,
+		Duration:        time.Since(startTime),
+	}
+}
+
+// normalizeToolResults converte o ToolResults legado (interface{} contendo
+// []*ToolCallResult, possivelmente nil) em []ToolCallResult por valor, para
+// o Result carregar uma cópia segura das tools executadas.
+func normalizeToolResults(raw interface{}) []ToolCallResult {
+	if raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []*ToolCallResult:
+		if len(v) == 0 {
+			return nil
+		}
+		out := make([]ToolCallResult, 0, len(v))
+		for _, tr := range v {
+			if tr != nil {
+				out = append(out, *tr)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case []ToolCallResult:
+		out := make([]ToolCallResult, len(v))
+		copy(out, v)
+		return out
+	default:
+		return nil
 	}
 }

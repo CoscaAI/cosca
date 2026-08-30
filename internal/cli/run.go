@@ -423,6 +423,17 @@ func recordFromRun(run *pipeline.RunResult) cost.Record {
 		TestsPassed: testsPassed(run.TestResult),
 		MemStored:   run.MemoryID != "",
 	})
+
+	// Evidência de artefato via tools (Caminho A / ADR-031): quando o pipeline
+	// NÃO tem fase explícita de build/test (build roda via tool execute_command
+	// do agente), as ToolExecuctions revelam o que FOI de fato produzido.
+	// write_file/edit -> artifact_value; execute_command com build/test ->
+	// evidence_gain. Sem isso, um agente que escreveu código real aparece com
+	// Useful Work = 0 (só custo, sem valor) — o que o professor alertou.
+	for _, te := range run.ToolExecutions {
+		rec.ApplyToolEvidence(te.Name, te.Content, te.Error == "")
+	}
+
 	return rec
 }
 

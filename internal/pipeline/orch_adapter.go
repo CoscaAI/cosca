@@ -84,16 +84,17 @@ func (a *OrchAdapter) Run(ctx context.Context, req RunRequest) (*RunResult, erro
 	}
 
 	runResult := &RunResult{
-		Response: result.Response,
-		Agent:    result.Agent,
+		Response:        result.Response,
+		Agent:           result.Agent,
 		TokenUsage: TokenUsage{
 			Input:  len(req.Prompt),
 			Output: len(result.Response),
 		},
-		TurnCount:  1,
-		TraceID:    result.ID,
-		MemoryID:   result.MemoryID,
-		SkillsUsed: result.SkillsUsed,
+		TurnCount:       1,
+		TraceID:         result.ID,
+		MemoryID:        result.MemoryID,
+		SkillsUsed:      result.SkillsUsed,
+		ToolExecutions:  result.ToolExecutions,
 	}
 
 	if req.Options.EnableBuild && a.workDir != "" {
