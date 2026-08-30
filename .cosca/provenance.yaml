@@ -251,3 +251,9 @@ claims:
       source: Don+cosca-kernel+professor
       confidence: 0.93
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-faseC-snapshots-coW-refs
+      statement: 'ADR-030 FASE C (2026-08-29, backend + Don): snapshots copy-on-write + refs + checkout/diff cognitivo. Implementado internal/knowledge/knowledge_fs.go: KnowledgeFS store CAS CoW -> objects/ blobs + objects/index.yaml (hash->metadata/class/path), snapshots/<id>.yaml, refs/HEAD + refs/<name> (como git), tudo sob .cosca/knowledge/ (consistente com manifest/lock). Add dedup por sha256 (espelha asset registry). Snapshot(name,hashes) CoW (referencia, nunca duplica); ListSnapshots/GetSnapshot; Checkout (ref->sym HEAD; snapshot id->detached); ResolveHEAD/Refs/SetRef; Diff cognitivo (ADDED/CHANGED/REMOVED por path+classe, deterministico). CLI: knowledge snapshot (cria/--name ref default main), snapshot list, snapshot diff <a> <b>, knowledge checkout <ref>, knowledge refs. collectKnowledgeSources exclui objects//snapshots//refs/ (imune a auto-referencia). FATIA ADITIVA, NAO toca indexer/search/engine. VALIDACAO (Kernel, nao relatorio): corrigi variavel orfa coscaDir/kdir em knowledge_snapshot.go:44 (backend deixou build quebrado); go build ./... ok; go vet ok; go test internal/knowledge ok (7.78s); internal/cli ok (84.89s, TestInstall_DriftKnowledgeDB falhou 1x por FLAKY/ordem - passa isolado e na suite completa, NAO e Fase C); BASELINE RECALL ANTES=DEPOIS (0.6210/0.2886/0.4208/0.2228/0.3937/0.3910 identico - gate do Don sem regressao). LICAO: teste flaky por ordem nao deve ser atribuido a feature - isolar e rodar suite completa. PROXIMO: Fase D (separar embeddings + GC).'
+      kind: decision
+      source: Don+cosca-kernel+cosca-backend+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"
