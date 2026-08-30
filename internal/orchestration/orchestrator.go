@@ -57,6 +57,12 @@ type OrchestratorConfig struct {
 	// sandbox confined to the workspace. When nil, the enclosing jail provides
 	// isolation.
 	Sandbox chat.Sandbox
+
+	// Budget is the per-execution cost ceiling forwarded to the Executor. When
+	// nil, the engine uses the executor's default ceiling (the Don's $0.05 /
+	// 8000 tokens / 20s) — so `cosca run` gets protected out of the box. When
+	// set, it overrides the ceiling on every execution.
+	Budget *CognitiveBudget
 }
 
 // DefaultOrchestratorConfig returns sensible default configuration.
@@ -138,7 +144,12 @@ func NewEngine(
 			toolCfg.Sandbox = config.Sandbox
 			toolExecutor = NewToolExecutor(toolCfg)
 		}
-		executor = NewExecutor(chatProvider, DefaultExecutorConfig(), toolExecutor)
+		executorCfg := DefaultExecutorConfig()
+		// Forward an explicit budget ceiling (overrides the executor's default).
+		if config.Budget != nil {
+			executorCfg.Budget = config.Budget
+		}
+		executor = NewExecutor(chatProvider, executorCfg, toolExecutor)
 	}
 
 	var pipeline *Pipeline

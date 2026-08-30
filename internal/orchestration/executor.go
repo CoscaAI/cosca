@@ -43,15 +43,55 @@ type ExecutorConfig struct {
 	// The loop stops early when the LLM stops requesting tools.
 	// Default: 5.
 	MaxToolRounds int
+
+	// Budget is the per-execution cost ceiling. When non-nil, the tool-call
+	// loop stops calling the provider once the accumulated consumption
+	// (tokens, time, or cost) exceeds the ceiling — closing the cost net of
+	// `cosca run` / orchestration. When nil, the executor runs exactly as
+	// before (no ceiling). Default: the Don's default CDN budget ($0.05 /
+	// 8000 tokens / 20s) in DefaultExecutorConfig; nil in a zero-value config.
+	Budget *CognitiveBudget
+
+	// EstimateCost computes the USD cost of a LLM response for the budget
+	// ceiling. When nil, a conservative default rate is used (see
+	// defaultEstimateCost).
+	EstimateCost CostEstimator
+}
+
+// CostEstimator computes the estimated USD cost of a single LLM chat response
+// from its token usage and the elapsed duration of the call. It is used by the
+// cost ceiling (ExecutorConfig.Budget) to decide whether another call still
+// fits. When nil, the executor uses defaultEstimateCost.
+type CostEstimator func(usage chat.Usage, elapsed time.Duration) float64
+
+// defaultEstimateCost computes a conservative USD estimate from token usage:
+// input at $2.00/M and output at $4.00/M. This is a generous upper bound for
+// coding models (e.g. deepseek) so the default $0.05 ceiling is a real guard
+// against runaway tool loops WITHOUT tripping on a single ordinary call.
+func defaultEstimateCost(usage chat.Usage, _ time.Duration) float64 {
+	const (
+		inputPerToken  = 2.00 / 1_000_000
+		outputPerToken = 4.00 / 1_000_000
+	)
+	return float64(usage.PromptTokens)*inputPerToken +
+		float64(usage.CompletionTokens)*outputPerToken
 }
 
 // DefaultExecutorConfig returns sensible default configuration.
+//
+// NOTE (rede de custo): DefaultExecutorConfig aplica o teto padrão aprovado
+// pelo Don (CognitiveBudget.CDN: $0.05 / 8000 tokens / 20s) para que o caminho
+// `cosca run` — que constrói o Executor via NewEngine → DefaultExecutorConfig —
+// NÃO rode sem teto de custo. Um zero-value ExecutorConfig{} mantém Budget=nil
+// (sem trava) para preservar o comportamento de call sites existentes.
 func DefaultExecutorConfig() ExecutorConfig {
+	budget := DefaultCognitiveBudget()
 	return ExecutorConfig{
 		MaxRetries:    3,
 		RetryDelay:    2 * time.Second,
 		Timeout:       5 * time.Minute,
 		MaxToolRounds: 5,
+		Budget:        &budget,
 	}
 }
 
@@ -110,7 +150,29 @@ func NewExecutor(provider chat.ChatProvider, config ExecutorConfig, toolExecutor
 	if config.MaxToolRounds <= 0 {
 		config.MaxToolRounds = 5
 	}
+	if config.EstimateCost == nil {
+		config.EstimateCost = defaultEstimateCost
+	}
 	return &Executor{provider: provider, config: config, toolExecutor: toolExecutor}
+}
+
+// recordConsumption acumula o consumo de uma resposta de IA no BudgetTracker
+// (se existir). Best-effort: NUNCA altera o fluxo de erro nem a resposta — é a
+// instrumentação da rede de custo. Se o tracker for nil (budget desligado) ou
+// a resposta for nil, não faz nada.
+func (e *Executor) recordConsumption(tracker *BudgetTracker, resp *chat.ChatResponse, elapsed time.Duration) {
+	if tracker == nil || resp == nil {
+		return
+	}
+
+	tokens := resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+	cost := 0.0
+	if e.config.EstimateCost != nil {
+		cost = e.config.EstimateCost(resp.Usage, elapsed)
+	} else {
+		cost = defaultEstimateCost(resp.Usage, elapsed)
+	}
+	tracker.Record(tokens, elapsed, cost)
 }
 
 // ─── Synchronous Execution ───────────────────────────────────────────────────
@@ -166,8 +228,21 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 		return pc, nil
 	}
 
+	// 5.75 ── REDE DE CUSTO (opt-in): teto por execução ───────────────
+	// Se um Budget foi configurado, cada chamada de IA é registrada (tokens,
+	// tempo, custo) e o laço de tool-calls PARA de chamar o provider quando o
+	// teto estoura. O tracker é criado POR EXECUÇÃO (não no Executor), para
+	// que requisições concorrentes sobre o mesmo Executor não compartilhem
+	// consumo. nil = sem trava (comportamento atual).
+	var budgetTracker *BudgetTracker
+	if e.config.Budget != nil {
+		budgetTracker = NewBudgetTracker(*e.config.Budget)
+	}
+
 	// 6. Call provider.Chat() with retry.
+	respondStart := time.Now()
 	response, err := e.chatWithRetry(ctx, messages, opts)
+	respondElapsed := time.Since(respondStart)
 	if err != nil {
 		info := safeError("chat_completion_failed", err)
 		logger.Error().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("chat completion failed after retries")
@@ -182,6 +257,9 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	if atomic.LoadInt64(&e.lastAttemptCount) > 1 {
 		pc = pc.WithExecutorFallback(true)
 	}
+
+	// Record the initial call's consumption against the budget (best-effort).
+	e.recordConsumption(budgetTracker, response, respondElapsed)
 
 	// 7. Parse response: extract content and tool calls.
 	content, toolCalls := e.parseResponse(response)
@@ -206,6 +284,19 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 			copy(roundMessages, messages)
 
 			for round := 0; round < e.config.MaxToolRounds && len(toolCalls) > 0; round++ {
+				// ── REDE DE CUSTO: para de chamar o provider quando o teto
+				// estoura (tokens, tempo ou custo). Best-effort: PARAR novas
+				// chamadas, mas NÃO derrubar a execução — devolve o que já
+				// acumulamos (parcial/último conteúdo + tool results).
+				if budgetTracker != nil && !budgetTracker.CanCall() {
+					logger.Warn().
+						Int("round", round+1).
+						Str("consumption", budgetTracker.Summary()).
+						Str("budget", budgetString(*e.config.Budget)).
+						Msg("executor: budget de custo estourado — interrompendo laço de tool-calls")
+					break
+				}
+
 				logger.Info().
 					Int("round", round+1).
 					Int("tool_call_count", len(toolCalls)).
@@ -236,7 +327,9 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 					})
 				}
 
+				followUpStart := time.Now()
 				followUpResponse, followUpErr := e.chatWithRetry(ctx, roundMessages, opts)
+				followUpElapsed := time.Since(followUpStart)
 				if followUpErr != nil {
 					info := safeError("follow_up_chat_failed", followUpErr)
 					logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("follow-up chat after tool calls failed, returning semantic knowledge")
@@ -258,6 +351,12 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 				pc = pc.WithLLMModel(followUpResponse.Model)
 				pc = pc.WithLLMUsage(followUpResponse.Usage)
 				response = followUpResponse
+
+				// Record the follow-up call's consumption against the budget
+				// (best-effort) — so the NEXT round's CanCall sees the true sum.
+				// Note: elapsed is the time for this follow-up call only, which
+				// is exactly what BudgetTimestamp durations expect.
+				e.recordConsumption(budgetTracker, followUpResponse, followUpElapsed)
 
 				// ── Fallback: model returned empty follow-up ────────────
 				// Some coding models (qwen2.5-coder via ollama) do not
