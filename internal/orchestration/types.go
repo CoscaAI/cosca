@@ -57,12 +57,14 @@ type PipelineData struct {
 	MemoryContext     string                  // formatted memory summary from MAG
 
 	// Agent & Intent
-	ResolvedAgent    string   // from router stage
-	AgentRole        string   // agent's role
-	AgentDepartment  string   // agent's department
-	AgentDescription string   // agent's description
-	SkillsUsed       []string // skills invoked
-	RouterMethod     string   // how the agent was selected (explicit/keyword/search/semantic/fallback)
+	ResolvedAgent      string   // from router stage
+	AgentRole          string   // agent's role
+	AgentDepartment    string   // agent's department
+	AgentDescription   string   // agent's description
+	AgentCapabilities  []string // agent's capabilities (from capability registry)
+	AgentResponsibilities []string // agent's responsibilities (from agent definition)
+	SkillsUsed         []string // skills invoked
+	RouterMethod       string   // how the agent was selected (explicit/keyword/search/semantic/fallback)
 
 	// Prompt & LLM
 	AugmentedPrompt string      // augmented prompt before LLM call
@@ -261,6 +263,18 @@ func (pc PipelineContext) WithAgentDepartment(dept string) PipelineContext {
 // WithAgentDescription sets the agent's description.
 func (pc PipelineContext) WithAgentDescription(desc string) PipelineContext {
 	pc.Data.AgentDescription = desc
+	return pc
+}
+
+// WithAgentCapabilities sets the agent's capabilities list.
+func (pc PipelineContext) WithAgentCapabilities(caps []string) PipelineContext {
+	pc.Data.AgentCapabilities = caps
+	return pc
+}
+
+// WithAgentResponsibilities sets the agent's responsibilities list.
+func (pc PipelineContext) WithAgentResponsibilities(reps []string) PipelineContext {
+	pc.Data.AgentResponsibilities = reps
 	return pc
 }
 

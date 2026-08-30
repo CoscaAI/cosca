@@ -37,10 +37,12 @@ func (a *AgentResolverAdapter) Get(name string) (*orchestration.AgentInfo, error
 		return nil, err
 	}
 	return &orchestration.AgentInfo{
-		Name:        agent.Name,
-		Role:        agent.Role,
-		Department:  agent.Department,
-		Description: agent.Description,
+		Name:            agent.Name,
+		Role:            agent.Role,
+		Department:      agent.Department,
+		Description:     agent.Description,
+		Capabilities:    agentCapabilityNames(agent),
+		Responsibilities: agent.Responsibilities,
 	}, nil
 }
 
@@ -57,12 +59,15 @@ func (a *AgentResolverAdapter) Search(query string) ([]orchestration.AgentInfo, 
 		return nil, err
 	}
 	infos := make([]orchestration.AgentInfo, 0, len(results))
-	for _, r := range results {
+	for i := range results {
+		r := &results[i]
 		infos = append(infos, orchestration.AgentInfo{
-			Name:        r.Name,
-			Role:        r.Role,
-			Department:  r.Department,
-			Description: r.Description,
+			Name:            r.Name,
+			Role:            r.Role,
+			Department:      r.Department,
+			Description:     r.Description,
+			Capabilities:    agentCapabilityNames(r),
+			Responsibilities: r.Responsibilities,
 		})
 	}
 	return infos, nil
@@ -76,6 +81,25 @@ func (a *AgentResolverAdapter) SearchResult(query string) *results.Result {
 
 // Compile-time check: AgentResolverAdapter implements AgentResolver.
 var _ orchestration.AgentResolver = (*AgentResolverAdapter)(nil)
+
+// agentCapabilityNames extrai o nome de cada capability de um agents.Agent,
+// retornando nil quando o agente nao tem capabilities declaradas (evita
+// slices vazios que seriam serializados como [] em vez de omitidos).
+func agentCapabilityNames(a *agents.Agent) []string {
+	if a == nil || len(a.Capabilities) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(a.Capabilities))
+	for _, c := range a.Capabilities {
+		if c.Name != "" {
+			names = append(names, c.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	return names
+}
 
 // SkillResolverAdapter adapts skills.Manager to the
 // orchestration.SkillResolver port interface. Shared between the CLI and the

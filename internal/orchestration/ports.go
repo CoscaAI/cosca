@@ -113,10 +113,12 @@ type MemoryStorer interface {
 // AgentInfo is an orchestration-level projection of agents.Agent, exposing
 // only the fields the orchestration engine requires.
 type AgentInfo struct {
-	Name        string `json:"name"`
-	Role        string `json:"role"`
-	Department  string `json:"department"`
-	Description string `json:"description"`
+	Name            string   `json:"name"`
+	Role            string   `json:"role"`
+	Department      string   `json:"department"`
+	Description     string   `json:"description"`
+	Capabilities    []string `json:"capabilities,omitempty"`
+	Responsibilities []string `json:"responsibilities,omitempty"`
 }
 
 // AgentResolver resolves agents from the agent registry.

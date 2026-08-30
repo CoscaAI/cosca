@@ -26,6 +26,15 @@ type ToolCallResult struct {
 	Error      string        `json:"error,omitempty"`
 	ErrorCode  string        `json:"error_code,omitempty"`
 	Duration   time.Duration `json:"duration"`
+
+	// ── Erro operacional estruturado (Tool Execution Policy) ──────────────
+	// Estes campos permitem ao agente RACIOCINAR sobre a falha, em vez de
+	// receber apenas um "tool failed" genérico. Não são usados para rejeição;
+	// apenas para comunicação de recuperação.
+	FailureClass string `json:"failure_class,omitempty"` // invalid_arguments|capability_denied|permission_denied|not_found|timeout|transient|unavailable|execution|invalid_result|internal
+	Attempt      int    `json:"attempt,omitempty"`       // tentativa em que falhou (1-based)
+	Retryable    bool   `json:"retryable,omitempty"`     // se pode ser tentado novamente
+	Recovery     string `json:"recovery,omitempty"`      // sugestão de recuperação (retry_or_continue|abort|fallback|delegate|report)
 }
 
 // ─── Tool Executor Configuration ──────────────────────────────────────────────

@@ -30,5 +30,6 @@ You are building the **Cosca AI Orchestration System Enterprise Platform** — a
 - Codebase map: `.opencode/cosca/memory/codebase/overview.md`
 - Constitution: `.opencode/cosca/CONSTITUTION.md` (v1.1.0, 8 immutable principles)
 - Kernel: `.opencode/cosca/KERNEL.md`
+- **Tool Execution Policy**: `.opencode/cosca/shared/TOOL_EXECUTION_POLICY.md` (contrato universal de execução de tools — rigoroso para segurança, tolerante para execução recuperável; TODOS os agentes obedecem)
 - Despertar (wake): `cosca despertar` — reads identity/state from knowledge.db
 - Memory: `internal/embed/cosca/memory/agent/cosca-kernel/` (chain + learnings + failures)

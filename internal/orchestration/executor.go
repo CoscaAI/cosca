@@ -264,6 +264,10 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	// 7. Parse response: extract content and tool calls.
 	content, toolCalls := e.parseResponse(response)
 
+	// Acumula tool results de todas as rodadas (usado no fallback final:
+	// se o LLM devolver resposta vazia, renderiza o resultado real das tools).
+	var allToolResults []*ToolCallResult
+
 	// 8. Store results in the pipeline context.
 	pc = pc.WithLLMResponse(content)
 	pc = pc.WithLLMModel(response.Model)
@@ -309,6 +313,7 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 					logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("some tool calls failed")
 				}
 				pc = pc.WithToolResults(toolResults)
+				allToolResults = append(allToolResults, toolResults...)
 
 				roundMessages = append(roundMessages, chat.Message{
 					Role:      chat.RoleAssistant,
@@ -379,6 +384,18 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 		Int("prompt_tokens", response.Usage.PromptTokens).
 		Int("completion_tokens", response.Usage.CompletionTokens).
 		Msg("execution complete")
+
+	// ── Fallback final (Tool Execution Policy §5 / §7) ─────────────────────
+	// Se o LLM retornou resposta vazia mas houve tool calls executadas,
+	// renderiza o resultado real das tools como texto final. Isso impede que
+	// um agente "Chief" (que planeja via tool calls sem texto) apareça como
+	// "No response content" quando na verdade executou trabalho útil.
+	if strings.TrimSpace(pc.Data.LLMResponse) == "" && len(allToolResults) > 0 {
+		logger.Warn().Msg("final response empty but tool results exist — rendering tool results as final response")
+		if content = formatToolResultsFallback(allToolResults); content != "" {
+			pc = pc.WithLLMResponse(content)
+		}
+	}
 
 	return pc, nil
 }
@@ -617,6 +634,23 @@ func (e *Executor) buildSystemPrompt(agentName, agentRole, agentDept, agentDesc 
 
 	if agentDesc != "" {
 		fmt.Fprintf(&sb, "\nYour purpose: %s\n", agentDesc)
+	}
+
+	// Capabilities & responsibilities of this agent (from the agent definition).
+	// Injecting them gives the LLM the concrete operational identity of the
+	// agent — without this, a "Chief" loses its role/standards and can
+	// respond with an empty message instead of acting.
+	if caps := data.AgentCapabilities; len(caps) > 0 {
+		sb.WriteString("\nYour capabilities:\n")
+		for i, c := range caps {
+			fmt.Fprintf(&sb, "  %d. %s\n", i+1, c)
+		}
+	}
+	if reps := data.AgentResponsibilities; len(reps) > 0 {
+		sb.WriteString("\nYour responsibilities:\n")
+		for i, r := range reps {
+			fmt.Fprintf(&sb, "  %d. %s\n", i+1, r)
+		}
 	}
 
 	// Knowledge context injected by the knowledge-retrieval stage.

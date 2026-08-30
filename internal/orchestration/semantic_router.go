@@ -443,6 +443,8 @@ func (sr *SemanticRouter) resolveAgent(pc PipelineContext, agent *AgentInfo) Pip
 	pc = pc.WithAgentRole(agent.Role)
 	pc = pc.WithAgentDepartment(agent.Department)
 	pc = pc.WithAgentDescription(agent.Description)
+	pc = pc.WithAgentCapabilities(agent.Capabilities)
+	pc = pc.WithAgentResponsibilities(agent.Responsibilities)
 	return pc
 }
 

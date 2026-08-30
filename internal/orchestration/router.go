@@ -329,6 +329,8 @@ func (r *Router) resolveAgent(pc PipelineContext, agent *AgentInfo) PipelineCont
 	pc = pc.WithAgentRole(agent.Role)
 	pc = pc.WithAgentDepartment(agent.Department)
 	pc = pc.WithAgentDescription(agent.Description)
+	pc = pc.WithAgentCapabilities(agent.Capabilities)
+	pc = pc.WithAgentResponsibilities(agent.Responsibilities)
 	return pc
 }
 
