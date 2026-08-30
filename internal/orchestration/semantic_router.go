@@ -210,6 +210,8 @@ func (sr *SemanticRouter) Route(ctx context.Context, pc PipelineContext) (Pipeli
 			pc = sr.resolveAgent(pc, agent)
 			pc = pc.WithRouterMethod("semantic_high")
 			pc = pc.WithSemanticScore(score)
+			pc = pc.WithSemanticSecondScore(secondScore)
+			pc = pc.WithSemanticMargin(margin)
 			pc = sr.attachSkills(pc, agentSkillTexts(agent))
 			return pc, nil
 		}
@@ -226,6 +228,8 @@ func (sr *SemanticRouter) Route(ctx context.Context, pc PipelineContext) (Pipeli
 			pc = sr.resolveAgent(pc, agent)
 			pc = pc.WithRouterMethod("semantic_low")
 			pc = pc.WithSemanticScore(score)
+			pc = pc.WithSemanticSecondScore(secondScore)
+			pc = pc.WithSemanticMargin(margin)
 			pc = sr.attachSkills(pc, agentSkillTexts(agent))
 			return pc, nil
 		}

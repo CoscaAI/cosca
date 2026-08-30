@@ -77,11 +77,13 @@ type PipelineData struct {
 	ToolResults interface{} // tool call results from executor ([]*ToolCallResult)
 
 	// Execution metadata
-	EmbeddingError   string  // embedding error message if any
-	SemanticScore    float64 // semantic similarity score
-	ExecutorFallback bool    // whether executor used retry/fallback
+	EmbeddingError      string  // embedding error message if any
+	SemanticScore       float64 // semantic similarity score (best match)
+	SemanticSecondScore float64 // runner-up semantic score (p/ margem)
+	SemanticMargin      float64 // gap entre best e second (confiança discriminativa)
+	ExecutorFallback    bool    // whether executor used retry/fallback
 	ExecutorDeterministic bool // whether executor answered WITHOUT LLM (knowledge-only)
-	MemoryID         string  // stored memory ID
+	MemoryID            string  // stored memory ID
 
 	// Metrics
 	StageTimings map[string]time.Duration // per-stage timing
@@ -329,6 +331,22 @@ func (pc PipelineContext) WithEmbeddingError(v string) PipelineContext {
 // WithSemanticScore sets the semantic similarity score.
 func (pc PipelineContext) WithSemanticScore(score float64) PipelineContext {
 	pc.Data.SemanticScore = score
+	return pc
+}
+
+// WithSemanticSecondScore sets the runner-up semantic score. O segundo melhor
+// score sustenta a margem de confiança (score absoluto ≠ confiança
+// discriminativa).
+func (pc PipelineContext) WithSemanticSecondScore(score float64) PipelineContext {
+	pc.Data.SemanticSecondScore = score
+	return pc
+}
+
+// WithSemanticMargin sets a margem entre best e second, sinalizando quão
+// discriminativo foi o match. Registrada no trace para o Auto-Audit calibrar
+// empiricamente o limiar de margem ótimo.
+func (pc PipelineContext) WithSemanticMargin(margin float64) PipelineContext {
+	pc.Data.SemanticMargin = margin
 	return pc
 }
 

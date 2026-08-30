@@ -819,6 +819,12 @@ func (pd PipelineData) ToLegacyMap() map[string]interface{} {
 	if pd.SemanticScore != 0 {
 		m["semantic_score"] = pd.SemanticScore
 	}
+	if pd.SemanticSecondScore != 0 {
+		m["semantic_second_score"] = pd.SemanticSecondScore
+	}
+	if pd.SemanticMargin != 0 {
+		m["semantic_margin"] = pd.SemanticMargin
+	}
 	m["executor_fallback"] = pd.ExecutorFallback
 	if pd.MemoryID != "" {
 		m["memory_id"] = pd.MemoryID
