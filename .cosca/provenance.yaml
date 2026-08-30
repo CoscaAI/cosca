@@ -257,3 +257,9 @@ claims:
       source: Don+cosca-kernel+cosca-backend+professor
       confidence: 0.93
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-faseD-design-embeddings-separados
+      statement: 'ADR-030 FASE D - DESIGN (2026-08-29): separar embeddings do conhecimento + GC cognitivo. NAO delegado ainda - apenas design aprovado no ADR-030 3.4, seguindo mesmo rigor da Fase C (design + baseline antes de refactor de zona sensivel). ESTADO ATUAL auditado (internal/vector/sqlite_vec.go:112): tabela vectors tem id/vector/metadata/document_id/chunk_id/entity_id/content/created_at - NAO tem campo p/ objeto K<hash> nem p/ modelo embedding. DESENHO ADITIVO: ALTER TABLE ADD source_hash + embedding_model + embedding_dim. 1 objeto K<hash> -> N vetores (1 por modelo); trocar modelo != re-embedar conhecimento (source_hash nao muda); GC cognitivo (objeto sem snapshot ativo -> descartavel, cosca knowledge gc dry-run). GATE: baseline_recall_test (0.22-0.62) identico ANTES/DEPOIS + migracao ALTER guarded + teste unitario (2 vetores mesma source_hash modelos diferentes). DECISAO PENDENTE DO DON: chunk_id convive com source_hash (recomendado aditivo, manter ambos - separacao plena exige reindexacao completa). LICAO: consultora documenta design antes de delegar refactor de busca/embeddings (zona sensivel ao recall) - Fase D so vai a implementacao apos aprovacao do Don.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.9
+      created_at: "2026-08-29T00:00:00Z"
