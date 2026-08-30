@@ -16,6 +16,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/chat"
 	chatprovider "github.com/CoscaAI/cosca/internal/chat/provider"
 	"github.com/CoscaAI/cosca/internal/config"
+	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/embeddings"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/orchestration"
@@ -242,6 +243,9 @@ Examples:
 			formatter.KeyValue("Request ID", result.TraceID)
 			formatter.KeyValue("Agent", result.Agent)
 			formatter.KeyValue("Tokens", fmt.Sprintf("%d input / %d output", result.TokenUsage.Input, result.TokenUsage.Output))
+			// Fase 0 ADR-031 — instrumentação best-effort: registra a execução
+			// no log de custo (Useful Work / Tokens). Nunca falha o run.
+			recordRunCost(cmd, result.Agent, result.TraceID, result.TokenUsage)
 			formatter.Println("")
 			formatter.Header("Response")
 			if result.Response != "" {
@@ -359,4 +363,33 @@ func runDryRun(cmd *cobra.Command, engine *orchestration.Engine, req *orchestrat
 	formatter.Println("")
 	formatter.Success("Dry run complete. Use 'cosca run' without --dry-run to execute.")
 	return nil
+}
+
+// recordRunCost registra a execução no log de custo (ADR-031, Fase 0) —
+// best-effort, NUNCA falha o run. Usa o `chat.Usage{Input, Output}` já
+// disponível no resultado. Se não houver tokens ou o .cosca não existir,
+// silencia.
+func recordRunCost(cmd *cobra.Command, agent, traceID string, usage pipeline.TokenUsage) {
+	// Sem consumo de tokens → nada a registrar com valor de métrica.
+	if usage.Input == 0 && usage.Output == 0 {
+		return
+	}
+	coscaDir := resolveCoscaDir()
+	if coscaDir == "" {
+		return
+	}
+	store := cost.ForCoscaDir(coscaDir)
+	rec := cost.Record{
+		AgentID:      agent,
+		TaskID:       traceID,
+		InputTokens:  usage.Input,
+		OutputTokens: usage.Output,
+		TokensTotal:  usage.Input + usage.Output,
+		At:           time.Now(),
+	}
+	if err := store.Append(rec); err != nil {
+		// Log de custo é instrumentação, nunca pré-requisito.
+		_ = cmd
+		return
+	}
 }
