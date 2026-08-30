@@ -17,6 +17,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
+	"github.com/CoscaAI/cosca/internal/middleware"
 	"github.com/CoscaAI/cosca/internal/stallwatch"
 )
 
@@ -43,6 +44,12 @@ type ExecutorConfig struct {
 	// The loop stops early when the LLM stops requesting tools.
 	// Default: 5.
 	MaxToolRounds int
+
+	// Middleware (padrão LangChain wrap_model_call): cadeia de middlewares
+	// que envolve a chamada ao provider. Permite medir custo (ADR-031),
+	// decidir retry/fallback/limite e abortar por budget SEM mudar a lógica
+	// dos handler/agente. Nil = sem middleware (comportamento atual).
+	Middleware *middleware.Chain
 
 	// Budget is the per-execution cost ceiling. When non-nil, the tool-call
 	// loop stops calling the provider once the accumulated consumption
