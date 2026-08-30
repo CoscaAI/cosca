@@ -245,3 +245,9 @@ claims:
       source: Don+cosca-kernel+professor
       confidence: 0.92
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-faseA-baseline-recall
+      statement: 'ADR-030 FASE A - BASELINE DE RECALL (2026-08-29). Pre-requisito nao-negociavel da revisao do CTO (ADR-029): registrar baseline de recall ANTES de qualquer refactor do motor (o gate verify/revalidate NAO mede recall). Implementado baseline_recall_test.go (portavel Windows/Linux, ao contrario dos testes de campanha legados que hardcodam /home/cosca/...). Resolve o knowledge.db real via os.Getwd() -> 2 niveis acima (raiz do projeto). 10 queries funcionais do dominio Cosca; mede score@1/5/10/20. RESULTADO BASELINE (top-1 score por query): 0.621, 0.289, 0.421, 0.223, 0.394, 0.391, 0.615, 0.390, 0.490. NOTA: NDCG removido - com score continuo de similaridade idcg=dcg sempre, numero nao informativo (baseline honesto > numero bonito falso). LICAO DE PROCESSO: vet pegou colisao de nomes recallAt/ndcgAt (ja existiam em campaign_int16_real_test.go) - renomeados para baselineRecallAt; importante rodar go vet, nao confiar em relatorio. PROXIMO: Fase A real (CAS de dominio) so depois que este baseline for consolidado e revisado - refactor do motor com gate de nao-regressao sobre estes numeros.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"
