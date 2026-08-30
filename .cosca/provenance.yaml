@@ -227,3 +227,9 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.96
       created_at: "2026-08-29T00:00:00Z"
+    - id: camada-2-cerebro-exploracao-cirurgica-20260829
+      statement: 'CAMADA 2 CEREBRO - EXPLORACAO CIRURGICA (2026-08-29). Decisao apos sugestao do professor (que o Don levou): nao tornar os ~3600 neuronios todos clicaveis (risco de performance, poluicao visual e violacao da fronteira de seguranca). Seguir filosofia LOD de informacao: detalhe so existe visualmente quando o usuario demonstra interesse (clique). IMPLEMENTADO commit bf7e06c (app.js +231, style.css +103, index.html +2): picking sob demanda via pickMesh dedicado (nao renderizado, so marker.node dos agentes/capos ~55, nunca os 3600 genericos, custo O(#marcadores)); painel lateral aside.node-panel (role=dialog, aria-live) com projecao MINIMA SANITIZADA (nome/role+tier/dept/status/reports_to/skill_count/skills do dominio name+category+description/atividade recente descricao+action+status+at); fechar por clique vazio/Esc/×; distingue clique de orbita. SEGURANCA (ADR-021): so campos Node/SkillVz (graph.go), nunca instructions/governance/tools/capabilities/deps/hardware/conversas/args-prompt; grafgo.go/handler.go e internal/embed/cosca/** intocados; esc() em todo dado do sistema (XSS-safe); nodeHighlightBar strings fixas. LICAO DE PROCESSO (repetida 2x em 2026-08-29): subagente frontend reportou implementacao mas reviewer viu diff vazio por CONCORRENCIA entre agentes no mesmo workspace (revisor leu git antes da persistencia no disco do implementador). A ESCOLHA CORRETA: Kernel valida o diff real + filesystem + go build + go test, nao relatorio de subagente. READ-ONLY mantido; go build ./... ok; go test brainweb ok.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.95
+      created_at: "2026-08-29T00:00:00Z"
