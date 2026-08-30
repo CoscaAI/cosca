@@ -417,6 +417,15 @@ func recordFromRun(run *pipeline.RunResult) cost.Record {
 		TokensTotal:  run.TokenUsage.Input + run.TokenUsage.Output,
 		At:           time.Now(),
 	}
+	// ADR-031 Fase 0.1: captura a decomposição do uso (cache/reasoning) quando o
+	// provider expôs; 0 quando não (honesto — não inventa).
+	if run.TokenUsage.CachedTokens > 0 {
+		rec.CachedTokens = run.TokenUsage.CachedTokens
+	}
+	if run.TokenUsage.ReasoningTokens > 0 {
+		rec.DelegatedTokens = run.TokenUsage.ReasoningTokens
+		rec.ReasoningTokens = run.TokenUsage.ReasoningTokens
+	}
 	rec.ApplyValue(cost.ValueEvidence{
 		BuildOK:     run.BuildResult != nil && run.BuildResult.Success,
 		TestsRun:    run.TestResult != nil,

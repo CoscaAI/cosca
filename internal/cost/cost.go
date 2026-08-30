@@ -61,6 +61,7 @@ type Record struct {
 	SystemTokens   int `json:"system_tokens,omitempty"`
 	CachedTokens   int `json:"cached_tokens,omitempty"`
 	DelegatedTokens int `json:"delegated_tokens,omitempty"`
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 
 	// DurationMs — duração da execução.
 	DurationMs int64 `json:"duration_ms,omitempty"`
@@ -401,6 +402,10 @@ func Aggregate(records []Record) *Report {
 		// aparecer (Fase 0.1). No Fase 0 isso é sempre false — limitação
 		// honesta reportada na saída.
 		if r.ContextTokens > 0 || r.ToolTokens > 0 || r.HistoryTokens > 0 {
+			rep.Decomposed = true
+		}
+		// ADR-031 Fase 0.1: decomposição de cache/reasoning também marca true.
+		if r.CachedTokens > 0 || r.ReasoningTokens > 0 {
 			rep.Decomposed = true
 		}
 	}

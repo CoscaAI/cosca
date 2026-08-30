@@ -74,6 +74,10 @@ type ToolCallResult = orchestration.ToolCallResult
 type TokenUsage struct {
 	Input  int
 	Output int
+
+	// Decomposição (ADR-031 Fase 0.1): 0 quando o provider não expõe o detalhe.
+	CachedTokens    int `json:"cached_tokens,omitempty"`
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 }
 
 type BuildResult struct {

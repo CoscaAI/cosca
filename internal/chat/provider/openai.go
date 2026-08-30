@@ -221,7 +221,7 @@ type openAIStreamChunk struct {
 	ID      string               `json:"id"`
 	Object  string               `json:"object"`
 	Choices []openAIStreamChoice `json:"choices,omitempty"`
-	Usage   *chat.Usage          `json:"usage,omitempty"`
+	Usage   *chat.RawUsage `json:"usage,omitempty"`
 }
 
 type openAIStreamChoice struct {
@@ -300,10 +300,10 @@ func (p *OpenAIProvider) parseStreamResponse(ctx context.Context, body io.Reader
 			return
 		}
 
-		// If usage is present, send a done event
+		// If usage is present, send a done event (decomposto p/ ADR-031 Fase 0.1)
 		if chunk.Usage != nil {
 			flushToolCalls()
-			ch <- chat.ChatEvent{Type: chat.ChatEventDone, Usage: chunk.Usage}
+			ch <- chat.ChatEvent{Type: chat.ChatEventDone, Usage: &chunk.Usage.Usage}
 			return
 		}
 
@@ -360,7 +360,7 @@ type openAIResponse struct {
 	Created int64          `json:"created"`
 	Model   string         `json:"model"`
 	Choices []openAIChoice `json:"choices"`
-	Usage   *chat.Usage    `json:"usage,omitempty"`
+	Usage   *chat.RawUsage `json:"usage,omitempty"`
 }
 
 type openAIChoice struct {
@@ -401,9 +401,11 @@ func (p *OpenAIProvider) parseNonStreamResponse(ctx context.Context, body io.Rea
 		}
 	}
 
-	// Send usage in a done event
-	usage := resp.Usage
-	if usage == nil {
+	// Send usage in a done event (decomposto p/ ADR-031 Fase 0.1)
+	var usage *chat.Usage
+	if resp.Usage != nil {
+		usage = &resp.Usage.Usage
+	} else {
 		usage = &chat.Usage{}
 	}
 	ch <- chat.ChatEvent{Type: chat.ChatEventDone, Usage: usage}

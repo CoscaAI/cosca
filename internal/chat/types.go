@@ -214,10 +214,51 @@ type Choice struct {
 }
 
 // Usage holds token usage statistics for a completion.
+//
+// ADR-031 Fase 0.1: além do total, decompomos o uso para medir a eficiência
+// real — tokens de CACHE (reuso de prompt) e de REASONING (pensamento) são
+// o que distingue o "útil" do "gasto". Preenchidos quando o provider expõe o
+// detalhe (OpenAI-compat: prompt_tokens_details.cached_tokens e
+// completion_tokens_details.reasoning_tokens).
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+
+	// Decomposição (Fase 0.1) — 0 quando o provider não expõe o detalhe.
+	CachedTokens    int `json:"cached_tokens,omitempty"`    // reuso de prompt (cache)
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"` // tokens de pensamento (thinking)
+}
+
+// RawUsage captura os detalhes de decomposição do payload OpenAI-compatível:
+// prompt_tokens_details.cached_tokens e completion_tokens_details.reasoning_tokens.
+// Embed da Usage para preservar os campos base na desserialização.
+type RawUsage struct {
+	Usage
+	PromptTokensDetails     struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+	CompletionTokensDetails struct {
+		ReasoningTokens int `json:"reasoning_tokens"`
+	} `json:"completion_tokens_details"`
+}
+
+// CachedAndEffective devolve (cached, effective) onde effective = prompt - cached
+// (os tokens efetivamente processados, fora do reuso de cache).
+//
+//nolint:unparam // semantic clarity: caller uses both dimensions.
+func (u Usage) CachedAndEffective() (cached, effective int) {
+	cached = u.CachedTokens
+	if cached > u.PromptTokens {
+		cached = u.PromptTokens
+	}
+	effective = u.PromptTokens - cached
+	return cached, effective
+}
+
+// ReasoningTokens devolve os tokens de pensamento (0 se não informado).
+func (u Usage) ReasoningTokensCount() int {
+	return u.ReasoningTokens
 }
 
 // ─── Chat Stream ────────────────────────────────────────────────────────────

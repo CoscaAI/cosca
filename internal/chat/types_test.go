@@ -237,3 +237,29 @@ func TestMessage_JSONRoundtrip(t *testing.T) {
 		}
 	})
 }
+
+// TestUsage_CachedAndEffective valida a decomposicao ADR-031 Fase 0.1:
+// effective = prompt - cached (tokens realmente processados, fora do reuso).
+func TestUsage_CachedAndEffective(t *testing.T) {
+	u := Usage{PromptTokens: 1000, CompletionTokens: 200, CachedTokens: 600}
+	cached, effective := u.CachedAndEffective()
+	if cached != 600 {
+		t.Fatalf("cached = %d, esperava 600", cached)
+	}
+	if effective != 400 {
+		t.Fatalf("effective = %d, esperava 400 (1000-600)", effective)
+	}
+}
+
+// TestUsage_ReasoningTokens valida o capture do reasoning (thinking).
+func TestUsage_ReasoningTokens(t *testing.T) {
+	u := Usage{PromptTokens: 100, CompletionTokens: 50, ReasoningTokens: 20}
+	if u.ReasoningTokensCount() != 20 {
+		t.Fatalf("reasoning = %d, esperava 20", u.ReasoningTokensCount())
+	}
+	// Default zero (provider nao expos).
+	var zero Usage
+	if zero.ReasoningTokensCount() != 0 {
+		t.Fatalf("default reasoning = %d, esperava 0", zero.ReasoningTokensCount())
+	}
+}
