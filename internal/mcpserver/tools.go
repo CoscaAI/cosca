@@ -430,8 +430,16 @@ func (e *Engine) handleObserve(ctx context.Context, raw json.RawMessage) (*CallR
 	var items []ContextItem
 	if result != nil {
 		for _, ev := range result.Events {
+			// Texto extraído de vídeo externo (OCR/tela) é conteúdo
+			// NÃO-CONFIÁVEL (uma tela pode conter prompt-injection). Envelopamos
+			// com contenttrust para o modelo não seguir instrução do vídeo.
+			wrapped := contenttrust.Envelope(contenttrust.Default(
+				contenttrust.OriginMCP,
+				observeContent(ev),
+				"observe:"+args.Video,
+			))
 			items = append(items, ContextItem{
-				Content:   observeContent(ev),
+				Content:   wrapped,
 				Source:    observeSource(ev),
 				Relevance: 1.0,
 			})
