@@ -73,3 +73,22 @@ func rawArgs(t *testing.T, s string) []byte {
 	t.Helper()
 	return []byte(s)
 }
+
+// TestCallSelf_InspectsOrgans valida que cosca.self reporta os órgãos
+// injetados e o estado operacional do cérebro.
+func TestCallSelf_InspectsOrgans(t *testing.T) {
+	eng := NewEngine(WithKernel(nil))
+	res, err := eng.Call(context.Background(), ToolSelf, rawArgs(t, `{}`))
+	if err != nil {
+		t.Fatalf("Call self: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("esperava sucesso, veio IsError=true: %s", res.Content[0].Text)
+	}
+	if !strings.Contains(res.Content[0].Text, "kernel") {
+		t.Fatalf("output nao contem organs: %s", res.Content[0].Text)
+	}
+	if !strings.Contains(res.Content[0].Text, "operational") || !strings.Contains(res.Content[0].Text, "unavailable") {
+		t.Fatalf("output nao tem estados operational/unavailable: %s", res.Content[0].Text)
+	}
+}

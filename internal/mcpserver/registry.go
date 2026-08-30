@@ -200,4 +200,13 @@ func (e *Engine) registerTools() {
 		InputSchema: `{"type":"object","properties":{"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"}},"required":["args"]}`,
 		Handler:     e.handleCLI,
 	})
+	e.registry.register(ToolDef{
+		Name:        ToolSelf,
+		Domain:      "self",
+		Organ:       "kernel",
+		Risk:        RiskRead,
+		Description: "Auto-inspecionar — estado dos órgãos do COSCA (kernel/runtime/knowledge/memory/trace/vision/cost): quais estão operacionais e a capacidade do cérebro. 'API do próprio cérebro'.",
+		InputSchema: `{"type":"object","properties":{}}`,
+		Handler:     e.handleSelf,
+	})
 }

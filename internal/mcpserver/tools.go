@@ -40,6 +40,7 @@ const (
 	ToolProject = "cosca.project"
 	ToolCost    = "cosca.cost"
 	ToolCLI     = "cosca.cli"
+	ToolSelf    = "cosca.self"
 )
 
 // VisionFunc é a assinatura de vision.AnalyzeVideo (injetável para teste).
@@ -919,3 +920,54 @@ func emptyOr(s, fallback string) string {
 
 
 
+
+// ─── Tool: cosca.self (auto-inspeção do cérebro) ──────────────────────────
+
+// handleSelf reporta o estado operacional de cada órgão do COSCA: quais estão
+// injetados e operacionais, e a capacidade do sistema como um todo. É a
+// "API do próprio cérebro" — permite ao agente perguntar 'quais órgãos tenho?'.
+func (e *Engine) handleSelf(ctx context.Context, _ json.RawMessage) (*CallResult, error) {
+	type organ struct {
+		Name   string `json:"name"`
+		Status string `json:"status"`
+	}
+	organs := []organ{
+		{Name: "kernel", Status: organStatus(e.Kernel != nil)},
+		{Name: "runtime", Status: organStatus(e.Runtime != nil)},
+		{Name: "knowledge", Status: organStatus(e.Knowledge != nil)},
+		{Name: "memory", Status: organStatus(e.Memory != nil)},
+		{Name: "trace", Status: organStatus(e.Trace != nil)},
+		{Name: "vision", Status: organStatus(e.Vision != nil)},
+		{Name: "cost", Status: organStatus(e.Cost != nil)},
+		{Name: "cli", Status: organStatus(e.CLIExec != nil)},
+	}
+
+	// Conta operacionais.
+	operational := 0
+	for _, o := range organs {
+		if o.Status == "operational" {
+			operational++
+		}
+	}
+
+	payload := map[string]interface{}{
+		"organs":        organs,
+		"operational":   operational,
+		"total":         len(organs),
+		"capability":    "self_inspection",
+		"allow_write":   e.AllowWrite,
+		"kernel_halted": e.Kernel != nil && e.Kernel.IsHalted(),
+	}
+	rawOut, _ := json.Marshal(payload)
+	return &CallResult{
+		Content: []ContentItem{{Type: "text", Text: string(rawOut)}},
+	}, nil
+}
+
+// organStatus converte a presença de um órgão em estado legível.
+func organStatus(present bool) string {
+	if present {
+		return "operational"
+	}
+	return "unavailable"
+}

@@ -81,8 +81,8 @@ func TestToolsList_SevenCognitiveTools(t *testing.T) {	out := runServer(t, NewEn
 	if err := json.Unmarshal(resp["result"], &result); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
-	if len(result.Tools) != 9 {
-		t.Fatalf("tools/list = %d, esperava 9", len(result.Tools))
+	if len(result.Tools) != 10 {
+		t.Fatalf("tools/list = %d, esperava 10", len(result.Tools))
 	}
 	if result.Tools[0].Name != ToolRecall {
 		t.Fatalf("tools[0].name = %q, esperava compact field", result.Tools[0].Name)
@@ -147,3 +147,4 @@ func TestToolCall_NoEngineNilSafe(t *testing.T) {
 		t.Fatalf("mensagem de erro inesperada: %s", resp["error"])
 	}
 }
+
