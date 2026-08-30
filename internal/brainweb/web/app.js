@@ -39,6 +39,15 @@ const state = {
   brainY: { minY: -70, maxY: 70 },  // extensão real do eixo Y (pós-escala)
   activityFeed: null, activityList: null,
   activitySeen: new Set(),
+  // Camada 2 — Exploração Cirúrgica: detalhe por demanda (picking leve +
+  // painel DOM overlay). A cena continua limpa; só os nós importantes são
+  // clicáveis. Nada de 3D sprite em todos os neurônios.
+  pickMesh: null,        // Points dedicado (só marcadores) — alvo do raycast
+  pickNodes: [],         // node real por vértice do pickMesh (índice alinhado)
+  nodePanel: null,       // <aside class="node-panel"> criado via DOM
+  activities: [],        // últimas atividades (mais novas primeiro) p/ o painel
+  _lastNode: null,       // nó atualmente exibido no painel
+  pointer: { downX: 0, downY: 0, downT: 0, down: false },
 };
 
 /* Settings (espelham o projeto de referência) */
@@ -99,7 +108,7 @@ async function init() {
     showFatal("Não foi possível carregar o cérebro: " + e.message);
     return;
   }
-  renderHUD(); renderLegend(); initActivityFeed();
+  renderHUD(); renderLegend(); initActivityFeed(); initNodePanel();
   const loading = document.getElementById("loading");
   if (loading) loading.style.display = "none";
 
@@ -151,6 +160,8 @@ function initThree() {
   $("#scene").appendChild(renderer.domElement);
   state.scene = scene; state.camera = camera; state.renderer = renderer; state.clock = new THREE.Clock();
   state.raycaster = new THREE.Raycaster();
+  state.raycaster.params.Points.threshold = PICK_THRESHOLD; // captura por demanda, não a cena inteira
+  initPicking();
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -232,6 +243,7 @@ async function buildBrain() {
     state.neurons.push(neuron);
   }
   state.nodesCount = state.neurons.length;
+  buildPickMesh();
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.Float32BufferAttribute(positionsArr, 3));
@@ -548,6 +560,9 @@ async function pollActivity() {
     const rate = fresh.length;
     SETTINGS.signalDepth = rate >= 5 ? 3 : rate >= 2 ? 2 : rate >= 1 ? 1 : 0;
 
+    // Mantém um pequeno histórico (mais novas primeiro) para o painel do agente.
+    state.activities = [...fresh, ...(state.activities || [])].slice(0, 30);
+
     if (fresh.length) renderActivityFeed(fresh);
   } catch (e) { /* best-effort */ }
 }
@@ -711,6 +726,220 @@ function updateNeuronColors(dt, t) {
   });
   colAttr.needsUpdate = true;
   sizeAttr.needsUpdate = true;
+}
+
+/* ---------- Camada 2 — Exploração Cirúrgica ----------
+   Detalhe só existe quando o usuário demonstra interesse (clique/zoom de
+   informação — LOD por demanda). A cena permanece limpa: um overlay DOM
+   (painel) traz a projeção MÍNIMA SANITIZADA do agente escolhido. NUNCA expõe
+   instructions/governance de skills, tools/capabilities/dependencies de
+   agents, conversas inter-departamentais, inventário de hardware ou
+   args/prompt de comandos (contrato read-only / ADR-021).
+   Picking é leve: intersecta apenas os nós importantes (Don/Kernel/capos),
+   nunca os ~3600 neurônios genéricos. Custo O(#marcadores). */
+
+const PICK_THRESHOLD = 6; // raio de captura (unidades do mundo) dos marcadores
+
+function initPicking() {
+  const el = state.renderer.domElement;
+  el.addEventListener("pointermove", (e) => {
+    if (e.buttons) { el.style.cursor = ""; return; } // órbita em andamento
+    el.style.cursor = pickAt(e) ? "pointer" : "";
+  });
+  el.addEventListener("pointerdown", (e) => {
+    state.pointer.down = true;
+    state.pointer.downX = e.clientX; state.pointer.downY = e.clientY;
+    state.pointer.downT = performance.now();
+  });
+  el.addEventListener("pointerup", (e) => {
+    if (!state.pointer.down) return;
+    state.pointer.down = false;
+    // Distingue clique de órbita: só trata como clique se o ponteiro quase
+    // não andou e o gesto foi curto.
+    if (Math.hypot(e.clientX - state.pointer.downX, e.clientY - state.pointer.downY) > 6 ||
+        performance.now() - state.pointer.downT > 600) {
+      el.style.cursor = "";
+      return;
+    }
+    const node = pickAt(e);
+    if (node) showNodePanel(node); else closeNodePanel();
+  });
+  // Acessível: fecha o painel com Esc.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeNodePanel();
+  });
+}
+
+function ndcFromEvent(e) {
+  const r = state.renderer.domElement.getBoundingClientRect();
+  return new THREE.Vector2(
+    ((e.clientX - r.left) / r.width) * 2 - 1,
+    -((e.clientY - r.top) / r.height) * 2 + 1
+  );
+}
+
+// Retorna o nó REAL sob o ponteiro, ou null. Só intersecta o pickMesh (os
+// marcadores com marker.node) — nunca os ~3600 neurônios genéricos.
+function pickAt(e) {
+  if (!state.raycaster || !state.pickMesh) return null;
+  state.raycaster.setFromCamera(ndcFromEvent(e), state.camera);
+  const hits = state.raycaster.intersectObject(state.pickMesh, false);
+  if (hits.length && hits[0].index != null) return state.pickNodes[hits[0].index] || null;
+  return null;
+}
+
+// Points dedicado (SÓ com os vértices marcados) usado como alvo de raycast.
+// NÃO é adicionado à cena — não renderiza; serve apenas para o picking leve.
+function buildPickMesh() {
+  const positions = [];
+  state.pickNodes = [];
+  for (const n of state.neurons) {
+    if (!n.marker || !n.marker.node) continue; // só nós importantes
+    positions.push(n.pos.x, n.pos.y, n.pos.z);
+    state.pickNodes.push(n.marker.node);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  if (positions.length) geom.computeBoundingSphere(); // early-exit do raycast
+  state.pickMesh = new THREE.Points(geom, new THREE.PointsMaterial({ size: 1 }));
+  state.pickMesh.visible = false;
+}
+
+/* ---------- Painel do agente (DOM, overlay — fora do canvas) ---------- */
+function initNodePanel() {
+  const panel = document.createElement("aside");
+  panel.className = "node-panel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Detalhes do agente");
+  panel.setAttribute("aria-live", "polite");
+  panel.hidden = true;
+  panel.innerHTML = `
+    <header class="node-panel-head">
+      <span class="node-panel-badge" aria-hidden="true"></span>
+      <div class="node-panel-title">
+        <h2 class="node-panel-name"></h2>
+        <p class="node-panel-role"></p>
+      </div>
+      <button type="button" class="node-panel-close" aria-label="Fechar painel">&#215;</button>
+    </header>
+    <div class="node-panel-body"></div>`;
+  document.body.appendChild(panel);
+  state.nodePanel = panel;
+  state.nodePanelName = panel.querySelector(".node-panel-name");
+  state.nodePanelRole = panel.querySelector(".node-panel-role");
+  state.nodePanelBadge = panel.querySelector(".node-panel-badge");
+  state.nodePanelBody = panel.querySelector(".node-panel-body");
+  panel.querySelector(".node-panel-close").addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    closeNodePanel();
+    ev.currentTarget.blur();
+  });
+}
+
+function nodeTierLabel(node) {
+  if (node.is_kernel) return "Kernel — Consigliere";
+  if (node.is_root) return "Don — Patriarca";
+  return node.tier === 1 ? "Tenente" : "Capo";
+}
+function nodeBadgeText(node) {
+  if (node.is_kernel) return "C";
+  if (node.is_root) return "D";
+  const d = (node.department || "").trim();
+  return d ? d.slice(0, 1).toUpperCase() : "A";
+}
+function nodeStatusClass(st) {
+  const s = (st || "").toLowerCase();
+  if (/fail|error|timeout|panic|inactive|down|off/.test(s)) return "is-error";
+  if (/ok|active|done|complete|success/.test(s)) return "is-ok";
+  return "";
+}
+function nodeHighlightBar(node) {
+  if (node.is_kernel) return `<div class="node-highlight is-kernel">Consigliere — o braço direito do Don</div>`;
+  if (node.is_root) return `<div class="node-highlight is-don">Patriarca — a autoridade máxima</div>`;
+  return "";
+}
+
+// Projeção mínima → match fiel da semântica de graph.go: a skill "pertence" ao
+// agente pelo domain === nome (lower). Também acopla department/category para
+// enriquecer o halo — nunca instructions/governance (não estão no payload).
+function relatedSkills(node) {
+  const g = state.graph; if (!g || !g.skills) return [];
+  const targets = new Set([node.id, node.name, node.department]
+    .map((x) => (x || "").toLowerCase()).filter(Boolean));
+  return g.skills.filter((s) => {
+    const d = (s.domain || "").toLowerCase();
+    const cat = (s.category || "").toLowerCase();
+    return targets.has(d) || (cat && targets.has(cat));
+  });
+}
+
+function nodeActivity(node) {
+  const name = (node.name || node.id || "").toLowerCase();
+  const id = (node.id || "").toLowerCase();
+  return (state.activities || []).filter((a) => {
+    const ag = (a.agent || "").toLowerCase();
+    return ag === id || ag === name ||
+      (name && ag.includes(name)) || (id && ag.includes(id));
+  }).slice(0, 4);
+}
+
+function showNodePanel(node) {
+  if (!state.nodePanel || !node) return;
+  state._lastNode = node;
+  state.nodePanelName.textContent = node.name || node.id;
+  state.nodePanelRole.textContent = (node.role || "Agente") + " · " + nodeTierLabel(node);
+  state.nodePanelBadge.textContent = nodeBadgeText(node);
+  const hue = deptHue(node.department); // identidade visual, não dado sensível
+  state.nodePanelBadge.style.color = `hsl(${hue} 85% 74%)`;
+  state.nodePanelBadge.style.borderColor = `hsl(${hue} 70% 62% / 0.45)`;
+  state.nodePanelBadge.style.background = `hsl(${hue} 70% 60% / 0.12)`;
+
+  const skills = relatedSkills(node);
+  const acts = nodeActivity(node);
+  const meta = [
+    ["Departamento", esc(node.department || "—")],
+    ["Reporta a", esc(node.reports_to || "—")],
+    ["Status", `<span class="node-status ${nodeStatusClass(node.status)}">${esc(node.status || "—")}</span>`],
+    ["Skills", `<span class="node-skill-count">${Number(node.skill_count) || 0}</span>`],
+  ];
+
+  state.nodePanelBody.innerHTML = `
+    <dl class="node-meta">
+      ${meta.map(([k, v]) => `<div class="node-meta-row"><dt>${k}</dt><dd>${v}</dd></div>`).join("")}
+    </dl>
+    ${nodeHighlightBar(node)}
+    <section class="node-section">
+      <h3 class="node-section-title">Skills do domínio</h3>
+      ${skills.length ? `<ul class="node-skills">${skills.map((s) => `
+        <li class="node-skill">
+          <div class="node-skill-head">
+            <span class="node-skill-name">${esc(s.name)}</span>
+            <span class="node-skill-cat">${esc(s.category || s.domain || "skill")}</span>
+          </div>
+          <p class="node-skill-desc">${esc(s.description || "sem descrição")}</p>
+        </li>`).join("")}</ul>` : `<p class="node-empty">Nenhuma skill mapeada para este domínio.</p>`}
+    </section>
+    ${acts.length ? `<section class="node-section">
+      <h3 class="node-section-title">Atividade recente</h3>
+      <ul class="node-activity">${acts.map((a) => `
+        <li class="node-act">
+          <span class="node-act-time">${fmtTime(a.at)}</span>
+          <span class="node-act-action">${esc(a.description || a.action || "ação")}</span>
+          <span class="act-status ${statusClass(a.status)}">${esc(a.status || "")}</span>
+        </li>`).join("")}</ul>
+    </section>` : ""}
+  `;
+  state.nodePanel.hidden = false;
+  state.nodePanel.classList.add("is-open");
+  const close = state.nodePanel.querySelector(".node-panel-close");
+  if (close) close.focus({ preventScroll: true });
+}
+
+function closeNodePanel() {
+  if (!state.nodePanel) return;
+  state.nodePanel.hidden = true;
+  state.nodePanel.classList.remove("is-open");
+  state._lastNode = null;
 }
 
 /* ---------- Loop ---------- */
