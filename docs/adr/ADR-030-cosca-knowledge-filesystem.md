@@ -274,11 +274,31 @@ Decision → knowledge_snapshot (ADR-029 §2.4)
 - `knowledge checkout` / `knowledge diff` (diff cognitivo).
 - **Esta é a fase que gera a genealogia, o checkout e o diff cognitivo** — o que o professor enxergou como o diferencial. O CAS/dedup já existe (Fase A); o que dá valor é a **persistência e a navegação** dos snapshots.
 
-### 3.4 Fase D — Separar embeddings do conhecimento + GC 🎯 **PRIORIDADE 2**
+### 3.4 Fase D — Separar embeddings do conhecimento + GC 🎯 **PRIORIDADE 2** (design)
 
-- Estrutura "um objeto, N representações vetoriais" (por modelo).
-- GC cognitivo: objeto sem referência em snapshot ativo → descartável.
-- **Resolve a distinção conhecimento ≠ memória semântica ≠ índice** (ponto do professor). Atualmente os embeddings vivem junto do chunk (derivados); separá-los permite trocar de modelo sem tocar o conhecimento.
+**Objetivo:** um **objeto de conhecimento** `K:<hash>` pode ter **N representações vetoriais** (uma por modelo de embedding), desacopladas do chunk. Hoje o embedding está **acoplado ao chunk** via `vectors.chunk_id` — trocar de modelo exige re-embedar tudo.
+
+**Estado atual (auditado, `internal/vector/sqlite_vec.go:112-122`):** a tabela `vectors` tem `id, vector (BLOB), metadata, document_id, chunk_id, entity_id, content, created_at`. **NÃO tem** campo para o objeto `K:<hash>` nem para o modelo — um vetor pertence a um chunk, e um chunk a um documento.
+
+**Desenho da separação (aditivo, não destrutivo — baseline de recall é o gate):**
+
+```sql
+ALTER TABLE vectors ADD COLUMN source_hash TEXT NOT NULL DEFAULT '';   -- o K:<hash> do objeto
+ALTER TABLE vectors ADD COLUMN embedding_model TEXT NOT NULL DEFAULT ''; -- "nomic-embed-text"
+ALTER TABLE vectors ADD COLUMN embedding_dim INTEGER NOT NULL DEFAULT 0; -- 768
+```
+
+- **Um objeto, N vetores:** a mesma `source_hash` pode ter várias linhas (uma por `embedding_model`/`embedding_dim`). `chunk_id` continua (para a busca híbrida), mas `source_hash` é a chave do conhecimento.
+- **Trocar de modelo ≠ re-embedar conhecimento:** re-embedar gera nova linha `(source_hash, embedding_model=B, dim)` — o conhecimento (`source_hash`) não muda, só a representação.
+- **GC cognitivo:** objeto (objeto content-addressable) sem referência em **nenhum snapshot ativo** → embeddings e chunks associados são descartáveis. Implementar como `cosca knowledge gc` (dry-run primeiro, idempotente, com retenção mínima de safety).
+
+**Requisitos de validação (gate):**
+- `go test ./internal/knowledge/ -count=1 -run BaselineRecall` → score top-1 **idêntico** ao baseline (0.22–0.62) ANTES e DEPOIS.
+- Migração aditiva via `ALTER TABLE` guarded (como a Fase 2A do ADR-029) — bancos antigos continuam funcionando.
+- Teste de unidade: inserir 2 vetores para a mesma `source_hash` com modelos diferentes → ambos indexados, busca híbrida funcionando; GC remove objeto sem snapshot ativo.
+
+> **Decisão pendente do Don (registrada):** ao separar, o `chunk_id` convive com o `source_hash`? Recomendo **aditivo** (mantém ambos) para não quebrar a busca híbrida existente — a separação plena (só `source_hash`) é um passo posterior que exige reindexação completa.<br>
+> **Não delegar a implementação ANTES deste design ser aprovado.** A Fase C teve escopo mínimo definido antes de codar; a D segue o mesmo princípio (baseline + design antes de refactor de zona sensível).
 
 ### 3.5 Fase E — Modules como pacotes (com dependências)
 
