@@ -70,15 +70,16 @@ func buildTestEngine(opts ...Option) *Engine {
 // ─── Teste: inventário de 7 tools ─────────────────────────────────────────
 
 func TestToolsList_HasSevenCognitiveTools(t *testing.T) {
-	tools := NewEngine().Tools()
-	if len(tools) != 7 {
-		t.Fatalf("esperava 7 tools, veio %d (%v)", len(tools), toolNames(tools))
+	eng := buildTestEngine(WithKernel(kernel.NewEmergencyManager()))
+	tools := eng.Tools()
+	if len(tools) != 9 {
+		t.Fatalf("esperava 9 tools, veio %d (%v)", len(tools), toolNames(tools))
 	}
 
-	want := []string{ToolRecall, ToolContext, ToolLearn, ToolObserve, ToolReason, ToolTrace, ToolProject}
+	want := []string{ToolRecall, ToolContext, ToolLearn, ToolObserve, ToolReason, ToolTrace, ToolProject, ToolCost, ToolCLI}
 	got := toolNames(tools)
 	for i, w := range want {
-		if got[i] != w {
+		if i >= len(got) || got[i] != w {
 			t.Fatalf("tools[%d] = %q, esperava %q", i, got[i], w)
 		}
 	}

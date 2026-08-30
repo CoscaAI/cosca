@@ -71,8 +71,7 @@ func TestInitialize_EchoesClientVersion(t *testing.T) {
 	}
 }
 
-func TestToolsList_SevenCognitiveTools(t *testing.T) {
-	out := runServer(t, NewEngine(),
+func TestToolsList_SevenCognitiveTools(t *testing.T) {	out := runServer(t, NewEngine(),
 		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
 	var resp map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
@@ -82,8 +81,8 @@ func TestToolsList_SevenCognitiveTools(t *testing.T) {
 	if err := json.Unmarshal(resp["result"], &result); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
-	if len(result.Tools) != 7 {
-		t.Fatalf("tools/list = %d, esperava 7", len(result.Tools))
+	if len(result.Tools) != 9 {
+		t.Fatalf("tools/list = %d, esperava 9", len(result.Tools))
 	}
 	if result.Tools[0].Name != ToolRecall {
 		t.Fatalf("tools[0].name = %q, esperava compact field", result.Tools[0].Name)

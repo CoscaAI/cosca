@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
+	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/kernel"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
@@ -37,6 +38,8 @@ const (
 	ToolReason  = "cosca.reason"
 	ToolTrace   = "cosca.trace"
 	ToolProject = "cosca.project"
+	ToolCost    = "cosca.cost"
+	ToolCLI     = "cosca.cli"
 )
 
 // VisionFunc é a assinatura de vision.AnalyzeVideo (injetável para teste).
@@ -52,9 +55,19 @@ type Engine struct {
 	Kernel    *kernel.EmergencyManager
 	Trace     *trace.Store
 	Vision    VisionFunc
+	Cost      *cost.Store
+	// CLIExec executa um subconjunto seguro do CLI do COSCA (leitura/gestão),
+	// via NewRootCommand(). Injetado pelo CLI (evita import cycle mcpserver->cli).
+	// Recebe os args (sem o binário) e devolve stdout em string.
+	CLIExec CLIExecFunc
 	// AllowWrite habilita a ÚNICA escrita (cosca.learn) via gate. Read-only-first.
 	AllowWrite bool
 }
+
+// CLIExecFunc executa um comando do CLI do COSCA (allowlist de segurança) e
+// devolve o stdout capturado. Definida no pacote cli e injetada no Engine para
+// o MCP "operar o CLI" sem virar porta dos fundos.
+type CLIExecFunc func(args []string) (string, error)
 
 // ─── Options ───────────────────────────────────────────────────────────────
 
@@ -78,6 +91,12 @@ func WithTrace(ts *trace.Store) Option { return func(e *Engine) { e.Trace = ts }
 
 // WithVision injeta o pipeline de percepção determinística.
 func WithVision(fn VisionFunc) Option { return func(e *Engine) { e.Vision = fn } }
+
+// WithCost injeta o store de custo (ADR-031) para a tool cosca.cost.
+func WithCost(store *cost.Store) Option { return func(e *Engine) { e.Cost = store } }
+
+// WithCLIExec injeta o executor do CLI (allowlist de comandos seguros).
+func WithCLIExec(fn CLIExecFunc) Option { return func(e *Engine) { e.CLIExec = fn } }
 
 // WithAllowWrite habilita a escrita gateada de cosca.learn.
 func WithAllowWrite(v bool) Option { return func(e *Engine) { e.AllowWrite = v } }
@@ -154,6 +173,16 @@ func (e *Engine) Tools() []mcp.ToolInfo {
 			Description: "Orientar — estado do projeto (runtime/health, knowledge stats, memory layers) — 'quem está sendo observado?'.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		},
+		{
+			Name:        ToolCost,
+			Description: "Custar — Token Efficiency (ADR-031): útil work / tokens por agente/task; agregação causal por task com execuções aninhadas (write_file+build juntos).",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"agent":{"type":"string"},"task":{"type":"string"},"tasks":{"type":"boolean"}}}`),
+		},
+		{
+			Name:        ToolCLI,
+			Description: "Operar o CLI do COSCA — executar um subconjunto SEGURO de comandos (leitura/status/gestão) via allowlist; NUNCA execução arbitrária. Passa pelo kernel gate.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"}},"required":["args"]}`),
+		},
 	}
 	return tools
 }
@@ -212,6 +241,10 @@ func (e *Engine) Call(ctx context.Context, name string, args json.RawMessage) (*
 		return e.callTrace(ctx, args)
 	case ToolProject:
 		return e.callProject(ctx)
+	case ToolCost:
+		return e.callCost(ctx, args)
+	case ToolCLI:
+		return e.callCLI(ctx, args)
 	default:
 		return nil, fmt.Errorf("cosca.mcp: tool %q não implementada", name)
 	}
@@ -600,12 +633,181 @@ func (e *Engine) callProject(ctx context.Context) (*CallResult, error) {
 	return resultFromPacket(packet), nil
 }
 
+// ─── Tool: cosca.cost (Token Efficiency — ADR-031) ────────────────────────
+
+type costArgs struct {
+	Agent string `json:"agent"`
+	Task  string `json:"task"`
+	Tasks bool   `json:"tasks"`
+}
+
+func (e *Engine) callCost(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	if e.Cost == nil {
+		return nil, fmt.Errorf("cosca.cost: cost store indisponível (sem órgão de custo)")
+	}
+	args, err := parseArgs[costArgs](raw)
+	if err != nil {
+		return nil, err
+	}
+
+	records, lErr := e.Cost.Load()
+	if lErr != nil {
+		return nil, fmt.Errorf("cosca.cost: falha ao ler records: %w", lErr)
+	}
+
+	// Filtro por agente/task (se informado).
+	filtered := records
+	if args.Agent != "" || args.Task != "" {
+		filtered = make([]cost.Record, 0, len(records))
+		for _, r := range records {
+			if args.Agent != "" && r.AgentID != args.Agent {
+				continue
+			}
+			if args.Task != "" && r.TaskID != args.Task {
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+	}
+
+	// Agregação: por task (causal, com execuções aninhadas) ou por gruo.
+	type costPayload struct {
+		Runs        int             `json:"runs"`
+		TokensTotal int             `json:"tokens_total"`
+		UsefulWork  float64         `json:"useful_work"`
+		Efficiency  float64         `json:"efficiency"`
+		KnowledgeGain float64       `json:"knowledge_gain"`
+		TaskProgress  float64       `json:"task_progress"`
+		ArtifactValue int           `json:"artifact_value"`
+		EvidenceGain  int           `json:"evidence_gain"`
+		DecisionGain  int           `json:"decision_gain"`
+		Tasks         []cost.TaskRecord `json:"tasks,omitempty"`
+		Grouped       []cost.Summary    `json:"grouped,omitempty"`
+	}
+
+	payload := costPayload{}
+	if args.Tasks {
+		payload.Tasks = cost.AggregateTasks(filtered)
+		for _, t := range payload.Tasks {
+			payload.Runs += t.Runs
+			payload.TokensTotal += t.TokensTotal
+			payload.UsefulWork += t.UsefulWork()
+			payload.KnowledgeGain += t.KnowledgeGain
+			payload.TaskProgress += t.TaskProgress
+			payload.ArtifactValue += t.ArtifactValue
+			payload.EvidenceGain += t.EvidenceGain
+			payload.DecisionGain += t.DecisionGain
+		}
+	} else {
+		rep := cost.Aggregate(filtered)
+		payload.Grouped = rep.Grouped
+		payload.Runs = rep.Runs
+		payload.TokensTotal = rep.Total.TokensTotal
+		payload.UsefulWork = rep.Total.UsefulWork()
+		payload.KnowledgeGain = rep.Total.KnowledgeGain
+		payload.TaskProgress = rep.Total.TaskProgress
+		payload.ArtifactValue = rep.Total.ArtifactValue
+		payload.EvidenceGain = rep.Total.EvidenceGain
+		payload.DecisionGain = rep.Total.DecisionGain
+	}
+	if payload.TokensTotal > 0 {
+		payload.Efficiency = payload.UsefulWork / float64(payload.TokensTotal)
+	}
+
+	rawOut, _ := json.Marshal(payload)
+	return &CallResult{
+		Content: []ContentItem{{Type: "text", Text: string(rawOut)}},
+	}, nil
+}
+
+// ─── Tool: cosca.cli (operar o CLI com allowlist SEGURA) ─────────────────
+
+type cliArgs struct {
+	Args []string `json:"args"`
+	Cwd  string   `json:"cwd"`
+}
+
+// allowedCLIRoot é a allowlist de comandos do CLI que o MCP pode operar.
+// Somente comandos de LEITURA/GESTÃO (sem executar código de agente, sem
+// escrita destrutiva). NUNCA liberar execução arbitrária (ex: run/exec
+// pertencem ao runtime, não ao MCP). Falha-closed: comando fora da lista
+// → erro, NUNCA executa.
+var allowedCLIRoot = map[string]bool{
+	"status":     true,
+	"doctor":     true,
+	"health":     true,
+	"version":    true,
+	"capability": true,
+	"cost":       true,
+	"budget":     true,
+	"agent":      true,
+	"skill":      true,
+	"memory":     true,
+	"knowledge":  true,
+	"trace":      true,
+	"provider":   true,
+	"model":      true,
+	"hardware":   true,
+	"machine":    true,
+	"project":    true,
+}
+
+func (e *Engine) callCLI(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
+	if e.CLIExec == nil {
+		return nil, fmt.Errorf("cosca.cli: executor do CLI indisponível (não injetado)")
+	}
+	args, err := parseArgs[cliArgs](raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(args.Args) == 0 {
+		return &CallResult{
+			IsError: true,
+			Content: []ContentItem{{Type: "text", Text: "cosca.cli: 'args' é obrigatório (ex.: [\"status\"])"}},
+		}, nil
+	}
+
+	// Allowlist default-deny: o primeiro arg (comando raiz) deve estar na lista.
+	root := strings.ToLower(strings.TrimSpace(args.Args[0]))
+	if !allowedCLIRoot[root] {
+		return &CallResult{
+			IsError: true,
+			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: comando %q não permitido (allowlist default-deny). Comandos permitidos: status, doctor, health, version, capability, cost, budget, agent, skill, memory, knowledge, trace, provider, model, hardware, machine, project", root)}},
+		}, nil
+	}
+
+	// Kernel gate (kill-switch) — mesmo padrão fail-closed do Call.
+	if e.Kernel != nil && e.Kernel.IsHalted() {
+		return &CallResult{
+			IsError: true,
+			Content: []ContentItem{{Type: "text", Text: "cosca.cli: kernel kill-switch ativo — execução bloqueada"}},
+		}, nil
+	}
+
+	// Executa via CLIExec (que roda o NewRootCommand com os args).
+	var out string
+	if args.Cwd != "" {
+		out, err = e.CLIExec(append([]string{"--root", args.Cwd}, args.Args...))
+	} else {
+		out, err = e.CLIExec(args.Args)
+	}
+	if err != nil {
+		return &CallResult{
+			IsError: true,
+			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: execução falhou: %v", err)}},
+		}, nil
+	}
+
+	return &CallResult{
+		Content: []ContentItem{{Type: "text", Text: out}},
+	}, nil
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 // parseArgs decodifica os arguments JSON de uma tool call em um struct
 // tipado, com erro claro (%w). JSON inválido → erro.
-func parseArgs[T any](raw json.RawMessage) (T, error) {
-	var args T
+func parseArgs[T any](raw json.RawMessage) (T, error) {	var args T
 	if len(raw) == 0 {
 		return args, nil
 	}
