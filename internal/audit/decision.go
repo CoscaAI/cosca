@@ -52,6 +52,14 @@ type DecisionRecord struct {
 	Rollback      string   `json:"rollback"`
 	Timestamp     int64    `json:"timestamp"`
 	Status        string   `json:"status"` // approved|rejected|executed|rolled-back
+
+	// KnowledgeSnapshot (Fase 2A, ADR-029 §2.4) identifica o snapshot do
+	// conhecimento/memória que estava carregado no momento da decisão. Responde
+	// deterministicamente "qual conhecimento o cérebro tinha quando decidiu?".
+	// O caller normalmente a preenche via ResolveKnowledgeSnapshot (best-effort);
+	// vazio ("") é válido e significa que o snapshot não pôde ser resolvido.
+	KnowledgeSnapshot string `json:"knowledge_snapshot"` // ex: ks_2026_08_29_001
+	MemorySnapshot    string `json:"memory_snapshot"`    // hash/id do snapshot de memória, quando disponível
 }
 
 // DecisionStore é um armazenamento thread-safe, SQLite-backed, da trilha de
@@ -100,29 +108,97 @@ func NewDecisionStore(dbPath string) (*DecisionStore, error) {
 
 // migrate cria a tabela decision_log e os índices se não existirem
 // (auto-migração no open). Colunas de lista são armazenadas como JSON text.
+//
+// Fase 2A (ADR-029 §2.4): a tabela carrega knowledge_snapshot/memory_snapshot.
+// Para bancos JÁ criados (antes da Fase 2A) as colunas são adicionadas de forma
+// idempotente via ALTER TABLE guarded por PRAGMA table_info — nunca quebra uma
+// base existente.
 func (s *DecisionStore) migrate() error {
 	ddl := `
 	CREATE TABLE IF NOT EXISTS decision_log (
-		decision_id    TEXT PRIMARY KEY,
-		input          TEXT NOT NULL DEFAULT '',
-		knowledge_used TEXT NOT NULL DEFAULT '[]',
-		laws_applied   TEXT NOT NULL DEFAULT '[]',
-		evidence       TEXT NOT NULL DEFAULT '[]',
-		provider       TEXT NOT NULL DEFAULT '',
-		model          TEXT NOT NULL DEFAULT '',
-		approval       TEXT NOT NULL DEFAULT '',
-		result         TEXT NOT NULL DEFAULT '',
-		rollback       TEXT NOT NULL DEFAULT '',
-		timestamp      INTEGER NOT NULL,
-		status         TEXT NOT NULL DEFAULT 'executed'
+		decision_id         TEXT PRIMARY KEY,
+		input               TEXT NOT NULL DEFAULT '',
+		knowledge_used      TEXT NOT NULL DEFAULT '[]',
+		laws_applied        TEXT NOT NULL DEFAULT '[]',
+		evidence            TEXT NOT NULL DEFAULT '[]',
+		provider            TEXT NOT NULL DEFAULT '',
+		model               TEXT NOT NULL DEFAULT '',
+		approval            TEXT NOT NULL DEFAULT '',
+		result              TEXT NOT NULL DEFAULT '',
+		rollback            TEXT NOT NULL DEFAULT '',
+		timestamp           INTEGER NOT NULL,
+		status              TEXT NOT NULL DEFAULT 'executed',
+		knowledge_snapshot  TEXT NOT NULL DEFAULT '',
+		memory_snapshot     TEXT NOT NULL DEFAULT ''
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_decision_timestamp ON decision_log(timestamp);
 	CREATE INDEX IF NOT EXISTS idx_decision_status    ON decision_log(status);
 	`
 
-	_, err := s.db.Exec(ddl)
-	return err
+	if _, err := s.db.Exec(ddl); err != nil {
+		return fmt.Errorf("create decision_log table: %w", err)
+	}
+
+	// Retro-compatibilidade: bancos criados antes da Fase 2A não têm as colunas
+	// de snapshot — adiciona-as de forma idempotente (best-effort, sem quebrar).
+	if err := s.addColumnIfMissing("decision_log", "knowledge_snapshot", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing("decision_log", "memory_snapshot", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// addColumnIfMissing adiciona a coluna `name` (com a declaração `decl`) à tabela
+// `table` SE ela ainda não existir. Idempotente: reabrir uma base já migrada não
+// altera nada. Usa PRAGMA table_info para inspecionar as colunas existentes.
+func (s *DecisionStore) addColumnIfMissing(table, name, decl string) error {
+	exists, err := s.columnExists(table, name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	// Nome/declaração de coluna vêm de constantes internas — não é input de
+	// usuário, então interpolar é seguro (sem risco de SQL injection).
+	if _, err := s.db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, name, decl)); err != nil {
+		return fmt.Errorf("add column %s to %s: %w", name, table, err)
+	}
+	return nil
+}
+
+// columnExists informa se a coluna `name` existe na tabela `table`.
+func (s *DecisionStore) columnExists(table, name string) (bool, error) {
+	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false, fmt.Errorf("pragmas table_info(%s): %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid       int
+			colName   string
+			colType   string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &colName, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return false, fmt.Errorf("scan table_info(%s): %w", table, err)
+		}
+		if colName == name {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate table_info(%s): %w", table, err)
+	}
+	return false, nil
 }
 
 // Record persiste uma decisão na trilha. Se a DecisionID estiver vazia,
@@ -163,11 +239,12 @@ func (s *DecisionStore) Record(d DecisionRecord) (string, error) {
 	_, err = s.db.Exec(
 		`INSERT OR REPLACE INTO decision_log
 		 (decision_id, input, knowledge_used, laws_applied, evidence, provider,
-		  model, approval, result, rollback, timestamp, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  model, approval, result, rollback, timestamp, status,
+		  knowledge_snapshot, memory_snapshot)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		d.DecisionID, d.Input, string(ku), string(la), string(ev),
 		d.Provider, d.Model, d.Approval, d.Result, d.Rollback,
-		d.Timestamp, d.Status,
+		d.Timestamp, d.Status, d.KnowledgeSnapshot, d.MemorySnapshot,
 	)
 	if err != nil {
 		return "", fmt.Errorf("record decision: %w", err)
@@ -191,11 +268,13 @@ func (s *DecisionStore) Get(id string) (*DecisionRecord, error) {
 	var ku, la, ev string
 	err = s.db.QueryRow(
 		`SELECT decision_id, input, knowledge_used, laws_applied, evidence,
-		        provider, model, approval, result, rollback, timestamp, status
+		        provider, model, approval, result, rollback, timestamp, status,
+		        knowledge_snapshot, memory_snapshot
 		 FROM decision_log WHERE decision_id = ?`,
 		norm,
 	).Scan(&d.DecisionID, &d.Input, &ku, &la, &ev, &d.Provider,
-		&d.Model, &d.Approval, &d.Result, &d.Rollback, &d.Timestamp, &d.Status)
+		&d.Model, &d.Approval, &d.Result, &d.Rollback, &d.Timestamp, &d.Status,
+		&d.KnowledgeSnapshot, &d.MemorySnapshot)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -232,7 +311,8 @@ func (s *DecisionStore) List(limit int) ([]DecisionRecord, error) {
 
 	rows, err := s.db.Query(
 		`SELECT decision_id, input, knowledge_used, laws_applied, evidence,
-		        provider, model, approval, result, rollback, timestamp, status
+		        provider, model, approval, result, rollback, timestamp, status,
+		        knowledge_snapshot, memory_snapshot
 		 FROM decision_log ORDER BY timestamp DESC, decision_id DESC LIMIT ?`,
 		limit,
 	)
@@ -247,7 +327,7 @@ func (s *DecisionStore) List(limit int) ([]DecisionRecord, error) {
 		var ku, la, ev string
 		if err := rows.Scan(&d.DecisionID, &d.Input, &ku, &la, &ev,
 			&d.Provider, &d.Model, &d.Approval, &d.Result, &d.Rollback,
-			&d.Timestamp, &d.Status); err != nil {
+			&d.Timestamp, &d.Status, &d.KnowledgeSnapshot, &d.MemorySnapshot); err != nil {
 			return nil, fmt.Errorf("scan decision: %w", err)
 		}
 		if err := json.Unmarshal([]byte(ku), &d.KnowledgeUsed); err != nil {

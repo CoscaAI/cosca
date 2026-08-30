@@ -1,11 +1,14 @@
 package audit_test
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/CoscaAI/cosca/internal/audit"
+
+	_ "modernc.org/sqlite" // raw SQLite driver for the pre-Fase-2A schema test
 )
 
 // newDecisionStoreTest abre um DecisionStore temporário para testes.
@@ -371,5 +374,197 @@ func TestDecisionStore_NewDecisionStoreFailsOnBadPath(t *testing.T) {
 	if err == nil {
 		_ = store.Close()
 		t.Fatalf("expected error for bad path %q", bad)
+	}
+}
+
+// =============================================================================
+// Fase 2A (ADR-029 §2.4): conhecimento/snapshot de memória vinculado à decisão
+// =============================================================================
+
+// TestDecisionStore_SnapshotFieldsPersist verifica que uma decisão gravada com
+// KnowledgeSnapshot/MemorySnapshot preenchidos persiste e é recuperada.
+func TestDecisionStore_SnapshotFieldsPersist(t *testing.T) {
+	store := newDecisionStoreTest(t)
+
+	id, err := store.Record(audit.DecisionRecord{
+		Input:             "Aplicar a Lei P9 no workflow de deploy",
+		KnowledgeSnapshot: "ks_2026_08_29_001",
+		MemorySnapshot:    "sha256:9f8e7c9b5a3d",
+		Timestamp:         200, // mais recente → vem primeiro na List
+		Status:            "approved",
+	})
+	if err != nil {
+		t.Fatalf("Record() error: %v", err)
+	}
+
+	got, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("Get() error: %v", err)
+	}
+	if got == nil {
+		t.Fatal("Get returned nil")
+	}
+	if got.KnowledgeSnapshot != "ks_2026_08_29_001" {
+		t.Errorf("KnowledgeSnapshot = %q, want ks_2026_08_29_001", got.KnowledgeSnapshot)
+	}
+	if got.MemorySnapshot != "sha256:9f8e7c9b5a3d" {
+		t.Errorf("MemorySnapshot = %q, want sha256:9f8e7c9b5a3d", got.MemorySnapshot)
+	}
+
+	// Sem snapshot (default "") também deve persistir como vazio — nunca nil panic.
+	id2, err := store.Record(audit.DecisionRecord{
+		Input:     "decisão sem snapshot",
+		Timestamp: 100,
+		Status:    "executed",
+	})
+	if err != nil {
+		t.Fatalf("Record() without snapshot error: %v", err)
+	}
+	got2, err := store.Get(id2)
+	if err != nil {
+		t.Fatalf("Get() without snapshot error: %v", err)
+	}
+	if got2.KnowledgeSnapshot != "" || got2.MemorySnapshot != "" {
+		t.Errorf("expected empty snapshots, got %q/%q", got2.KnowledgeSnapshot, got2.MemorySnapshot)
+	}
+
+	// List também expõe os campos de snapshot.
+	records, err := store.List(10)
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("List len = %d, want 2", len(records))
+	}
+	if records[0].KnowledgeSnapshot != "ks_2026_08_29_001" {
+		t.Errorf("List[0].KnowledgeSnapshot = %q, want ks_2026_08_29_001", records[0].KnowledgeSnapshot)
+	}
+}
+
+// TestDecisionStore_MigratesLegacyDB verifica que um banco criado ANTES da Fase
+// 2A (sem as colunas knowledge_snapshot/memory_snapshot) ainda migra de forma
+// idempotente e passa a gravar/ler os novos campos sem perder dados antigos.
+func TestDecisionStore_MigratesLegacyDB(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "audit.db")
+
+	// Cria a base com o esquema LEGADO (pré-Fase 2A) e uma linha antiga.
+	legacyDDL := `
+	CREATE TABLE decision_log (
+		decision_id    TEXT PRIMARY KEY,
+		input          TEXT NOT NULL DEFAULT '',
+		knowledge_used TEXT NOT NULL DEFAULT '[]',
+		laws_applied   TEXT NOT NULL DEFAULT '[]',
+		evidence       TEXT NOT NULL DEFAULT '[]',
+		provider       TEXT NOT NULL DEFAULT '',
+		model          TEXT NOT NULL DEFAULT '',
+		approval       TEXT NOT NULL DEFAULT '',
+		result         TEXT NOT NULL DEFAULT '',
+		rollback       TEXT NOT NULL DEFAULT '',
+		timestamp      INTEGER NOT NULL,
+		status         TEXT NOT NULL DEFAULT 'executed'
+	);`
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw sqlite: %v", err)
+	}
+	if _, err := raw.Exec(legacyDDL); err != nil {
+		_ = raw.Close()
+		t.Fatalf("create legacy schema: %v", err)
+	}
+	if _, err := raw.Exec(
+		`INSERT INTO decision_log (decision_id, input, timestamp, status)
+		 VALUES (?, ?, ?, ?)`, "D-0007", "legado", int64(111), "executed"); err != nil {
+		_ = raw.Close()
+		t.Fatalf("insert legacy row: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw sqlite: %v", err)
+	}
+
+	// Reabrir via DecisionStore deve migrar (adicionar as colunas) sem erro.
+	store, err := audit.NewDecisionStore(dbPath)
+	if err != nil {
+		t.Fatalf("NewDecisionStore() on legacy db error: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	// A linha antiga sobrevive e ganha snapshot vazio (default).
+	gotLegacy, err := store.Get("D-0007")
+	if err != nil {
+		t.Fatalf("Get legacy row error: %v", err)
+	}
+	if gotLegacy == nil || gotLegacy.Input != "legado" {
+		t.Fatalf("legacy row corrupted: %+v", gotLegacy)
+	}
+	if gotLegacy.KnowledgeSnapshot != "" || gotLegacy.MemorySnapshot != "" {
+		t.Errorf("legacy row should default snapshots to empty, got %q/%q",
+			gotLegacy.KnowledgeSnapshot, gotLegacy.MemorySnapshot)
+	}
+
+	// Nova gravação com snapshot funciona na base migrada.
+	id, err := store.Record(audit.DecisionRecord{
+		Input:             "nova decisão pós-migração",
+		KnowledgeSnapshot: "ks_2026_08_29_002",
+		Status:            "approved",
+	})
+	if err != nil {
+		t.Fatalf("Record() post-migration error: %v", err)
+	}
+	got, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("Get() post-migration error: %v", err)
+	}
+	if got.KnowledgeSnapshot != "ks_2026_08_29_002" {
+		t.Errorf("KnowledgeSnapshot = %q, want ks_2026_08_29_002", got.KnowledgeSnapshot)
+	}
+
+	// Reabrir de novo deve ser idempotente (não re-ALTERA nem quebra).
+	store2, err := audit.NewDecisionStore(dbPath)
+	if err != nil {
+		t.Fatalf("reopen migrated db error: %v", err)
+	}
+	defer func() { _ = store2.Close() }()
+	if _, err := store2.Record(audit.DecisionRecord{Input: "reopen", Status: "executed"}); err != nil {
+		t.Fatalf("Record() after reopen error: %v", err)
+	}
+}
+
+// TestResolveKnowledgeSnapshot_MissingLock verifica que ResolveKnowledgeSnapshot
+// retorna "" (best-effort) quando o lock não existe.
+func TestResolveKnowledgeSnapshot_MissingLock(t *testing.T) {
+	coscaDir := t.TempDir() // sem knowledge/lock.yaml
+	if got := audit.ResolveKnowledgeSnapshot(coscaDir); got != "" {
+		t.Errorf("ResolveKnowledgeSnapshot() = %q, want \"\" for missing lock", got)
+	}
+}
+
+// TestResolveKnowledgeSnapshot_ExtractsID verifica que a função lê o id do
+// snapshot a partir do lock existente e tolera lock malformado/ausente.
+func TestResolveKnowledgeSnapshot_ExtractsID(t *testing.T) {
+	coscaDir := t.TempDir()
+	lockDir := filepath.Join(coscaDir, "knowledge")
+	if err := os.MkdirAll(lockDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	lock := []byte("schema_version: 1\nknowledge_snapshot: ks_2026_08_29_001\n")
+	if err := os.WriteFile(filepath.Join(lockDir, "lock.yaml"), lock, 0o644); err != nil {
+		t.Fatalf("write lock: %v", err)
+	}
+	if got := audit.ResolveKnowledgeSnapshot(coscaDir); got != "ks_2026_08_29_001" {
+		t.Errorf("ResolveKnowledgeSnapshot() = %q, want ks_2026_08_29_001", got)
+	}
+
+	// Lock malformado → best-effort "".
+	if err := os.WriteFile(filepath.Join(lockDir, "lock.yaml"), []byte("<<< :::"), 0o644); err != nil {
+		t.Fatalf("write malformed lock: %v", err)
+	}
+	if got := audit.ResolveKnowledgeSnapshot(coscaDir); got != "" {
+		t.Errorf("ResolveKnowledgeSnapshot(malformed) = %q, want \"\"", got)
+	}
+
+	// Caminho vazio → "".
+	if got := audit.ResolveKnowledgeSnapshot(""); got != "" {
+		t.Errorf("ResolveKnowledgeSnapshot(\"\") = %q, want \"\"", got)
 	}
 }

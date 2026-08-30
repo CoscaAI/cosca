@@ -413,7 +413,7 @@ func recordDecision(cmd *cobra.Command, coscaDir string, plan *estimator.Executi
 	defer func() { _ = store.Close() }()
 
 	rec := audit.DecisionRecord{
-		Input:         plan.String(),
+		Input:       plan.String(),
 		KnowledgeUsed: []string{},
 		LawsApplied:   []string{},
 		Evidence:      []string{},
@@ -423,6 +423,10 @@ func recordDecision(cmd *cobra.Command, coscaDir string, plan *estimator.Executi
 		Result:        testResult,
 		Rollback:      plan.RollbackDetail,
 		Status:        "approved",
+		// Fase 2A (ADR-029 §2.4): amarra a decisão ao snapshot de conhecimento
+		// vigente — "qual conhecimento o cérebro tinha quando o Don aprovou?".
+		// Best-effort: se o lock não existir, fica vazio e a decisão ainda grava.
+		KnowledgeSnapshot: audit.ResolveKnowledgeSnapshot(coscaDir),
 	}
 
 	id, err := store.Record(rec)
