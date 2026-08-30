@@ -1,0 +1,284 @@
+// Package cost instrumenta a métrica de TokenEfficiency do ADR-031 (Frente 1):
+// o "useful work" decomposto por execução + o relatório `cosca cost`.
+//
+// A métrica-guia é Useful Work / Tokens, onde "useful work" é DECOMPOSTO em
+// dimensões (knowledge_gain, task_progress, artifact_value, evidence_gain,
+// decision_gain) — nunca uma métrica única (revisão do professor: só
+// knowledge_gain ensinaria "só vale aprender").
+//
+// A persistência é um arquivo JSONL append-only em `.cosca/cost/records.jsonl`
+// (runtime, gitignored): cada linha é um Record de uma execução. O `cosca cost`
+// lê esse arquivo, agrega por (agent_id, task_id) e reporta tokens + vetor de
+// valor + a métrica Useful Work / Tokens.
+//
+// FASE 0 — LIMITAÇÃO HONESTA: a decomposição do uso (base/contexto/tools/
+// history/cached/delegated) ainda NÃO existe no motor. Os campos do Record
+// existem (zero-default) para a saída decomposta, mas hoje só input/output são
+// preenchidos de verdade — decompor o uso é a Fase 0.1.
+package cost
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"time"
+)
+
+// RecordsDir é o subdiretório de runtime (relativo a `.cosca`) que guarda o
+// log de custo. Gitignored como os outros derivados.
+const RecordsDir = "cost"
+
+// RecordsFile é o arquivo JSONL append-only dentro de RecordsDir.
+const RecordsFile = "records.jsonl"
+
+// Record é uma execução registrada — espelha o vetor do ADR-031 (Frente 1).
+// Campos novos são opcionais (omitempty/zero-default) para não quebrar nenhuma
+// fonte existente; a leitura tolera linhas de versões anteriores.
+type Record struct {
+	// AgentID — agente que executou (ex.: "cosca-backend").
+	AgentID string `json:"agent_id,omitempty"`
+
+	// TaskID — identificador da tarefa/execução (ex.: trace_id ou um id).
+	TaskID string `json:"task_id,omitempty"`
+
+	// Model — modelo usado (opcional).
+	Model string `json:"model,omitempty"`
+
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+	TokensTotal  int `json:"tokens_total"`
+
+	// Decomposição do uso (Fase 0.1) — hoje NÃO preenchidos pelo motor; os
+	// campos existem para a SAÍDA DECOMPOSTA assim que a Fase 0.1 for feita.
+	ContextTokens  int `json:"context_tokens,omitempty"`
+	ToolTokens     int `json:"tool_tokens,omitempty"`
+	HistoryTokens  int `json:"history_tokens,omitempty"`
+	SystemTokens   int `json:"system_tokens,omitempty"`
+	CachedTokens   int `json:"cached_tokens,omitempty"`
+	DelegatedTokens int `json:"delegated_tokens,omitempty"`
+
+	// DurationMs — duração da execução.
+	DurationMs int64 `json:"duration_ms,omitempty"`
+
+	// Result — resultado curto da execução (NUNCA a resposta completa).
+	Result string `json:"result,omitempty"`
+
+	// Useful Work — DECOMPOSTO em dimensões (não uma métrica única).
+	KnowledgeGain float64 `json:"knowledge_gain,omitempty"`
+	TaskProgress  float64 `json:"task_progress,omitempty"`
+	ArtifactValue int     `json:"artifact_value,omitempty"`
+	EvidenceGain  int     `json:"evidence_gain,omitempty"`
+	DecisionGain  int     `json:"decision_gain,omitempty"`
+
+	// At — quando a execução foi registrada.
+	At time.Time `json:"at,omitempty"`
+}
+
+// UsefulWork devolve a soma das dimensões do vetor de valor.
+func (r Record) UsefulWork() float64 {
+	return r.KnowledgeGain + r.TaskProgress +
+		float64(r.ArtifactValue) + float64(r.EvidenceGain) + float64(r.DecisionGain)
+}
+
+// Efficiency devolve a métrica Useful Work / Tokens (tokens_total). Retorna 0
+// quando nenhum token foi consumido.
+func (r Record) Efficiency() float64 {
+	if r.TokensTotal <= 0 {
+		return 0
+	}
+	return r.UsefulWork() / float64(r.TokensTotal)
+}
+
+// Validate aplica a invariância do professor: quando InputTokens e OutputTokens
+// estão disponíveis, TokensTotal DEVE ser igual à soma (senão a métrica de
+// eficiência fica inconsistente). Não rejeita o registro (a telemetria não
+// derruba a execução) — apenas reporta o desvio para caiçar no load/relatório.
+//
+// Retorna "" quando consistente; um descreve o desvio quando não.
+func (r Record) Validate() string {
+	sum := r.InputTokens + r.OutputTokens
+	if sum == 0 {
+		return "" // nada preenchido — sem o que validar
+	}
+	if r.TokensTotal != sum {
+		return fmt.Sprintf("tokens_total(%d) != input(%d)+output(%d)", r.TokensTotal, r.InputTokens, r.OutputTokens)
+	}
+	return ""
+}
+
+// Store é o log de custo (JSONL append-only) em `.cosca/cost/`.
+type Store struct {
+	dir string
+}
+
+// NewStore cria um Store apontando para o diretório dado (ex.: `.cosca/cost`).
+func NewStore(dir string) *Store {
+	return &Store{dir: dir}
+}
+
+// ForCoscaDir cria o Store a partir do diretório `.cosca` do projeto.
+func ForCoscaDir(coscaDir string) *Store {
+	return NewStore(filepath.Join(coscaDir, RecordsDir))
+}
+
+// RecordsPath devolve o caminho do arquivo JSONL.
+func (s *Store) RecordsPath() string {
+	return filepath.Join(s.dir, RecordsFile)
+}
+
+// Append registra uma execução como uma linha JSONL (append-only). Best-effort:
+// nunca deve falhar a execução que o registra.
+func (s *Store) Append(r Record) error {
+	if err := os.MkdirAll(s.dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(s.RecordsPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	line, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(line, '\n'))
+	return err
+}
+
+// Load lê todas as execuções registradas (JSONL). Arquivo inexistente → lista
+// vazia. Linhas inválidas são ignoradas (a telemetria não pode derrubar o
+// relatório por uma linha corrompida).
+func (s *Store) Load() ([]Record, error) {
+	data, err := os.ReadFile(s.RecordsPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var recs []Record
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		var r Record
+		if err := json.Unmarshal(line, &r); err != nil {
+			continue // nunca derrubar o relatório por uma linha corrompida
+		}
+		recs = append(recs, r)
+	}
+	return recs, scanner.Err()
+}
+
+// Summary é a agregação por (agent_id, task_id): soma os tokens, o vetor de
+// valor e a duração de todas as execuções registradas para o mesmo grupo.
+type Summary struct {
+	AgentID     string `json:"agent_id"`
+	TaskID      string `json:"task_id"`
+	Runs        int    `json:"runs"`
+	TokensTotal int    `json:"tokens_total"`
+	DurationMs  int64  `json:"duration_ms"`
+
+	KnowledgeGain float64 `json:"knowledge_gain"`
+	TaskProgress  float64 `json:"task_progress"`
+	ArtifactValue int     `json:"artifact_value"`
+	EvidenceGain  int     `json:"evidence_gain"`
+	DecisionGain  int     `json:"decision_gain"`
+}
+
+// UsefulWork devolve a soma das dimensões do vetor de valor do grupo.
+func (s Summary) UsefulWork() float64 {
+	return s.KnowledgeGain + s.TaskProgress +
+		float64(s.ArtifactValue) + float64(s.EvidenceGain) + float64(s.DecisionGain)
+}
+
+// Efficiency devolve a métrica Useful Work / Tokens do grupo (0 quando sem
+// tokens consumidos).
+func (s Summary) Efficiency() float64 {
+	if s.TokensTotal <= 0 {
+		return 0
+	}
+	return s.UsefulWork() / float64(s.TokensTotal)
+}
+
+// Report é a saída agregada do `cosca cost`.
+type Report struct {
+	// Grouped — agregação por (agent_id, task_id), ordenada por tokens desc.
+	Grouped []Summary `json:"grouped"`
+
+	// Total — totais de TODAS as execuções registradas.
+	Total Summary `json:"total"`
+
+	// Runs — total de execuções registradas.
+	Runs int `json:"runs"`
+
+	// Commands — comandos que geraram os registros (para a SAÍDA DECOMPOSTA:
+	// o vetor de valor por execução). Limitado a 100 execuções por legibilidade.
+	Commands []Record `json:"commands,omitempty"`
+
+	// Decomposed — true quando a decomposição do uso (contexto/tools/history)
+	// está preenchida. Fase 0: false (é a limitação documentada).
+	Decomposed bool `json:"decomposed"`
+}
+
+// Aggregate agrupa as execuções por (agent_id, task_id) e computa a métrica.
+// A ordenação é por tokens totais desc (as execuções que "gastaram muito"
+// aparecem primeiro). Execuções sem agent_id/task_id caem em "".
+func Aggregate(records []Record) *Report {
+	rep := &Report{Runs: len(records)}
+	keyed := make(map[string]*Summary)
+	order := make([]string, 0)
+
+	for _, r := range records {
+		key := r.AgentID + "\x00" + r.TaskID
+		s, ok := keyed[key]
+		if !ok {
+			s = &Summary{AgentID: r.AgentID, TaskID: r.TaskID}
+			keyed[key] = s
+			order = append(order, key)
+		}
+		s.Runs++
+		s.TokensTotal += r.TokensTotal
+		s.DurationMs += r.DurationMs
+		s.KnowledgeGain += r.KnowledgeGain
+		s.TaskProgress += r.TaskProgress
+		s.ArtifactValue += r.ArtifactValue
+		s.EvidenceGain += r.EvidenceGain
+		s.DecisionGain += r.DecisionGain
+
+		rep.Total.Runs++
+		rep.Total.TokensTotal += r.TokensTotal
+		rep.Total.DurationMs += r.DurationMs
+		rep.Total.KnowledgeGain += r.KnowledgeGain
+		rep.Total.TaskProgress += r.TaskProgress
+		rep.Total.ArtifactValue += r.ArtifactValue
+		rep.Total.EvidenceGain += r.EvidenceGain
+		rep.Total.DecisionGain += r.DecisionGain
+
+		// SAÍDA DECOMPOSTA: preservar execuções individuais (limitado a 100).
+		if len(rep.Commands) < 100 {
+			rep.Commands = append(rep.Commands, r)
+		}
+
+		// A decomposição real existe apenas se algum campo de breakdown > 0
+		// aparecer (Fase 0.1). No Fase 0 isso é sempre false — limitação
+		// honesta reportada na saída.
+		if r.ContextTokens > 0 || r.ToolTokens > 0 || r.HistoryTokens > 0 {
+			rep.Decomposed = true
+		}
+	}
+
+	for _, key := range order {
+		rep.Grouped = append(rep.Grouped, *keyed[key])
+	}
+	sort.SliceStable(rep.Grouped, func(i, j int) bool {
+		return rep.Grouped[i].TokensTotal > rep.Grouped[j].TokensTotal
+	})
+	return rep
+}

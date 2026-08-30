@@ -25,6 +25,9 @@
 .cosca/knowledge/snapshots/
 .cosca/knowledge/refs/
 
+# ADR-031 Fase 0 — log de custo/token (append-only, runtime derivado)
+.cosca/cost/
+
 # Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
 *.db-wal
 *.db-shm

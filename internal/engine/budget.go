@@ -41,12 +41,78 @@ func DefaultCognitiveBudget() CognitiveBudget {
 	}
 }
 
+// UsefulWork é o vetor de valor decomposto de uma execução — "useful work"
+// NÃO é uma métrica única (ADR-031): é decomposto em dimensões para não
+// ensinar o agente a lição errada de "só vale aprender" (revisão do professor).
+// Campos opcionais (zero-default) para manter retrocompatibilidade: uma
+// execução que só resolve (task_progress=1, artifact=1) sem aprender nada
+// também é trabalho útil.
+type UsefulWork struct {
+	// KnowledgeGain — aprendizado (delta de conhecimento antes/depois), 0..1.
+	KnowledgeGain float64 `json:"knowledge_gain,omitempty"`
+
+	// TaskProgress — sucesso na resolução, 0..1.
+	TaskProgress float64 `json:"task_progress,omitempty"`
+
+	// ArtifactValue — artefato produzido (código/docs/evidência), contagem.
+	ArtifactValue int `json:"artifact_value,omitempty"`
+
+	// EvidenceGain — evidência validada (P0-P5), contagem.
+	EvidenceGain int `json:"evidence_gain,omitempty"`
+
+	// DecisionGain — decisão tomada (D-XXXX), contagem.
+	DecisionGain int `json:"decision_gain,omitempty"`
+}
+
+// Total devolve a soma das dimensões do vetor de valor (o numerador da métrica
+// Useful Work / Tokens). Para a Fase 0 a soma direta é o valor honesto; a
+// normalização/pesagem por dimensão é refinamento da Fase 0.1.
+func (w UsefulWork) Total() float64 {
+	return w.KnowledgeGain + w.TaskProgress +
+		float64(w.ArtifactValue) + float64(w.EvidenceGain) + float64(w.DecisionGain)
+}
+
 // BudgetSpent é a fotografia do consumo acumulado de uma execução.
 type BudgetSpent struct {
 	Tokens   int           `json:"tokens"`
 	Duration time.Duration `json:"duration"`
 	Cost     float64       `json:"cost"`
 	AICalls  int           `json:"ai_calls"`
+
+	// Useful Work — DECOMPOSTO em dimensões (ADR-031, Frente 1). Aditivo e
+	// opcional (omitempty/zero-default): não quebra quem já marshala BudgetSpent
+	// nem altera o comportamento do gate (CanCall/Exceeded) — é só o vetor de
+	// valoração da execução.
+	KnowledgeGain float64 `json:"knowledge_gain,omitempty"`
+	TaskProgress  float64 `json:"task_progress,omitempty"`
+	ArtifactValue int     `json:"artifact_value,omitempty"`
+	EvidenceGain  int     `json:"evidence_gain,omitempty"`
+	DecisionGain  int     `json:"decision_gain,omitempty"`
+}
+
+// Work devolve o vetor de valor (UsefulWork) desta execução.
+func (b BudgetSpent) Work() UsefulWork {
+	return UsefulWork{
+		KnowledgeGain: b.KnowledgeGain,
+		TaskProgress:  b.TaskProgress,
+		ArtifactValue: b.ArtifactValue,
+		EvidenceGain:  b.EvidenceGain,
+		DecisionGain:  b.DecisionGain,
+	}
+}
+
+// UsefulWork devolve a soma das dimensões do vetor de valor.
+func (b BudgetSpent) UsefulWork() float64 {
+	return b.Work().Total()
+}
+
+// Efficiency devolve a métrica Useful Work / Tokens (tokens_total consumidos).
+// Retorna 0 quando nenhum token foi consumido (evita divisão por zero).
+func (b BudgetSpent) Efficiency() float64 {
+	if b.Tokens <= 0 {
+		return 0
+	}
+	return b.UsefulWork() / float64(b.Tokens)
 }
 
 // BudgetTracker acumula tokens/tempo/custo e guarda as chamadas de IA: antes de
@@ -94,6 +160,22 @@ func (b *BudgetTracker) Spent() BudgetSpent {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.spent
+}
+
+// RecordWork valora a execução com o vetor de "useful work" decomposto
+// (ADR-031). É o valor FINAL da execução — substitui o vetor (não acumula),
+// porque as dimensões (task_progress, knowledge_gain) são escalares 0..1 e as
+// contagens (artifact, evidence, decision) já vêm agregadas pelo chamador.
+// Zero-default: nunca altera o gate (CanCall/Exceeded). Campos não gravados
+// permanecem 0.
+func (b *BudgetTracker) RecordWork(work UsefulWork) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.spent.KnowledgeGain = work.KnowledgeGain
+	b.spent.TaskProgress = work.TaskProgress
+	b.spent.ArtifactValue = work.ArtifactValue
+	b.spent.EvidenceGain = work.EvidenceGain
+	b.spent.DecisionGain = work.DecisionGain
 }
 
 // Exceeded informa se alguma dimensão do budget foi estourada (tokens > Max,

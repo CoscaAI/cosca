@@ -173,6 +173,7 @@ Documentation: https://cosca.enterprise/docs
 		NewConflictCommand(),
 		NewEvidenceCommand(),
 		NewBudgetCommand(),
+		NewCostCommand(),
 		NewRankingCommand(),
 		NewAcquisitionCommand(),
 		NewDepartmentCommand(),

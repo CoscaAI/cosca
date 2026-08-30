@@ -103,6 +103,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"evidence",
 		"eval",
 		"budget",
+		"cost",
 		"ranking",
 		"acquisition",
 		"department",
