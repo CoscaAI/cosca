@@ -221,3 +221,9 @@ claims:
       source: Don+cosca-kernel
       confidence: 0.97
       created_at: "2026-08-29T00:00:00Z"
+    - id: laudo-cerebro-nao-reage-e-cresce-com-banco-20260829
+      statement: 'LAUDO TECNICO (2026-08-29) - por que o cerebro (MCP knowledge) nao REAGE e CRESCE conforme o banco. DIAGNOSTICO (causas raiz): (1) P0 mcp.go criava knowledge.New SEM WatchEnabled (default false, knowledge.go:134) e sem WatchDirectory → indice NAO se auto-reindexava; recall so pegava dados frescos apos go run ./cmd/cosca-indexer manual (provado: antes do reindex recall devolvia dados 07-30, depois devolvia dados de hoje). (2) P1 crescimento e horizontal (mais chunks) nao vertical (mais capacidade): busca e cache multi-tier 5min (knowledge.go:800,846) e resultado e packet de contexto, nao resposta/raciocinio. (3) P2 raciocinio externalizado: Cosca=recuperacao, LLM externo=reacao. FECHAMENTO: commit a14ae21 - P0 WatchEnabled:true + WatchDirectory(workspace) best-effort; P1 IndexDirectory(workspace) na subida (bounded 1min) + varredura explicita de .opencode/cosca/memory/agent/ (indexer pula diretorios ocultos). PROVA P0 AO VIVO: arquivo criado APOS watch ativo foi reindexado automaticamente e retornou como 1o resultado do recall (relevance 0.875) sem reindex manual. METODO DE TESTE: para provar watcher, criar arquivo DEPOIS do watcher ativo (watcher so captura eventos create/modify apos ativo); indexacao na subida P1 pode expirar timeout 1min em workspace grande. NOTA PROCESSO: especialista backend reportou mudancas, reviewer viu git diff vazio (estado transitorio working tree) - confiar sempre no diff real + build/vet/teste, nao em relatorio de subagente.'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.96
+      created_at: "2026-08-29T00:00:00Z"
