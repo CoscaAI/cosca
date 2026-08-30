@@ -389,10 +389,14 @@ func TestCosineSimilarity_DifferentDimensions(t *testing.T) {
 	a := []float64{1, 1}
 	b := []float64{1, 1, 1, 1}
 	score := cosineSimilarity(a, b)
-	// Truncated to min length (2)
-	expected := cosineSimilarity([]float64{1, 1}, []float64{1, 1})
-	if score != expected {
-		t.Errorf("expected %.4f for truncated vectors, got %.4f", expected, score)
+	// INVARIANTE (Tool Execution Policy / review professor): dimensões
+	// divergentes NÃO devem ser truncadas silenciosamente — isso produziria
+	// um score numericamente válido mas semanticamente inválido. O COSCA
+	// sinaliza retornando -1 (impossível para cosseno válido em [0,1]), o que
+	// faz o router descartar o candidato em vez de tomar uma decisão
+	// aparentemente válida.
+	if score != -1 {
+		t.Errorf("expected -1 for mismatched dimensions, got %.4f", score)
 	}
 }
 

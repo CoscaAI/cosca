@@ -81,9 +81,12 @@ type agentEmbedding struct {
 
 // SemanticRouter selects agents using vector similarity between the user
 // prompt and pre-computed agent description embeddings. It cascades through
-// multiple routers for maximum coverage:
+// the semantic + keyword routers for maximum coverage. O fallback para
+// Full-text Search e CEO é responsabilidade do Router (keyword) — este
+// componente implementa apenas o caminho de similaridade semântica e delega
+// ao keyword router quando não houver match confiável:
 //
-//	Semantic (≥0.80) → Semantic (≥0.60) → Keyword → Full-text Search → CEO
+//	Semantic (high ≥0.85 + margem) → Semantic (low ≥0.72 + margem) → Keyword (Router) → CEO
 //
 // The embedding-based approach is language-agnostic — it works equally well
 // with prompts in English, Portuguese, Spanish, Japanese, and any other
@@ -97,6 +100,13 @@ type SemanticRouter struct {
 	agentEmbeddings []agentEmbedding
 	config          SemanticRouterConfig
 	lastRefresh     time.Time
+
+	// refreshMu é o single-flight lock de recomputação de embeddings. Evita
+	// que N requisições concorrentes, ao mesmo tempo que o refresh vence,
+	// disparem N computações duplicadas de embeddings (desperdício de tokens
+	// no provider — exatamente o que o COSCA mede). Apenas 1 goroutine
+	// recalcula; as demais esperam e reutilizam o snapshot publicado.
+	refreshMu sync.Mutex
 
 	// sem limits concurrent embedding API calls to prevent overwhelming
 	// the provider when falling back to individual calls. Capacity of 5.
@@ -112,7 +122,11 @@ func NewSemanticRouter(agents AgentResolver, embedder Embedder, keyword *Router,
 	if config.LowThreshold <= 0 {
 		config.LowThreshold = 0.72
 	}
-	if config.MaxCandidates <= 0 {
+	// MaxCandidates precisa ser >= 2: com 1 único candidato, o secondScore
+	// seria 0 e o margin viraria score superestimado, falsificando a
+	// confiança (um match quase-arbitrário pareceria "com margem"). Forçamos
+	// o piso aqui para preservar a invariância do margin.
+	if config.MaxCandidates < 2 {
 		config.MaxCandidates = 5
 	}
 
@@ -196,7 +210,7 @@ func (sr *SemanticRouter) Route(ctx context.Context, pc PipelineContext) (Pipeli
 			pc = sr.resolveAgent(pc, agent)
 			pc = pc.WithRouterMethod("semantic_high")
 			pc = pc.WithSemanticScore(score)
-			pc = sr.attachSkills(pc, []string{agent.Name, agent.Role, agent.Department, agent.Description})
+			pc = sr.attachSkills(pc, agentSkillTexts(agent))
 			return pc, nil
 		}
 
@@ -212,7 +226,7 @@ func (sr *SemanticRouter) Route(ctx context.Context, pc PipelineContext) (Pipeli
 			pc = sr.resolveAgent(pc, agent)
 			pc = pc.WithRouterMethod("semantic_low")
 			pc = pc.WithSemanticScore(score)
-			pc = sr.attachSkills(pc, []string{agent.Name, agent.Role, agent.Department, agent.Description})
+			pc = sr.attachSkills(pc, agentSkillTexts(agent))
 			return pc, nil
 		}
 	}
@@ -244,6 +258,12 @@ func (sr *SemanticRouter) embedPrompt(ctx context.Context, prompt string) ([]flo
 
 // ensureEmbeddings makes sure agent embeddings are available, computing
 // them on first call and refreshing periodically if configured.
+//
+// Single-flight: usa o refreshMu para impedir que N requisições concorrentes
+// (chegando ao mesmo tempo que o refresh vence) disparem N computações
+// duplicadas. Somente uma goroutine recalcula; as demais aguardam o lock e
+// reutilizam o snapshot já publicado. O routing normal continua lendo sob
+// RLock — não há bloqueio de leitura, apenas de recomputação.
 func (sr *SemanticRouter) ensureEmbeddings(ctx context.Context) error {
 	sr.mu.RLock()
 	hasEmbeddings := len(sr.agentEmbeddings) > 0
@@ -251,10 +271,28 @@ func (sr *SemanticRouter) ensureEmbeddings(ctx context.Context) error {
 		time.Since(sr.lastRefresh) > sr.config.RefreshInterval
 	sr.mu.RUnlock()
 
-	if !hasEmbeddings || needsRefresh {
-		return sr.computeEmbeddings(ctx)
+	if hasEmbeddings && !needsRefresh {
+		return nil
 	}
-	return nil
+
+	// Single-flight: apenas a primeira goroutine que chegar aqui executa a
+	// recomputação. As demais esperam liberar o lock e checam de novo.
+	sr.refreshMu.Lock()
+	defer sr.refreshMu.Unlock()
+
+	// Double-check após adquirir o lock: outra goroutine pode ter concluído
+	// a recomputação enquanto esperávamos.
+	sr.mu.RLock()
+	hasEmbeddings = len(sr.agentEmbeddings) > 0
+	needsRefresh = sr.config.RefreshInterval > 0 &&
+		time.Since(sr.lastRefresh) > sr.config.RefreshInterval
+	sr.mu.RUnlock()
+
+	if hasEmbeddings && !needsRefresh {
+		return nil
+	}
+
+	return sr.computeEmbeddings(ctx)
 }
 
 // computeEmbeddings generates embeddings for all registered agents.
@@ -281,11 +319,34 @@ func (sr *SemanticRouter) computeEmbeddings(ctx context.Context) error {
 
 	batchResults, batchErr := sr.embedder.GenerateEmbeddings(ctx, descriptions)
 	if batchErr == nil {
+		if len(batchResults) != len(descriptions) {
+			// Provider retornou menos resultados sem erro: correlacionar
+			// por índice (agents[i]) seria fora de range. Tratamos como
+			// falha de batch e caimos no fallback individual.
+			log.Warn().
+				Int("expected", len(descriptions)).
+				Int("got", len(batchResults)).
+				Msg("batch embedding count mismatch, falling back to individual calls")
+			return sr.computeEmbeddingsIndividual(ctx, agents, descriptions)
+		}
+
 		var embeddings []agentEmbedding
+		var dim int
 		for i, result := range batchResults {
 			if result == nil || len(result.Vector) == 0 {
 				log.Warn().Str("agent", agents[i].Name).Msg("batch embedding nil/empty, skipping")
 				continue
+			}
+			// Valida dimensão uniforme entre todos os embeddings.
+			if dim == 0 {
+				dim = len(result.Vector)
+			} else if len(result.Vector) != dim {
+				log.Warn().
+					Str("agent", agents[i].Name).
+					Int("dimensions", len(result.Vector)).
+					Int("expected_dimensions", dim).
+					Msg("embedding dimension mismatch, falling back to individual calls")
+				return sr.computeEmbeddingsIndividual(ctx, agents, descriptions)
 			}
 			embeddings = append(embeddings, agentEmbedding{
 				Name:      agents[i].Name,
@@ -307,7 +368,14 @@ func (sr *SemanticRouter) computeEmbeddings(ctx context.Context) error {
 
 	info := safeError("batch_embedding_failed", batchErr)
 	log.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("batch embedding failed, falling back to individual calls (max 5 concurrent)")
+	return sr.computeEmbeddingsIndividual(ctx, agents, descriptions)
+}
 
+// computeEmbeddingsIndividual gera embeddings agente a agente, limitando a
+// concorrência a 5 chamadas simultâneas ao provider (semaphore). Tolerante a
+// falhas parciais — exige que pelo menos 2 agentes sejam embedados com
+// sucesso. Preserva a causa de cancelamento quando o ctx é cancelado.
+func (sr *SemanticRouter) computeEmbeddingsIndividual(ctx context.Context, agents []AgentInfo, descriptions []string) error {
 	var (
 		embeddings []agentEmbedding
 		mu         sync.Mutex
@@ -352,6 +420,12 @@ func (sr *SemanticRouter) computeEmbeddings(ctx context.Context) error {
 
 	wg.Wait()
 
+	// Se o contexto foi cancelado, preserva a causa (em vez de reportar
+	// "insufficient embeddings", que esconde o cancelamento real).
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("embedding context canceled: %w", err)
+	}
+
 	// Require at least 2 agents for meaningful routing.
 	if len(embeddings) < 2 {
 		if firstErr != nil {
@@ -367,7 +441,7 @@ func (sr *SemanticRouter) computeEmbeddings(ctx context.Context) error {
 
 	log.Info().
 		Int("agent_count", len(embeddings)).
-		Msg("agent embeddings computed (sequential)")
+		Msg("agent embeddings computed (individual)")
 
 	return nil
 }
@@ -397,7 +471,17 @@ func (sr *SemanticRouter) findBestMatch(promptEmbedding []float64) (string, floa
 	var scores []scored
 	for _, ae := range embeddings {
 		s := cosineSimilarity(promptEmbedding, ae.Embedding)
+		// -1 sinaliza dimensão de embedding divergente (candidato inválido).
+		// Descartamos em vez de comparar entre vetores incompatíveis.
+		if s < 0 {
+			continue
+		}
 		scores = append(scores, scored{name: ae.Name, score: s})
+	}
+
+	if len(scores) == 0 {
+		// Todos os candidatos tinham embedding de dimensão incompatível.
+		return "", 0, 0
 	}
 
 	// Sort descending by score.
@@ -493,20 +577,45 @@ func buildAgentDescription(agent AgentInfo) string {
 		sb.WriteString(". ")
 		sb.WriteString(agent.Description)
 	}
+	// Inclui capabilities e responsibilities: a identidade operacional
+	// completa do agente (nao apenas nome/role/desc). Isso alinha o perfil
+	// usado para ESCOLHER o agente com o perfil usado para derivar skills.
+	if len(agent.Capabilities) > 0 {
+		sb.WriteString(". Capabilities: ")
+		sb.WriteString(strings.Join(agent.Capabilities, ", "))
+	}
+	if len(agent.Responsibilities) > 0 {
+		sb.WriteString(". Responsibilities: ")
+		sb.WriteString(strings.Join(agent.Responsibilities, ", "))
+	}
 	return sb.String()
+}
+
+// agentSkillTexts monta o conjunto de textos do agente usados para derivar
+// skills (attachSkills), incluindo capabilities e responsibilities — não só
+// identity básica. Assim a derivação de skills enxerga a mesma identidade
+// operacional usada na escolha do agente (ponto 7 do review).
+func agentSkillTexts(agent *AgentInfo) []string {
+	texts := []string{agent.Name, agent.Role, agent.Department, agent.Description}
+	texts = append(texts, agent.Capabilities...)
+	texts = append(texts, agent.Responsibilities...)
+	return texts
 }
 
 // ─── Math ────────────────────────────────────────────────────────────────────
 
 // cosineSimilarity computes the cosine similarity between two vectors.
+//
+// INVARIANT: os dois vetores DEVEM ter a mesma dimensão. Truncar/pad
+// silenciosamente produziria um score numericamente válido mas
+// semanticamente inválido (por ex. 768 × 1024 viraria 768 × 768 e pareceria
+// uma comparação legítima). Para o COSCA, dimensões divergentes indicam um
+// erro de configuração do embedder — sinalizamos retornando -1, que é
+// impossível para um cosseno válido (intervalo [0,1]) e faz o router
+// descartar o candidato em vez de tomar uma decisão aparentemente válida.
 func cosineSimilarity(a, b []float64) float64 {
 	if len(a) != len(b) {
-		// Different dimensions — pad or truncate the shorter one.
-		minLen := len(a)
-		if len(b) < minLen {
-			minLen = len(b)
-		}
-		a, b = a[:minLen], b[:minLen]
+		return -1
 	}
 
 	var dotProduct, normA, normB float64
