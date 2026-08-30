@@ -118,3 +118,23 @@ func TestCallWeb_BadScheme(t *testing.T) {
 		t.Fatalf("erro deveria indicar apenas http/https: %v", err)
 	}
 }
+
+// TestCallWeb_ContentIsEnveloped valida o diamante anti prompt-injection: o
+// conteúdo de página retornado pelo cosca.web vem ENVELOPADO (marcador
+// <cosca-untrusted-data-v1>), para o modelo não seguir instrução da página.
+func TestCallWeb_ContentIsEnveloped(t *testing.T) {
+	eng := NewEngine(WithKernel(nil))
+	res, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"http://example.com","max_len":100}`))
+	if err != nil {
+		t.Fatalf("Call web: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("example.com deveria ser público, veio IsError: %s", res.Content[0].Text)
+	}
+	if !strings.Contains(res.Content[0].Text, "cosca-untrusted-data-v1") {
+		t.Fatalf("conteúdo do web NÃO veio envelopado (risco prompt-injection): %.120s", res.Content[0].Text)
+	}
+	if !strings.Contains(res.Content[0].Text, "not instructions") {
+		t.Fatalf("aviso de não-confiável ausente: %.120s", res.Content[0].Text)
+	}
+}

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
+	"github.com/CoscaAI/cosca/internal/contenttrust"
 	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/kernel"
 	"github.com/CoscaAI/cosca/internal/knowledge"
@@ -1091,8 +1092,15 @@ func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResul
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
 
 	// Conteúdo de página = dado NÃO-CONFIÁVEL (nunca tratado como instrução).
+	// Envelopamos com contenttrust (nonce + length-delimited + JSON-escaped)
+	// para o modelo NÃO forjar o fechamento nem seguir instrução da página.
+	wrapped := contenttrust.Envelope(contenttrust.Default(
+		contenttrust.OriginMCP,
+		fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(body)),
+		"web:"+u.String(),
+	))
 	packet := NewContextPacket("web:"+u.String(), []ContextItem{{
-		Content:   fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(body)),
+		Content:   wrapped,
 		Source:    string(knowledge.EpistemicEVIDENCE),
 		Relevance: 1.0,
 	}})
