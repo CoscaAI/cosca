@@ -154,9 +154,16 @@ func (e *Engine) Tools() []mcp.ToolInfo {
 		if schema == "" {
 			schema = `{"type":"object","properties":{}}`
 		}
+		// Descrição agora "carrega a política de custo" (lição do PinchTab):
+		// o agente lê o custo ordinal direto do schema, sem prompt separado,
+		// e escolhe a tool MAIS BARATA que satisfaz o objetivo (ADR-031).
+		desc := d.Description
+		if d.Cost != "" {
+			desc += fmt.Sprintf(" [cost: %s]", d.Cost)
+		}
 		tools = append(tools, mcp.ToolInfo{
 			Name:        d.Name,
-			Description: d.Description,
+			Description: desc,
 			InputSchema: json.RawMessage(schema),
 		})
 	}

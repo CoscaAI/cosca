@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -53,5 +54,36 @@ func TestRegistry_OwnerPermission(t *testing.T) {
 	r.register(ToolDef{Name: "cosca.w", Domain: "memory", Risk: RiskWrite, Permission: PermissionOwner, Handler: noopHandler})
 	if got := r.get("cosca.w").Permission; got != PermissionOwner {
 		t.Fatalf("esperava owner, got %q", got)
+	}
+}
+
+// TestRegistry_DefaultCost valida que sem Cost explícita o default é medium.
+func TestRegistry_DefaultCost(t *testing.T) {
+	r := newRegistry()
+	r.register(ToolDef{Name: "cosca.c", Domain: "cost", Handler: noopHandler})
+	if got := r.get("cosca.c").Cost; got != CostMedium {
+		t.Fatalf("sem Cost explicita, default deveria ser medium, got %q", got)
+	}
+}
+
+// TestRegistry_CostPropagatesToDescription valida a lição do PinchTab:
+// o custo ordinal aparece na descrição da tool, para o agente escolher a mais
+// barata que satisfaz o objetivo sem prompt separado.
+func TestRegistry_CostPropagatesToDescription(t *testing.T) {
+	eng := NewEngine()
+	var found bool
+	for _, ti := range eng.Tools() {
+		if ti.Name == ToolObserve {
+			found = true
+			if !strings.Contains(ti.Description, "[cost: high]") {
+				t.Fatalf("ToolObserve deveria expor cost high na descrição: %q", ti.Description)
+			}
+		}
+		if ti.Name == ToolRecall && !strings.Contains(ti.Description, "[cost: low]") {
+			t.Fatalf("ToolRecall deveria expor cost low na descrição: %q", ti.Description)
+		}
+	}
+	if !found {
+		t.Fatal("ToolObserve nao encontrada no inventário")
 	}
 }
