@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/chat/config"
@@ -222,12 +225,48 @@ func buildMCPServerEngine() *mcpserver.Engine {
 
 	// Conhecimento (órgão de busca semântica).
 	if ke, kErr := knowledge.New(knowledge.Config{
-		DBPath:      filepath.Join(coscaDir, "knowledge.db"),
-		RootDir:     workspace,
-		AutoMigrate: true,
+		DBPath:       filepath.Join(coscaDir, "knowledge.db"),
+		RootDir:      workspace,
+		AutoMigrate:  true,
+		WatchEnabled: true,
 	}); kErr == nil {
 		if iErr := ke.Init(); iErr == nil {
 			opts = append(opts, mcpserver.WithKnowledge(ke))
+
+			// GAP P0 — Auto-reindexação (best-effort): watcher no workspace
+			// reindexa create/modify/delete/rename sem reindexação manual.
+			// Best-effort: um erro NUNCA pode derrubar o MCP — apenas logado.
+			if wErr := ke.WatchDirectory(workspace); wErr != nil {
+				log.Warn().Err(wErr).Str("dir", workspace).
+					Msg("mcp serve: file watcher não iniciado — o índice dependerá de reindexação manual")
+			}
+
+			// GAP P1 — Loop de aprendizado fechado (best-effort): indexa o
+			// workspace na subida para que arquivos suportados e learnings de
+			// sessão entrem no índice sem reindex manual. Ao falhar (ou
+			// estourar o timeout), o MCP segue — o watcher do P0 cobre as
+			// mudanças ao vivo. Bounded: um workspace grande ou um provider de
+			// embeddings lento não pode travar o serve indefinidamente.
+			idxCtx, idxCancel := context.WithTimeout(context.Background(), initialIndexTimeout)
+			if idxErr := ke.IndexDirectory(idxCtx, workspace); idxErr != nil {
+				log.Warn().Err(idxErr).Str("dir", workspace).
+					Msg("mcp serve: indexação inicial falhou (best-effort) — recall dependerá do watcher")
+			}
+			idxCancel()
+
+			// Os learnings de sessão vivem em .opencode/cosca/memory/agent/,
+			// diretório OCULTO que IndexDirectory(workspace) pula (o indexer
+			// ignora diretórios prefixados com "."). Indexamos a raiz dos
+			// learnings explicitamente para fechar o loop também na subida
+			// (best-effort).
+			if learningsDir := filepath.Join(workspace, ".opencode", "cosca", "memory", "agent"); dirExists(learningsDir) {
+				lrCtx, lrCancel := context.WithTimeout(context.Background(), initialIndexTimeout)
+				if lrErr := ke.IndexDirectory(lrCtx, learningsDir); lrErr != nil {
+					log.Warn().Err(lrErr).Str("dir", learningsDir).
+						Msg("mcp serve: indexação de learnings falhou (best-effort)")
+				}
+				lrCancel()
+			}
 		}
 	}
 
@@ -249,6 +288,12 @@ func buildMCPServerEngine() *mcpserver.Engine {
 
 	return mcpserver.NewEngine(opts...)
 }
+
+// initialIndexTimeout limita a indexação best-effort na subida do MCP: de um
+// workspace grande ou de um provider de embeddings lento, o servidor não pode
+// esperar indefinidamente. Ao estourar, o MCP segue e o watcher (P0) cobre as
+// mudanças ao vivo.
+const initialIndexTimeout = time.Minute
 
 // isTruthy interpreta uma string de ambiente como booleano (fail-closed).
 func isTruthy(v string) bool {
