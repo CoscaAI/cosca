@@ -2,7 +2,7 @@
 
 > **Status:** Proposed (aguardando cosca-cto + cosca-architecture + Don) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-08-29
 > **Revisão:** decisão de design — NÃO implementada de uma vez. Define o norte e prioriza as frentes; o primeiro passo (métrica por execução) é barato.
-> **Fonte (ordem do Don + professor, 2026-08-29):** a tese de que o inimigo não é o **volume** de tokens, é o **desperdício**. "Não precisa reduzir a inteligência do agente; precisa reduzir o quanto ele precisa carregar para ser inteligente." E a métrica que importa: **Token Efficiency = informação útil / tokens consumidos**.
+> **Fonte (ordem do Don + professor, 2026-08-29):** a tese de que o inimigo não é o **volume** de tokens, é o **desperdício**. "Não precisa reduzir a inteligência do agente; precisa reduzir o quanto ele precisa carregar para ser inteligente." E a métrica que importa: **Useful Work / Tokens** — onde "useful work" é DECOMPOSTO em dimensões (knowledge_gain, task_progress, artifact_value, evidence_gain, decision_gain), não uma única métrica (revisão do professor: só `knowledge_gain` ensinaria "só vale aprender").
 > **Contexto:** o Don observou uma tarefa ir de **100k → 150k tokens** (custo triplicou, mas ainda barato). O ponto do professor: 100k→150k é OK se for tarefa mais complexa; é desperdício se for contexto repetido/investigação redundante. **Sem decomposição do uso, não se sabe qual.**
 > **Relação:** cruza com **ADR-030** (memória modular/versionável — a chave do cache por resultado) e **ADR-029** (knowledge_snapshot — a chave de cache version-safe).
 
@@ -44,23 +44,25 @@ Uma execução que vai de 100k para 150k pode ser:
 - **Bom:** tarefa mais complexa — mais informação nova.
 - **Ruim:** o agente ficou confortável — contexto repetido, investigação redundante, "já descobri mas vou investigar mais 40k".
 
-**Sem decomposição, o COSCA não consegue distinguir.** O professor identificou exatamente isso e propôs a métrica certa: **Token Efficiency = informação útil / tokens consumidos**. Dois agentes, mesma taxa de sucesso, eficiências diferentes (0.78 vs 1.91) → o sistema aprende qual é melhor para aquele tipo de tarefa.
+**Sem decomposição, o COSCA não consegue distinguir.** O professor identificou exatamente isso e propôs a métrica certa: **Useful Work / Tokens** (com "useful work" decomposto em dimensões). Dois agentes, mesma taxa de sucesso, eficiências diferentes (0.78 vs 1.91) → o sistema aprende qual é melhor para aquele tipo de tarefa.
 
-**Problema em uma frase:** instrumentar o COSCA para medir **onde** tokens são desperdiçados por execução, e usar **Token Efficiency** para decidir (a) se um agente merece mais contexto, (b) qual agente/estratégia é melhor para cada tipo de tarefa, (c) quando o desperdício deve ser podado.
+**Problema em uma frase:** instrumentar o COSCA para medir **onde** tokens são desperdiçados por execução, e usar **Useful Work / Tokens** (decomposto) para decidir (a) se um agente merece mais contexto, (b) qual agente/estratégia é melhor para cada tipo de tarefa, (c) quando o desperdício deve ser podado.
 
 ---
 
 ## 2. Decisão — Token Efficiency como métrica-guia, instrumentação por execução
 
-**Adotar** o modelo de **medir informação útil por token consumido** e usar isso para guiar as frentes de otimização, na ordem de maior retorno. A métrica transversa:
+**Adotar** o modelo de **medir trabalho útil por token consumido** e usar isso para guiar as frentes de otimização, na ordem de maior retorno. A métrica transversa:
 
 ```
-Token Efficiency = useful_information / tokens_consumed
+Useful Work / Tokens = (dimensões de valor) / tokens_consumed
 ```
+
+> **Correção (após revisão do professor, 2026-08-29):** definir "useful" como **uma ÚNICA dimensão** (ex: só `knowledge_gain`) ensina o agente a lição errada — *"só vale a pena trabalhar se eu gravar algo na memória"*. Falso: corrigir um bug pode dar `knowledge_gain=0` mas `task_success=1`, `artifact=1`, `regression_fixed=1`. **Trabalho útil às vezes é resolver, não aprender.** Por isso "useful work" é DECOMPOSTO em dimensões (Frente 1), com `knowledge_gain` sendo UMA delas, não a única.
 
 ### 2.0 Frente 1 (primeiro ataque — barato, instrumentação) 🎯
 
-**Registrar por execução** (o COSCA já coleta tokens; falta a coluna de ganho + agregação):
+**Registrar por execução** (o COSCA já coleta tokens; falta o vetor de valor + agregação):
 
 ```
 agent_id
@@ -73,12 +75,18 @@ cached_tokens
 delegated_tokens
 duration
 result
-knowledge_gain      ← QUANTA informação nova a execução produziu
+# Useful Work — DECOMPOSTO em dimensões (não uma só métrica):
+knowledge_gain      ← aprendizado (delta de conhecimento antes/depois)
+task_progress       ← sucesso na resolução (0..1)
+artifact_value      ← artefato produzido (código/docs/evidência)
+evidence_gain       ← evidência validada (P0-P5)
+decision_gain       ← decisão tomada (D-XXXX)
 ```
 
-- **Barato:** aproveita a telemetria que já existe; adiciona `knowledge_gain` (medido pelo delta de conhecimento antes/depois).
+- **Barato:** aproveita a telemetria que já existe; adiciona o vetor de "useful work" (múltiplas dimensões, não só `knowledge_gain`).
 - **Objetivo:** responder "quem está queimando tokens e por quê" — sem isso, otimizar é chute.
-- **Saída:** seleção como `cosca cost` (relatório por agente/task de Token Efficiency).
+- **Saída:** seleção como `cosca cost` (relatório por agente/task de Useful Work / Tokens, com as dimensões decompostas).
+- **Anti-padrão que evita:** NÃO priorizar exclusivamente `knowledge_gain` — senão o COSCA aprende "só vale aprender", e ignora resolução/correção que é o trabalho útil mais comum.
 
 ### 2.1 Frente 2 — Cache por resultado de agente (maior impacto no paralelismo) 🎯
 
@@ -160,6 +168,24 @@ result: { status, answer, facts[], evidence[], decisions[], uncertainty[], artif
 - Refactors de orquestração — maiores, dependem das métricas da Fase 0 mostrarem onde está o desperdício real.
 
 > **Nota de segurança/rigor:** as Frentes 3-6 (progressive disclosure, budget governor, early-stop, resumo) **não devem** ser implementadas ANTES da Fase 0 — sem a decomposição de onde estão os tokens, otimiza-se a parte errada. O professor é explícito: "meça onde estão os 150k antes de otimizar."
+>
+> **Método de decisão (o "onde está o 150k" do professor):** após a Fase 0, o COSCA deve primeiro responder **onde estão os tokens**, e SÓ ENTÃO escolher a frente:
+>
+> ```
+> Task #4821 — 151,203 tokens
+> Contexto       61,220  40.4%
+> Tools          34,881  23.1%
+> History        28,430  18.8%
+> Output         14,921   9.9%
+> System          7,204   4.8%
+> Repetition      4,547   3.0%
+> ```
+>
+> - Se **60% em contexto** → progressive disclosure (Frente 3) é o tiro.
+> - Se **40% em ferramentas repetidas** → o problema é outro (reuso de tool/resultado — cache de resultado, Frente 2).
+> - Se **o vilão é delegação em cascata** → mexe no orchestrator (budget governor, Frente 4).
+>
+> **Não decidir a frente antes de medir.** A Fase 0 é o pré-requisito de tudo.
 
 ---
 
