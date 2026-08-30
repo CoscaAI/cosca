@@ -28,6 +28,7 @@ import (
 	authpkg "github.com/CoscaAI/cosca/internal/auth"
 	"github.com/CoscaAI/cosca/internal/brainweb"
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/department"
 	"github.com/CoscaAI/cosca/internal/grpcclient"
 	"github.com/CoscaAI/cosca/internal/kernel"
@@ -628,13 +629,26 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	brainH := brainweb.NewHandler(s.agentsManager, s.skillsManager, coscapkg.Version).
 		WithActivity(newExecutionActivitySource(s.config.ActivityLogPath)).
 		WithObservatory(knowledgeItemsFn(k), traceReplayFn(s.traceStore), cognitiveStatsFn(s, rt)).
-		WithPerception(newPerceptionSource())
+		WithPerception(newPerceptionSource()).
+		WithCost(coscaCostStore())
 	s.mux.HandleFunc("GET /brain", brainH.Serve)
 	s.mux.HandleFunc("GET /brain/", brainH.Serve)
 	s.mux.HandleFunc("GET /brain/graph", brainH.Graph)
 	s.mux.HandleFunc("GET /brain/activity", brainH.Activity)
 	s.mux.HandleFunc("GET /brain/observatory", brainH.Observatory)
 	s.mux.HandleFunc("GET /brain/perception", brainH.Perception)
+}
+
+// coscaCostStore devolve o cost.Store do diretório .cosca do projeto (nil-safe:
+// se o .cosca não puder ser resolvido o Store ainda é criado; o brainweb lê de
+// forma best-effort e projeta neutro quando não há telemetria). Mesmo padrão de
+// resolução usado pela fonte de activity log.
+func coscaCostStore() *cost.Store {
+	coscaDir := filepath.Join(".", ".cosca")
+	if cwd, err := os.Getwd(); err == nil {
+		coscaDir = filepath.Join(cwd, ".cosca")
+	}
+	return cost.ForCoscaDir(coscaDir)
 }
 
 // perceptionSource implementa brainweb.PerceptionSource: roda a percepção

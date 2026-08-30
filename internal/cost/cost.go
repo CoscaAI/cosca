@@ -78,6 +78,42 @@ type Record struct {
 	At time.Time `json:"at,omitempty"`
 }
 
+// ValueEvidence é a fonte ÚNICA e determinística de valor da Fase 0 do ADR-031:
+// a evidência de execução JÁ verificada pelo pipeline (build/test) e a
+// persistência real de memória. NUNCA opinião do LLM — é o "juiz em código"
+// (o build/test verifica, o sistema decide).
+//
+// Honestidade: cada dimensão do vetor de valor fica 0 quando a evidência
+// correspondente está ausente/negativa. Uma execução que não buildou, não rodou
+// teste e não persistiu memória produz Useful Work = 0 — e isso é honesto.
+type ValueEvidence struct {
+	// BuildOK — o build verificou e passou (gera artifact_value).
+	BuildOK bool
+	// TestsRun — uma verificação de teste realmente executou (não só marcou).
+	TestsRun bool
+	// TestsPassed — número determinístico de testes aprovados (evidence_gain).
+	TestsPassed int
+	// MemStored — um record de memória foi persistido (knowledge_gain).
+	MemStored bool
+}
+
+// ApplyValue preenche as dimensões de valor decompostas a partir de UMA única
+// fonte de evidência determinística (build/test/memória). Não inventa nem
+// infla: sem evidência real, a dimensão permanece 0.
+func (r *Record) ApplyValue(ev ValueEvidence) {
+	if ev.BuildOK {
+		r.ArtifactValue = 1
+		r.TaskProgress = 1
+	}
+	if ev.TestsRun && ev.TestsPassed > 0 {
+		r.EvidenceGain = ev.TestsPassed
+		r.TaskProgress = 1
+	}
+	if ev.MemStored {
+		r.KnowledgeGain = 1
+	}
+}
+
 // UsefulWork devolve a soma das dimensões do vetor de valor.
 func (r Record) UsefulWork() float64 {
 	return r.KnowledgeGain + r.TaskProgress +

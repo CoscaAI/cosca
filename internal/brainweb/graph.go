@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/agents"
+	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/skills"
 )
 
@@ -51,10 +52,11 @@ type Node struct {
 	ReportsTo   string `json:"reports_to"`
 	Description string `json:"description"`
 	Status      string `json:"status"`
-	Tier        int    `json:"tier"`      // 0=Don/Kernel, 1=tenente, 2=capo
-	IsRoot      bool   `json:"is_root"`   // Don ou Kernel
-	IsKernel    bool   `json:"is_kernel"` // Kernel (consigliere)
-	SkillCount  int    `json:"skill_count"`
+	Tier        int      `json:"tier"`      // 0=Don/Kernel, 1=tenente, 2=capo
+	IsRoot      bool     `json:"is_root"`   // Don ou Kernel
+	IsKernel    bool     `json:"is_kernel"` // Kernel (consigliere)
+	SkillCount  int      `json:"skill_count"`
+	Cost        NodeCost `json:"cost"` // Token Efficiency/Energy (intensidade operacional, não nota)
 }
 
 // Edge é um vínculo "reports to" entre dois agentes.
@@ -94,14 +96,23 @@ type Activity struct {
 
 // Builder monta o grafo a partir dos managers. É a fonte única do shape.
 type Builder struct {
-	agents *agents.Manager
-	skills *skills.Manager
+	agents  *agents.Manager
+	skills  *skills.Manager
 	version string
+	cost    *cost.Store // telemetria de custo (ADR-031); nil-safe (projeção neutra)
 }
 
 // NewBuilder cria um Builder. managers nil-safe: grafo vazio, nunca pânico.
 func NewBuilder(agentsMgr *agents.Manager, skillsMgr *skills.Manager, version string) *Builder {
 	return &Builder{agents: agentsMgr, skills: skillsMgr, version: version}
+}
+
+// WithCost injeta a fonte de telemetria de custo (cost.Store) para preencher a
+// projeção de Token Efficiency/Energy por agente. Nil-safe: sem store (ou ileso)
+// → projeção vazia/neutra, nunca pânico — mantém o padrão dos managers.
+func (b *Builder) WithCost(store *cost.Store) *Builder {
+	b.cost = store
+	return b
 }
 
 // Build produz o grafo sanitizado.
@@ -136,10 +147,12 @@ func (b *Builder) Build() Graph {
 	sortSkills(g.Skills)
 
 	// Nós de agentes — ordem determinística.
+	costAgg := newCostAggregator(b.cost) // nil-safe: projeção neutra sem store
 	if b.agents != nil {
 		for _, a := range b.agents.List() {
 			n := sanitizeNode(a)
 			n.SkillCount = skillByDomain[strings.ToLower(strings.TrimSpace(a.Name))]
+			n.Cost = costAgg.projection(a.Name)
 			g.Nodes = append(g.Nodes, n)
 		}
 	}
@@ -176,6 +189,7 @@ func (b *Builder) Build() Graph {
 			ID: "don", Name: "Don", Role: "Patriarca da Famiglia",
 			Department: "kernel", ReportsTo: "", Description: "O Don — a autoridade máxima. Toda decisão estratégica passa por ele.",
 			Status: "active", Tier: 0, IsRoot: true,
+			Cost: NodeCost{Energy: EnergyNeutral}, // nó sintético: sem telemetria real
 		})
 		nodeSet["don"] = true
 	}

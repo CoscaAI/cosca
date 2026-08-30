@@ -113,3 +113,61 @@ func TestStore_AppendLoad(t *testing.T) {
 		t.Fatalf("esperava 2 records, got %d", len(recs))
 	}
 }
+
+func TestRecord_ApplyValue_DecoupledRealValue(t *testing.T) {
+	// Execução com valor mensurável REAL (build passou, testes passaram,
+	// memória persistida) → o vetor decomposto NÃO pode ser só knowledge_gain:
+	// artifact/evidence/progress também sobem. UsefulWork > 0 e Efficiency > 0.
+	r := Record{TokensTotal: 100}
+	r.ApplyValue(ValueEvidence{
+		BuildOK:     true,
+		TestsRun:    true,
+		TestsPassed: 5,
+		MemStored:   true,
+	})
+	if r.ArtifactValue != 1 {
+		t.Fatalf("ArtifactValue = %d, want 1 (build OK = artefato real)", r.ArtifactValue)
+	}
+	if r.EvidenceGain != 5 {
+		t.Fatalf("EvidenceGain = %d, want 5 (5 testes aprovados)", r.EvidenceGain)
+	}
+	if r.KnowledgeGain != 1 {
+		t.Fatalf("KnowledgeGain = %v, want 1 (memória persistida)", r.KnowledgeGain)
+	}
+	if r.TaskProgress != 1 {
+		t.Fatalf("TaskProgress = %v, want 1 (build/test verificados)", r.TaskProgress)
+	}
+	if r.UsefulWork() <= 0 {
+		t.Fatalf("UsefulWork() = %v, want > 0", r.UsefulWork())
+	}
+	if r.Efficiency() <= 0 {
+		t.Fatalf("Efficiency() = %v, want > 0 (valor real / tokens)", r.Efficiency())
+	}
+}
+
+func TestRecord_ApplyValue_HonestZero(t *testing.T) {
+	// Execução SEM valor mensurável (build falhou, 0 testes aprovados, sem
+	// memória) → vetor honestamente zero. Não inflamos com opinião do LLM.
+	r := Record{TokensTotal: 120}
+	r.ApplyValue(ValueEvidence{
+		BuildOK:     false,
+		TestsRun:    true,
+		TestsPassed: 0,
+		MemStored:   false,
+	})
+	if got := r.UsefulWork(); got != 0 {
+		t.Fatalf("UsefulWork() = %v, want 0 (honesto — nenhuma evidência de valor)", got)
+	}
+	if r.Efficiency() != 0 {
+		t.Fatalf("Efficiency() = %v, want 0", r.Efficiency())
+	}
+}
+
+func TestRecord_ApplyValue_EmptyEvidence(t *testing.T) {
+	// Sem evidência alguma (execução sem build/test/memória) — continua 0.
+	r := Record{TokensTotal: 50}
+	r.ApplyValue(ValueEvidence{})
+	if got := r.UsefulWork(); got != 0 {
+		t.Fatalf("UsefulWork() = %v, want 0", got)
+	}
+}

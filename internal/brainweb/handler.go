@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/agents"
+	"github.com/CoscaAI/cosca/internal/cost"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/skills"
 	"github.com/CoscaAI/cosca/internal/trace"
@@ -79,6 +80,14 @@ func (h *Handler) WithActivity(src ActivitySource) *Handler {
 // WithPerception injeta a fonte da percepção determinística (visão frame-a-frame).
 func (h *Handler) WithPerception(src PerceptionSource) *Handler {
 	h.perception = src
+	return h
+}
+
+// WithCost injeta a fonte de telemetria de custo (cost.Store) que preenche a
+// projeção de Token Efficiency/Energy por agente no grafo. Nil-safe: sem store
+// → projeção neutra, nunca pânico.
+func (h *Handler) WithCost(store *cost.Store) *Handler {
+	h.builder.WithCost(store)
 	return h
 }
 

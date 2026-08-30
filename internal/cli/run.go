@@ -245,7 +245,7 @@ Examples:
 			formatter.KeyValue("Tokens", fmt.Sprintf("%d input / %d output", result.TokenUsage.Input, result.TokenUsage.Output))
 			// Fase 0 ADR-031 — instrumentação best-effort: registra a execução
 			// no log de custo (Useful Work / Tokens). Nunca falha o run.
-			recordRunCost(cmd, result.Agent, result.TraceID, result.TokenUsage)
+			recordRunCost(cmd, result)
 			formatter.Println("")
 			formatter.Header("Response")
 			if result.Response != "" {
@@ -366,12 +366,13 @@ func runDryRun(cmd *cobra.Command, engine *orchestration.Engine, req *orchestrat
 }
 
 // recordRunCost registra a execução no log de custo (ADR-031, Fase 0) —
-// best-effort, NUNCA falha o run. Usa o `chat.Usage{Input, Output}` já
-// disponível no resultado. Se não houver tokens ou o .cosca não existir,
-// silencia.
-func recordRunCost(cmd *cobra.Command, agent, traceID string, usage pipeline.TokenUsage) {
+// best-effort, NUNCA falha o run. Recebe o `RunResult` completo para mapear a
+// EVIDÊNCIA DE VALOR determinística (build/test verificados + memória
+// persistida) para o vetor decomposto. Se não houver tokens ou o .cosca não
+// existir, silencia.
+func recordRunCost(cmd *cobra.Command, run *pipeline.RunResult) {
 	// Sem consumo de tokens → nada a registrar com valor de métrica.
-	if usage.Input == 0 && usage.Output == 0 {
+	if run.TokenUsage.Input == 0 && run.TokenUsage.Output == 0 {
 		return
 	}
 	coscaDir := resolveCoscaDir()
@@ -379,17 +380,41 @@ func recordRunCost(cmd *cobra.Command, agent, traceID string, usage pipeline.Tok
 		return
 	}
 	store := cost.ForCoscaDir(coscaDir)
-	rec := cost.Record{
-		AgentID:      agent,
-		TaskID:       traceID,
-		InputTokens:  usage.Input,
-		OutputTokens: usage.Output,
-		TokensTotal:  usage.Input + usage.Output,
-		At:           time.Now(),
-	}
+	rec := recordFromRun(run)
 	if err := store.Append(rec); err != nil {
 		// Log de custo é instrumentação, nunca pré-requisito.
 		_ = cmd
 		return
 	}
+}
+
+// recordFromRun constrói o Record determinístico a partir do RunResult,
+// aplicando a evidência de valor (build/test/memória) ao vetor decomposto.
+// Nunca inventa: dimensões sem evidência real ficam 0 (honesto).
+func recordFromRun(run *pipeline.RunResult) cost.Record {
+	rec := cost.Record{
+		AgentID:      run.Agent,
+		TaskID:       run.TraceID,
+		InputTokens:  run.TokenUsage.Input,
+		OutputTokens: run.TokenUsage.Output,
+		TokensTotal:  run.TokenUsage.Input + run.TokenUsage.Output,
+		At:           time.Now(),
+	}
+	rec.ApplyValue(cost.ValueEvidence{
+		BuildOK:     run.BuildResult != nil && run.BuildResult.Success,
+		TestsRun:    run.TestResult != nil,
+		TestsPassed: testsPassed(run.TestResult),
+		MemStored:   run.MemoryID != "",
+	})
+	return rec
+}
+
+// testsPassed devolve o número de testes aprovados apenas quando a verificação
+// de teste realmente executou E passou (determinístico). Caso contrário, 0 —
+// não infla evidence_gain com base em TestResult ausente/falho.
+func testsPassed(t *pipeline.TestResult) int {
+	if t == nil || !t.Success {
+		return 0
+	}
+	return t.Passed
 }
