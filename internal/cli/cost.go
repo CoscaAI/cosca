@@ -83,7 +83,109 @@ relatório mostra 0 execuções e orienta a rodar 'cosca run' para instrumentar.
 	cmd.Flags().StringVar(&taskFilter, "task", "", "filtrar por task_id (ex.: T-4821)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "mostrar cada execução (não só o agregado)")
 
+	// Subcomando `cosca cost tasks` — agregação CAUSAL por task: as execuções
+	// do mesmo task_id (write_file + build) agrupadas em uma TaskRecord com
+	// Executions[] aninhadas. É a unidade de observabilidade que o Auto-Audit
+	// precisa para responder "qual tarefa gerou o artefato e qual validou".
+	cmd.AddCommand(newCostTasksCommand())
+
 	return cmd
+}
+
+// newCostTasksCommand cria o subcomando `cosca cost tasks` que agrega por
+// TASK (unidade causal), preservando cada execução aninhada.
+func newCostTasksCommand() *cobra.Command {
+	var agentFilter, taskFilter string
+	var raw bool
+
+	cmd := &cobra.Command{
+		Use:   "tasks",
+		Short: "Agregação por TASK (unidade causal) — execuções aninhadas por task_id",
+		Long: `Token Efficiency por TASK (ADR-031): agrupa as execuções por task_id,
+preservando cada execução (write_file, build, inspect) dentro do TaskRecord.
+É o que permite ao Auto-Audit enxergar a tarefa como um todo em vez de runs
+separados sem vínculo causal.
+
+Lê o log append-only em .cosca/cost/records.jsonl (gerado por 'cosca run').
+Somente leitura — não altera nenhum estado.`,
+		Example: `  cosca cost tasks
+  cosca cost tasks --agent cosca-frontend
+  cosca cost tasks --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+
+			coscaDir := resolveCoscaDir()
+			store := cost.ForCoscaDir(coscaDir)
+
+			tasks, err := buildCostTasksData(store, agentFilter, taskFilter)
+			if err != nil {
+				return fmt.Errorf("cost tasks report failed: %w", err)
+			}
+
+			if useJSON {
+				return printJSON(cmd, tasks)
+			}
+
+			printCostTasksReport(formatter, tasks, raw)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&agentFilter, "agent", "", "filtrar por agent_id")
+	cmd.Flags().StringVar(&taskFilter, "task", "", "filtrar por task_id")
+	cmd.Flags().BoolVar(&raw, "raw", false, "mostrar cada execução aninhada")
+
+	return cmd
+}
+
+// buildCostTasksData carrega os registros e agrega por TASK (causal).
+func buildCostTasksData(store *cost.Store, agentFilter, taskFilter string) ([]cost.TaskRecord, error) {
+	records, err := store.Load()
+	if err != nil {
+		return nil, err
+	}
+	filtered := filterCostRecords(records, agentFilter, taskFilter)
+	return cost.AggregateTasks(filtered), nil
+}
+
+// printCostTasksReport renderiza o relatório causal por task em texto.
+func printCostTasksReport(formatter *OutputFormatter, tasks []cost.TaskRecord, raw bool) {
+	if len(tasks) == 0 {
+		formatter.Warning("Nenhuma execução registrada (log .cosca/cost/records.jsonl vazio ou não existe).")
+		return
+	}
+
+	formatter.Header("Token Efficiency por TASK — Useful Work / Tokens (ADR-031)")
+	formatter.KeyValue("Tarefas", fmt.Sprintf("%d", len(tasks)))
+
+	for _, t := range tasks {
+		formatter.Println("")
+		formatter.Header(fmt.Sprintf("Task: %s / %s", t.TaskID, t.AgentID))
+		formatter.KeyValue("Execuções", fmt.Sprintf("%d", t.Runs))
+		formatter.KeyValue("Tokens total", fmt.Sprintf("%d", t.TokensTotal))
+		formatter.KeyValue("Duration", fmt.Sprintf("%dms", t.DurationMs))
+		formatter.KeyValue("Useful Work", fmt.Sprintf("%.4f", t.UsefulWork()))
+		formatter.KeyValue("Efficiency", fmt.Sprintf("%.8f", t.Efficiency()))
+		printWorkDims(formatter, t.KnowledgeGain, t.TaskProgress, t.ArtifactValue, t.EvidenceGain, t.DecisionGain)
+
+		if raw && len(t.Executions) > 0 {
+			formatter.Println("")
+			formatter.Header("Execuções")
+			for i, e := range t.Executions {
+				formatter.Println("")
+				formatter.KeyValue(fmt.Sprintf("Execução %d", i+1), fmt.Sprintf("%s (%s)", e.Status, e.Phase))
+				formatter.KeyValue("Tool", e.Tool)
+				formatter.KeyValue("Tokens", fmt.Sprintf("%d/%d/%d", e.InputTokens, e.OutputTokens, e.TokensTotal))
+				formatter.KeyValue("Duration", fmt.Sprintf("%dms", e.DurationMs))
+				printWorkDims(formatter, e.KnowledgeGain, e.TaskProgress, e.ArtifactValue, e.EvidenceGain, e.DecisionGain)
+			}
+		}
+	}
+
+	formatter.Println("")
+	formatter.Bullet("Métricas = Useful Work (dimensões somadas) ÷ tokens consumidos, por TAREFA (unidade causal).")
 }
 
 // (resolveCoscaDir é definido em circadian.go — reutilizado aqui.)

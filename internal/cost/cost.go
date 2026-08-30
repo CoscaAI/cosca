@@ -239,6 +239,73 @@ func (s *Store) Load() ([]Record, error) {
 	return recs, scanner.Err()
 }
 
+// ExecutionRecord é a telemetria de UMA execução dentro de uma tarefa causal.
+// Preserva a granularidade individual (a fase da execução, a tool usada, os
+// tokens, a duração, o resultado e os artefatos/evidências produzidos).
+type ExecutionRecord struct {
+	ExecutionID string `json:"execution_id,omitempty"`
+	Phase       string `json:"phase,omitempty"` // write|build|test|inspect|...
+	Tool        string `json:"tool,omitempty"`  // write_file|execute_command|...
+
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+	TokensTotal  int `json:"tokens_total"`
+
+	DurationMs int64  `json:"duration_ms,omitempty"`
+	Status     string `json:"status"`              // success|failed|error
+	Result     string `json:"result,omitempty"`    // resumo curto do resultado
+
+	// Evidência de valor desta execução (ADR-031), decomposta.
+	KnowledgeGain float64 `json:"knowledge_gain,omitempty"`
+	TaskProgress  float64 `json:"task_progress,omitempty"`
+	ArtifactValue int     `json:"artifact_value,omitempty"`
+	EvidenceGain  int     `json:"evidence_gain,omitempty"`
+	DecisionGain  int     `json:"decision_gain,omitempty"`
+}
+
+// TaskRecord é a unidade CAUSAL de observabilidade do COSCA: agrega todas as
+// execuções que pertencem à MESMA tarefa, permitindo ao Auto-Audit responder
+// "qual tarefa gerou este artefato, quais execuções participaram, quanto custou
+// e qual evidência validou". Diferente do Record (telemetria por run), o
+// TaskRecord olha a tarefa como um todo (write_file + build juntos).
+type TaskRecord struct {
+	TaskID  string `json:"task_id"`
+	AgentID string `json:"agent_id,omitempty"`
+	Goal    string `json:"goal,omitempty"`
+	Status  string `json:"status"` // started|executing|completed|failed
+
+	StartedAt  time.Time `json:"started_at,omitempty"`
+	FinishedAt time.Time `json:"finished_at,omitempty"`
+
+	Runs        int   `json:"runs"`
+	TokensTotal int   `json:"tokens_total"`
+	DurationMs  int64 `json:"duration_ms"`
+
+	// Vetor de valor decomposto da TAREFA (soma das execuções).
+	KnowledgeGain float64 `json:"knowledge_gain"`
+	TaskProgress  float64 `json:"task_progress"`
+	ArtifactValue int     `json:"artifact_value"`
+	EvidenceGain  int     `json:"evidence_gain"`
+	DecisionGain  int     `json:"decision_gain"`
+
+	// Executions preserva a granularidade individual de cada execução.
+	Executions []ExecutionRecord `json:"executions,omitempty"`
+}
+
+// UsefulWork devolve a soma das dimensões do vetor de valor da tarefa.
+func (t TaskRecord) UsefulWork() float64 {
+	return t.KnowledgeGain + t.TaskProgress +
+		float64(t.ArtifactValue) + float64(t.EvidenceGain) + float64(t.DecisionGain)
+}
+
+// Efficiency devolve a métrica Useful Work / Tokens da tarefa.
+func (t TaskRecord) Efficiency() float64 {
+	if t.TokensTotal <= 0 {
+		return 0
+	}
+	return t.UsefulWork() / float64(t.TokensTotal)
+}
+
 // Summary é a agregação por (agent_id, task_id): soma os tokens, o vetor de
 // valor e a duração de todas as execuções registradas para o mesmo grupo.
 type Summary struct {
@@ -247,6 +314,7 @@ type Summary struct {
 	Runs        int    `json:"runs"`
 	TokensTotal int    `json:"tokens_total"`
 	DurationMs  int64  `json:"duration_ms"`
+
 
 	KnowledgeGain float64 `json:"knowledge_gain"`
 	TaskProgress  float64 `json:"task_progress"`
@@ -344,4 +412,97 @@ func Aggregate(records []Record) *Report {
 		return rep.Grouped[i].TokensTotal > rep.Grouped[j].TokensTotal
 	})
 	return rep
+}
+
+// AggregateTasks é a agregação CAUSAL por task_id: as execuções com o mesmo
+// task_id são agrupadas em UM TaskRecord com Executions[] aninhadas — em vez
+// de records separados sem vínculo. É o que permite o Auto-Audit responder
+// "qual tarefa gerou o artefato e qual execução validou", em vez de inferir
+// que um build pertence a uma escrita pela ordem.
+func AggregateTasks(records []Record) []TaskRecord {
+	taskMap := make(map[string]*TaskRecord)
+	order := make([]string, 0)
+
+	for _, r := range records {
+		key := r.TaskID
+		if key == "" {
+			key = "unknown"
+		}
+		t, ok := taskMap[key]
+		if !ok {
+			t = &TaskRecord{
+				TaskID:  r.TaskID,
+				AgentID: r.AgentID,
+				StartedAt: r.At,
+			}
+			taskMap[key] = t
+			order = append(order, key)
+		}
+
+		// Agrega o vetor de valor desta execução à tarefa.
+		t.Runs++
+		t.TokensTotal += r.TokensTotal
+		t.DurationMs += r.DurationMs
+		t.KnowledgeGain += r.KnowledgeGain
+		t.TaskProgress += r.TaskProgress
+		t.ArtifactValue += r.ArtifactValue
+		t.EvidenceGain += r.EvidenceGain
+		t.DecisionGain += r.DecisionGain
+		if r.At.After(t.FinishedAt) {
+			t.FinishedAt = r.At
+		}
+
+		// Preserva a execução individual (converte Record -> ExecutionRecord).
+		t.Executions = append(t.Executions, recordToExecution(r))
+	}
+
+	// Ordena por tokens desc (tarefas que "gastaram muito" primeiro).
+	out := make([]TaskRecord, 0, len(order))
+	for _, key := range order {
+		out = append(out, *taskMap[key])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].TokensTotal > out[j].TokensTotal
+	})
+	return out
+}
+
+// recordToExecution converte um Record (telemetria de run) em um
+// ExecutionRecord (telemetria de execução dentro de uma tarefa causal).
+// Backward-compatible: preserva todos os campos de valor já registrados.
+func recordToExecution(r Record) ExecutionRecord {
+	// Deriva a fase da tool quando disponível (todo acesso é conservador).
+	phase := "execution"
+	switch {
+	case r.Result != "":
+		phase = "task"
+	}
+
+	return ExecutionRecord{
+		ExecutionID:   r.TaskID,
+		Phase:         phase,
+		InputTokens:   r.InputTokens,
+		OutputTokens:  r.OutputTokens,
+		TokensTotal:   r.TokensTotal,
+		DurationMs:    r.DurationMs,
+		Status:        executionStatus(r),
+		Result:        r.Result,
+		KnowledgeGain: r.KnowledgeGain,
+		TaskProgress:  r.TaskProgress,
+		ArtifactValue: r.ArtifactValue,
+		EvidenceGain:  r.EvidenceGain,
+		DecisionGain:  r.DecisionGain,
+	}
+}
+
+// executionStatus deriva um status simples do Record para a ExecutionRecord.
+// Um record sem erro é "success"; com erro (sem artifact/evidence) é "failed".
+func executionStatus(r Record) string {
+	if r.ArtifactValue > 0 || r.EvidenceGain > 0 {
+		return "success"
+	}
+	if r.TaskProgress > 0 || r.KnowledgeGain > 0 {
+		return "success"
+	}
+	return "failed"
 }
