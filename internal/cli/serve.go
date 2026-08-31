@@ -572,6 +572,17 @@ func buildPerceptionBus(cfg config.PerceptionConfig, visionSvc *perception.Servi
 		logger.Warn().Err(aErr).Msg("perception bus: STT audio source failed — using no-op source")
 		audioSrc = nil
 	}
+	// FASE D: close the audio loop with a live microphone when opt-in
+	// (perception.audio.mic.enabled). The mic source wraps the STT source so the
+	// bus receives mic-driven transcriptions (mic → PCM → STT → bus).
+	if audioSrc != nil {
+		micSrc, mErr := buildMicAudioSource(cfg, audioSrc, logger)
+		if mErr != nil {
+			logger.Warn().Err(mErr).Msg("perception bus: microphone capture failed — using STT-only source")
+		} else if micSrc != nil {
+			audioSrc = micSrc
+		}
+	}
 	if audioSrc == nil {
 		audioSrc = bus.NoopAudioSource{}
 	}

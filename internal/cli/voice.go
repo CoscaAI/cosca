@@ -76,6 +76,12 @@ sempre: ele é desabilitado no boot e liga só quando você quiser falar.
 			},
 		},
 		newVoiceSpeakCommand(),
+		// FASE D: real-time microphone capture → live STT transcription. This is
+		// the native-Go, sovereign "COSCA ouve em tempo real" loop. It is built
+		// only behind `-tags stt_sherpa` (see voice_listen_sherpa.go); without it
+		// the noop twin (voice_listen_noop.go) reports STT desabilitado.
+		newVoiceListenCommand(),
+		newVoiceDevicesCommand(),
 	)
 	return cmd
 }

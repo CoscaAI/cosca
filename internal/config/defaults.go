@@ -222,6 +222,20 @@ func DefaultSTTConfig() STTConfig {
 	}
 }
 
+// DefaultMicConfig returns the sensible-default microphone capture config
+// (FASE D). Enabled is false (opt-in) so existing behaviour is bit-for-bit
+// unchanged until the user opts into `perception.audio.mic.enabled: true`
+// (plus a sherpa STT provider). Device 0 = system default capture device.
+func DefaultMicConfig() MicConfig {
+	return MicConfig{
+		Enabled:    false, // opt-in: no mic capture until explicitly enabled
+		Device:     0,     // WAVE_MAPPER default capture device
+		SampleRate: 16000,
+		Channels:   1,
+		ChunkMS:    100,
+	}
+}
+
 // DefaultPerceptionTTSModelType is the default offline TTS model architecture.
 const DefaultPerceptionTTSModelType = "vits"
 

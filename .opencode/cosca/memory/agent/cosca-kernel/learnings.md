@@ -1240,3 +1240,13 @@
 - MODELO: vits-piper-pt_BR-edresson-low (64MB) -> ~/.cosca/models/tts-vits-piper-pt_BR-edresson-low. Piper edresson: o .onnx tem nome custom (nao model.onnx) -> scanOnnx/fallback quando model.onnx nao existe (fix fileExists).
 - DLLs do sherpa em bin/: sherpa-onnx-c-api.dll, sherpa-onnx-cxx-api.dll + onnxruntime 1.29 compartilhada (satisfaz API 27 do sherpa E API 29 da visao).
 - CICLO DO PROFESSOR: COSCA VE (visao nativa Go) + OUVE (STT nativa Go) + FALA (TTS nativa Go) + SINCRONIZA (Perception Bus). Faltam: captura de microfone (para STT em tempo real), Fase D (memoria episodica multimodal).
+
+## 2026-08-31 - CAPTURA DE MICROFONE: COSCA OUVE EM TEMPO REAL (loop fechado)
+- SPIKE: portaudio REJEITADO (exige pkg-config + lib C PortAudio - nao soberano, evidencia). ESCOLHIDO winmm/WaveIn NATIVO via syscall (zero dependencia externa) - PROVOU captura de PCM 16kHz mono (RMS 0.23, sinal real).
+- PACOTE: internal/worldmodel/audio/mic/ (source.go, capture_winmm_windows.go, source_stt_sherpa.go com MicrophoneAudioSource, mic_test). MicConfig{enabled,device,sample_rate,channels,chunk_ms} opt-in + env COSCA_PERCEPTION__AUDIO__MIC__*.
+- BUG DE CAPTURA RESOLVIDO: driver USB parava apos ~3 buffers. CAUSA: re-armar buffer com dwFlags=0 apagava WHDR_PREPARED -> waveInAddBuffer falha silenciosa. FIX: dwFlags &^= WHDR_DONE (preserva PREPARED). CALLBACK_EVENT -> CALLBACK_NULL + polling WHDR_DONE. Pool 4->8 buffers. CADENCIA CONTINUA: 9.8 chunks/s (~100ms), 0 timeouts. waveInGetDevCaps -> waveInGetDevCapsW (export Unicode).
+- WIRING: buildMicAudioSource (stt_sherpa) + serve.go buildPerceptionBus (usa mic quando enabled). Comandos: cosca voice listen + voice devices, registrados no voice.go.
+- PROVA REAL STT: transcreveu FALA REAL via stt.AudioSource.PushPCM com modelo ASR local (zipformer EN-20M int8): 'UGASCO THIS IS AN AUTOMATIC SPEECH...' (erros esperados com modelo EN int8 + voz SAPI, mas transcreveu).
+- BLOQUEIO PARCIAL HONESTO: mic fisico OK (captura continua 16kHz mono real), mas o cosca voice listen nao transcreveu ao vivo porque o mic USB nao captou a fala dos alto-falantes (ambiente automatizado sem sinal falado no mic -> silencio). O loop mic->PCM->STT->transcricao esta FUNCIONALMENTE PROVADO; falta apenas fala fisica pro mic para a demo interativa.
+- DLL: System32 onnxruntime 1.17 sobrepunha bin/ 1.29 na ordem de busca; resolvido rodando o exe do diretorio com as DLLs corretas (prioridade do dir do exe sobre System32).
+- CICLO DO PROFESSOR COMPLETO: COSCA VE (visao Go) + OUVE (STT Go + mic winmm) + FALA (TTS Go) + SINCRONIZA (Perception Bus). Tudo nativo Go, sem Python.

@@ -502,6 +502,14 @@ type AudioConfig struct {
 	// per-token timestamps) as audio observations. Compiled behind the
 	// `stt_sherpa` build tag; without it this is inert (NoopAudioSource).
 	STT STTConfig `yaml:"stt" json:"stt"`
+	// Mic configures the real-time microphone capture that closes the audio
+	// loop: mic → PCM → STT → bus → sync with vision. When Mic.Enabled and
+	// STT.Provider == "sherpa", the bus source is wrapped so the microphone
+	// PCM is fed live to the streaming recognizer. The capture backend is the
+	// native Windows winmm/WaveIn (sovereign, no external DLL); it degrades
+	// gracefully (falls back to the STT-only source / Noop) when the mic is
+	// unavailable or the platform has no support.
+	Mic MicConfig `yaml:"mic" json:"mic"`
 	// TTS configures the native-Go text-to-speech engine (FASE C). When
 	// TTS.Provider == "sherpa", the runtime can build a Speaker that turns
 	// text into synthesized PCM (and a .wav) via a local sherpa-onnx offline
@@ -572,6 +580,31 @@ type STTConfig struct {
 	Joiner   string `yaml:"joiner,omitempty" json:"joiner,omitempty"`
 	CtcModel string `yaml:"ctc_model,omitempty" json:"ctcModel,omitempty"`
 	Tokens   string `yaml:"tokens,omitempty" json:"tokens,omitempty"`
+}
+
+// MicConfig configures the real-time microphone capture (FASE D — "o COSCA
+// ouve"). Selected by AudioConfig.Mic.Enabled: when true, the runtime opens the
+// microphone (native Windows winmm/WaveIn, sovereign), converts the captured
+// int16 PCM to normalized float32 [-1,1], and feeds it live into the STT
+// recognizer (push-to-ASR), closing the loop mic → PCM → STT → bus → vision.
+//
+// Capture is opt-in (default disabled) and Windows-only for the native backend;
+// on other platforms or with a missing mic it degrades gracefully (the bus falls
+// back to the STT-only / Noop source — never a crash).
+type MicConfig struct {
+	// Enabled turns live microphone capture on. Default false (opt-in).
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// Device selects the input device index (as reported by `cosca voice
+	// devices`). 0 uses the system default capture device (WAVE_MAPPER); >0
+	// picks a device by index. Default 0.
+	Device int `yaml:"device" json:"device"`
+	// SampleRate is the capture sample rate (Hz). Default 16000.
+	SampleRate int `yaml:"sample_rate" json:"sampleRate"`
+	// Channels is the capture channel count. Only mono is fed to ASR. Default 1.
+	Channels int `yaml:"channels" json:"channels"`
+	// ChunkMS is the capture chunk length in milliseconds (push-to-ASR cadence).
+	// Default 100.
+	ChunkMS int `yaml:"chunk_ms,omitempty" json:"chunkMs,omitempty"`
 }
 
 // ChangeDetectionConfig configures the change-detection gate on the Perception
@@ -830,6 +863,7 @@ func DefaultConfig() *Config {
 				ChunkMS:    DefaultPerceptionAudioChunkMS,
 				STT:        DefaultSTTConfig(),
 				TTS:        DefaultTTSConfig(),
+				Mic:        DefaultMicConfig(),
 			},
 		},
 		Plugins: PluginConfig{
@@ -1338,6 +1372,30 @@ func (c *Config) loadFromEnv() {
 			c.Perception.Audio.TTS.Sid = n
 		}
 	}
+	// FASE D microphone capture (native Windows winmm/WaveIn).
+	if v, ok := envMap["PERCEPTION__AUDIO__MIC__ENABLED"]; ok {
+		c.Perception.Audio.Mic.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__MIC__DEVICE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.Mic.Device = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__MIC__SAMPLE_RATE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.Mic.SampleRate = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__MIC__CHANNELS"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.Mic.Channels = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__MIC__CHUNK_MS"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.Mic.ChunkMS = n
+		}
+	}
 	if v, ok := envMap["ORCHESTRATION__DELIBERATION__ENABLED"]; ok {
 		c.Orchestration.Deliberation.Enabled = v == "true" || v == "1"
 	}
@@ -1511,6 +1569,20 @@ func (c *Config) Validate() error {
 			if c.Perception.Audio.TTS.SampleRate <= 0 {
 				errs = append(errs, "perception.audio.tts.sample_rate must be > 0")
 			}
+		}
+	}
+
+	// FASE D: microphone capture. Validated whenever opted-in (independent of
+	// audio bus enable, so a user enabling the mic gets the sample-rate guard).
+	if c.Perception.Audio.Mic.Enabled {
+		if c.Perception.Audio.Mic.SampleRate <= 0 {
+			errs = append(errs, "perception.audio.mic.sample_rate must be > 0")
+		}
+		if c.Perception.Audio.Mic.Channels < 1 {
+			errs = append(errs, "perception.audio.mic.channels must be >= 1")
+		}
+		if c.Perception.Audio.Mic.ChunkMS <= 0 {
+			errs = append(errs, "perception.audio.mic.chunk_ms must be > 0")
 		}
 	}
 
