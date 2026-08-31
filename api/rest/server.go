@@ -47,6 +47,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/vision"
 	"github.com/CoscaAI/cosca/internal/workflows"
+	"github.com/CoscaAI/cosca/internal/worldmodel/audio/tts"
 	coscapkg "github.com/CoscaAI/cosca/pkg/cosca"
 )
 
@@ -147,6 +148,12 @@ type Server struct {
 	// (FASE A). Nil-safe: when nil (or disabled), the /v1/perception/bus*
 	// endpoints report a clear 503. Set via SetBusService.
 	busSvc *bus.Bus
+
+	// voiceSpeaker is the native-Go TTS Speaker (FASE C — "the COSCA speaks").
+	// Nil-safe: when nil (or disabled), /v1/voice/speaks reports a clear 503.
+	// Set via SetVoiceSpeaker. The speaker type always compiles (the default
+	// build is the disabled stub), so the REST layer never needs cgo.
+	voiceSpeaker *tts.Speaker
 }
 
 // Config configures the REST API server.
@@ -304,6 +311,14 @@ func (s *Server) SetPerceptionService(svc *perception.Service) {
 // by the caller; the server only reads its State and subscribes to its stream.
 func (s *Server) SetBusService(svc *bus.Bus) {
 	s.busSvc = svc
+}
+
+// SetVoiceSpeaker injects the native-Go TTS Speaker (FASE C) into the REST
+// server, enabling the /v1/voice/speaks endpoint. Pass nil (or leave unset) to
+// keep it disabled (503). The speaker is a *tts.Speaker (the package compiles in
+// the default build as the disabled stub), so this setter never needs cgo.
+func (s *Server) SetVoiceSpeaker(spk *tts.Speaker) {
+	s.voiceSpeaker = spk
 }
 
 // Use adds middleware to the server's handler chain.
@@ -718,6 +733,14 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	})
 	s.mux.HandleFunc("GET /v1/perception/bus", func(w http.ResponseWriter, r *http.Request) {
 		handler.NewBusHandler(s.busSvc).Stream(w, r)
+	})
+
+	// Native-Go TTS — "the COSCA speaks" (FASE C). Always registered; nil /
+	// disabled speaker → 503 (opt-in). The handler is constructed lazily per
+	// request via a closure that reads s.voiceSpeaker, so it sees the value
+	// wired by SetVoiceSpeaker AFTER New() — same pattern as the perception bus.
+	s.mux.HandleFunc("POST /v1/voice/speaks", func(w http.ResponseWriter, r *http.Request) {
+		handler.NewVoiceHandler(s.voiceSpeaker).Speaks(w, r)
 	})
 }
 

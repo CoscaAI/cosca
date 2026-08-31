@@ -1229,3 +1229,14 @@
 - VERIFICACAO: go build/vet //... exit 0 (default, sem cgo); go build -tags stt_sherpa //... exit 0 (FULL). audio 1.6s, perception 0.42s, bus 0.42s. Visao (onnxruntime 1.29) + perception.Service/bus intactos.
 - PENDENTE: testes de smoke com modelo (t.Skip por ausencia, modelo 127MB fora do repo); modelo PT-BR nao achado nos releases (EN no momento, idioma resolvido por config); capturador de MICROFONE (fora da Fase B - alimentar PushPCM em tempo real); Fase C (memoria episodica multimodal).
 - STATUS: COSCA tem VISao (nativa Go) + STT (nativo Go via sherpa) + Perception Bus (sincronizacao). Faltam: microfone captura, TTS nativo, Fase C.
+
+## 2026-08-31 - FASE C (VOZ) COMPLETA: TTS nativo via sherpa-onnx - COSCA FALA PT-BR em Go
+- PROVA REAL: bin\cosca.exe voice speak \"Olá, eu sou o COSCA, e estou falando em português.\" -> teste_cosca.wav (3.7s, 58796 samples @ 16000Hz, 115KB). COSCA FALA PT-BR em Go nativo via sherpa-onnx, sem Python, sem internet.
+- PACOTE: internal/worldmodel/audio/tts/ (types/tts-stub/tts_sherpa/wav/speaker). Engine NewOfflineTts + Generate(text,sid,speed). Speaker{Synthesize,SpeakToFile}. WriteWAV16File (Go puro). Build tag tts_sherpa.
+- ENDPOINT: POST /v1/voice/speaks (retorna audio/wav ou base64 PCM; nil/disabled->503). COMANDO: cosca voice speak \"<texto>\" (--out/--sid/--speed, default ~/.cosca/out/tts_<ts>.wav).
+- CONFIG: perception.audio.tts {provider=sherpa, model_dir, model_type=vits, sample_rate=16000, speed, sid} opt-in, env COSCA_PERCEPTION__AUDIO__TTS__*.
+- BLOCKER DO go test: carrega onnxruntime 1.17 do System32 (test binary nao roda de bin/), sherpa exige API 27 -> segfault cgo. SO no BINARIO REAL (DLLs no dir bin/) funciona. Igual a visao.
+- FIX do consigliere: import bytes no wav.go; criado LoadConfigForVoice() + registrado newVoiceSpeakCommand() no voice.go.
+- MODELO: vits-piper-pt_BR-edresson-low (64MB) -> ~/.cosca/models/tts-vits-piper-pt_BR-edresson-low. Piper edresson: o .onnx tem nome custom (nao model.onnx) -> scanOnnx/fallback quando model.onnx nao existe (fix fileExists).
+- DLLs do sherpa em bin/: sherpa-onnx-c-api.dll, sherpa-onnx-cxx-api.dll + onnxruntime 1.29 compartilhada (satisfaz API 27 do sherpa E API 29 da visao).
+- CICLO DO PROFESSOR: COSCA VE (visao nativa Go) + OUVE (STT nativa Go) + FALA (TTS nativa Go) + SINCRONIZA (Perception Bus). Faltam: captura de microfone (para STT em tempo real), Fase D (memoria episodica multimodal).

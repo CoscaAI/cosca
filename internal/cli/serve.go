@@ -53,6 +53,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/sqlite"
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/workflows"
+	"github.com/CoscaAI/cosca/internal/worldmodel/audio/tts"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -280,6 +281,7 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			runtimeClient, deterministic, boot, eng.searchMode, eng.deliberateCfg,
 			eng.perceptionSvc,
 			eng.busSvc,
+			eng.voiceSpeaker,
 			host, port, metricsPort, corsOrigins,
 			tlsCertFile, tlsKeyFile,
 			grpcPort, grpcReflection, grpcDisable,
@@ -318,6 +320,10 @@ type serveEngineResult struct {
 	// Nil-safe: criado apenas quando perception.audio.enabled (opt-in). Quando
 	// nil, /v1/perception/bus* reporta 503.
 	busSvc *bus.Bus
+	// voiceSpeaker é o Speaker TTS nativo (FASE C — "o COSCA fala"). Nil-safe:
+	// criado apenas quando perception.audio.tts.provider=sherpa (opt-in). Quando
+	// nil, /v1/voice/speaks reporta 503.
+	voiceSpeaker *tts.Speaker
 }
 
 type serveManagerResult struct {
@@ -353,6 +359,7 @@ type serveServerResult struct {
 	gitInit       gitState
 	perceptionSvc *perception.Service
 	busSvc        *bus.Bus
+	voiceSpeaker  *tts.Speaker
 }
 
 // ── 1. preBootstrap ───────────────────────────────────────────────────────────
@@ -498,6 +505,15 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 			Msg("perception bus enabled (multimodal sync)")
 	}
 
+	// FASE C: native-Go TTS "speaker" (opt-in via perception.audio.tts.provider).
+	// Built here (with the perception config + logger) so the REST server can wire
+	// the /v1/voice/speaks endpoint. Nil when not opted-in / not compiled.
+	voiceSpeaker, vErr := buildTtsSpeaker(perceptionCfg, logger)
+	if vErr != nil {
+		logger.Warn().Err(vErr).Msg("voice: TTS speaker build failed — /v1/voice/speaks disabled")
+		voiceSpeaker = nil
+	}
+
 	return &serveEngineResult{
 		client:        runtimeClient,
 		deterministic: deterministic,
@@ -510,6 +526,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		perceptionCfg: perceptionCfg,
 		perceptionSvc: perceptionSvc,
 		busSvc:        busSvc,
+		voiceSpeaker:  voiceSpeaker,
 	}, nil
 }
 
@@ -546,11 +563,24 @@ func buildPerceptionBus(cfg config.PerceptionConfig, visionSvc *perception.Servi
 		logger.Warn().Msg("perception bus: audio.enabled but no perception loop wired — bus disabled")
 		return nil
 	}
+
+	// FASE B: build the native-Go STT audio source (when opt-in). The builder
+	// is defined per-build-tag (perception_stt_noop.go / perception_stt_sherpa.go)
+	// so the default build never pulls cgo. A nil source falls back to Noop.
+	audioSrc, aErr := buildSttAudioSource(cfg, logger)
+	if aErr != nil {
+		logger.Warn().Err(aErr).Msg("perception bus: STT audio source failed — using no-op source")
+		audioSrc = nil
+	}
+	if audioSrc == nil {
+		audioSrc = bus.NoopAudioSource{}
+	}
+
 	return bus.NewBus(bus.Config{
 		Window:    cfg.Audio.Window,
 		MaxObs:    bus.DefaultMaxObs,
 		Tolerance: cfg.Audio.Tolerance,
-	}, visionSvc, bus.NoopAudioSource{}, logger.With().Str("component", "perception-bus").Logger())
+	}, visionSvc, audioSrc, logger.With().Str("component", "perception-bus").Logger())
 }
 
 // ── 3. initManagers ───────────────────────────────────────────────────────────
@@ -784,6 +814,7 @@ func serveStartServers(
 	deliberateCfg orchestration.DeliberateConfig,
 	perceptionSvc *perception.Service,
 	busSvc *bus.Bus,
+	voiceSpeaker *tts.Speaker,
 	host *string,
 	port *int,
 	metricsPort *int,
@@ -845,6 +876,12 @@ func serveStartServers(
 	if busSvc != nil {
 		server.SetBusService(busSvc)
 		busSvc.Start(context.Background())
+	}
+
+	// FASE C: native-Go TTS speaker (opt-in). Enables /v1/voice/speaks. Nil-safe:
+	// quando não opt-in (ou build sem a tag tts_sherpa), o endpoint reporta 503.
+	if voiceSpeaker != nil {
+		server.SetVoiceSpeaker(voiceSpeaker)
 	}
 
 	httpMetrics := metrics.NewHTTPMetrics()
@@ -997,6 +1034,7 @@ func serveStartServers(
 		gitInit:       gitInit,
 		perceptionSvc: perceptionSvc,
 		busSvc:        busSvc,
+		voiceSpeaker:  voiceSpeaker,
 	}
 }
 
@@ -1056,6 +1094,12 @@ func serveEventLoop(srv *serveServerResult, dir string, logger zerolog.Logger, r
 	if srv.busSvc != nil {
 		srv.busSvc.Stop()
 		logger.Info().Msg("perception bus stopped")
+	}
+
+	// FASE C: fecha o Speaker TTS (libera o modelo sherpa/ONNX).
+	if srv.voiceSpeaker != nil {
+		_ = srv.voiceSpeaker.Close()
+		logger.Info().Msg("voice speaker closed")
 	}
 
 	if err := rtInstance.Stop(shutdownCtx); err != nil {

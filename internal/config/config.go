@@ -496,6 +496,82 @@ type AudioConfig struct {
 	SampleRate int `yaml:"sample_rate" json:"sampleRate"`
 	// ChunkMS is the audio chunk length in milliseconds. Default 100.
 	ChunkMS int `yaml:"chunk_ms" json:"chunkMs"`
+	// STT configures the native-Go speech-to-text engine (FASE B). When
+	// STT.Provider == "sherpa", the bus feeds captured PCM to a local
+	// sherpa-onnx streaming recognizer and publishes transcriptions (with
+	// per-token timestamps) as audio observations. Compiled behind the
+	// `stt_sherpa` build tag; without it this is inert (NoopAudioSource).
+	STT STTConfig `yaml:"stt" json:"stt"`
+	// TTS configures the native-Go text-to-speech engine (FASE C). When
+	// TTS.Provider == "sherpa", the runtime can build a Speaker that turns
+	// text into synthesized PCM (and a .wav) via a local sherpa-onnx offline
+	// model, closing the loop "percebe → interpreta → fala". Compiled behind
+	// the `tts_sherpa` build tag; without it the speaker is inert (ErrDisabled).
+	TTS TTSConfig `yaml:"tts" json:"tts"`
+}
+
+// TTSConfig configures the native-Go text-to-speech engine (FASE C).
+//
+// Selected by AudioConfig.TTS.Provider: "sherpa" (native Go, local onnxruntime)
+// or "" (no TTS → silent/no-op speaker). Everything is local — models are
+// loaded from ModelDir and no internet is accessed at runtime. Provider values
+// mirror STTConfig.Provider for symmetry.
+type TTSConfig struct {
+	// Provider selects the TTS engine: "sherpa" (native Go) or "" (disabled).
+	// Default "" (disabled) to keep the Fase A behaviour bit-for-bit.
+	Provider string `yaml:"provider" json:"provider"`
+	// ModelDir is the directory holding the .onnx model + tokens.txt +
+	// espeak-ng-data (VITS/piper) or model.onnx + voices.bin (kokoro).
+	ModelDir string `yaml:"model_dir,omitempty" json:"modelDir,omitempty"`
+	// ModelType selects the architecture: "vits" (default), "kokoro", "matcha",
+	// "zipvoice". Empty → vits.
+	ModelType string `yaml:"model_type,omitempty" json:"modelType,omitempty"`
+	// SampleRate is the expected output sample rate (Hz). Default 16000.
+	SampleRate int `yaml:"sample_rate" json:"sampleRate"`
+	// NumThreads is the ONNX runtime worker count. Default 2.
+	NumThreads int `yaml:"num_threads" json:"numThreads"`
+	// Device is the execution provider: "cpu" (default). Kept separate from
+	// Provider to avoid ambiguity (Provider = engine selector).
+	Device string `yaml:"device,omitempty" json:"device,omitempty"`
+	// Speed is the speaking rate (1.0 = normal; <1 faster, >1 slower).
+	Speed float64 `yaml:"speed" json:"speed"`
+	// Sid is the speaker/voice id. Default 0.
+	Sid int `yaml:"sid" json:"sid"`
+}
+
+// STTConfig configures the native-Go speech-to-text engine (FASE B).
+//
+// Selected by AudioConfig.STT.Provider: "sherpa" (native Go, local onnxruntime)
+// or "" (no STT → NoopAudioSource). Everything is local — models are loaded
+// from ModelDir and no internet is accessed at runtime.
+type STTConfig struct {
+	// Provider selects the STT engine: "sherpa" (native Go) or "" (disabled).
+	// Default "" (disabled) to keep the Fase A behaviour bit-for-bit.
+	Provider string `yaml:"provider" json:"provider"`
+	// ModelDir is the directory holding the .onnx model + tokens.txt.
+	ModelDir string `yaml:"model_dir,omitempty" json:"modelDir,omitempty"`
+	// ModelType selects the streaming architecture: "transducer" (default),
+	// "paraformer", "zipformer2_ctc", "nemo_ctc".
+	ModelType string `yaml:"model_type,omitempty" json:"modelType,omitempty"`
+	// SampleRate is the capture/feature sample rate. Default 16000. empty → default.
+	SampleRate int `yaml:"sample_rate" json:"sampleRate"`
+	// NumThreads is the ONNX runtime worker count. Default 2.
+	NumThreads int `yaml:"num_threads" json:"numThreads"`
+	// Device is the execution provider: "cpu" (default). Kept separate from
+	// Provider to avoid ambiguity (Provider = engine selector).
+	Device string `yaml:"device,omitempty" json:"device,omitempty"`
+	// DecodingMethod is "greedy_search" (default) or "modified_beam_search".
+	DecodingMethod string `yaml:"decoding_method,omitempty" json:"decodingMethod,omitempty"`
+	// EnableEndpoint enables sherpa's streaming endpoint detector (finalize a
+	// segment on trailing silence). Default true.
+	EnableEndpoint bool `yaml:"enable_endpoint" json:"enableEndpoint"`
+	// Optional per-model file overrides (relative to ModelDir or absolute).
+	// Empty → conventional names derived from ModelDir + ModelType.
+	Encoder  string `yaml:"encoder,omitempty" json:"encoder,omitempty"`
+	Decoder  string `yaml:"decoder,omitempty" json:"decoder,omitempty"`
+	Joiner   string `yaml:"joiner,omitempty" json:"joiner,omitempty"`
+	CtcModel string `yaml:"ctc_model,omitempty" json:"ctcModel,omitempty"`
+	Tokens   string `yaml:"tokens,omitempty" json:"tokens,omitempty"`
 }
 
 // ChangeDetectionConfig configures the change-detection gate on the Perception
@@ -752,6 +828,8 @@ func DefaultConfig() *Config {
 				Tolerance:  DefaultPerceptionAudioTolerance,
 				SampleRate: DefaultPerceptionAudioSampleRate,
 				ChunkMS:    DefaultPerceptionAudioChunkMS,
+				STT:        DefaultSTTConfig(),
+				TTS:        DefaultTTSConfig(),
 			},
 		},
 		Plugins: PluginConfig{
@@ -1212,6 +1290,54 @@ func (c *Config) loadFromEnv() {
 			c.Perception.Audio.ChunkMS = n
 		}
 	}
+	// FASE B STT (native Go sherpa-onnx).
+	if v, ok := envMap["PERCEPTION__AUDIO__STT__PROVIDER"]; ok {
+		c.Perception.Audio.STT.Provider = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__STT__MODEL_DIR"]; ok {
+		c.Perception.Audio.STT.ModelDir = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__STT__MODEL_TYPE"]; ok {
+		c.Perception.Audio.STT.ModelType = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__STT__SAMPLE_RATE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.STT.SampleRate = n
+		}
+	}
+	// FASE C TTS (native Go sherpa-onnx).
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__PROVIDER"]; ok {
+		c.Perception.Audio.TTS.Provider = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__MODEL_DIR"]; ok {
+		c.Perception.Audio.TTS.ModelDir = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__MODEL_TYPE"]; ok {
+		c.Perception.Audio.TTS.ModelType = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__SAMPLE_RATE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.TTS.SampleRate = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__NUM_THREADS"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.TTS.NumThreads = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__DEVICE"]; ok {
+		c.Perception.Audio.TTS.Device = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__SPEED"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Perception.Audio.TTS.Speed = f
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TTS__SID"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.TTS.Sid = n
+		}
+	}
 	if v, ok := envMap["ORCHESTRATION__DELIBERATION__ENABLED"]; ok {
 		c.Orchestration.Deliberation.Enabled = v == "true" || v == "1"
 	}
@@ -1367,6 +1493,24 @@ func (c *Config) Validate() error {
 		}
 		if c.Perception.Audio.ChunkMS <= 0 {
 			errs = append(errs, "perception.audio.chunk_ms must be > 0")
+		}
+		// FASE B: native-Go STT. Only validated when opted-in.
+		if c.Perception.Audio.STT.Provider == "sherpa" {
+			if c.Perception.Audio.STT.ModelDir == "" {
+				errs = append(errs, "perception.audio.stt.model_dir must be set when stt.provider=sherpa")
+			}
+			if c.Perception.Audio.STT.SampleRate <= 0 {
+				errs = append(errs, "perception.audio.stt.sample_rate must be > 0")
+			}
+		}
+		// FASE C: native-Go TTS. Only validated when opted-in.
+		if c.Perception.Audio.TTS.Provider == "sherpa" {
+			if c.Perception.Audio.TTS.ModelDir == "" {
+				errs = append(errs, "perception.audio.tts.model_dir must be set when tts.provider=sherpa")
+			}
+			if c.Perception.Audio.TTS.SampleRate <= 0 {
+				errs = append(errs, "perception.audio.tts.sample_rate must be > 0")
+			}
 		}
 	}
 

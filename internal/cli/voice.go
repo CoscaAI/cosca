@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/CoscaAI/cosca/internal/config"
 )
 
 // voiceProjectRoot is the cosca-voice project (desacoplado do root — L210).
@@ -73,8 +75,16 @@ sempre: ele é desabilitado no boot e liga só quando você quiser falar.
 				return voiceControl(cmd, "status")
 			},
 		},
+		newVoiceSpeakCommand(),
 	)
 	return cmd
+}
+
+// LoadConfigForVoice loads the COSCA config (for the native TTS voice speak
+// path). It reuses the CLI's config loader so the resolver honours the same
+// project/home resolution as the serve path.
+func LoadConfigForVoice() (*config.Config, error) {
+	return loadConfig()
 }
 
 // voiceControl runs systemctl --user on the voice unit, with a clear error

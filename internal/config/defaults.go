@@ -204,6 +204,42 @@ const (
 	DefaultPerceptionAudioChunkMS = 100
 )
 
+// DefaultPerceptionSTTModelType is the default streaming STT model architecture.
+const DefaultPerceptionSTTModelType = "transducer"
+
+// DefaultSTTConfig returns the sensible-default native-Go STT config (FASE B).
+// Provider is "" (disabled) so existing Fase A behaviour is bit-for-bit
+// unchanged until the user opts into `perception.audio.stt.provider: sherpa`.
+func DefaultSTTConfig() STTConfig {
+	return STTConfig{
+		Provider:       "", // opt-in: no STT until explicitly set to "sherpa"
+		SampleRate:     16000,
+		NumThreads:      2,
+		Device:          "cpu",
+		DecodingMethod:  "greedy_search",
+		EnableEndpoint:  true,
+		ModelType:       DefaultPerceptionSTTModelType,
+	}
+}
+
+// DefaultPerceptionTTSModelType is the default offline TTS model architecture.
+const DefaultPerceptionTTSModelType = "vits"
+
+// DefaultTTSConfig returns the sensible-default native-Go TTS config (FASE C).
+// Provider is "" (disabled) so the speaking loop stays silent (no-op) until the
+// user opts into `perception.audio.tts.provider: sherpa`.
+func DefaultTTSConfig() TTSConfig {
+	return TTSConfig{
+		Provider:   "", // opt-in: no TTS until explicitly set to "sherpa"
+		SampleRate: 16000,
+		NumThreads: 2,
+		Device:     "cpu",
+		ModelType:  DefaultPerceptionTTSModelType,
+		Speed:      1.0,
+		Sid:        0,
+	}
+}
+
 // =============================================================================
 // Default Network
 // =============================================================================
