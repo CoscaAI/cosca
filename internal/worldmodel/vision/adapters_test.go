@@ -1,159 +1,184 @@
 package vision
 
 import (
+	"bytes"
 	"context"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
+	"errors"
+	"image"
+	"image/color"
+	"image/png"
+	"math"
 	"testing"
 	"time"
 )
 
-// writeFakeScript cria um script python3 temporário e determinístico que lê o
-// request do stdin e devolve um subprocessResponse {ok:true, data:<FAKE_RESPONSE>} .
-// É um TEST DOUBLE da fronteira externa (subprocesso), NÃO um mock da lógica do
-// adapter: o adapter real executa, o marshaling real executa, runSubprocess real
-// executa, e a resposta atravessa o parsing real.
-func writeFakeScript(t *testing.T, dataJSON string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "fake_vision.py")
-	content := `import sys, json
-req = json.load(sys.stdin)
-resp = {"ok": True, "data": json.loads("""FAKE_DATA""")}
-json.dump(resp, sys.stdout)
-`
-	content = strings.Replace(content, "FAKE_DATA", dataJSON, 1)
-	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
-		t.Fatalf("write fake script: %v", err)
-	}
-	return path
-}
+// ──────────────────────────────────────────────────────────────
+// ONNX adapters — graceful degradation (no Python, no model required)
+// ──────────────────────────────────────────────────────────────
+//
+// These tests exercise the "best-effort" contract: when the .onnx model file is
+// not present on disk, the adapter must degrade with a clear (non-fatal) error
+// and never crash/call the C runtime. Since no real models are checked in, the
+// exact ONNX inference path is not exercised here (it would t.Skip anyway);
+// these verify the loader + degradation path is wired correctly.
 
-func requirePython(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 não disponível; adapters World/City exigem subprocesso")
-	}
-}
-
-func TestClipAdapterClassify_Success(t *testing.T) {
-	requirePython(t)
-	script := writeFakeScript(t, `{"label":"esteira","confidence":0.87}`)
-	a := NewClipAdapter(ClipConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func TestClipAdapterClassify_ModelMissing(t *testing.T) {
+	a := NewClipAdapter(ClipConfig{ModelPath: "testdata/does-not-exist_clip.onnx"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	label, conf, err := a.Classify(ctx, []byte("frame"), []string{"esteira", "halter"})
-	if err != nil {
-		t.Fatalf("Classify: %v", err)
-	}
-	if label != "esteira" || conf != 0.87 {
-		t.Fatalf("classificacao incorreta: label=%q conf=%v", label, conf)
-	}
-}
-
-func TestClipAdapterEmbed_Success(t *testing.T) {
-	requirePython(t)
-	script := writeFakeScript(t, `{"embedding":[0.1,0.2,0.3]}`)
-	a := NewClipAdapter(ClipConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	emb, err := a.Embed(ctx, []byte("frame"))
-	if err != nil {
-		t.Fatalf("Embed: %v", err)
-	}
-	if len(emb) != 3 || emb[0] != 0.1 || emb[2] != 0.3 {
-		t.Fatalf("embedding incorreto: %v", emb)
-	}
-}
-
-func TestSAMAdapterSegment_Success(t *testing.T) {
-	requirePython(t)
-	script := writeFakeScript(t, `{"masks":[{"bounding_box":{"min":{"x":10,"y":10,"z":0},"max":{"x":50,"y":50,"z":0}},"area":1600,"label":"esteira"}]}`)
-	a := NewSAMAdapter(SAMConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	masks, err := a.Segment(ctx, []byte("frame"), "esteira")
-	if err != nil {
-		t.Fatalf("Segment: %v", err)
-	}
-	if len(masks) != 1 || masks[0].Label != "esteira" || masks[0].Area != 1600 {
-		t.Fatalf("masks incorretas: %+v", masks)
-	}
-}
-
-func TestGroundingAdapterDetect_Success(t *testing.T) {
-	requirePython(t)
-	script := writeFakeScript(t, `{"detections":[{"bounding_box":{"min":{"x":0,"y":0,"z":0},"max":{"x":10,"y":10,"z":0}},"label":"halter","confidence":0.92}]}`)
-	a := NewGroundingAdapter(GroundingConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	dets, err := a.Detect(ctx, []byte("frame"))
-	if err != nil {
-		t.Fatalf("Detect: %v", err)
-	}
-	if len(dets) != 1 || dets[0].Label != "halter" || dets[0].Confidence != 0.92 {
-		t.Fatalf("detections incorretas: %+v", dets)
-	}
-}
-
-func TestDepthAdapterEstimateDepth_Success(t *testing.T) {
-	requirePython(t)
-	script := writeFakeScript(t, `{"depth_map":[[1.0,2.0],[3.0,4.0]]}`)
-	a := NewDepthAdapter(DepthConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	depth, err := a.EstimateDepth(ctx, []byte("frame"))
-	if err != nil {
-		t.Fatalf("EstimateDepth: %v", err)
-	}
-	if len(depth) != 2 || len(depth[0]) != 2 || depth[1][1] != 4.0 {
-		t.Fatalf("depth map incorreto: %v", depth)
-	}
-}
-
-func TestClipAdapterClassify_SubprocessError(t *testing.T) {
-	requirePython(t)
-	dir := t.TempDir()
-	script := filepath.Join(dir, "fail.py")
-	content := `import sys, json
-json.dump({"ok": False, "data": None, "error": "modelo nao carregado"}, sys.stdout)
-`
-	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
-		t.Fatalf("write fail script: %v", err)
-	}
-	a := NewClipAdapter(ClipConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, _, err := a.Classify(ctx, []byte("frame"), nil)
+	_, _, err := a.Classify(ctx, []byte("frame"), []string{"cat", "dog"})
 	if err == nil {
-		t.Fatal("Classify deveria retornar erro quando subprocesso devolve OK=false")
+		t.Fatal("Classify should degrade with an error on missing model, got nil")
 	}
+	assertDegradeErr(t, err)
 }
 
-func TestDepthAdapterEstimateDepth_MalformedJSON(t *testing.T) {
-	requirePython(t)
-	dir := t.TempDir()
-	script := filepath.Join(dir, "badjson.py")
-	content := `import sys
-sys.stdout.write("not-json{{{{")
-`
-	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
-		t.Fatalf("write badjson script: %v", err)
+func TestClipAdapterEmbed_ModelMissing(t *testing.T) {
+	a := NewClipAdapter(ClipConfig{ModelPath: "testdata/does-not-exist_clip.onnx"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := a.Embed(ctx, []byte("frame"))
+	if err == nil {
+		t.Fatal("Embed should degrade with an error on missing model, got nil")
 	}
-	a := NewDepthAdapter(DepthConfig{Script: script})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	assertDegradeErr(t, err)
+}
+
+func TestSAMAdapterSegment_ModelMissing(t *testing.T) {
+	a := NewSAMAdapter(SAMConfig{ModelPath: "testdata/does-not-exist_sam.onnx"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := a.Segment(ctx, []byte("frame"), "esteira")
+	if err == nil {
+		t.Fatal("Segment should degrade with an error on missing model, got nil")
+	}
+	assertDegradeErr(t, err)
+}
+
+func TestGroundingAdapterDetect_ModelMissing(t *testing.T) {
+	a := NewGroundingAdapter(GroundingConfig{ModelPath: "testdata/does-not-exist_grounding.onnx"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := a.Detect(ctx, []byte("frame"))
+	if err == nil {
+		t.Fatal("Detect should degrade with an error on missing model, got nil")
+	}
+	assertDegradeErr(t, err)
+}
+
+func TestDepthAdapterEstimateDepth_ModelMissing(t *testing.T) {
+	a := NewDepthAdapter(DepthConfig{ModelPath: "testdata/does-not-exist_depth.onnx"})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	_, err := a.EstimateDepth(ctx, []byte("frame"))
 	if err == nil {
-		t.Fatal("EstimateDepth deveria retornar erro ante JSON invalido")
+		t.Fatal("EstimateDepth should degrade with an error on missing model, got nil")
 	}
+	assertDegradeErr(t, err)
+}
+
+func assertDegradeErr(t *testing.T, err error) {
+	t.Helper()
+	if !errors.Is(err, ErrModelNotFound) && !errors.Is(err, ErrModelUnavailable) {
+		t.Errorf("expected a graceful model error (ErrModelNotFound/ErrModelUnavailable), got: %v", err)
+	}
+}
+
+// ──────────────────────────────────────────────────────────────
+// Model path resolution
+// ──────────────────────────────────────────────────────────────
+
+func TestFilenameForModel(t *testing.T) {
+	cases := map[string]string{
+		"ViT-B/32": ClipModelFile,
+		"clip":     ClipModelFile,
+		"sam2":     SAMModelFile,
+		"groundingdino": GroundingModelFile,
+		"depth":    DepthModelFile,
+		"custom":   "custom.onnx",
+	}
+	for in, want := range cases {
+		if got := filenameForModel(in); got != want {
+			t.Errorf("filenameForModel(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// ──────────────────────────────────────────────────────────────
+// Image preprocessing helpers
+// ──────────────────────────────────────────────────────────────
+
+func TestDecodeImage_PNG(t *testing.T) {
+	buf := encodePNG(t, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	img, err := decodeImage(buf)
+	if err != nil {
+		t.Fatalf("decodeImage: %v", err)
+	}
+	if img.Bounds().Dx() != 4 || img.Bounds().Dy() != 4 {
+		t.Fatalf("unexpected decoded size: %v", img.Bounds())
+	}
+}
+
+func TestDecodeImage_Unsupported(t *testing.T) {
+	_, err := decodeImage([]byte("not an image"))
+	if err == nil {
+		t.Fatal("decodeImage should error on unsupported/unparseable bytes")
+	}
+}
+
+func TestResizeBilinear(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	src.Set(0, 0, color.RGBA{255, 0, 0, 255})
+	src.Set(1, 0, color.RGBA{0, 255, 0, 255})
+	src.Set(0, 1, color.RGBA{0, 0, 255, 255})
+	src.Set(1, 1, color.RGBA{255, 255, 255, 255})
+
+	dst := resizeBilinear(src, 4, 4)
+	if dst.Bounds().Dx() != 4 || dst.Bounds().Dy() != 4 {
+		t.Fatalf("resize to 4x4 failed: %v", dst.Bounds())
+	}
+}
+
+func TestToCHWFloat_Shape(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	data := toCHWFloat(img, 3, 3, imageNetNormalize)
+	if len(data) != 3*3*3 {
+		t.Fatalf("CHW buffer size = %d, want %d", len(data), 27)
+	}
+}
+
+func TestSoftmax(t *testing.T) {
+	out := softmax([]float32{0, 0})
+	if len(out) != 2 {
+		t.Fatalf("softmax len = %d, want 2", len(out))
+	}
+	sum := out[0] + out[1]
+	if math.Abs(float64(sum)-1.0) > 1e-4 {
+		t.Fatalf("softmax does not sum to 1: %v", out)
+	}
+}
+
+func TestL2Norm(t *testing.T) {
+	v := []float32{3, 4}
+	norm := l2norm(v)
+	if math.Abs(float64(norm)-5.0) > 1e-4 {
+		t.Fatalf("l2norm = %v, want 5", norm)
+	}
+	if math.Abs(float64(v[0])-0.6) > 1e-4 || math.Abs(float64(v[1])-0.8) > 1e-4 {
+		t.Fatalf("normalized vector wrong: %v", v)
+	}
+}
+
+func encodePNG(t *testing.T, img image.Image) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("png encode: %v", err)
+	}
+	return buf.Bytes()
 }

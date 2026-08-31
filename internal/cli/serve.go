@@ -43,6 +43,8 @@ import (
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/metrics"
+	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/perception"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/runtime"
 	"github.com/CoscaAI/cosca/internal/secrets"
@@ -274,7 +276,8 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			mgr.agents, mgr.skills, mgr.providers, mgr.workflows,
 			authRes.store, authRes.apiKey, authRes.jwtSecret, authRes.tokens,
 			stores.audit, stores.secrets, stores.trace, stores.department,
-			runtimeClient, deterministic, boot, eng.searchMode,
+			runtimeClient, deterministic, boot, eng.searchMode, eng.deliberateCfg,
+			eng.perceptionSvc,
 			host, port, metricsPort, corsOrigins,
 			tlsCertFile, tlsKeyFile,
 			grpcPort, grpcReflection, grpcDisable,
@@ -299,6 +302,16 @@ type serveEngineResult struct {
 	// searchMode é o modo de busca da config ("legacy" | "modular") — FASE 1
 	// routing/scope. Vazio = legacy (comportamento atual).
 	searchMode string
+	// deliberateCfg é a configuração da Kernel-First Deliberation (ADR-032)
+	// lida da config; repassada ao servidor REST (`/v1/run`). Fail-closed.
+	deliberateCfg orchestration.DeliberateConfig
+	// perceptionCfg é a configuração do perception loop (da config). Passada ao
+	// serveStartServers para montar/iniciar o serviço. Opt-in (Enabled=false).
+	perceptionCfg config.PerceptionConfig
+	// perceptionSvc é o serviço do Perception Loop (screen → vision → estado →
+	// SSE). Nil-safe: quando a config está desabilitada, é nil e os endpoints
+	// /v1/perception/* reportam 503.
+	perceptionSvc *perception.Service
 }
 
 type serveManagerResult struct {
@@ -332,6 +345,7 @@ type serveServerResult struct {
 	errCh       chan error
 	serverStart time.Time
 	gitInit     gitState
+	perceptionSvc *perception.Service
 }
 
 // ── 1. preBootstrap ───────────────────────────────────────────────────────────
@@ -398,6 +412,8 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		embeddingDimensions int
 		embeddingSearchMode string
 		watchFrameworkDir   string
+		deliberateCfg       orchestration.DeliberateConfig
+		perceptionCfg       config.PerceptionConfig
 	)
 	if c, loadErr := config.Load(); loadErr != nil {
 		logger.Warn().Err(loadErr).Msg("failed to load project config — embedding provider will be auto-detected")
@@ -409,6 +425,12 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		embeddingDigest = c.Embedding.Digest
 		embeddingDimensions = c.Embedding.Dimensions
 		embeddingSearchMode = c.Search.Mode
+		// Perception Loop (opt-in): ler a config para montar o serviço contínuo.
+		perceptionCfg = c.Perception
+		// Kernel-First Deliberation (ADR-032). Fail-closed (LEI DO COFRE):
+		// only explicitly enabled:true turns the stage on — an absent section
+		// yields Disabled=false.
+		deliberateCfg = orchestration.DeliberateConfigFromConfig(c.Orchestration.Deliberation)
 
 		if c.Watch.Enabled {
 			if wd, wdErr := os.Getwd(); wdErr == nil {
@@ -433,6 +455,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		EmbeddingDimensions: embeddingDimensions,
 		WatchFrameworkDir:   watchFrameworkDir,
 		WorkspaceDir:        workspaceDir(),
+		DeliberateConfig:    deliberateCfg,
 		Pipeline: bootstrap.PipelineConfig{
 			Enabled: *pipelineEnable,
 		},
@@ -445,6 +468,17 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		logger.Warn().Err(bootErr).Msg("engine composition completed with issues")
 	}
 
+	// Perception Loop service (opt-in). Built from config; disabled → nil so
+	// the /v1/perception/* endpoints report a clear 503.
+	perceptionSvc := buildPerceptionService(perceptionCfg, logger)
+	if perceptionSvc != nil && perceptionSvc.Enabled() {
+		logger.Info().
+			Dur("interval", perceptionSvc.Interval()).
+			Str("mode", perceptionSvc.Mode()).
+			Str("capture", perceptionCfg.Capture).
+			Msg("perception loop enabled")
+	}
+
 	return &serveEngineResult{
 		client:        runtimeClient,
 		deterministic: deterministic,
@@ -453,7 +487,26 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		mem:           boot.Memory,
 		rt:            boot.Runtime,
 		searchMode:    embeddingSearchMode,
+		deliberateCfg: deliberateCfg,
+		perceptionCfg: perceptionCfg,
+		perceptionSvc: perceptionSvc,
 	}, nil
+}
+
+// buildPerceptionService monta o serviço do Perception Loop a partir da config.
+// Retorna nil quando a config está desabilitada (opt-in).
+func buildPerceptionService(cfg config.PerceptionConfig, logger zerolog.Logger) *perception.Service {
+	if !cfg.Enabled {
+		return nil
+	}
+	return perception.NewService(perception.Config{
+		Enabled:     cfg.Enabled,
+		Mode:        cfg.Mode,
+		Interval:    cfg.Interval,
+		MaxInterval: cfg.MaxInterval,
+		Capture:     cfg.Capture,
+		ModelsDir:   cfg.ModelsDir,
+	}, perception.WithLogger(logger))
 }
 
 // ── 3. initManagers ───────────────────────────────────────────────────────────
@@ -684,6 +737,8 @@ func serveStartServers(
 	deterministic bool,
 	boot *bootstrap.Result,
 	searchMode string,
+	deliberateCfg orchestration.DeliberateConfig,
+	perceptionSvc *perception.Service,
 	host *string,
 	port *int,
 	metricsPort *int,
@@ -711,6 +766,9 @@ func serveStartServers(
 	serverCfg.Port = *port
 	serverCfg.CORSOrigins = *corsOrigins
 	serverCfg.RuntimeClient = runtimeClient
+	// Kernel-First Deliberation (ADR-032): propagado ao /v1/run. Fail-closed:
+	// zero-value (Enabled=false) mantém o caminho legado.
+	serverCfg.DeliberateConfig = deliberateCfg
 
 	serverCfg.RegistrationEnabled = os.Getenv("COSCA_ENABLE_REGISTRATION") == "true"
 	if serverCfg.RegistrationEnabled {
@@ -726,6 +784,14 @@ func serveStartServers(
 	// ao escopo roteado; NoRoute → vazio + no_route:true; legacy → atual).
 	if boot != nil && boot.RouteResolver != nil {
 		server.SetModularSearch(boot.RouteResolver, searchMode)
+	}
+
+	// Perception Loop (opt-in): injeta o serviço no servidor (habilita
+	// /v1/perception/*) e o inicia. Quando nil (desabilitado), os endpoints
+	// reportam 503 — comportamento default inalterado.
+	if perceptionSvc != nil {
+		server.SetPerceptionService(perceptionSvc)
+		perceptionSvc.Start(context.Background())
 	}
 
 	httpMetrics := metrics.NewHTTPMetrics()
@@ -876,6 +942,7 @@ func serveStartServers(
 		errCh:       errCh,
 		serverStart: serverStart,
 		gitInit:     gitInit,
+		perceptionSvc: perceptionSvc,
 	}
 }
 
@@ -923,6 +990,12 @@ func serveEventLoop(srv *serveServerResult, dir string, logger zerolog.Logger, r
 		} else {
 			logger.Info().Msg("daemon stopped")
 		}
+	}
+
+	// Perception Loop (opt-in): para o serviço antes do rest do shutdown.
+	if srv.perceptionSvc != nil {
+		srv.perceptionSvc.Stop()
+		logger.Info().Msg("perception loop stopped")
 	}
 
 	if err := rtInstance.Stop(shutdownCtx); err != nil {

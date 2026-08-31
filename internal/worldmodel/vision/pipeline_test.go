@@ -2,7 +2,6 @@ package vision
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -16,8 +15,14 @@ import (
 func TestPipelineConfigDefaults(t *testing.T) {
 	config := DefaultPipelineConfig()
 
-	if config.MinConfidence != 0.3 {
-		t.Errorf("MinConfidence: got %v, want 0.3", config.MinConfidence)
+	// MinConfidence tracks the Grounding threshold so that zero-shot scores
+	// (which run low for the small GroundingDINO-tiny model) are surfaced rather
+	// than silently dropped by the pipeline filter.
+	if config.MinConfidence != defaultGroundingThreshold {
+		t.Errorf("MinConfidence: got %v, want %v", config.MinConfidence, defaultGroundingThreshold)
+	}
+	if config.Grounding == nil || len(config.Grounding.Prompt) == 0 {
+		t.Error("default grounding config must carry a UI prompt")
 	}
 	if config.MaxEntities != 50 {
 		t.Errorf("MaxEntities: got %v, want 50", config.MaxEntities)
@@ -161,79 +166,6 @@ func TestComputeRelationsMultiple(t *testing.T) {
 	// car-tree (5m), car-house (25m — too far), tree-house (~25m — too far)
 	if len(relations) != 1 {
 		t.Errorf("expected 1 relation, got %d", len(relations))
-	}
-}
-
-// ──────────────────────────────────────────────────────────────
-// Subprocess helper tests
-// ──────────────────────────────────────────────────────────────
-
-func TestSubprocessRequest(t *testing.T) {
-	req := subprocessRequest{
-		Command: "classify",
-		Payload: []byte(`{"image": "test"}`),
-	}
-
-	data, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded subprocessRequest
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.Command != "classify" {
-		t.Errorf("command: got %v, want classify", decoded.Command)
-	}
-}
-
-func TestSubprocessResponse(t *testing.T) {
-	resp := subprocessResponse{
-		OK:   true,
-		Data: []byte(`{"label": "car", "confidence": 0.95}`),
-	}
-
-	data, err := json.Marshal(resp)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded subprocessResponse
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if !decoded.OK {
-		t.Error("OK should be true")
-	}
-	if decoded.Error != "" {
-		t.Errorf("error should be empty, got %v", decoded.Error)
-	}
-}
-
-func TestSubprocessResponseError(t *testing.T) {
-	resp := subprocessResponse{
-		OK:    false,
-		Error: "model not found",
-	}
-
-	data, err := json.Marshal(resp)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded subprocessResponse
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.OK {
-		t.Error("OK should be false")
-	}
-	if decoded.Error != "model not found" {
-		t.Errorf("error: got %v, want 'model not found'", decoded.Error)
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/CoscaAI/cosca/internal/models"
+	"github.com/CoscaAI/cosca/internal/permission"
 )
 
 // =============================================================================
@@ -89,8 +91,24 @@ type Config struct {
 	// Features enables or disables optional features.
 	Features FeatureConfig `yaml:"features" json:"features"`
 
+	// Vision configures the automatic vision recognition hook: when an image
+	// (screenshot, attachment) arrives as a message in the agent runtime, the
+	// loop runs the native Go ONNX vision pipeline and injects the semantic
+	// understanding into the context — no LLM-vision required.
+	Vision VisionConfig `yaml:"vision" json:"vision"`
+
+	// Perception configures the continuous Perception Loop (screen → vision →
+	// perceptual WorldState → SSE). This turns "capability pontual" into
+	// "presença contínua": the Cosca looks at the screen in real time and
+	// emits a perceptual world-state over /v1/perception/*. Opt-in: disabled
+	// by default so existing behaviour is unchanged.
+	Perception PerceptionConfig `yaml:"perception" json:"perception"`
+
 	// Pipeline configures the pipeline.
 	Pipeline PipelineConfig `yaml:"pipeline" json:"pipeline"`
+
+	// Orchestration configures the orchestration engine.
+	Orchestration OrchestrationConfig `yaml:"orchestration" json:"orchestration"`
 
 	// Plugins configures the plugin system.
 	Plugins PluginConfig `yaml:"plugins" json:"plugins"`
@@ -103,6 +121,12 @@ type Config struct {
 	// the shell tool are evaluated against these rules before running. Empty
 	// = no policy enforcement (current behavior).
 	ExecPolicy string `yaml:"exec_policy,omitempty" json:"execPolicy,omitempty"`
+
+	// Permissions is the allow/ask/deny ruleset that gates tool execution
+	// (see internal/permission). Empty = no enforcement (fail-open, current
+	// behavior). Supports both string actions (permission -> "allow"/"ask"/
+	// "deny") and per-pattern maps (permission -> { "*.go": "allow" }).
+	Permissions map[string]interface{} `yaml:"permissions,omitempty" json:"permissions,omitempty"`
 
 	// Timeouts defines operation timeouts.
 	Timeouts TimeoutConfig `yaml:"timeouts" json:"timeouts"`
@@ -387,12 +411,93 @@ type FeatureConfig struct {
 	Experimental bool `yaml:"experimental" json:"experimental"`
 }
 
+// VisionConfig configures the automatic vision recognition hook in the agent
+// loop. When Enabled, an image (PNG/JPEG data-URI) arriving as a message /
+// attachment is detected automatically, the native Go ONNX vision pipeline
+// (CLIP/GroundingDINO/SAM2/Depth) runs, and the semantic understanding
+// (Observation.SummaryText) is injected as extra context — without relying on
+// the language model to "see" the image. Default false: an explicit opt-in so
+// agents that do not want vision keep their exact prior behaviour (no regress).
+type VisionConfig struct {
+	// Enabled enables automatic vision recognition in the agent loop.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+}
+
+// PerceptionConfig configures the continuous Perception Loop.
+//
+// When Enabled, a background goroutine captures the screen (or camera) at
+// Interval, runs the native Go ONNX vision pipeline over the frame, and
+// updates a perceptual WorldState that is streamed via SSE
+// (/v1/perception/stream) and readable at /v1/perception/state. Opt-in
+// (default false). The loop degrades gracefully: a failed capture or missing
+// vision models produce a Degraded state with warnings instead of a crash.
+type PerceptionConfig struct {
+	// Enabled turns the perception loop on. Default false (opt-in).
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// Mode is the experimental performance mode: "normal" (default, 2s
+	// conservative presence), "realtime" (short cadence, keep up with capture)
+	// or "benchmark" (as fast as possible, measuring real throughput). Empty
+	// → "normal".
+	Mode string `yaml:"mode" json:"mode"`
+	// Interval is the capture/vision cadence (e.g. "2s"). Default follows the
+	// mode: normal → 2s, realtime → ~150ms, benchmark → 0 (max speed). An
+	// explicit `interval: 0` also disables the limiter (run as fast as possible).
+	Interval time.Duration `yaml:"interval" json:"interval"`
+	// MaxInterval bounds a single tick's execution time. When the vision
+	// pipeline exceeds it, frames are dropped (throttle/backpressure) instead
+	// of accumulating — drops > queue. Default 30s.
+	MaxInterval time.Duration `yaml:"max_interval" json:"maxInterval"`
+	// Capture selects the capture source: "screen" (default) or "camera".
+	Capture string `yaml:"capture" json:"capture"`
+	// ModelsDir optionally overrides the vision .onnx models directory
+	// (sovereignty: no fixed path). Empty → standard resolution.
+	ModelsDir string `yaml:"models_dir,omitempty" json:"modelsDir,omitempty"`
+}
+
 // PipelineConfig configures the pipeline.
 type PipelineConfig struct {
 	// Enabled enables the pipeline.
 	Enabled bool `yaml:"enabled" json:"enabled"`
 	// AutoFix enables automatic fixes.
 	AutoFix bool `yaml:"auto_fix" json:"autoFix"`
+}
+
+// OrchestrationConfig configures the orchestration engine.
+type OrchestrationConfig struct {
+	// Deliberation configures the Kernel-First Deliberation stage (ADR-032).
+	Deliberation DeliberationConfig `yaml:"deliberation" json:"deliberation"`
+}
+
+// DeliberationConfig configures the Kernel-First Deliberation stage (ADR-032).
+// Fail-closed (LEI DO COFRE): Enabled defaults to false — the stage only runs
+// when explicitly enabled in the config. Thresholds mirror the deliberate A4
+// defaults (0.70 / 0.50 / 5 / 300 / 0.50).
+type DeliberationConfig struct {
+	// Enabled is the feature flag. Default false (fail-closed): when false,
+	// the deliberation stage never runs and the legacy path is preserved
+	// bit-for-bit.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// ShadowMode is the observability flag (ADR-033). When true and Enabled is
+	// false, the deliberation stage runs in SHADOW mode: it computes the same
+	// verdict but NEVER changes the response — it only records the counterfactual
+	// decision (ShadowTrace) in `.cosca/shadow/`. Default false (fail-closed).
+	ShadowMode bool `yaml:"shadow_mode" json:"shadowMode"`
+	// EmitThreshold is the confidence at or above which the Kernel responds
+	// WITHOUT the LLM (EmitOK). Default 0.70.
+	EmitThreshold float64 `yaml:"emit_threshold" json:"emitThreshold"`
+	// ReservationThreshold is the confidence at or above which the Kernel
+	// calls the LLM but attaches reservations (EmitWithReservations). Below
+	// it the Kernel escalates. Default 0.50.
+	ReservationThreshold float64 `yaml:"reservation_threshold" json:"reservationThreshold"`
+	// MaxEvidence bounds the top-N evidence entries in the clean context.
+	// Default 5.
+	MaxEvidence int `yaml:"max_evidence" json:"maxEvidence"`
+	// MaxCharsPerEvidence truncates each evidence entry in the clean context.
+	// Default 300.
+	MaxCharsPerEvidence int `yaml:"max_chars_per_evidence" json:"maxCharsPerEvidence"`
+	// MinScore is the minimum evidence score for a result to become a
+	// Position. Default 0.50.
+	MinScore float64 `yaml:"min_score" json:"minScore"`
 }
 
 // PluginConfig configures the plugin system.
@@ -573,12 +678,38 @@ func DefaultConfig() *Config {
 			ShellCompletion: true,
 			Experimental:    false,
 		},
+		Vision: VisionConfig{
+			Enabled: DefaultEnableVision,
+		},
+		Perception: PerceptionConfig{
+			Enabled:     false,
+			Mode:        "normal",
+			Interval:    2 * time.Second,
+			MaxInterval: 30 * time.Second,
+			Capture:     "screen",
+		},
 		Plugins: PluginConfig{
 			Enabled:         DefaultEnablePluginSystem,
 			Dir:             filepath.Join(coscaHome, DefaultPluginsDir),
 			AllowedPolicies: []string{"network", "filesystem", "exec"},
 			Timeout:         30 * time.Second,
 			MaxMemoryMB:     128,
+		},
+		Orchestration: OrchestrationConfig{
+			Deliberation: DeliberationConfig{
+				// Fail-closed (ADR-032 / LEI DO COFRE): the Kernel-First
+				// Deliberation stage only runs when explicitly enabled
+				// (enabled) or in observability mode (shadow_mode). Defaults
+				// are inert — the legacy path is preserved bit-for-bit.
+				// Thresholds mirror the deliberate A4 defaults.
+				Enabled:              false,
+				ShadowMode:           false,
+				EmitThreshold:        0.70,
+				ReservationThreshold: 0.50,
+				MaxEvidence:          5,
+				MaxCharsPerEvidence:  300,
+				MinScore:             0.50,
+			},
 		},
 		Performance: PerformanceConfig{
 			MaxMemoryMB:      DefaultMaxMemoryMB,
@@ -956,6 +1087,62 @@ func (c *Config) loadFromEnv() {
 	if v, ok := envMap["FEATURES__METRICS"]; ok {
 		c.Features.Metrics = v == "true" || v == "1"
 	}
+	if v, ok := envMap["VISION__ENABLED"]; ok {
+		c.Vision.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["PERCEPTION__ENABLED"]; ok {
+		c.Perception.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["PERCEPTION__MODE"]; ok {
+		c.Perception.Mode = v
+	}
+	if v, ok := envMap["PERCEPTION__INTERVAL"]; ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			c.Perception.Interval = d
+		}
+	}
+	if v, ok := envMap["PERCEPTION__MAX_INTERVAL"]; ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			c.Perception.MaxInterval = d
+		}
+	}
+	if v, ok := envMap["PERCEPTION__CAPTURE"]; ok {
+		c.Perception.Capture = v
+	}
+	if v, ok := envMap["PERCEPTION__MODELS_DIR"]; ok {
+		c.Perception.ModelsDir = v
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__ENABLED"]; ok {
+		c.Orchestration.Deliberation.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__SHADOW_MODE"]; ok {
+		c.Orchestration.Deliberation.ShadowMode = v == "true" || v == "1"
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__EMIT_THRESHOLD"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Orchestration.Deliberation.EmitThreshold = f
+		}
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__RESERVATION_THRESHOLD"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Orchestration.Deliberation.ReservationThreshold = f
+		}
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__MAX_EVIDENCE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Orchestration.Deliberation.MaxEvidence = n
+		}
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__MAX_CHARS_PER_EVIDENCE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Orchestration.Deliberation.MaxCharsPerEvidence = n
+		}
+	}
+	if v, ok := envMap["ORCHESTRATION__DELIBERATION__MIN_SCORE"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Orchestration.Deliberation.MinScore = f
+		}
+	}
 	if v, ok := envMap["NETWORK__PROXY_URL"]; ok {
 		c.Network.ProxyURL = v
 	}
@@ -1038,12 +1225,57 @@ func (c *Config) Validate() error {
 		c.Verbose = true
 	}
 
+	// Perception validation — only enforced when the loop is active. A
+	// disabled section is inert (fail-closed: no behaviour change).
+	if c.Perception.Enabled {
+		switch c.Perception.Mode {
+		case "", "normal", "realtime", "benchmark":
+			// valid (empty → normal)
+		default:
+			errs = append(errs, "perception.mode must be one of: normal, realtime, benchmark")
+		}
+		// interval 0 means "run as fast as possible"; negative is invalid.
+		if c.Perception.Interval < 0 {
+			errs = append(errs, "perception.interval must be >= 0 (0 = max speed)")
+		}
+		switch c.Perception.Capture {
+		case "screen", "camera", "":
+			// valid capture source (empty → screen)
+		default:
+			errs = append(errs, "perception.capture must be one of: screen, camera")
+		}
+	}
+
 	// Search validation
 	if c.Search.DefaultLimit < 1 {
 		errs = append(errs, "search.default_limit must be >= 1")
 	}
 	if c.Search.DefaultLimit > c.Search.MaxResults {
 		errs = append(errs, "search.default_limit must be <= search.max_results")
+	}
+
+	// Deliberation validation (ADR-032 / ADR-033). Enforced when the stage is
+	// active (Enabled) OR in observability Shadow mode (ShadowMode) — the
+	// Shadow uses the SAME thresholds as the active mode, so a misconfigured
+	// section would poison the counterfactual too. A fully-disabled section
+	// is inert and its values are irrelevant (fail-closed).
+	if c.Orchestration.Deliberation.Enabled || c.Orchestration.Deliberation.ShadowMode {
+		d := c.Orchestration.Deliberation
+		if d.EmitThreshold <= 0 || d.EmitThreshold > 1 {
+			errs = append(errs, "orchestration.deliberation.emit_threshold must be in (0, 1]")
+		}
+		if d.ReservationThreshold <= 0 || d.ReservationThreshold >= 1 {
+			errs = append(errs, "orchestration.deliberation.reservation_threshold must be in (0, 1)")
+		}
+		if d.MaxEvidence < 1 {
+			errs = append(errs, "orchestration.deliberation.max_evidence must be >= 1")
+		}
+		if d.MaxCharsPerEvidence < 1 {
+			errs = append(errs, "orchestration.deliberation.max_chars_per_evidence must be >= 1")
+		}
+		if d.MinScore <= 0 || d.MinScore > 1 {
+			errs = append(errs, "orchestration.deliberation.min_score must be in (0, 1]")
+		}
 	}
 
 	if len(errs) > 0 {
@@ -1091,6 +1323,17 @@ func (c *Config) DBPath() string {
 		return expanded
 	}
 	return filepath.Join(c.Paths.Home, "cosca.db")
+}
+
+// PermissionRuleset converts the configured permissions block into a
+// permission.Ruleset. It returns nil when no permissions are configured, so
+// callers can treat "not configured" as fail-open (current behavior) and only
+// enforce when an explicit allow/ask/deny policy exists.
+func (c *Config) PermissionRuleset() permission.Ruleset {
+	if len(c.Permissions) == 0 {
+		return nil
+	}
+	return permission.FromConfig(c.Permissions)
 }
 
 // RuntimeDir returns the resolved runtime directory.

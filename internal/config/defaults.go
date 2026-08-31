@@ -178,6 +178,11 @@ const (
 	DefaultEnableWatch = true
 	// DefaultEnablePluginSystem enables the plugin system by default.
 	DefaultEnablePluginSystem = false
+	// DefaultEnableVision enables the automatic vision recognition hook in the
+	// agent loop by default. Opt-in (false): agents that do not want vision keep
+	// their exact prior behaviour — no regression. Set vision.enabled: true (or
+	// COSCA_VISION__ENABLED=true) to turn on auto-recognition.
+	DefaultEnableVision = false
 )
 
 // =============================================================================
