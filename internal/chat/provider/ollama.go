@@ -154,10 +154,27 @@ type ollamaRequest struct {
 }
 
 type ollamaMessage struct {
-	Role       string          `json:"role"`
-	Content    string          `json:"content,omitempty"`
-	ToolCalls  []chat.ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string          `json:"tool_call_id,omitempty"`
+	Role       string              `json:"role"`
+	Content    string              `json:"content,omitempty"`
+	ToolCalls  []ollamaReqToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string              `json:"tool_call_id,omitempty"`
+}
+
+// ollamaReqToolCall marshals a tool call for Ollama's native /api/chat request.
+// Unlike the OpenAI JSON wire format (where function.arguments is a JSON
+// *string*), Ollama expects arguments as a JSON *object*. We therefore carry
+// the already-parsed arguments as json.RawMessage so it round-trips as an
+// object (see toOllamaReqToolCalls).
+type ollamaReqToolCall struct {
+	Index    int               `json:"index,omitempty"`
+	ID       string            `json:"id"`
+	Type     string            `json:"type"`
+	Function ollamaReqFunction `json:"function"`
+}
+
+type ollamaReqFunction struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
 }
 
 type ollamaStreamChunk struct {
@@ -171,9 +188,26 @@ type ollamaStreamChunk struct {
 }
 
 type ollamaStreamMessage struct {
-	Role      string          `json:"role,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	ToolCalls []chat.ToolCall `json:"tool_calls,omitempty"`
+	Role      string               `json:"role,omitempty"`
+	Content   string               `json:"content,omitempty"`
+	ToolCalls []ollamaRespToolCall `json:"tool_calls,omitempty"`
+}
+
+// olamaRespToolCall decodes a tool call from Ollama's native /api/chat
+// response. Unlike the OpenAI JSON wire format (where function.arguments is a
+// JSON *string*), Ollama returns arguments as a JSON *object*. The shared
+// chat.ToolCall.Function.Arguments type is a string, so we normalise the
+// object to its compact JSON form on decode (see toChatToolCalls).
+type ollamaRespToolCall struct {
+	Index    int                `json:"index,omitempty"`
+	ID       string             `json:"id"`
+	Type     string             `json:"type"`
+	Function ollamaRespFunction `json:"function"`
+}
+
+type ollamaRespFunction struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
 }
 
 type ollamaResponse struct {
@@ -192,7 +226,7 @@ func (p *OllamaProvider) buildRequestBody(model string, req chat.ChatRequest) ([
 		msg := ollamaMessage{
 			Role:       string(m.Role),
 			Content:    m.Content,
-			ToolCalls:  m.ToolCalls,
+			ToolCalls:  toOllamaReqToolCalls(m.ToolCalls),
 			ToolCallID: m.ToolCallID,
 		}
 		if msg.Content == "" && len(m.ContentParts) > 0 {
@@ -280,7 +314,7 @@ func (p *OllamaProvider) parseStreamResponse(ctx context.Context, body io.Reader
 		}
 
 		if len(chunk.Message.ToolCalls) > 0 {
-			ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: chunk.Message.ToolCalls}
+			ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: toChatToolCalls(chunk.Message.ToolCalls)}
 		}
 
 		if chunk.Message.Content != "" {
@@ -306,7 +340,7 @@ func (p *OllamaProvider) parseNonStreamResponse(ctx context.Context, body io.Rea
 
 	// Surface tool calls as first-class events (never discard them).
 	if len(resp.Message.ToolCalls) > 0 {
-		ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: resp.Message.ToolCalls}
+		ch <- chat.ChatEvent{Type: chat.ChatEventToolCall, ToolCalls: toChatToolCalls(resp.Message.ToolCalls)}
 	}
 	if resp.Message.Content != "" {
 		ch <- chat.ChatEvent{Type: chat.ChatEventDelta, Delta: resp.Message.Content}
@@ -332,4 +366,73 @@ func buildUsage(u *chat.Usage, promptEval, eval int) *chat.Usage {
 		u.TotalTokens = u.PromptTokens + u.CompletionTokens
 	}
 	return u
+}
+
+// toChatToolCalls converts Ollama response tool calls (where function.arguments
+// is a JSON object) into the shared chat.ToolCall type (where Arguments is a
+// JSON string). This bridges Ollama's native /api/chat wire format with the
+// OpenAI-compatible function-calling shape used by the rest of the engine and
+// by the Tool Executor.
+func toChatToolCalls(in []ollamaRespToolCall) []chat.ToolCall {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]chat.ToolCall, 0, len(in))
+	for _, tc := range in {
+		out = append(out, chat.ToolCall{
+			Index: tc.Index,
+			ID:    tc.ID,
+			Type:  tc.Type,
+			Function: chat.FunctionCall{
+				Name:      tc.Function.Name,
+				Arguments: normalizeToolArguments(tc.Function.Arguments),
+			},
+		})
+	}
+	return out
+}
+
+// normalizeToolArguments converts a JSON argument payload into the string form
+// expected by chat.FunctionCall.Arguments. Ollama returns function.arguments as
+// a JSON object, while its OpenAI-compatible form expects a JSON string:
+//   - If the raw payload is already a JSON string (e.g. "{\"path\":\"x\"}"), it
+//     is unwrapped to the inner string.
+//   - Otherwise (JSON object/array/null) it is kept as its compact JSON form,
+//     which is exactly what executor.ToolCall.Input expects after json.Unmarshal.
+func normalizeToolArguments(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	// Already a JSON string literal → unwrap it (deduplicate the quotes).
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	// Object/array/null → keep the compact JSON form.
+	return string(raw)
+}
+
+// toOllamaReqToolCalls converts a slice of chat.ToolCall (whose Arguments is a
+// JSON string) into the request form Ollama's /api/chat expects, where
+// function.arguments is a JSON object. The Arguments string (a valid JSON
+// object literal) is carried as json.RawMessage so it is re-emitted verbatim as
+// an object instead of being double-encoded as a string.
+func toOllamaReqToolCalls(in []chat.ToolCall) []ollamaReqToolCall {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]ollamaReqToolCall, 0, len(in))
+	for _, tc := range in {
+		f := ollamaReqFunction{Name: tc.Function.Name}
+		if args := strings.TrimSpace(tc.Function.Arguments); args != "" {
+			f.Arguments = json.RawMessage(args)
+		}
+		out = append(out, ollamaReqToolCall{
+			Index:    tc.Index,
+			ID:       tc.ID,
+			Type:     tc.Type,
+			Function: f,
+		})
+	}
+	return out
 }

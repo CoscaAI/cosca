@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/CoscaAI/cosca/internal/config"
+	"github.com/CoscaAI/cosca/internal/telemetry"
+	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-	"github.com/mitchellh/go-homedir"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/CoscaAI/cosca/internal/config"
-	"github.com/CoscaAI/cosca/internal/telemetry"
 )
 
 // rootCmdMu protects the global variables (cfgFile, globalFlags) from
@@ -174,16 +174,18 @@ Documentation: https://cosca.enterprise/docs
 		NewEvidenceCommand(),
 		NewBudgetCommand(),
 		NewCostCommand(),
+		NewShadowCommand(),
 		NewRankingCommand(),
 		NewAcquisitionCommand(),
 		NewDepartmentCommand(),
 		NewTerminalCommand(),
 		NewProjectCommand(),
-	NewAssetCommand(),
-	NewBridgeCommand(),
-	NewWorldCommand(),
-	NewTaskCommand(),
+		NewAssetCommand(),
+		NewBridgeCommand(),
+		NewWorldCommand(),
+		NewTaskCommand(),
 		NewModelCommand(),
+		NewVisionCommand(),
 		NewGPUCommand(),
 		NewNodeGraphCommand(),
 		NewRenderCommand(),

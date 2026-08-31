@@ -663,6 +663,11 @@ its own isolated .cosca/ and does not inherit the framework chain.
 		return fmt.Errorf("read scaffold config template: %w", err)
 	}
 	cfgContent := strings.Replace(string(cfgTemplate), `name: ""`, fmt.Sprintf(`name: %q`, name), 1)
+	// Injetar o bloco provider/modelo herdado do config do processo (config.Load).
+	// O template embutido não declara provider — é o kernel que injeta o bloco
+	// aqui — para que o client project saiba qual LLM usar e não caia no
+	// fallback do ModelRouter ao rodar "cosca terminal".
+	cfgContent = string(injectProviderBlock([]byte(cfgContent), loadInheritedProvider()))
 	if err := os.WriteFile(filepath.Join(coscaDir, "config.yml"), []byte(cfgContent), 0o644); err != nil {
 		return fmt.Errorf("write config.yml: %w", err)
 	}
@@ -683,6 +688,111 @@ its own isolated .cosca/ and does not inherit the framework chain.
 
 	gitInit(path)
 	return nil
+}
+
+// =============================================================================
+// Provider inheritance into the client project config
+// =============================================================================
+
+// loadInheritedProvider returns the provider config the running process is
+// using (config.Load: defaults < project config < user config < env vars). It
+// is what the client project should inherit so 'cosca terminal' knows which
+// LLM to use. On load failure it degrades to an empty ProviderConfig, making
+// the scaffold emit a "configure the provider" hint instead of aborting project
+// creation.
+func loadInheritedProvider() config.ProviderConfig {
+	cfg, err := config.Load()
+	if err != nil {
+		return config.ProviderConfig{}
+	}
+	return cfg.Provider
+}
+
+// injectProviderBlock ensures the scaffold config.yml carries a top-level
+// `provider:` section inherited from p. If the template already declares a
+// `provider:` key it is replaced in place (never duplicated). Otherwise the
+// section is appended at the root level, preserving every other template key
+// verbatim — including the `project.name` placeholder already substituted.
+func injectProviderBlock(cfgContent []byte, p config.ProviderConfig) []byte {
+	text := string(cfgContent)
+	block := renderProviderBlock(p)
+	if hasTopLevelKey(text, "provider") {
+		return []byte(replaceTopLevelSection(text, "provider", block))
+	}
+	trimmed := strings.TrimRight(text, "\n")
+	return []byte(trimmed + "\n\n" + block + "\n")
+}
+
+// renderProviderBlock renders the YAML body for a top-level `provider:`
+// section. A plaintext API key is never written — only api_key_env (an
+// environment variable reference) is carried over. When no provider is
+// configured the section becomes a placeholder comment telling the operator to
+// configure it.
+func renderProviderBlock(p config.ProviderConfig) string {
+	if p.Name == "" && p.Model == "" && p.BaseURL == "" {
+		return "provider: {} # configure o LLM provider/modelo (ex.: name: ollama, model: qwen2.5-coder:latest, base_url: http://localhost:11434)"
+	}
+	var b strings.Builder
+	b.WriteString("provider:\n")
+	if p.Name != "" {
+		fmt.Fprintf(&b, "  name: %s\n", p.Name)
+	}
+	if p.Model != "" {
+		fmt.Fprintf(&b, "  model: %s\n", p.Model)
+	}
+	if p.BaseURL != "" {
+		fmt.Fprintf(&b, "  base_url: %s\n", p.BaseURL)
+	}
+	if p.ContextWindow > 0 {
+		fmt.Fprintf(&b, "  context_window: %d\n", p.ContextWindow)
+	}
+	if p.APIKeyEnv != "" {
+		fmt.Fprintf(&b, "  api_key_env: %s\n", p.APIKeyEnv)
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// hasTopLevelKey reports whether text contains a top-level YAML key named key
+// (e.g. a `provider:` line at column 0). Indented keys and comments are
+// ignored, so a nested key never false-positives.
+func hasTopLevelKey(text, key string) bool {
+	prefix := key + ":"
+	for _, ln := range strings.Split(text, "\n") {
+		if strings.HasPrefix(ln, prefix) && !strings.HasPrefix(ln, " ") && !strings.HasPrefix(ln, "\t") {
+			return true
+		}
+	}
+	return false
+}
+
+// replaceTopLevelSection swaps the body of an existing top-level YAML key
+// (e.g. `provider:`) with newBody, preserving every other line verbatim. The
+// section starts at the matching top-level key line and ends at the next
+// top-level key, a top-level comment, or EOF. Blank/comment/indented lines
+// belonging to the old section are dropped with it.
+func replaceTopLevelSection(text, key, newBody string) string {
+	prefix := key + ":"
+	lines := strings.Split(text, "\n")
+	var out []string
+	inSection := false
+	for _, ln := range lines {
+		if !inSection {
+			if strings.HasPrefix(ln, prefix) && !strings.HasPrefix(ln, " ") && !strings.HasPrefix(ln, "\t") {
+				inSection = true
+				out = append(out, newBody)
+				continue
+			}
+			out = append(out, ln)
+			continue
+		}
+		// Dentro da seção: fim = próxima chave top-level, comentário top-level ou EOF.
+		if ln == "" || strings.HasPrefix(ln, " ") || strings.HasPrefix(ln, "\t") || strings.HasPrefix(ln, "#") {
+			continue
+		}
+		inSection = false
+		out = append(out, ln)
+	}
+	return strings.Join(out, "\n")
 }
 
 // writeProjectManifest writes .cosca/manifest.yaml with the client project

@@ -76,7 +76,9 @@ Examples:
 			// the chat provider factory selects the right model. Without this,
 			// `cosca run` in a directory with no .env falls back to built-in
 			// defaults (e.g. ollama "llama3", often not installed) and fails.
-			if projectCfg, cfgErr := config.Load(); cfgErr == nil {
+			var projectCfg *config.Config
+			if pc, cfgErr := config.Load(); cfgErr == nil {
+				projectCfg = pc
 				loadChatEnv(projectCfg)
 				// Boot-time Ollama detection (side-effect-free): when the
 				// configured provider is ollama but the daemon is not
@@ -160,6 +162,11 @@ Examples:
 
 			// 7. Build orchestration config
 			orchConfig := orchestration.DefaultOrchestratorConfig()
+			// Kernel-First Deliberation (ADR-032): opt-in via config. Absent
+			// section / load failure keeps the fail-closed default (disabled).
+			if projectCfg != nil {
+				orchConfig.DeliberateConfig = orchestration.DeliberateConfigFromConfig(projectCfg.Orchestration.Deliberation)
+			}
 			if !noMAG && memRetriever != nil {
 				orchConfig.EnableMAG = true
 				orchConfig.MAGConfig = orchestration.DefaultMAGConfig()

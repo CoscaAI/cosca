@@ -72,3 +72,18 @@
 | **Related** | internal/vector/sqlite_vec.go, internal/vector/vector.go |
 | **Learned** | O SQLiteVec usa brute-force cosine similarity (O(n) por query). Adequado para ~100K vetores. Para projetos com milhões de documentos, precisa de ANN: HNSW (hierarchical navigable small world), IVF (inverted file), ou FAISS integration. O schema SQLite atual usa BLOBs — não permite index acceleration nativa. Alternativas: pgvector (PostgreSQL), sqlite-vec extension, ou switch para Qdrant/Weaviate/Milvus para escala enterprise. |
 | **Next** | Criar opção de backend HNSW (via gonum ou FAISS CGo binding) como alternativa ao brute-force. Manter SQLiteVec como default para <100K e habilitar HNSW para >100K. |
+
+---
+
+### 2026-08-31 — Automatic Vision Recognition Hook in the Agent Loop
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-ai |
+| **Task** | Fazer a visão ser reconhecida automaticamente no loop do agente (imagem → rodar pipeline Go ONNX → injetar entendimento semântico no contexto, sem depender do LLM ver a imagem) |
+| **Technique** | Additive pre-Chat hook with dependency-injected runner (testable seam), graceful degradation, opt-in config gate |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #vision #automatic-recognition #agent-loop #multimodal #onnx #graceful-degradation #dependency-injection #config-gate |
+| **Related** | internal/cli/agent.go, internal/cli/agent_vision.go, internal/cli/agent_vision_test.go, internal/worldmodel/vision/vision_detect.go, internal/config/config.go |
+| **Learned** | (1) Ponto de integração real: `runAgentToolLoop` em internal/cli/agent.go monta `messages []chat.Message` e chama `provider.Chat`. O hook plugado enriquece a conversa base (System+User) UMA vez antes do loop, não por iteração — evita re-injeção duplicada a cada turno já que `messages` cresce no loop. (2) `chat.Message` guarda imagens em `ContentParts[].ImageURL.URL` (data-URI); `Message.HasImage()` só checa image_url; o hook percorre ContentParts e decodifica só prefixo `data:image/` (sem fetch de http). (3) `vision.DecodeDataURI` + `vision.DetectImageAndRunVision` + `(*Observation).SummaryText()` são reutilizados (não recriados). (4) **Degradação graciosa**: se `runner` erro ou retorna nil, a imagem é pulada e a mensagem passa intacta; observação degradada (warnings, zero entidades) ainda gera SummaryText → o modelo é informado que viu a imagem mas a percepção degradou. (5) Anexar o resumo como ContentPart de TEXTO na MESMA mensagem que carrega a imagem (AddText) é aditivo e provider-agnostic — preserva o turno do usuário; Avoid adicionar um system message no meio da conversa. (6) `visionRunner` como seam injetável (default = `vision.DetectImageAndRunVision`) permite teste determinístico com Observation fake, sem carregar onnxruntime; `go vet` rejeita comparar função com nil (sempre false) — não usar teste guard com função. (7) Config gate: adicionado `Config.Vision.Enabled` (opt-in, default false via `DefaultEnableVision`), env `COSCA_VISION__ENABLED`; passar `projectCfg.Vision.Enabled` para `runAgentToolLoop` (assinatura mudou, único caller). |
+| **Next** | (Pendência honesta) (a) SAM2/seguir para segmentação de máscara por entidade na injection — hoje só SummaryText; (b) tratar http(s) URLs de imagem (precisa de HTTP client/baixa de bytes) — fora do escopo atual; (c) decidir se enriquecimento deve reaparecer em tool-call results que devolvem imagem (ex. read de screenshot); (d) considerar reusar `AgentRequest.Context` para visão quando o runtime usar o engine (não só agent run CLI). |

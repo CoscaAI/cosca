@@ -95,3 +95,18 @@
 | **Related** | common.go, anthropic/chat.go, google/google.go, deepseek/deepseek.go, ollama/ollama.go |
 | **Learned** | Several utility functions are duplicated: isNonRetryable (common.go + anthropic/chat.go), truncateBody (common.go + anthropic/chat.go + google/google.go), estimateTokens (common.go + google/google.go + ollama/ollama.go + deepseek/deepseek.go). common.go already exports TruncateString, TruncateBody, IsNonRetryable, EstimateTokens — the duplicates should be removed. |
 | **Next** | Remove duplicated functions; ensure all providers import from providers/common.go |
+
+### 2026-08-31 �?" Fix: Scaffold do client project agora herda provider/modelo (cosca project new)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-provider |
+| **Task** | BUG: `cosca project new` gerava `.cosca/config.yml` sem provider/model; `cosca terminal --task` caia em fallback do ModelRouter dentro do client project. Causa raiz: template de scaffold (embed) não declara `provider`. |
+| **Technique** | Injetar bloco `provider:` no HANDLER (project.go), lendo o template via embed e enriquecendo o conteúdo escrito (append/replace em nível raiz). NUNCA tocar em `internal/embed/**`. |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #provider #scaffold #config-injection #client-project #project-new #yaml-injection #ModelRouter-fallback |
+| **Related** | internal/cli/project.go (scaffoldProject, injectProviderBlock, renderProviderBlock, loadInheritedProvider, hasTopLevelKey, replaceTopLevelSection), internal/config/config.go (Config.Provider / config.Load), internal/embed/cosca/templates/scaffold/config.yml |
+| **Learned** | 1) O template de scaffold do client project NÃO tem `provider`; toda injeção deve ser no handler `scaffoldProject` — o embed é intocável. 2) A herança deve vir de `config.Load()` (config do processo: defaults < project config < user config < env), retornando `cfg.Provider`. 3) Injeção via string-append (não re-marshal do YAML inteiro) preserva os comentários/placeholder do template e o `name: "acme-app"` já substituído — re-marshal quebraria o teste que checa `name: "acme-app"`. 4) `renderProviderBlock` NUNCA grava `api_key` em texto puro — só `api_key_env`. 5) Precedência: o `.cosca/config.yaml` do workspace pode sobrescrever `base_url: ""`, então o bloco herdado omite base_url quando vazio — seguro, pois o provider Ollama default é `http://localhost:11434` (ollama.go:98). |
+| **Next** | Validar injetar também `embedding` quando um embed model estiver configurado no global; considerar herdar base_url do user-global quando o processo tiver vazio. |
+

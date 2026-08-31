@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/deliberate"
+	"github.com/CoscaAI/cosca/internal/shadow"
 )
 
 // ─── Orchestrator Configuration ──────────────────────────────────────────────
@@ -69,6 +71,19 @@ type OrchestratorConfig struct {
 	// default seguro do executor. Permite ampliar por projeto (ex.: build de
 	// um monorepo JS) SEM abrir comando arbitrário — só o que está listado.
 	AllowedCommands []string
+
+	// DeliberateConfig configures the Kernel-First Deliberation stage
+	// (ADR-032). When Enabled is false (the default, fail-closed / LEI DO
+	// COFRE), the stage is a no-op and the flow is EXACTLY the current one.
+	DeliberateConfig DeliberateConfig
+
+	// ShadowStore is the store where the Cognitive Shadow Mode (ADR-033)
+	// persists its counterfactual observations.
+	//   - When nil and ShadowMode is true, the engine falls back to
+	//     shadow.DefaultStore() (the project's `.cosca/shadow/`).
+	//   - When ShadowMode is false, it is ignored (nothing is recorded).
+	// Injectable so tests can isolate the store in a temp dir.
+	ShadowStore *shadow.Store
 }
 
 // DefaultOrchestratorConfig returns sensible default configuration.
@@ -78,6 +93,8 @@ func DefaultOrchestratorConfig() OrchestratorConfig {
 		EnableMAG:       false,
 		MAGConfig:       DefaultMAGConfig(),
 		EnableStreaming: false,
+		// Fail-closed: deliberation disabled by default (ADR-032).
+		DeliberateConfig: DefaultDeliberateConfig(),
 	}
 }
 
@@ -95,6 +112,8 @@ type Engine struct {
 	pipeline       *Pipeline
 	mag            *MAG
 	chainExecutor  *ChainExecutor
+	deliberator    *Deliberator
+	shadowStore    *shadow.Store
 	config         OrchestratorConfig
 	metrics        *OrchestrationMetrics
 }
@@ -180,6 +199,26 @@ func NewEngine(
 		chainExec = NewChainExecutor(nil, agents, skills, *config.ChainConfig) // engine set below
 	}
 
+	// Kernel-First Deliberation (ADR-032 / ADR-033): created whenever the
+	// feature flag is enabled (authoritative) OR the Shadow observability flag
+	// is on (observational). When both are false (the default, fail-closed),
+	// the deliberator stays nil and the stage is a no-op.
+	var deliberator *Deliberator
+	if config.DeliberateConfig.Enabled || config.DeliberateConfig.ShadowMode {
+		deliberator = NewDeliberator(config.DeliberateConfig)
+	}
+
+	// Cognitive Shadow Mode (ADR-033): the store is resolved only when the
+	// Shadow flag is on. When nil, fall back to the project's `.cosca/shadow/`.
+	var shadowStore *shadow.Store
+	if config.DeliberateConfig.ShadowMode {
+		if config.ShadowStore != nil {
+			shadowStore = config.ShadowStore
+		} else {
+			shadowStore = shadow.DefaultStore()
+		}
+	}
+
 	if metrics == nil {
 		metrics = NewOrchestrationMetrics()
 	}
@@ -192,6 +231,8 @@ func NewEngine(
 		pipeline:       pipeline,
 		mag:            mag,
 		chainExecutor:  chainExec,
+		deliberator:    deliberator,
+		shadowStore:    shadowStore,
 		config:         config,
 		metrics:        metrics,
 	}
@@ -208,6 +249,41 @@ func NewEngine(
 // Metrics returns the engine's metrics collector. Never returns nil.
 func (e *Engine) Metrics() *OrchestrationMetrics {
 	return e.metrics
+}
+
+// recordShadow persiste a observação contrafactual do Cognitive Shadow Mode
+// (ADR-033). É fire-and-forget e fail-closed (LEI DO COFRE): NUNCA deve alterar
+// a resposta principal. Qualquer panic no caminho do Shadow é descartado
+// silenciosamente (debug) e o request segue intacto para o Executor — o Shadow
+// nunca bloqueia e nunca falha o request.
+func (e *Engine) recordShadow(ctx context.Context, pc PipelineContext, trace DeliberationTrace, elapsed time.Duration) {
+	logger := log.Ctx(ctx).With().Str("stage", "shadow").Str("request_id", pc.RequestID).Logger()
+	if e.shadowStore == nil {
+		logger.Debug().Msg("shadow: no store configured — observation discarded")
+		return
+	}
+	// G1/LEI DO COFRE: qualquer panic é descartado (a resposta principal fica
+	// intacta). O Shadow apenas recomenda (contrafactual) — nunca autoriza.
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Debug().Interface("panic", r).Msg("shadow: panic discarded — response unaffected")
+		}
+	}()
+
+	st := toShadowTrace(pc, trace, elapsed)
+	if err := e.shadowStore.Append(st); err != nil {
+		// Fail-closed: persistência nunca derruba a execução.
+		logger.Debug().Err(err).Msg("shadow: record append failed — discarded")
+		return
+	}
+	logger.Info().
+		Str("decision", string(st.Decision)).
+		Float64("confidence", st.Confidence).
+		Float64("convergence", st.Convergence).
+		Bool("would_escalate", st.WouldEscalate).
+		Int("positions", st.Positions).
+		Str("reason", st.Reason).
+		Msg("COSCA Cognitive Shadow Mode — kernel decided (NOT applied)")
 }
 
 // ─── Execute ─────────────────────────────────────────────────────────────────
@@ -303,6 +379,66 @@ func (e *Engine) Execute(ctx context.Context, req *Request) (*Result, error) {
 		// Record routing method.
 		if pc.Data.RouterMethod != "" {
 			e.metrics.RecordRouterDecision(pc.Data.RouterMethod)
+		}
+	}
+
+	// 4.5 DELIBERATION (Kernel-First, deterministic, zero-LLM — ADR-032/033).
+	// The Kernel thinks first: it deliberates deterministically on the
+	// evidence the pipeline already collected BEFORE calling the LLM.
+	// Two modes share the SAME Deliberate() call and SAME gates (reuse, not
+	// duplication — ADR-015):
+	//   - ATIVE (Enabled=true): the verdict GOVERNS the response. EmitOK
+	//     responds WITHOUT the LLM; EmitWithReservations/Escalate rewrites
+	//     AugmentedPrompt with the CLEAN context. (ADR-032, current behavior.)
+	//   - SHADOW (ShadowMode=true): the verdict OBSERVES the response. It
+	//     registers the counterfactual (ShadowTrace) but NEVER applies it —
+	//     no WithLLMResponse, no WithDeliberationHandled, no WithAugmentedPrompt.
+	//     The request continues to the Executor EXACTLY as today. (ADR-033.)
+	// Fail-closed (LEI DO COFRE): when neither is on, or on any error, pc
+	// passes through unchanged and the Executor runs exactly as today.
+	delibCfg := e.config.DeliberateConfig
+	if (delibCfg.Enabled || delibCfg.ShadowMode) && e.deliberator != nil {
+		done := e.metrics.RecordStageStart("deliberation")
+		callStart := time.Now()
+		trace, err := e.deliberator.Deliberate(ctx, pc)
+		elapsed := time.Since(callStart)
+		if err != nil {
+			info := safeError("deliberation_failed", err)
+			logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("deliberation failed, continuing with legacy path (fail-closed)")
+			done(false)
+		} else {
+			done(true)
+			pc = pc.WithDeliberationTrace(&trace)
+
+			// SHADOW (ADR-033): register the counterfactual, NEVER apply the
+			// verdict. Runs FIRST so the counterfactual reflects the same
+			// pipeline state the active mode would see; it never mutates pc.
+			if delibCfg.ShadowMode {
+				e.recordShadow(ctx, pc, trace, elapsed)
+			}
+
+			// ATIVE (ADR-032): apply the verdict (authoritative).
+			if delibCfg.Enabled {
+				switch trace.Verdict {
+				case deliberate.EmitOK:
+					// The Kernel is confident: respond WITHOUT the LLM.
+					resp := BuildDeterministicResponse(pc.Data, trace)
+					if resp != "" {
+						pc = pc.WithLLMResponse(resp)
+						pc = pc.WithExecutorDeterministic(true)
+						pc = pc.WithDeliberationHandled(true)
+						logger.Info().Float64("confidence", trace.Confidence.Final).Msg("deliberation: EmitOK — responding WITHOUT LLM")
+					} else {
+						// No response could be assembled; fall through to the LLM.
+						logger.Warn().Msg("deliberation: EmitOK but empty deterministic response — falling through to LLM")
+					}
+				case deliberate.EmitWithReservations, deliberate.Escalate:
+					// The Kernel is uncertain: hand the LLM a CLEAN context.
+					clean := BuildCleanContext(pc.Data, trace, delibCfg)
+					pc = pc.WithAugmentedPrompt(clean)
+					logger.Info().Str("verdict", string(trace.Verdict)).Float64("confidence", trace.Confidence.Final).Msg("deliberation: uncertain — clean context handed to LLM")
+				}
+			}
 		}
 	}
 
@@ -541,13 +677,13 @@ func (e *Engine) buildResult(pc PipelineContext, startTime time.Time) *Result {
 	toolExecs := normalizeToolResults(pc.Data.ToolResults)
 
 	return &Result{
-		ID:              pc.RequestID,
-		Response:        response,
-		Agent:           agent,
-		SkillsUsed:      skillsUsed,
-		MemoryID:        memoryID,
-		ToolExecutions:  toolExecs,
-		Duration:        time.Since(startTime),
+		ID:             pc.RequestID,
+		Response:       response,
+		Agent:          agent,
+		SkillsUsed:     skillsUsed,
+		MemoryID:       memoryID,
+		ToolExecutions: toolExecs,
+		Duration:       time.Since(startTime),
 	}
 }
 

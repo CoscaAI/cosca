@@ -12,6 +12,7 @@ import (
 	embedcosca "github.com/CoscaAI/cosca/internal/embed/cosca"
 	"github.com/CoscaAI/cosca/internal/memoryintegrity"
 	"github.com/CoscaAI/cosca/internal/project"
+	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"
 )
 
@@ -104,6 +105,140 @@ func TestProjectNew_CreatesDirectoryStructure(t *testing.T) {
 		if !strings.Contains(string(gitignore), want) {
 			t.Errorf(".gitignore missing %q", want)
 		}
+	}
+}
+
+// =============================================================================
+// Provider inheritance into the client project config
+// =============================================================================
+
+func TestRenderProviderBlock_HerdaProviderModeloBaseURL(t *testing.T) {
+	block := renderProviderBlock(config.ProviderConfig{
+		Name:          "ollama",
+		Model:         "qwen2.5-coder:latest",
+		BaseURL:       "http://localhost:11434",
+		ContextWindow: 131072,
+		APIKeyEnv:     "OLLAMA_API_KEY",
+	})
+	for _, want := range []string{
+		"provider:",
+		"name: ollama",
+		"model: qwen2.5-coder:latest",
+		"base_url: http://localhost:11434",
+		"context_window: 131072",
+		"api_key_env: OLLAMA_API_KEY",
+	} {
+		if !strings.Contains(block, want) {
+			t.Errorf("provider block missing %q:\n%s", want, block)
+		}
+	}
+	// Nunca gravar uma chave em texto puro.
+	if strings.Contains(block, "api_key:") {
+		t.Errorf("provider block must not contain a plaintext api_key:\n%s", block)
+	}
+}
+
+func TestRenderProviderBlock_ParaVazioSinalizaConfiguracao(t *testing.T) {
+	block := renderProviderBlock(config.ProviderConfig{})
+	if !strings.Contains(block, "provider:") {
+		t.Errorf("empty provider block must still declare provider:\n%s", block)
+	}
+	if !strings.Contains(block, "configure o LLM provider/modelo") {
+		t.Errorf("empty provider block must signal the operator to configure the LLM:\n%s", block)
+	}
+}
+
+func TestInjectProviderBlock_AppendsWhenTemplateHasNoProvider(t *testing.T) {
+	tmpl := "project:\n  name: \"acme-app\"\nsecurity:\n  sandbox: true\n"
+	out := injectProviderBlock([]byte(tmpl), config.ProviderConfig{
+		Name:    "ollama",
+		Model:   "qwen2.5-coder:latest",
+		BaseURL: "http://localhost:11434",
+	})
+	text := string(out)
+	for _, want := range []string{
+		`name: "acme-app"`,
+		"provider:",
+		"name: ollama",
+		"model: qwen2.5-coder:latest",
+		"base_url: http://localhost:11434",
+		"sandbox: true",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output missing %q:\n%s", want, text)
+		}
+	}
+	if n := strings.Count(text, "provider:"); n != 1 {
+		t.Errorf("provider: appears %d times, want exactly 1", n)
+	}
+}
+
+func TestInjectProviderBlock_DoesNotDuplicateExistingProvider(t *testing.T) {
+	tmpl := "project:\n  name: \"acme-app\"\nprovider: {}\nsecurity:\n  sandbox: true\n"
+	out := injectProviderBlock([]byte(tmpl), config.ProviderConfig{
+		Name:    "ollama",
+		Model:   "qwen2.5-coder:latest",
+		BaseURL: "http://localhost:11434",
+	})
+	text := string(out)
+	if n := strings.Count(text, "provider:"); n != 1 {
+		t.Errorf("provider: appears %d times, want exactly 1 (no duplication)", n)
+	}
+	for _, want := range []string{"name: ollama", "model: qwen2.5-coder:latest", "sandbox: true"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output missing %q:\n%s", want, text)
+		}
+	}
+	// A chave project.name deve permanecer intacta no replace em lugar.
+	if !strings.Contains(text, `name: "acme-app"`) {
+		t.Errorf("project.name lost after in-place provider replace:\n%s", text)
+	}
+}
+
+func TestProjectNew_InjectsInheritedProvider(t *testing.T) {
+	projectsDir := t.TempDir()
+	t.Setenv(ProjectsDirEnv, projectsDir)
+	// Herdamos do provider ativo do processo (config.Load); controlamos via env
+	// vars para o teste ser determinístico.
+	t.Setenv("COSCA_PROVIDER__MODEL", "qwen2.5-coder:latest")
+	t.Setenv("COSCA_PROVIDER__BASE_URL", "http://localhost:11434")
+
+	path, err := createProject(projectsDir, "acme-app", false, "")
+	if err != nil {
+		t.Fatalf("createProject: %v", err)
+	}
+
+	cfgData, err := os.ReadFile(filepath.Join(path, ".cosca", "config.yml"))
+	if err != nil {
+		t.Fatalf("read config.yml: %v", err)
+	}
+	text := string(cfgData)
+	for _, want := range []string{"provider:", "name: ollama", "model: qwen2.5-coder:latest", "base_url: http://localhost:11434"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("config.yml missing %q:\n%s", want, text)
+		}
+	}
+
+	// O config resultante deve ser YAML válido com o provider legível.
+	var probe struct {
+		Project  map[string]string `yaml:"project"`
+		Provider struct {
+			Name    string `yaml:"name"`
+			Model   string `yaml:"model"`
+			BaseURL string `yaml:"base_url"`
+		} `yaml:"provider"`
+	}
+	if err := yaml.Unmarshal(cfgData, &probe); err != nil {
+		t.Fatalf("generated config.yml is not valid YAML: %v", err)
+	}
+	if probe.Provider.Model != "qwen2.5-coder:latest" {
+		t.Errorf("provider.model = %q, want qwen2.5-coder:latest", probe.Provider.Model)
+	}
+	if probe.Provider.BaseURL != "http://localhost:11434" {
+		t.Errorf("provider.base_url = %q, want http://localhost:11434", probe.Provider.BaseURL)
+	}
+	if probe.Provider.Name == "" {
+		t.Error("provider.name is empty, want a configured provider name")
 	}
 }
 

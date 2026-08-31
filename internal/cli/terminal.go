@@ -194,6 +194,11 @@ Examples:
 			}
 
 			orchConfig := orchestration.DefaultOrchestratorConfig()
+			// Kernel-First Deliberation (ADR-032): opt-in via config. Absent
+			// section / load failure keeps the fail-closed default (disabled).
+			if projectCfg != nil {
+				orchConfig.DeliberateConfig = orchestration.DeliberateConfigFromConfig(projectCfg.Orchestration.Deliberation)
+			}
 			orchConfig.EnableMAG = memRetriever != nil
 			orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
 			orchConfig.WorkspaceDir = dir

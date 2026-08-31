@@ -248,6 +248,11 @@ func collectNonStreamResponse(eventCh <-chan chat.ChatEvent) (*chat.ChatResponse
 		resp.Choices[0].Message.ToolCalls = toolCalls
 		resp.Choices[0].FinishReason = chat.FinishReasonToolCalls
 	}
+	// The assistant message must carry its role so a tool-loop can echo it back
+	// to the provider with a non-empty role (Ollama rejects role "").
+	if resp.Choices[0].Message.Role == "" {
+		resp.Choices[0].Message.Role = chat.RoleAssistant
+	}
 	if usage != nil {
 		resp.Usage = *usage
 	}

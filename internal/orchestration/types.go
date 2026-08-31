@@ -62,14 +62,14 @@ type PipelineData struct {
 	MemoryContext     string                  // formatted memory summary from MAG
 
 	// Agent & Intent
-	ResolvedAgent      string   // from router stage
-	AgentRole          string   // agent's role
-	AgentDepartment    string   // agent's department
-	AgentDescription   string   // agent's description
-	AgentCapabilities  []string // agent's capabilities (from capability registry)
+	ResolvedAgent         string   // from router stage
+	AgentRole             string   // agent's role
+	AgentDepartment       string   // agent's department
+	AgentDescription      string   // agent's description
+	AgentCapabilities     []string // agent's capabilities (from capability registry)
 	AgentResponsibilities []string // agent's responsibilities (from agent definition)
-	SkillsUsed         []string // skills invoked
-	RouterMethod       string   // how the agent was selected (explicit/keyword/search/semantic/fallback)
+	SkillsUsed            []string // skills invoked
+	RouterMethod          string   // how the agent was selected (explicit/keyword/search/semantic/fallback)
 
 	// Prompt & LLM
 	AugmentedPrompt string      // augmented prompt before LLM call
@@ -82,13 +82,19 @@ type PipelineData struct {
 	ToolResults interface{} // tool call results from executor ([]*ToolCallResult)
 
 	// Execution metadata
-	EmbeddingError      string  // embedding error message if any
-	SemanticScore       float64 // semantic similarity score (best match)
-	SemanticSecondScore float64 // runner-up semantic score (p/ margem)
-	SemanticMargin      float64 // gap entre best e second (confiança discriminativa)
-	ExecutorFallback    bool    // whether executor used retry/fallback
-	ExecutorDeterministic bool // whether executor answered WITHOUT LLM (knowledge-only)
-	MemoryID            string  // stored memory ID
+	EmbeddingError        string  // embedding error message if any
+	SemanticScore         float64 // semantic similarity score (best match)
+	SemanticSecondScore   float64 // runner-up semantic score (p/ margem)
+	SemanticMargin        float64 // gap entre best e second (confiança discriminativa)
+	ExecutorFallback      bool    // whether executor used retry/fallback
+	ExecutorDeterministic bool    // whether executor answered WITHOUT LLM (knowledge-only)
+	DeliberationHandled   bool    // whether the Kernel deliberation already produced the final response (skip LLM)
+	MemoryID              string  // stored memory ID
+
+	// DeliberationTrace is the audit trail of the Kernel-First Deliberation
+	// stage (ADR-032). It is populated only when DeliberateConfig.Enabled is
+	// true; otherwise it stays zero-valued (fail-closed).
+	DeliberationTrace *DeliberationTrace
 
 	// Metrics
 	StageTimings map[string]time.Duration // per-stage timing
@@ -365,6 +371,22 @@ func (pc PipelineContext) WithExecutorFallback(v bool) PipelineContext {
 // (knowledge-only path — the Cosca is a deterministic AI with optional motor).
 func (pc PipelineContext) WithExecutorDeterministic(v bool) PipelineContext {
 	pc.Data.ExecutorDeterministic = v
+	return pc
+}
+
+// WithDeliberationHandled marks that the Kernel deliberation already produced
+// the final response (EmitOK). The Executor checks this flag before calling
+// the LLM and skips it (ADR-032). Additive and reversible: when false, the
+// executor behaves exactly as before.
+func (pc PipelineContext) WithDeliberationHandled(v bool) PipelineContext {
+	pc.Data.DeliberationHandled = v
+	return pc
+}
+
+// WithDeliberationTrace records the Kernel-First Deliberation audit trail
+// (ADR-032). It is only set when the deliberation stage runs.
+func (pc PipelineContext) WithDeliberationTrace(t *DeliberationTrace) PipelineContext {
+	pc.Data.DeliberationTrace = t
 	return pc
 }
 

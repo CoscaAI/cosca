@@ -28,6 +28,9 @@
 # ADR-031 Fase 0 — log de custo/token (append-only, runtime derivado)
 .cosca/cost/
 
+# ADR-033 Fase 0 — Cognitive Shadow Mode (registro contrafactual, runtime derivado)
+.cosca/shadow/
+
 # Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
 *.db-wal
 *.db-shm

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	mainconfig "github.com/CoscaAI/cosca/internal/config"
+	"github.com/CoscaAI/cosca/internal/permission"
 )
 
 // Config represents the .cosca/config.yaml structure.
@@ -30,6 +31,12 @@ type Config struct {
 	// the shell tool are evaluated against these rules before running. Empty
 	// = no policy enforcement (current behavior).
 	ExecPolicy string `yaml:"exec_policy" json:"execPolicy"`
+
+	// Permissions is the allow/ask/deny ruleset that gates tool execution
+	// (see internal/permission). Empty = no enforcement (fail-open, current
+	// behavior). Supports string actions and per-pattern maps. Read from the
+	// same `.cosca/config.yaml` as the main cosca config.
+	Permissions map[string]interface{} `yaml:"permissions,omitempty" json:"permissions,omitempty"`
 }
 
 // MCPConf holds MCP server connection configurations for external tools.
@@ -633,6 +640,17 @@ func (c *Config) ResolveProviderConfig(name string) *ProviderItem {
 	default:
 		return nil
 	}
+}
+
+// PermissionRuleset converts the configured permissions block (from `.cosca/
+// config.yaml`) into a permission.Ruleset. It returns nil when no permissions
+// are configured, so callers treat "not configured" as fail-open (current
+// behavior) and enforce only when an explicit allow/ask/deny policy exists.
+func (c *Config) PermissionRuleset() permission.Ruleset {
+	if len(c.Permissions) == 0 {
+		return nil
+	}
+	return permission.FromConfig(c.Permissions)
 }
 
 // StoreAPIKey persiste a API key do provider no config global do Cosca

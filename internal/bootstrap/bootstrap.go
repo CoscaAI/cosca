@@ -104,6 +104,12 @@ type Config struct {
 	// read_file, etc.). When set, the orchestration engine wires a
 	// ToolExecutor. Inside the jail this is COSCA_PROJECT_DIR.
 	WorkspaceDir string
+
+	// DeliberateConfig configures the Kernel-First Deliberation stage
+	// (ADR-032). Zero-value (unset) is fail-closed: Enabled=false preserves
+	// the legacy orchestration path bit-for-bit. Only an explicit
+	// enabled:true in config turns the stage on.
+	DeliberateConfig orchestration.DeliberateConfig
 }
 
 // NewDefaultConfig returns a Config with safe defaults suitable for
@@ -407,6 +413,14 @@ func Compose(cfg Config) (*Result, error) {
 		}
 
 		orchConfig := orchestration.DefaultOrchestratorConfig()
+		// Kernel-First Deliberation (ADR-032 / ADR-033): opt-in via config.
+		// The zero value (caller enabled neither flag) is fail-closed —
+		// Enabled=false AND ShadowMode=false keep the legacy path exactly as
+		// today. The config is forwarded when EITHER mode is on (the engine
+		// decides in the Execute branch which behavior applies).
+		if cfg.DeliberateConfig.Enabled || cfg.DeliberateConfig.ShadowMode {
+			orchConfig.DeliberateConfig = cfg.DeliberateConfig
+		}
 		if memRetriever != nil {
 			orchConfig.EnableMAG = true
 			orchConfig.MAGConfig = orchestration.DefaultMAGConfig()

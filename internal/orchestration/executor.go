@@ -228,6 +228,18 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	// responde SEM chamar o LLM. O motor é opcional — a inteligência está
 	// na casa, não no motor (L427: "antes de chamar a LLM, consulte o
 	// Cosca"). O conhecimento veio do context builder (já validado).
+
+	// 5.5.0 ── DELIBERAÇÃO DO KERNEL (ADR-032) ──
+	// Quando a etapa Kernel-First Deliberation já produziu a resposta final
+	// (EmitOK), o Executor pula a LLM de forma aditiva e reversível: o flag
+	// DeliberationHandled é checado ANTES da heurística deterministicResponse
+	// para que a resposta do Kernel nunca seja sobrescrita. Quando false, o
+	// Executor comporta-se exatamente como antes.
+	if pc.Data.DeliberationHandled {
+		logger.Info().Msg("executor: resposta DETERMINÍSTICA (deliberação do kernel) — pulando LLM")
+		return pc, nil
+	}
+
 	if det := deterministicResponse(pc.Data); det != "" {
 		logger.Info().Msg("executor: resposta DETERMINÍSTICA (sem LLM) — conhecimento indexado respondeu")
 		pc = pc.WithLLMResponse(det)

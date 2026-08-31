@@ -76,5 +76,19 @@
 | **Aplicável quando** | Sempre que criar/escrever arquivo (.go, .md, config) cujo nome possa já existir — especialmente em árvores grandes com nomes parecidos (epistemic*.go, *.test.go). |
 | **Confiança** | 1.0 (falha real + correção verificada) |
 
+### 2026-08-30 — A Planta da Casa: conhecer antes de cuidar, provar antes de alterar (a ponte nasce muda)
+
+| Field | Value |
+|-------|-------|
+| **Agente** | cosca-kernel |
+| **Fonte** | Ordem do Don + professor (2026-08-30), após quase-erro real na auditoria de vida operacional |
+| **Padrão** | **Antes de CUIDAR da casa, conhecer a PLANTA da casa. Antes de ALTERAR, provar que entendeu a planta.** A regra de segurança operacional: **a ponte entre os dois cérebros nasce como OBSERVADOR, nunca como cirurgião.** |
+| **Aplicação** | O COSCA tem **dois cérebros da mesma família**: 🧠 **ancestral** (`internal/embed/cosca` — conhecimento/capacidade acumulada, 65 engines) e ⚙️ **vivo** (`.opencode/cosca` — estado operacional atual + evolução recente, 34 engines). A relação é uma CADEIA, não duplicata: `.opencode/cosca` (editável com aval do Don) alimenta o `internal/embed` (compilado). **"Existe no código" NÃO é prova de que precisa existir; e "não tem consumidor" NÃO é prova de que está morto** — sem conhecer a ontologia da casa, o critério de engenharia engana. |
+| **Comportamento** | (1) **NUNCA** tratar `internal/embed` como descartável/docs — é o cérebro (neurônios). (2) **NUNCA** remover/editar/consolidar algo do embed sem ordem explícita do Don. (3) Ao auditar, a postura é OBSERVADOR: `READ → NORMALIZE → COMPARE → PROVENANCE → CLASSIFY → PROPOSE → VALIDATE → REPORT` — **sem write, sem merge, sem aprendizado automático**. (4) Comparação **determinística primeiro** (signatura/proveniência/versão/dependências/consumidores/histórico/testes/invariantes); **LLM só como intérprete**, NUNCA como decisor ("encontrei divergência", não "isso está obsoleto"). (5) **NUNCA** `embed → LLM → embed` (realimentação de alucinação). (6) Divergência ≠ obsoleto: "existe conhecimento divergente, sem evidência suficiente para substituir" → preservar. (7) **Nenhuma mão automática no bisturi**: regeneração sempre manual + aval do Don + invariantes QGate antes de materializar. |
+| **Evidência empírica** | Hoje eu quase classifiquei `voice`/`benchmark` como "órfãos a remover" (critério "sem consumidor"). O Don corrigiu: o cérebro está em `internal/embed` e os declara como engines ativas. O erro virou **demonstração**: se o sistema não consegue explicar por que um componente existe, NÃO tem autoridade para removê-lo. |
+| **Tipo** | identidade / processo / segurança operacional / epistemologia |
+| **Aplicável quando** | Antes de QUALQUER ação de auditoria, limpeza, consolidação ou remoção em partes do COSCA — acima de tudo no cérebro (`internal/embed`, `.opencode/cosca`). |
+| **Confiança** | 1.0 (ordem explícita do Don "grava pra nunca mais errar" + evidência real do quase-erro) |
+
 ---
 > **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro

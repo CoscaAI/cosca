@@ -24,9 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/chat/sandbox"
 	"github.com/CoscaAI/cosca/internal/level"
+	"github.com/CoscaAI/cosca/internal/permission"
 	"github.com/CoscaAI/cosca/internal/policy"
 )
 
@@ -160,6 +163,11 @@ type Executor struct {
 	// hierarquia de autoridade, entre a validação e o sandbox. Nil = sem
 	// guard (comportamento histórico).
 	policy *policy.Engine
+	// permission é o ruleset allow/ask/deny que gateia a execução de tools
+	// (internal/permission). Empty/nil = sem enforcement (fail-open). Quando
+	// configurado, `deny` bloqueia e `ask` falha-fechado (negado com log, pois
+	// ainda não há UI de confirmação). Definido por projeto/agente (SetPermission).
+	permission permission.Ruleset
 	// levelGate é o sistema de NÍVEIS de capacidade (decisão do Don 2026-08-25):
 	// enforcement por código que limita o que o agente pode fazer conforme o
 	// nível atual (L1 inicial / L2 operacional / L3 soberano). Avaliado ANTES do
@@ -194,6 +202,18 @@ func (e *Executor) SetPolicy(p *policy.Engine) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.policy = p
+}
+
+// SetPermission anexa o ruleset allow/ask/deny (internal/permission) ao
+// executor. A ruleset configura/projeto/agente define, por tool e pattern,
+// se a execução é allow (executa), deny (bloqueia) ou ask (requer aprovação).
+// Passar uma ruleset vazia/nil desativa o enforcement (fail-open → comportamento
+// atual). Esta é a API "por agente": o engine pode chamar SetPermission com a
+// ruleset derivada do agente antes de executar as tools dele.
+func (e *Executor) SetPermission(p permission.Ruleset) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.permission = p
 }
 
 // SetLevelGate anexa o sistema de níveis de capacidade ao executor (nil
@@ -315,6 +335,24 @@ func (e *Executor) Execute(ctx context.Context, toolCall ToolCall) (res *ToolRes
 				DurationMs: time.Since(start).Milliseconds(),
 			}, nil
 		}
+	}
+
+	// 2.7 Permission enforcement (allow/ask/deny — internal/permission). O
+	// ruleset vem da config de permissões do projeto/agente (SetPermission).
+	//   - allow  → segue para o sandbox e executa;
+	//   - deny   → bloqueia por código (independente do LLM);
+	//   - ask    → fail-closed: NEGA por padrão (ainda não há UI de confirmação
+	//     no COSCA) e registra um log claro. Um override só é possível com uma
+	//     regra allow explícita (ou futuramente com um callback de confirmação).
+	// Falha-aberta: se nenhuma ruleset foi configurada (vazia/nil), a avaliação
+	// é pulada — comportamento atual preservado (fail-open).
+	if denied, reason := e.checkPermission(toolCall); denied {
+		return &ToolResult{
+			ToolCallID: toolCall.ID,
+			Status:     StatusError,
+			Error:      reason,
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
 	}
 
 	// 3. Sandbox enforcement.
@@ -510,11 +548,34 @@ func strArg(args map[string]interface{}, keys ...string) string {
 //
 // This is the primary discovery mechanism: the LLM calls this method to learn
 // which tools are available and how to call them.
+//
+// When a permission ruleset is configured, tools that are globally DENIED for
+// their permission (via permission.Disabled) are filtered out of the listing —
+// the LLM does not even see tools it is forbidden to call. When no permissions
+// are configured, the listing is returned unchanged (fail-open).
 func (e *Executor) ListTools(ctx context.Context) ([]chat.ToolDefinition, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	return e.registry.Definitions(), nil
+	defs := e.registry.Definitions()
+	if len(e.permission) == 0 {
+		return defs, nil
+	}
+
+	names := make([]string, 0, len(defs))
+	for _, d := range defs {
+		names = append(names, d.Function.Name)
+	}
+	if hidden := permission.Disabled(names, e.permission); len(hidden) > 0 {
+		filtered := make([]chat.ToolDefinition, 0, len(defs))
+		for _, d := range defs {
+			if !hidden[d.Function.Name] {
+				filtered = append(filtered, d)
+			}
+		}
+		return filtered, nil
+	}
+	return defs, nil
 }
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
@@ -549,4 +610,57 @@ func isPathField(key string) bool {
 	default:
 		return false
 	}
+}
+
+// checkPermission evaluates the permission ruleset for a tool call. It returns
+// (deny, reason). When no ruleset is configured (fail-open) it returns
+// (false, ""). On "deny" the tool is blocked; on "ask" (no confirmation UI
+// yet) it fails closed with a clear log — the tool is blocked unless an allow
+// rule exists.
+func (e *Executor) checkPermission(toolCall ToolCall) (bool, string) {
+	e.mu.RLock()
+	rs := e.permission
+	e.mu.RUnlock()
+	return evaluatePermission(rs, toolCall)
+}
+
+// evaluatePermission is the pure logic behind checkPermission, separated for
+// testing. A nil/empty ruleset means "no permissions configured" → fail-open
+// (current behavior). Otherwise the resolved rule drives the verdict.
+func evaluatePermission(rs permission.Ruleset, toolCall ToolCall) (bool, string) {
+	if len(rs) == 0 {
+		return false, ""
+	}
+	perm := permission.ToolPermission(toolCall.Name)
+	pattern := patternForTool(toolCall)
+	rule := permission.Evaluate(perm, pattern, rs)
+	switch rule.Action {
+	case permission.Allow:
+		return false, ""
+	case permission.Deny:
+		return true, fmt.Sprintf("permission %q denied for tool %q (rule %s)", perm, toolCall.Name, rule)
+	case permission.Ask:
+		// Fail-closed: sem UI de confirmação ainda, um "ask" é negado por
+		// padrão (LEI DO COFRE). Um override exige uma regra allow explícita.
+		// O log é claro para o operador diagnosticar o motivo da negação.
+		log.Warn().
+			Str("permission", string(perm)).
+			Str("tool", toolCall.Name).
+			Str("pattern", pattern).
+			Stringer("rule", rule).
+			Msg("permission ask → fail-closed deny (no confirmation UI yet); add an allow rule to permit")
+		return true, fmt.Sprintf("permission %q requires approval for tool %q (ask) — fail-closed deny; no permission-confirmation UI yet", perm, toolCall.Name)
+	default:
+		return true, fmt.Sprintf("permission %q: unexpected action %q", perm, rule.Action)
+	}
+}
+
+// patternForTool derives the target pattern used for permission evaluation. It
+// prefers a path-like field in the tool input (so scoped rules like
+// "edit:docs/**" can match), defaulting to "*" when no path is present.
+func patternForTool(toolCall ToolCall) string {
+	if p := strArg(toolCall.Input, "path", "filePath", "file", "directory", "dir", "pattern", "command"); p != "" {
+		return p
+	}
+	return "*"
 }

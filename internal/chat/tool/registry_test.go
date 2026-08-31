@@ -226,23 +226,22 @@ func TestRegistry_Execute(t *testing.T) {
 		assert.Equal(t, "execution failed: something went wrong", result.Error)
 	})
 
-	t.Run("tool returns result with error field set", func(t *testing.T) {
+	t.Run("tool result error field is propagated even with nil Go error", func(t *testing.T) {
 		r := NewRegistry()
 		r.Register(&mockTool{
 			name: "validate",
 			executeFn: func(_ context.Context, _ json.RawMessage) (*chat.ToolResult, error) {
-				// When the Go error is nil, the Registry copies only
-				// result.Output and Duration — the result.Error field
-				// is NOT propagated. Use the Go error return to signal
-				// errors.
-				return &chat.ToolResult{Output: "partial"}, nil
+				// Tools report a semantic rejection through result.Error even
+				// when the Go error is nil (e.g. the filesystem read-before-
+				// write guard). The Registry MUST propagate it — dropping it
+				// would make a rejected write look like a successful one.
+				return &chat.ToolResult{Output: "partial", Error: "write_file: file already exists"}, nil
 			},
 		})
 
 		result := r.Execute(context.Background(), "validate", json.RawMessage(`{}`))
 		assert.Equal(t, "partial", result.Output)
-		// Error is empty because the Go error was nil.
-		assert.Empty(t, result.Error)
+		assert.Equal(t, "write_file: file already exists", result.Error)
 	})
 }
 

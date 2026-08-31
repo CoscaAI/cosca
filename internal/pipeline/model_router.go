@@ -62,6 +62,15 @@ func (r *ModelRouter) Select(task *TaskNode, ctx *GeneralContext) *ModelChoice {
 		return r.fallback()
 	}
 
+	// Failover gracefully when the registry exists but no LLM provider is
+	// configurable/ready (e.g. an isolated client project without LLM
+	// credentials). A registered provider whose factory fails returns a nil
+	// provider from Get() with ok==true; without this guard we would hit a
+	// nil-pointer dereference calling Model().
+	if !r.hasReadyProvider() {
+		return r.fallbackWithReason("no ready LLM provider registered, using default")
+	}
+
 	complexity := r.assessComplexity(task)
 
 	switch {
@@ -74,6 +83,22 @@ func (r *ModelRouter) Select(task *TaskNode, ctx *GeneralContext) *ModelChoice {
 	default:
 		return r.selectByCategory("fast", r.preferences.FastModel, complexity, "default simple task")
 	}
+}
+
+// hasReadyProvider reports whether the registry has at least one provider that
+// can be instantiated without error. A provider whose factory fails (e.g.
+// missing API key) is NOT ready and Get() would return a nil provider, which
+// would panic if Model() were called on it.
+func (r *ModelRouter) hasReadyProvider() bool {
+	if r.registry == nil {
+		return false
+	}
+	for _, name := range r.registry.List() {
+		if provider, ok := r.registry.Get(name); ok && provider != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // ─── Routing Logic ───────────────────────────────────────────────────────
@@ -166,7 +191,7 @@ func (r *ModelRouter) selectByCategory(category, preferred string, complexity, r
 
 	// Use first available provider
 	for _, name := range registered {
-		if provider, ok := r.registry.Get(name); ok {
+		if provider, ok := r.registry.Get(name); ok && provider != nil {
 			model := provider.Model()
 			return &ModelChoice{
 				Provider: name,
@@ -184,7 +209,7 @@ func (r *ModelRouter) matchProviderName(target string, registered []string, cate
 	targetLower := strings.ToLower(target)
 	for _, name := range registered {
 		if strings.EqualFold(name, target) || strings.Contains(strings.ToLower(name), targetLower) {
-			if provider, ok := r.registry.Get(name); ok {
+			if provider, ok := r.registry.Get(name); ok && provider != nil {
 				return &ModelChoice{
 					Provider: name,
 					Model:    provider.Model(),
@@ -196,7 +221,7 @@ func (r *ModelRouter) matchProviderName(target string, registered []string, cate
 	}
 
 	for _, name := range registered {
-		if provider, ok := r.registry.Get(name); ok {
+		if provider, ok := r.registry.Get(name); ok && provider != nil {
 			model := provider.Model()
 			if strings.Contains(strings.ToLower(model), targetLower) {
 				return &ModelChoice{
@@ -228,10 +253,14 @@ func (r *ModelRouter) categoryFallbacks(category string) []string {
 }
 
 func (r *ModelRouter) fallback() *ModelChoice {
+	return r.fallbackWithReason("no registry available, using default")
+}
+
+func (r *ModelRouter) fallbackWithReason(reason string) *ModelChoice {
 	return &ModelChoice{
 		Provider: "unknown",
 		Model:    "gpt-4o-mini",
-		Reason:   "no registry available, using default",
+		Reason:   reason,
 		CostEst:  0.01,
 	}
 }

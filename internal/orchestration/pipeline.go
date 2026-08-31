@@ -830,5 +830,11 @@ func (pd PipelineData) ToLegacyMap() map[string]interface{} {
 		m["memory_id"] = pd.MemoryID
 	}
 
+	// Deliberation trace (ADR-032): serialized for pipeline compatibility.
+	// Only present when the Kernel-First Deliberation stage ran.
+	if pd.DeliberationTrace != nil {
+		m["deliberation"] = pd.DeliberationTrace
+	}
+
 	return m
 }

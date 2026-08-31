@@ -47,6 +47,7 @@ Subcommands:
 		NewModelListCommand(),
 		NewModelInfoCommand(),
 		NewModelRemoveCommand(),
+		NewModelVisionCommand(),
 	)
 	return cmd
 }

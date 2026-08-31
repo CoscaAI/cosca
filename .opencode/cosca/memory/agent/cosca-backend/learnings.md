@@ -224,3 +224,48 @@
 | **Related** | api/rest/server.go (readActivityLog l.737-805); activityReadWindow const l.731 |
 | **Learned** | PONTO de shadowing em Go: `start := int64(0)` (offset) e depois `start := 0` (Ã­ndice) no mesmo escopo de funÃ§Ã£o â†’ `no new variables on left side of :=`; mistura de `int` (len-index) vs `int64` (offset) quebra as expressÃµes `len(all)-start` e `i >= start`. NUNCA reutilize um nome de variÃ¡vel com tipos diferentes num mesmo escopo. PadrÃ£o tail-read: `size := info.Size()`, `readStart := int64(0)` e `if size > activityReadWindow { readStart = size - activityReadWindow }`; a primeira linha do scan Ã© descartada quando `readStart > 0` (fragmento parcial). Campo seguro `Action` (rÃ³tulo "COMMAND_EXECUTED") foi mantido â€” `Prompt`/args sensÃ­veis nunca mapeados. |
 | **Next** | Nenhum. CorreÃ§Ã£o trivial e validada. |
+
+## Session: 2026-08-31 ï¿½ ADR-032 Kernel-First Deliberation tests
+
+### 2026-08-31 ï¿½ Deliberation test suite (internal/orchestration/deliberation_test.go)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Write table-driven tests for the Kernel-First Deliberation (ADR-032) stage |
+| **Technique** | Level 3 ï¿½ AAA table-driven tests reusing existing mocks (mockChatProvider, mockKnowledgeSearcher, mockAgentResolver) from executor_test.go/integration_test.go/router_test.go |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #deliberation #adr-032 #testing #orchestration #deterministic |
+| **Related** | internal/orchestration/deliberation.go, internal/orchestration/deliberation_test.go, internal/deliberate/ |
+| **Learned** | (1) The Deliberator only collects TWO convergence dimensions: knowledge->recommendation (0.30) and memory->premises (0.25). With default A3 weights the covered weight caps at 0.55, so EmitOK (>=0.70) is UNREACHABLE through the standard Deliberate path ï¿½ tests must override Weights (e.g. Recommendation 0.70 + Premises 0.30) to exercise the EmitOK gate. (2) Zero-achismo at orchestration level: knowledge results with Score < MinScore (0.50) and memory records with empty Content are skipped in collectPositions, so they never become positions. (3) Fail-closed is enforced at the ENGINE level (deliberator stays nil when Enabled=false), not inside Deliberate. (4) BuildCleanContext renders all POSITIONS but only top-N EVIDï¿½NCIAS (MaxEvidence) ï¿½ a position ID like "ev:k3" contains the substring "k3", so assert on the evidence line format ("k3 ï¿½ knowledge.db") not the bare ID. (5) Integration EmitOK test: assert provider NOT called via an atomic counter (NOT t.Fatal inside chatFn, which runs in a goroutine via runChatAttempt and would Goexit the wrong goroutine). |
+| **Next** | Level 3+: consider whether the default A3 weights should be revisited so EmitOK is reachable with real knowledge+memory coverage, or document the 0.55 ceiling as an intentional fail-safe. |
+
+## Session: 2026-08-31 ï¿½ cosca shadow CLI (ADR-033 Cognitive Shadow Mode surface)
+
+### 2026-08-31 ï¿½ `cosca shadow` command (summary/report/list) wired into root
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Create the `cosca shadow` CLI (read-only surface for the ADR-033 Cognitive Shadow Mode once Fase 0 of `internal/shadow` was already done) following the `internal/cli/cost.go` reference pattern exactly, and wire it into `root.go`. |
+| **Technique** | Level 3 ï¿½ Cobra tree (root `shadow` = alias of `summary`) + subcommands `summary`/`report`/`list`; reuse internal/shadow `ForCoscaDir(resolveCoscaDir())`, `Summary()`, `Report()`, `List()`; text render via `OutputFormatter` (Header/KeyValue/Bullet/Table/Warning) and machine output via `printJSON` gated on `IsJSONOutput`; separated run/print helpers for testability. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cli #cobra #shadow-mode #adr-033 #deliberation #read-only #jsonl #observability |
+| **Related** | internal/cli/shadow.go (new), internal/shadow/shadow.go (Summary/Report/List/ShadowTrace/ShadowDecision), internal/cli/cost.go (reference pattern), internal/cli/root.go (AddCommand), internal/cli/cli_test.go (expected-subcommands list) |
+| **Learned** | 1) `resolveCoscaDir()` is defined in BOTH internal/cli/circadian.go (used by cost.go) and internal/shadow/shadow.go (used by `DefaultStore()`) ï¿½ no conflict because different packages; I used the cli's `resolveCoscaDir()` + `shadow.ForCoscaDir(coscaDir)` to mirror cost.go exactly (not `DefaultStore()`). 2) `shadow.Summary` embeds fields Total/Decisions/EscalationRate/SelfResolveRate/AvgConfidence/AvgConvergence; `Report` embeds `Summary` and adds `Histogram []HistogramBin`; `SelfResolveRate = 1 - EscalationRate` (already computed in package, DO NOT recompute). 3) `ShadowTrace` has `Agent` with omitempty, so empty Agent renders as "KERNEL" fallback in the list table. 4) `Table(headers, rows)` prints nothing if rows is empty ï¿½ must guard with a Warning for the empty case. 5) `MarkFlagRequired("request")` on `list` makes `cosca shadow list` fail with exit 1 ("required flag(s) \"request\" not set") ï¿½ matches the spec signature `list --request <id> [--agent]`. 6) CRITICAL build gate: `internal/cli/cli_test.go` `TestRootCommand_HasAllSubcommands` asserts an EXPLICIT allowlist of subcommand names AND fails on any UNEXPECTED extra ï¿½ adding `NewShadowCommand()` to root.go REQUIRES also adding `"shadow"` to that `expected` slice or the CLI test suite fails (exit 1). 7) `OutputFormatter.Table` calculates column widths from header+cell lengths (no alignment issue); `KeyValue` pads 2 spaces. 8) `printJSON(cmd, v)` uses `SetIndent("", "  ")` and returns the encoder error. 9) gofmt -l on the new file returns empty (no format drift); `go build ./...`, `go vet ./internal/cli/...`, and `go test ./internal/cli/...` all green. 10) The empty-store path must still emit JSON (gated on IsJSONOutput FIRST) then text-Warning with the orientation bullet (shadow_mode: true + cosca run) mirroring cost.go's `rep.Runs==0` handling. |
+| **Next** | If/when a RuntimeEvent carries a ShadowTrace, wire `shadow.Record(t)` at the Deliberate call site so `.cosca/shadow/records.jsonl` gets populated by real `cosca run` runs, proving the report end-to-end. |
+
+### 2026-08-31 — Expose Shadow/Decision/Deliberation READ contracts on REST API
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Expose deliberation / shadow / decision trace contracts on the REST API for the "Casa Visível" dashboard (foundation for the separated frontend) |
+| **Technique** | Level 3 — additive REST handlers over existing Go data: shadow metrology + decision trace |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #api #rest #shadow-mode #adr-033 #decision-trace #deliberation #dashboard #causal-graph #handlers |
+| **Related** | api/rest/handler/shadow.go (new: ShadowHandler), api/rest/handler/decision.go (new: DecisionHandler), api/rest/handler/shadow_decision_test.go (new), api/rest/server.go (registerRoutes), internal/shadow/shadow.go (Summary/Report/List/ShadowTrace/DefaultStore), internal/trace/causal.go (BuildCausalGraph) + store.go, internal/deliberate (Emit), internal/orchestration/deliberation.go (DeliberationTrace/toShadowTrace) |
+| **Learned** | 1) The Server only injects 	raceStore; there is NO shadow store on Server. Handlers fall back to shadow.DefaultStore() in the constructor (nil-safe; resolves .cosca/shadow/records.jsonl), so the routes never 503 — an empty/missing JSONL reads as empty list. 2) CRITICAL: shadow RequestID is a UUID (orchestration.GenerateRequestID) while the flight recorder TraceID is TRACE-YYYYMMDD-XXXX — they are DIFFERENT keys, so a decision trace cannot be joined on a single id. Design: accept EITHER on GET /v1/decisions/{id} and mark esolved_as = "shadow" | "trace"; shadow is authoritative for decision/confidence/convergence/evidence/positions, trace enriches with the causal chain. 3) Causal chain uses 	race.BuildCausalGraph(events) (nodes/edges) + 	race.SequenceFromEvents(events).Actions (sequence) + last event .Result (outcome). 4) emitForDecision maps ShadowDecision?deliberate.Emit: EMIT_OK?emit_ok, EMIT_WITH_RESERVATIONS?emit_with_reservations, ESCALATE/RETRIEVAL_INSUFFICIENT?escalate. conflicts derives from Reason=="conflicting evidence". 5) Route gating: /v1/decisions/{id} is editorOnly (can expose flight-recorder event details across users); /v1/shadow/*, /v1/decisions, /v1/deliberation/stats are HandleFunc (read-only, authenticated, no role gate). 6) L=limit is capped at 200; offset clamped to len; sort by At DESC (most recent first) using sort.SliceStable — no package sort helper exists in shadow.Store. 7) TEST GOTCHA: 
+ewTestTraceStore already existed in traces_test.go — naming a new helper the same causes "redeclared" build failure, and est.New(...) has a 21-arg signature (one more 
+il than I initially passed); both were the only compile errors. 8) All routes registered immediately after the /v1/traces/* block; internal/embed/** untouched. |
+| **Next** | When a dashboards loads, correlate shadow RequestID ? trace TraceID (e.g. via execution_store Execution.TraceID) so GET /v1/decisions/{id} can render BOTH the decision and its causal chain in one view. |

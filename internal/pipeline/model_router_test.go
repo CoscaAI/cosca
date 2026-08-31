@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/CoscaAI/cosca/internal/chat"
@@ -34,6 +35,20 @@ func newTestRegistry(providers map[string]string) *chat.ChatRegistry {
 	return r
 }
 
+// newUnreadyRegistry registers providers whose factories always fail. This
+// models an isolated client project (cosca project new) that has a .cosca
+// config with registered providers but no LLM credentials/configuration: the
+// provider is registered but Get() returns (nil, true).
+func newUnreadyRegistry(names []string) *chat.ChatRegistry {
+	r := chat.NewChatRegistry()
+	for _, name := range names {
+		r.Register(name, func(_ context.Context, _ map[string]interface{}) (chat.ChatProvider, error) {
+			return nil, fmt.Errorf("%s not configured", name)
+		}, "test", 10)
+	}
+	return r
+}
+
 func TestDefaultModelPreferences(t *testing.T) {
 	p := DefaultModelPreferences()
 	if p.FastModel != "gpt-4o-mini" || p.SmartModel != "gpt-4o" || p.LocalModel != "ollama" || p.CodeModel != "qwen2.5-coder" {
@@ -49,6 +64,49 @@ func TestModelRouterFallbackWithoutRegistry(t *testing.T) {
 	}
 	if choice.CostEst != 0.01 {
 		t.Fatalf("fallback cost = %v", choice.CostEst)
+	}
+}
+
+func TestModelRouterFallbackWhenRegistryHasNoReadyProvider(t *testing.T) {
+	// Registry exists and has registered providers, but none can be
+	// instantiated (factory fails). Get() returns (nil, true), so a naive
+	// provider.Model() call would panic with a nil-pointer dereference. This
+	// test asserts we fail over gracefully to fallback instead of crashing.
+	reg := newUnreadyRegistry([]string{"openai", "anthropic", "deepseek"})
+	r := NewModelRouter(reg)
+
+	for _, desc := range []string{
+		"implement the api handler", // code task
+		"rotate the secret key",     // sensitive task
+		"list the files",            // default/fast task
+	} {
+		choice := r.Select(&TaskNode{Description: desc}, nil)
+		if choice == nil {
+			t.Fatalf("task %q: expected non-nil choice", desc)
+		}
+		if choice.Provider != "unknown" || choice.Model != "gpt-4o-mini" {
+			t.Fatalf("task %q fallback: %+v", desc, choice)
+		}
+		if choice.Reason != "no ready LLM provider registered, using default" {
+			t.Fatalf("task %q fallback reason = %q", desc, choice.Reason)
+		}
+	}
+}
+
+func TestModelRouterReadyProviderSelection(t *testing.T) {
+	// Registry with a ready provider returns a normal ModelChoice.
+	reg := newTestRegistry(map[string]string{
+		"deepseek": "deepseek-v4-flash",
+		"ollama":   "qwen2.5-coder:14b",
+	})
+	r := NewModelRouter(reg)
+
+	choice := r.Select(&TaskNode{Description: "implement the api handler"}, nil)
+	if choice == nil {
+		t.Fatal("expected non-nil choice")
+	}
+	if choice.Provider == "unknown" || choice.Model == "" {
+		t.Fatalf("expected a real configured choice, got +%v", choice)
 	}
 }
 

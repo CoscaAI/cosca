@@ -15,7 +15,8 @@
       "command": ["bin\\cosca.exe", "mcp", "serve"],
       "environment": {
         "COSCA_ENABLE_MCP": "1",
-        "COSCA_ALLOW_NO_ROOT": "1"
+        "COSCA_ALLOW_NO_ROOT": "1",
+        "COSCA_MCP_ALLOW_WRITE": "1"
       },
       "enabled": true
     }

@@ -17,6 +17,7 @@ import (
 	"github.com/CoscaAI/cosca/api/grpcserver"
 	"github.com/CoscaAI/cosca/internal/bootstrap"
 	"github.com/CoscaAI/cosca/internal/config"
+	"github.com/CoscaAI/cosca/internal/orchestration"
 )
 
 // runtimeGRPCPort is the default gRPC port for the standalone runtime daemon
@@ -143,6 +144,7 @@ func runRuntimeStart(cmd *cobra.Command, grpcPort int) error {
 		embeddingDigest     string
 		embeddingAPIKey     string
 		embeddingDimensions int
+		deliberateCfg       orchestration.DeliberateConfig
 	)
 	if c, loadErr := config.Load(); loadErr != nil {
 		logger.Warn().Err(loadErr).Msg("failed to load project config — embedding provider will be auto-detected")
@@ -159,6 +161,9 @@ func runRuntimeStart(cmd *cobra.Command, grpcPort int) error {
 		embeddingModel = c.Embedding.Model
 		embeddingDigest = c.Embedding.Digest
 		embeddingDimensions = c.Embedding.Dimensions
+		// Kernel-First Deliberation (ADR-032). Fail-closed (LEI DO COFRE):
+		// only explicitly enabled:true turns the stage on.
+		deliberateCfg = orchestration.DeliberateConfigFromConfig(c.Orchestration.Deliberation)
 	}
 
 	// Compose the engine stack with the daemon always enabled.
@@ -172,6 +177,7 @@ func runRuntimeStart(cmd *cobra.Command, grpcPort int) error {
 		EmbeddingDigest:     embeddingDigest,
 		EmbeddingAPIKey:     embeddingAPIKey,
 		EmbeddingDimensions: embeddingDimensions,
+		DeliberateConfig:    deliberateCfg,
 	})
 	if bootErr != nil {
 		return fmt.Errorf("engine composition failed: %w", bootErr)

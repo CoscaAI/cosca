@@ -17,14 +17,15 @@ import (
 	chatprovider "github.com/CoscaAI/cosca/internal/chat/provider"
 	"github.com/CoscaAI/cosca/internal/chat/sandbox"
 	"github.com/CoscaAI/cosca/internal/chat/tool"
+	"github.com/CoscaAI/cosca/internal/chat/tools/filesystem"
 	"github.com/CoscaAI/cosca/internal/config"
 	"github.com/CoscaAI/cosca/internal/engine"
 	"github.com/CoscaAI/cosca/internal/execpolicy"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/level"
 	"github.com/CoscaAI/cosca/internal/memory"
-	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/models"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/search"
 	"github.com/CoscaAI/cosca/internal/skills"
@@ -68,11 +69,12 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 	sandboxMode := parseSandboxMode(cfg.Sandbox.Mode)
 	sbGate := sandbox.NewGate(workspace, sandboxMode)
 
-	// Register filesystem tools
-	toolRegistry.Register(tool.NewReadTool(workspace, rails))
-	toolRegistry.Register(tool.NewWriteTool(workspace, rails))
-	toolRegistry.Register(tool.NewEditTool(workspace, rails))
-	toolRegistry.Register(tool.NewGlobTool(workspace, rails))
+	// Register filesystem tools (conjunto SEGURO com guard determinístico
+	// read-before-write — ADR-034). O write_file deste conjunto recusa
+	// sobrescrever um arquivo existente sem leitura prévia na mesma sessão,
+	// independente do comportamento do LLM. O conjunto LEGACY
+	// (tool.NewWriteTool/NewReadTool/...) sobrescrevia cegamente (só .bak).
+	registerFilesystemTools(toolRegistry, workspace)
 
 	// Register shell tool (needs sandbox). Se uma exec policy estiver
 	// configurada (exec_policy em .cosca/config.yaml), o shell tool avalia
@@ -153,6 +155,13 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 
 	// ── 2. Sandbox Gate & Executor ───────────────────────────────────────
 	exec := executor.New(toolRegistry, sbGate, workspace)
+
+	// ── 2.0 Permission Gate (allow/ask/deny — internal/permission). Conecta a
+	// ruleset de permissões da config (bloco `permissions:` em `.cosca/config.yaml`)
+	// ao executor. Sem `permissions:` configurado → nil → fail-open (comportamento
+	// atual, exceto as tools já protegidas pelo read-before-write). Com regras,
+	// deny/ask bloqueiam a execução por código (LEI DO COFRE).
+	exec.SetPermission(cfg.PermissionRuleset())
 
 	// ── 2.1 Level Gate (sistema de níveis de capacidade — decisão do Don 2026-08-25).
 	// O agente começa no NÍVEL INICIAL (L1) — o primeiro despertar, só leitura de
@@ -371,6 +380,14 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 	eng.WithPlugins(hookRegistry)
 
 	return eng, nil
+}
+
+// registerFilesystemTools registers the deterministic read-before-write
+// filesystem tools (ADR-034) into the engine's tool registry. It is a thin
+// named wrapper over filesystem.Register so the engine/chat path can be
+// exercised directly by a focused regression test.
+func registerFilesystemTools(reg *tool.Registry, workspace string) []chat.Tool {
+	return filesystem.Register(reg, workspace)
 }
 
 // deterministicModeError drains the given provider's Chat and returns its

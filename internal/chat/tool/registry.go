@@ -100,6 +100,7 @@ func (r *Registry) Execute(ctx context.Context, name string, params json.RawMess
 
 	return &chat.ToolResult{
 		Output:   result.Output,
+		Error:    result.Error,
 		Duration: elapsed,
 	}
 }

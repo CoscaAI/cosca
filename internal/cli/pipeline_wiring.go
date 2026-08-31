@@ -145,6 +145,11 @@ func buildPipelineWiring(dir string) (*pipelineWiring, error) {
 	}
 
 	orchConfig := orchestration.DefaultOrchestratorConfig()
+	// Kernel-First Deliberation (ADR-032): opt-in via config. Absent section
+	// / load failure keeps the fail-closed default (disabled).
+	if projectCfg != nil {
+		orchConfig.DeliberateConfig = orchestration.DeliberateConfigFromConfig(projectCfg.Orchestration.Deliberation)
+	}
 	if memRetriever != nil {
 		orchConfig.EnableMAG = true
 		orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
