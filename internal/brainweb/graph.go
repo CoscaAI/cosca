@@ -1,6 +1,11 @@
-// Package brainweb serves the Cosca "cérebro 3D" visualizer: a single-page
-// WebGL/Three.js graph of the organization (agents = capos, skills =
-// soldados), served by the Go REST server via go:embed.
+// Package brainweb serves the Cosca "cérebro" data contracts: the sanitized
+// projection of the organization (agents = capos, skills = soldados), the
+// Cognitive Observatory, the recent-activity feed, and the deterministic
+// perception sensor. These are consumed by the "Casa Visível" dashboard app.
+//
+// NOTA: a UI do visualizador 3D (SPA WebGL/Three.js com go:embed) foi MOVIDA
+// para o dashboard "Casa Visível" (app separada). Este pacote expõe apenas os
+// data contracts read-only — o root não serve mais user interface.
 //
 // SECURITY (ordem do Don): o contrato de dados é uma PROJEÇÃO MÍNIMA
 // SANITIZADA — apenas organograma. NÃO expõe: instructions/governance de
@@ -23,8 +28,8 @@ import (
 // um dado derivado) para dar identidade visual ao núcleo (Don → Kernel → ...).
 var rootTier = []string{"Don", "Kernel"}
 
-// Graph é o payload entregue a GET /brain/graph. Todo campo é a projeção
-// mínima aprovada — nada sensível.
+// Graph é o payload entregue a GET /v1/organization/graph. Todo campo é a
+// projeção mínima aprovada — nada sensível.
 type Graph struct {
 	Meta        Meta      `json:"meta"`
 	Departments []string  `json:"departments"`

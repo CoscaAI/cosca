@@ -130,28 +130,10 @@ func TestBuild_ArestasReportsTo(t *testing.T) {
 	}
 }
 
-// TestHandler_ServeIndex garante que GET /brain devolve HTML.
-func TestHandler_ServeIndex(t *testing.T) {
-	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain", nil)
-	rec := httptest.NewRecorder()
-	h.Serve(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status=%d, esperado 200", rec.Code)
-	}
-	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
-		t.Fatalf("content-type=%q, esperado text/html", ct)
-	}
-	if !strings.Contains(rec.Body.String(), "COSCA") {
-		t.Fatal("index.html não contém a marca COSCA")
-	}
-}
-
-// TestHandler_GraphJSON garante que GET /brain/graph devolve JSON válido.
+// TestHandler_GraphJSON garante que GET /v1/organization/graph devolve JSON válido.
 func TestHandler_GraphJSON(t *testing.T) {
 	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/graph", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/organization/graph", nil)
 	rec := httptest.NewRecorder()
 	h.Graph(rec, req)
 
@@ -170,47 +152,11 @@ func TestHandler_GraphJSON(t *testing.T) {
 	}
 }
 
-// TestHandler_ServeAsset garante que GET /brain/app.js devolve JS.
-func TestHandler_ServeAsset(t *testing.T) {
-	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/app.js", nil)
-	rec := httptest.NewRecorder()
-	h.Serve(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status=%d, esperado 200", rec.Code)
-	}
-	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/javascript") {
-		t.Fatalf("content-type=%q, esperado application/javascript", ct)
-	}
-}
-
-// TestHandler_ServeESMAssets garante que o módulo ESM self-hostado
-// (three.module.js) é servido com o MIME correto.
-func TestHandler_ServeESMAssets(t *testing.T) {
-	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-
-	for _, path := range []string{
-		"/brain/three.module.js",
-	} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		rec := httptest.NewRecorder()
-		h.Serve(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("%s: status=%d, esperado 200", path, rec.Code)
-		}
-		if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/javascript") {
-			t.Fatalf("%s: content-type=%q, esperado application/javascript", path, ct)
-		}
-	}
-}
-
-// TestHandler_ActivityNilSeguro garante que GET /brain/activity devolve JSON
+// TestHandler_ActivityNilSeguro garante que GET /v1/cognitive/activity devolve JSON
 // válido mesmo sem fonte de ações (nil-safe).
 func TestHandler_ActivityNilSeguro(t *testing.T) {
 	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/activity", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/cognitive/activity", nil)
 	rec := httptest.NewRecorder()
 	h.Activity(rec, req)
 
@@ -236,7 +182,7 @@ func TestHandler_ActivityInjected(t *testing.T) {
 		{ID: "a1", Agent: "Backend Chief", Status: "success", DurationMs: 1200},
 	}}
 	h := NewHandler(testAgents(), testSkills(), "1.5.0").WithActivity(src)
-	req := httptest.NewRequest(http.MethodGet, "/brain/activity", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/cognitive/activity", nil)
 	rec := httptest.NewRecorder()
 	h.Activity(rec, req)
 
@@ -337,11 +283,11 @@ func TestObservatory_TraceReplay(t *testing.T) {
 	}
 }
 
-// TestHandler_ObservatoryNilSeguro garante que GET /brain/observatory responde
-// JSON válido mesmo sem fontes (nil-safe).
+// TestHandler_ObservatoryNilSeguro garante que GET /v1/cognitive/observatory
+// responde JSON válido mesmo sem fontes (nil-safe).
 func TestHandler_ObservatoryNilSeguro(t *testing.T) {
 	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/observatory", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/cognitive/observatory", nil)
 	rec := httptest.NewRecorder()
 	h.Observatory(rec, req)
 
@@ -357,43 +303,10 @@ func TestHandler_ObservatoryNilSeguro(t *testing.T) {
 	}
 }
 
-// TestHandler_IndexTemImportMap garante que o index.html define o import map
-// (pre-requisito para os ES Modules carregarem como 'three').
-func TestHandler_IndexTemImportMap(t *testing.T) {
-	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain", nil)
-	rec := httptest.NewRecorder()
-	h.Serve(rec, req)
-
-	body := rec.Body.String()
-	if !strings.Contains(body, `type="importmap"`) {
-		t.Fatal("index.html não contém o import map (`type=\"importmap\"`)")
-	}
-	if !strings.Contains(body, "three.module.js") {
-		t.Fatal("import map não mapeia 'three' para three.module.js")
-	}
-	if !strings.Contains(body, `type="module"`) {
-		t.Fatal("index.html não carrega app.js como type=module")
-	}
-}
-
-// TestHandler_TraversalBloqueado garante proteção contra path traversal.
-func TestHandler_TraversalBloqueado(t *testing.T) {
-	h := NewHandler(testAgents(), testSkills(), "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/../../etc/passwd", nil)
-	rec := httptest.NewRecorder()
-	h.Serve(rec, req)
-
-	// Deve retornar 404 (NotFound) e não vazar outro arquivo.
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status=%d, esperado 404 (traversal deve ser bloqueado)", rec.Code)
-	}
-}
-
 // TestHandler_NilSeguro garante que managers nil não causam pânico.
 func TestHandler_NilSeguro(t *testing.T) {
 	h := NewHandler(nil, nil, "1.5.0")
-	req := httptest.NewRequest(http.MethodGet, "/brain/graph", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/organization/graph", nil)
 	rec := httptest.NewRecorder()
 	h.Graph(rec, req)
 

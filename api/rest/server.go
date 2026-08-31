@@ -36,11 +36,12 @@ import (
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/perception"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	pluginspkg "github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/runtime"
-	secretspkg "github.com/CoscaAI/cosca/internal/secrets"
+	secretspkg 	"github.com/CoscaAI/cosca/internal/secrets"
 	"github.com/CoscaAI/cosca/internal/skills"
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/vision"
@@ -135,6 +136,11 @@ type Server struct {
 	routeResolver *modlink.Resolver
 	// searchMode é o modo de busca ("legacy" | "modular").
 	searchMode string
+
+	// perceptionSvc is the continuous Perception Loop service (screen → vision →
+	// perceptual WorldState → SSE). Nil-safe: when nil (or disabled), the
+	// /v1/perception/* endpoints report a clear 503. Set via SetPerceptionService.
+	perceptionSvc *perception.Service
 }
 
 // Config configures the REST API server.
@@ -160,10 +166,15 @@ type Config struct {
 	RuntimeClient *grpcclient.RuntimeClient
 
 	// ActivityLogPath, when set, overrides the activity log source path
-	// (.cosca/activity.jsonl) used by the /brain/activity feed. If empty,
+	// (.cosca/activity.jsonl) used by the /v1/cognitive/activity feed. If empty,
 	// the default `<cwd>/.cosca/activity.jsonl` is used. Injectable so tests
 	// can point the observatory at a temporary file.
 	ActivityLogPath string
+
+	// DeliberateConfig opts the /v1/run engine into the Kernel-First
+	// Deliberation stage (ADR-032). Zero-value (unset) is fail-closed:
+	// Enabled=false preserves the legacy path exactly.
+	DeliberateConfig orchestration.DeliberateConfig
 }
 
 // DefaultConfig returns a default REST API server configuration.
@@ -273,6 +284,14 @@ func (s *Server) SetModularSearch(resolver *modlink.Resolver, mode string) {
 	s.searchMode = mode
 }
 
+// SetPerceptionService injects the continuous Perception Loop service into the
+// REST server, enabling the /v1/perception/* endpoints. Pass nil (or leave
+// unset) to keep them disabled (503). The service must already be Started by
+// the caller; the server only reads its State and subscribes to its stream.
+func (s *Server) SetPerceptionService(svc *perception.Service) {
+	s.perceptionSvc = svc
+}
+
 // Use adds middleware to the server's handler chain.
 // Middleware is applied in the order added (outermost first).
 func (s *Server) Use(mw func(http.Handler) http.Handler) {
@@ -289,19 +308,6 @@ var publicPaths = []string{
 	"/v1/auth/logout",
 	"/v1/csrf-token",
 	"/v1/ws",
-	"/brain",
-	"/brain/",
-	"/brain/index.html",
-	"/brain/style.css",
-	"/brain/app.js",
-	"/brain/three.module.js",
-	"/brain/jsm/controls/OrbitControls.js",
-	"/brain/jsm/loaders/OBJLoader.js",
-	"/brain/models/brain.obj",
-	"/brain/graph",
-	"/brain/activity",
-	"/brain/observatory",
-	"/brain/perception",
 }
 
 // registerRoutes registers all API routes.
@@ -453,6 +459,9 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	runH := handler.NewRunHandler(s.agentsManager, chat.GetRegistry(), s.auditStore)
 	runH.SetHub(s.wsHub)
 	runH.SetSkillsManager(s.skillsManager)
+	// ADR-032: opt-in via server config. Zero-value is fail-closed — the
+	// /v1/run engine stays on the legacy path unless explicitly enabled.
+	runH.SetDeliberateConfig(s.config.DeliberateConfig)
 
 	// Knowledge: prefer gRPC to runtime daemon (Single Owner Model).
 	// Falls back to local knowledge engine when the daemon is not reachable.
@@ -554,6 +563,29 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	s.mux.Handle("GET /v1/traces/{id}/replay", editorOnly(http.HandlerFunc(tracesH.Replay)))
 	s.mux.Handle("GET /v1/traces/{id}/causal", editorOnly(http.HandlerFunc(tracesH.Causal)))
 
+	// Shadow / Decision / Deliberation endpoints — os contratos de leitura do
+	// painel "Casa Visível" (L1/L2/L3) sobre o Cognitive Shadow ledger
+	// (deliberação contrafactual) e o flight recorder causal. Read-only.
+	//
+	// O store do shadow não é injetado no Server; os handlers caem no
+	// shadow.DefaultStore() (diretório `.cosca` do projeto) — nil-safe, lê de
+	// .cosca/shadow/records.jsonl. O store do trace (s.traceStore) é injetado e
+	// opcional: quando nil, o enriquecimento causal do decision trace é omitido.
+	//
+	// Metrologia agregada (L1/L2) — acessível a qualquer sessão autenticada
+	// (dados sanitizados, sem prompts/args). O Decision Trace completo (L3) pode
+	// expor detalhes de eventos do flight recorder de todos os usuários, por
+	// isso é editor+.
+	shadowH := handler.NewShadowHandler(nil)
+	decisionH := handler.NewDecisionHandler(nil, s.traceStore)
+	s.mux.HandleFunc("GET /v1/shadow/summary", shadowH.Summary)
+	s.mux.HandleFunc("GET /v1/shadow/histogram", shadowH.Histogram)
+	s.mux.HandleFunc("GET /v1/shadow/decisions", shadowH.Decisions)
+	s.mux.HandleFunc("GET /v1/shadow/decisions/{id}", shadowH.Get)
+	s.mux.HandleFunc("GET /v1/decisions", decisionH.List)
+	s.mux.HandleFunc("GET /v1/deliberation/stats", decisionH.Stats)
+	s.mux.Handle("GET /v1/decisions/{id}", editorOnly(http.HandlerFunc(decisionH.Get)))
+
 	// Department endpoints — inter-department conversations (Dept→Dept) over
 	// the append-only audit ledger (.cosca/department.db). List/Thread are
 	// read-only projections for the Control Center; Ask appends a question —
@@ -621,22 +653,37 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	wsH := handler.NewWebSocketHandler(s.wsHub, s.jwtSecret, zlog.Logger, s.wsAllowedOrigins)
 	s.mux.Handle("GET /v1/ws", wsH)
 
-	// Cérebro 3D — visualizador da organização (rota pública, dados sanitizados).
-	// /brain serve o HTML/estático self-hostado (go:embed); /brain/graph devolve
-	// a projeção mínima (organograma); /brain/activity devolve as ações recentes;
-	// /brain/observatory devolve o Observatório Cognitivo; /brain/perception
-	// devolve a percepção determinística frame-a-frame (sensor sem VLM externa).
+	// Contratos de leitura do "cérebro" Cosca (consumidos pelo dashboard
+	// "Casa Visível" — app separada). A UI do visualizador 3D embutida
+	// (go:embed "web/") foi MOVIDA para esse dashboard; o root NÃO serve
+	// mais user interface. Estes endpoints mantêm EXATAMENTE os data
+	// contracts de antes (Graph/Observatory/Activity/Perception) e são
+	// read-only + sanitizados (nada de prompts/args/instructions).
+	//
+	// GET /v1/organization/graph        → organograma (agents = capos, skills = soldados)
+	// GET /v1/cognitive/observatory     → Observatório Cognitivo (constelações + trace causal)
+	// GET /v1/cognitive/activity        → ações recentes do cérebro
+	// GET /v1/cognitive/perception      → percepção determinística frame-a-frame
+	//
+	// Leitura autenticada (qualquer sessão válida), não editorOnly — são
+	// projeções read-only sem conteúdo sensível de usuário.
 	brainH := brainweb.NewHandler(s.agentsManager, s.skillsManager, coscapkg.Version).
 		WithActivity(newExecutionActivitySource(s.config.ActivityLogPath)).
 		WithObservatory(knowledgeItemsFn(k), traceReplayFn(s.traceStore), cognitiveStatsFn(s, rt)).
 		WithPerception(newPerceptionSource()).
 		WithCost(coscaCostStore())
-	s.mux.HandleFunc("GET /brain", brainH.Serve)
-	s.mux.HandleFunc("GET /brain/", brainH.Serve)
-	s.mux.HandleFunc("GET /brain/graph", brainH.Graph)
-	s.mux.HandleFunc("GET /brain/activity", brainH.Activity)
-	s.mux.HandleFunc("GET /brain/observatory", brainH.Observatory)
-	s.mux.HandleFunc("GET /brain/perception", brainH.Perception)
+	s.mux.HandleFunc("GET /v1/organization/graph", brainH.Graph)
+	s.mux.HandleFunc("GET /v1/cognitive/observatory", brainH.Observatory)
+	s.mux.HandleFunc("GET /v1/cognitive/activity", brainH.Activity)
+	s.mux.HandleFunc("GET /v1/cognitive/perception", brainH.Perception)
+
+	// Perception Loop endpoints (continuous screen → vision → world-state).
+	// Read-only, always registered; nil/disabled service → 503 (opt-in). They
+	// are NOT in publicPaths, so the auth middleware protects them — a live
+	// screen-capture feed is sensitive by nature.
+	perceptionH := handler.NewPerceptionHandler(s.perceptionSvc)
+	s.mux.HandleFunc("GET /v1/perception/state", perceptionH.State)
+	s.mux.HandleFunc("GET /v1/perception/stream", perceptionH.Stream)
 }
 
 // coscaCostStore devolve o cost.Store do diretório .cosca do projeto (nil-safe:
@@ -813,11 +860,11 @@ func readActivityLog(path string, limit int) []brainweb.Activity {
 		Actor  string `json:"actor"`
 		Action string `json:"action"`
 		Agent  string `json:"agent"`
-		Prompt string `json:"prompt"`        // nome do comando (sanitizado — nunca args)
+		Prompt string `json:"prompt"` // nome do comando (sanitizado — nunca args)
 		Status string `json:"status"`
 	}
 	// Tail-read: lê apenas a cauda (últimos ~512KB) do arquivo append-only,
-	// evitando varrer o arquivo inteiro em cada request de /brain/activity.
+	// evitando varrer o arquivo inteiro em cada request de /v1/cognitive/activity.
 	info, err := f.Stat()
 	if err != nil {
 		return nil
@@ -862,12 +909,12 @@ func readActivityLog(path string, limit int) []brainweb.Activity {
 			roll = ra.Actor
 		}
 		out = append(out, brainweb.Activity{
-			ID:     fmt.Sprintf("%d-%s", ra.At, roll),
-			Agent:  roll,
-			Status: ra.Status,
-			Action: ra.Action,          // rótulo seguro ("COMMAND_EXECUTED"), nunca args
-			Description: ra.Prompt,     // nome do comando/ação (seguro — nunca args sensíveis)
-			At:     ra.At,
+			ID:          fmt.Sprintf("%d-%s", ra.At, roll),
+			Agent:       roll,
+			Status:      ra.Status,
+			Action:      ra.Action, // rótulo seguro ("COMMAND_EXECUTED"), nunca args
+			Description: ra.Prompt, // nome do comando/ação (seguro — nunca args sensíveis)
+			At:          ra.At,
 		})
 	}
 	return out

@@ -70,14 +70,19 @@ type RunHandler struct {
 	registryFactory func() *chat.ChatRegistry
 
 	// ── Pipeline components (nil when pipeline is disabled) ─────────────
-	pipelineRunner    pipeline.Runner
-	pipelinePlanner   *pipeline.Planner
-	stepRunner        *pipeline.StepRunner
-	stepRecoveryLoop  *pipeline.RecoveryLoop
-	stepPostTaskHook  *pipeline.PostTaskHook
-	stepCMITracker    *pipeline.CMITracker
-	stepHistory       *pipeline.WorkflowHistory
-	stepCheckpoint    *pipeline.CheckpointStore
+	pipelineRunner   pipeline.Runner
+	pipelinePlanner  *pipeline.Planner
+	stepRunner       *pipeline.StepRunner
+	stepRecoveryLoop *pipeline.RecoveryLoop
+	stepPostTaskHook *pipeline.PostTaskHook
+	stepCMITracker   *pipeline.CMITracker
+	stepHistory      *pipeline.WorkflowHistory
+	stepCheckpoint   *pipeline.CheckpointStore
+
+	// deliberateConfig opt-in for the Kernel-First Deliberation stage
+	// (ADR-032). Zero-value (never set) is fail-closed: Enabled=false
+	// preserves the legacy path exactly.
+	deliberateConfig orchestration.DeliberateConfig
 }
 
 // NewRunHandler creates a new RunHandler.
@@ -112,6 +117,13 @@ func (h *RunHandler) SetTimeout(d time.Duration) {
 // skill resolver. Optional (nil-safe).
 func (h *RunHandler) SetSkillsManager(mgr *skills.Manager) {
 	h.skillsMgr = mgr
+}
+
+// SetDeliberateConfig opts the /v1/run engine into the Kernel-First
+// Deliberation stage (ADR-032). Fail-closed (LEI DO COFRE): when never
+// called, the stage stays disabled and the legacy path is preserved.
+func (h *RunHandler) SetDeliberateConfig(cfg orchestration.DeliberateConfig) {
+	h.deliberateConfig = cfg
 }
 
 // SetMemoryEngine wires the memory engine into the orchestration engine's
@@ -603,6 +615,14 @@ func (h *RunHandler) executeWithPipeline(w http.ResponseWriter, r *http.Request,
 // nil-safe — the engine degrades gracefully exactly like the CLI.
 func (h *RunHandler) buildEngine(registry *chat.ChatRegistry) *orchestration.Engine {
 	orchConfig := orchestration.DefaultOrchestratorConfig()
+	// Kernel-First Deliberation (ADR-032 / ADR-033): opt-in via
+	// SetDeliberateConfig. Zero-value (never set) is fail-closed —
+	// Enabled=false AND ShadowMode=false preserve the legacy path exactly.
+	// The config is forwarded when EITHER mode is on (the engine's Execute
+	// branch decides which behavior applies).
+	if h.deliberateConfig.Enabled || h.deliberateConfig.ShadowMode {
+		orchConfig.DeliberateConfig = h.deliberateConfig
+	}
 
 	var memRetriever orchestration.MemoryRetriever
 	var memStorer orchestration.MemoryStorer
@@ -644,14 +664,14 @@ func (h *RunHandler) buildEngine(registry *chat.ChatRegistry) *orchestration.Eng
 	}
 
 	return orchestration.NewFactory(orchestration.FactoryConfig{
-		Knowledge:      knowledgeSearcher,
+		Knowledge:       knowledgeSearcher,
 		MemoryRetriever: memRetriever,
-		MemoryStorer:   memStorer,
-		AgentResolver:  agentResolver,
-		SkillResolver:  skillResolver,
-		ChatProvider:   registry,
-		Config:         orchConfig,
-		WorkspaceDir:   workspaceDir(),
+		MemoryStorer:    memStorer,
+		AgentResolver:   agentResolver,
+		SkillResolver:   skillResolver,
+		ChatProvider:    registry,
+		Config:          orchConfig,
+		WorkspaceDir:    workspaceDir(),
 	})
 }
 
