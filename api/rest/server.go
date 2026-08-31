@@ -695,9 +695,16 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	// Read-only, always registered; nil/disabled service → 503 (opt-in). They
 	// are NOT in publicPaths, so the auth middleware protects them — a live
 	// screen-capture feed is sensitive by nature.
-	perceptionH := handler.NewPerceptionHandler(s.perceptionSvc)
-	s.mux.HandleFunc("GET /v1/perception/state", perceptionH.State)
-	s.mux.HandleFunc("GET /v1/perception/stream", perceptionH.Stream)
+	// NOTE: registered as a lazy closure that reads s.perceptionSvc per request,
+	// because SetPerceptionService wires it AFTER New(). Capturing it at New()
+	// time would leave the handler stuck with nil (always 503). Same pattern as
+	// the perception bus below.
+	s.mux.HandleFunc("GET /v1/perception/state", func(w http.ResponseWriter, r *http.Request) {
+		handler.NewPerceptionHandler(s.perceptionSvc).State(w, r)
+	})
+	s.mux.HandleFunc("GET /v1/perception/stream", func(w http.ResponseWriter, r *http.Request) {
+		handler.NewPerceptionHandler(s.perceptionSvc).Stream(w, r)
+	})
 
 	// Perception Bus (FASE A — multimodal vision+audio synchroniser). Read-only,
 	// always registered; nil/disabled service → 503 (opt-in). The handler is
