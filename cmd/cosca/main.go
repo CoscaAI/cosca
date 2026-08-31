@@ -272,6 +272,11 @@ func isAdminCommand() bool {
 	}
 	switch os.Args[1] {
 	case "init", "config", "version", "hook", "project", "asset", "task", "model", "models", "gpu", "ngraph", "render", "media", "flow", "provenance", "security", "terminal", "desktop", "voice", "slop",
+		// `vision` — roda o pipeline de percepção nativo (infer) diretamente sobre
+		// um PNG/JPEG no host. Diagnóstico host-local: precisa enxergar o workspace
+		// real e o diretório de modelos (~/.cosca/models/vision), então roda FORA
+		// da jaula (mesma postura de model/models/gpu/render).
+		"vision",
 		// Comandos de inspeção/diagnóstico (leitura pura, sem execução de código
 		// de agente). Rodam FORA da jaula porque: (a) a jaula monta o workspace
 		// em "/" (--bind <workspace> /), fazendo os.Getwd() retornar "/" em vez
@@ -370,7 +375,7 @@ func integrityGateBypass(args []string) bool {
 	words := commandWords(args)
 	if len(words) >= 1 {
 		switch words[0] {
-		case "init", "version", "models", "desktop", "terminal", "start", "gate", "skill":
+		case "init", "version", "models", "desktop", "terminal", "start", "gate", "skill", "vision":
 			return true
 		}
 	}

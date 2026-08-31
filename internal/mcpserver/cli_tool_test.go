@@ -138,3 +138,25 @@ func TestCallWeb_ContentIsEnveloped(t *testing.T) {
 		t.Fatalf("aviso de não-confiável ausente: %.120s", res.Content[0].Text)
 	}
 }
+
+// TestCallWeb_PreviewFlag valida o padrão custo-benefit do PinchTab:
+// preview=true marca a resposta como preview e trunca o snippet (o agente
+// escalona para full só quando o barato não resolve). Usa max_len pequeno p/
+// discriminar de forma determinística (sem depender do tamanho da página).
+func TestCallWeb_PreviewFlag(t *testing.T) {
+	eng := NewEngine(WithKernel(nil))
+	prev, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"http://example.com","max_len":300,"preview":true}`))
+	if err != nil {
+		t.Fatalf("Call web preview: %v", err)
+	}
+	if prev.IsError {
+		t.Fatalf("preview deveria dar sucesso: %s", prev.Content[0].Text)
+	}
+	text := prev.Content[0].Text
+	if !strings.Contains(text, "preview_preview=true") {
+		t.Fatalf("preview deveria marcar preview=true: %.160s", text)
+	}
+	if !strings.Contains(text, "length=") {
+		t.Fatalf("preview deveria reportar length: %.160s", text)
+	}
+}
