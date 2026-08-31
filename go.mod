@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/k2-fsa/sherpa-onnx-go-windows v1.13.6
 	github.com/google/uuid v1.6.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/rs/zerolog v1.33.0
@@ -232,3 +233,9 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+// Sherpa-onnx windows binding (FASE B: native Go STT).
+//
+// Only imported behind the `stt_sherpa` build tag (internal/worldmodel/audio/stt),
+// so the default build never pulls cgo/mingw and CI without a C toolchain stays green.
+replace github.com/k2-fsa/sherpa-onnx-go-windows => C:/Users/Henrique/AppData/Local/Temp/opencode/sherpa-onnx-go-windows
