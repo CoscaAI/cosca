@@ -183,6 +183,25 @@ const (
 	// their exact prior behaviour — no regression. Set vision.enabled: true (or
 	// COSCA_VISION__ENABLED=true) to turn on auto-recognition.
 	DefaultEnableVision = false
+	// DefaultChangeDetection is the default change-detection gate on the
+	// Perception Loop. Enabled by default (the gocv motion-detect learning:
+	// only run vision when the screen changes).
+	DefaultChangeDetection = true
+	// DefaultChangeDetectionThreshold is the default normalised mean-absolute-
+	// delta above which a capture is considered a real change (in the 0.02–0.05
+	// window from the motion-detect learnings).
+	DefaultChangeDetectionThreshold = 0.02
+
+	// DefaultPerceptionAudioWindow is the default temporal window (5s) the
+	// Perception Bus uses to remember recent observations for multimodal sync.
+	DefaultPerceptionAudioWindow = 5 * time.Second
+	// DefaultPerceptionAudioTolerance is the default overlap tolerance (300ms)
+	// used to bind an audio segment to the vision frames around it.
+	DefaultPerceptionAudioTolerance = 300 * time.Millisecond
+	// DefaultPerceptionAudioSampleRate is the default audio sample rate (Hz).
+	DefaultPerceptionAudioSampleRate = 16000
+	// DefaultPerceptionAudioChunkMS is the default audio chunk length (ms).
+	DefaultPerceptionAudioChunkMS = 100
 )
 
 // =============================================================================

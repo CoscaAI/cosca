@@ -45,6 +45,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/metrics"
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/perception"
+	"github.com/CoscaAI/cosca/internal/perception/bus"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/runtime"
 	"github.com/CoscaAI/cosca/internal/secrets"
@@ -278,6 +279,7 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			stores.audit, stores.secrets, stores.trace, stores.department,
 			runtimeClient, deterministic, boot, eng.searchMode, eng.deliberateCfg,
 			eng.perceptionSvc,
+			eng.busSvc,
 			host, port, metricsPort, corsOrigins,
 			tlsCertFile, tlsKeyFile,
 			grpcPort, grpcReflection, grpcDisable,
@@ -312,6 +314,10 @@ type serveEngineResult struct {
 	// SSE). Nil-safe: quando a config está desabilitada, é nil e os endpoints
 	// /v1/perception/* reportam 503.
 	perceptionSvc *perception.Service
+	// busSvc é o Perception Bus (sincronização multimodal visão+áudio, FASE A).
+	// Nil-safe: criado apenas quando perception.audio.enabled (opt-in). Quando
+	// nil, /v1/perception/bus* reporta 503.
+	busSvc *bus.Bus
 }
 
 type serveManagerResult struct {
@@ -337,15 +343,16 @@ type serveStoreResult struct {
 }
 
 type serveServerResult struct {
-	rest        *rest.Server
-	metrics     *http.Server
-	grpc        *grpcserver.GRPCServer
-	emergencyCh chan string
-	sigCh       chan os.Signal
-	errCh       chan error
-	serverStart time.Time
-	gitInit     gitState
+	rest          *rest.Server
+	metrics       *http.Server
+	grpc          *grpcserver.GRPCServer
+	emergencyCh   chan string
+	sigCh         chan os.Signal
+	errCh         chan error
+	serverStart   time.Time
+	gitInit       gitState
 	perceptionSvc *perception.Service
+	busSvc        *bus.Bus
 }
 
 // ── 1. preBootstrap ───────────────────────────────────────────────────────────
@@ -479,6 +486,18 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 			Msg("perception loop enabled")
 	}
 
+	// Perception Bus (FASE A, opt-in). Created only when perception.audio.enabled
+	// and a live perception loop is wired. When nil, /v1/perception/bus* reports
+	// a clear 503. The bus is a pure adapter over the loop — it never duplicates
+	// or alters the vision loop.
+	busSvc := buildPerceptionBus(perceptionCfg, perceptionSvc, logger)
+	if busSvc != nil {
+		logger.Info().
+			Dur("window", perceptionCfg.Audio.Window).
+			Dur("tol", perceptionCfg.Audio.Tolerance).
+			Msg("perception bus enabled (multimodal sync)")
+	}
+
 	return &serveEngineResult{
 		client:        runtimeClient,
 		deterministic: deterministic,
@@ -490,6 +509,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		deliberateCfg: deliberateCfg,
 		perceptionCfg: perceptionCfg,
 		perceptionSvc: perceptionSvc,
+		busSvc:        busSvc,
 	}, nil
 }
 
@@ -506,7 +526,31 @@ func buildPerceptionService(cfg config.PerceptionConfig, logger zerolog.Logger) 
 		MaxInterval: cfg.MaxInterval,
 		Capture:     cfg.Capture,
 		ModelsDir:   cfg.ModelsDir,
+		ChangeDetection: perception.ChangeDetectionConfig{
+			Enabled:   cfg.ChangeDetection.Enabled,
+			Threshold: cfg.ChangeDetection.Threshold,
+		},
 	}, perception.WithLogger(logger))
+}
+
+// buildPerceptionBus monta o Perception Bus (FASE A — sincronização multimodal
+// visão+áudio) a partir da config. Retorna nil quando o bus não está opt-in
+// (perception.audio.enabled) ou quando não há um perception loop ativo para
+// assinar (o bus é um adapter puro sobre o loop). O AudioSource Fase A é um
+// no-op; a Fase B liga o ASR (sherpa) no mesmo seam.
+func buildPerceptionBus(cfg config.PerceptionConfig, visionSvc *perception.Service, logger zerolog.Logger) *bus.Bus {
+	if !cfg.Audio.Enabled {
+		return nil
+	}
+	if visionSvc == nil {
+		logger.Warn().Msg("perception bus: audio.enabled but no perception loop wired — bus disabled")
+		return nil
+	}
+	return bus.NewBus(bus.Config{
+		Window:    cfg.Audio.Window,
+		MaxObs:    bus.DefaultMaxObs,
+		Tolerance: cfg.Audio.Tolerance,
+	}, visionSvc, bus.NoopAudioSource{}, logger.With().Str("component", "perception-bus").Logger())
 }
 
 // ── 3. initManagers ───────────────────────────────────────────────────────────
@@ -739,6 +783,7 @@ func serveStartServers(
 	searchMode string,
 	deliberateCfg orchestration.DeliberateConfig,
 	perceptionSvc *perception.Service,
+	busSvc *bus.Bus,
 	host *string,
 	port *int,
 	metricsPort *int,
@@ -792,6 +837,14 @@ func serveStartServers(
 	if perceptionSvc != nil {
 		server.SetPerceptionService(perceptionSvc)
 		perceptionSvc.Start(context.Background())
+	}
+
+	// Perception Bus (FASE A, opt-in): injeta o bus no servidor (habilita
+	// /v1/perception/bus*) e o inicia. Nil-safe: quando não opt-in, os endpoints
+	// reportam 503. O bus assina o perception loop — nunca o modificou.
+	if busSvc != nil {
+		server.SetBusService(busSvc)
+		busSvc.Start(context.Background())
 	}
 
 	httpMetrics := metrics.NewHTTPMetrics()
@@ -934,15 +987,16 @@ func serveStartServers(
 	gitInit := captureGitState(dir)
 
 	return &serveServerResult{
-		rest:        server,
-		metrics:     metricsSrv,
-		grpc:        grpcSrv,
-		emergencyCh: emergencyCh,
-		sigCh:       sigCh,
-		errCh:       errCh,
-		serverStart: serverStart,
-		gitInit:     gitInit,
+		rest:          server,
+		metrics:       metricsSrv,
+		grpc:          grpcSrv,
+		emergencyCh:   emergencyCh,
+		sigCh:         sigCh,
+		errCh:         errCh,
+		serverStart:   serverStart,
+		gitInit:       gitInit,
 		perceptionSvc: perceptionSvc,
+		busSvc:        busSvc,
 	}
 }
 
@@ -996,6 +1050,12 @@ func serveEventLoop(srv *serveServerResult, dir string, logger zerolog.Logger, r
 	if srv.perceptionSvc != nil {
 		srv.perceptionSvc.Stop()
 		logger.Info().Msg("perception loop stopped")
+	}
+
+	// Perception Bus (FASE A, opt-in): para na mesma sequência do perception.
+	if srv.busSvc != nil {
+		srv.busSvc.Stop()
+		logger.Info().Msg("perception bus stopped")
 	}
 
 	if err := rtInstance.Stop(shutdownCtx); err != nil {

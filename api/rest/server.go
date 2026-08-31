@@ -37,11 +37,12 @@ import (
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/perception"
+	"github.com/CoscaAI/cosca/internal/perception/bus"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	pluginspkg "github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/runtime"
-	secretspkg 	"github.com/CoscaAI/cosca/internal/secrets"
+	secretspkg "github.com/CoscaAI/cosca/internal/secrets"
 	"github.com/CoscaAI/cosca/internal/skills"
 	"github.com/CoscaAI/cosca/internal/trace"
 	"github.com/CoscaAI/cosca/internal/vision"
@@ -141,6 +142,11 @@ type Server struct {
 	// perceptual WorldState → SSE). Nil-safe: when nil (or disabled), the
 	// /v1/perception/* endpoints report a clear 503. Set via SetPerceptionService.
 	perceptionSvc *perception.Service
+
+	// busSvc is the Perception Bus — the multimodal (vision+audio) synchroniser
+	// (FASE A). Nil-safe: when nil (or disabled), the /v1/perception/bus*
+	// endpoints report a clear 503. Set via SetBusService.
+	busSvc *bus.Bus
 }
 
 // Config configures the REST API server.
@@ -290,6 +296,14 @@ func (s *Server) SetModularSearch(resolver *modlink.Resolver, mode string) {
 // the caller; the server only reads its State and subscribes to its stream.
 func (s *Server) SetPerceptionService(svc *perception.Service) {
 	s.perceptionSvc = svc
+}
+
+// SetBusService injects the Perception Bus (multimodal synchroniser, FASE A)
+// into the REST server, enabling the /v1/perception/bus* endpoints. Pass nil
+// (or leave unset) to keep them disabled (503). The bus must already be Started
+// by the caller; the server only reads its State and subscribes to its stream.
+func (s *Server) SetBusService(svc *bus.Bus) {
+	s.busSvc = svc
 }
 
 // Use adds middleware to the server's handler chain.
@@ -684,6 +698,20 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	perceptionH := handler.NewPerceptionHandler(s.perceptionSvc)
 	s.mux.HandleFunc("GET /v1/perception/state", perceptionH.State)
 	s.mux.HandleFunc("GET /v1/perception/stream", perceptionH.Stream)
+
+	// Perception Bus (FASE A — multimodal vision+audio synchroniser). Read-only,
+	// always registered; nil/disabled service → 503 (opt-in). The handler is
+	// constructed lazily per-request via a closure that reads s.busSvc, so it
+	// sees the value wired by SetBusService AFTER New() — avoiding the nil
+	// capture problem (the perception handler above is registered at New() time
+	// and relies on the same late-wiring; for the bus we read it live so it is
+	// robust to ordering).
+	s.mux.HandleFunc("GET /v1/perception/bus/state", func(w http.ResponseWriter, r *http.Request) {
+		handler.NewBusHandler(s.busSvc).State(w, r)
+	})
+	s.mux.HandleFunc("GET /v1/perception/bus", func(w http.ResponseWriter, r *http.Request) {
+		handler.NewBusHandler(s.busSvc).Stream(w, r)
+	})
 }
 
 // coscaCostStore devolve o cost.Store do diretório .cosca do projeto (nil-safe:

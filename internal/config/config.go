@@ -452,6 +452,61 @@ type PerceptionConfig struct {
 	// ModelsDir optionally overrides the vision .onnx models directory
 	// (sovereignty: no fixed path). Empty → standard resolution.
 	ModelsDir string `yaml:"models_dir,omitempty" json:"modelsDir,omitempty"`
+	// ChangeDetection gates the heavy vision inference behind a cheap pure-Go
+	// frame comparator: when enabled and the captured frame has not changed
+	// beyond Threshold (mean absolute delta), the loop skips the vision
+	// pipeline and keeps the previous WorldState (refreshing last_seen_at only).
+	// This is the Don's gocv motion-detect learning — a static screen costs ~0
+	// inferences while COSCA keeps perceiving. Default: enabled
+	// (threshold 0.02). Disable to always process (previous behaviour).
+	ChangeDetection ChangeDetectionConfig `yaml:"change_detection" json:"changeDetection"`
+
+	// Audio configures the Perception Bus — the multimodal (vision + audio)
+	// synchronisation layer (FASE A). When Enabled, a bus is created over the
+	// existing Perception Loop and the audio source, stamping every observation
+	// on a single monotonic clock and binding audio segments to overlapping
+	// vision frames (the agent can answer "what was it seeing when it heard X").
+	// Opt-in (default false): existing behaviour is unchanged.
+	Audio AudioConfig `yaml:"audio" json:"audio"`
+}
+
+// AudioConfig configures the Perception Bus audio/multimodal synchronisation.
+//
+// This is the FASE A gate: an explicit opt-in that creates the bus in the
+// runtime. The audio pipeline itself (Fase B: sherpa ASR via cgo/DLL) is NOT
+// wired here yet — the bus runs with the injectable AudioSource seam so it is
+// harmless when the pipeline is absent. The bus degrades gracefully (a missing
+// source is a warning, not a crash).
+type AudioConfig struct {
+	// Enabled turns the Perception Bus on. Default false (opt-in): the bus is
+	// only created when this is true, so existing behaviour is bit-for-bit
+	// unchanged.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// Window is the temporal horizon the bus keeps for recent observations
+	// (the "what was being seen when I heard X" memory). Default 5s.
+	Window time.Duration `yaml:"window" json:"window"`
+	// Tolerance is the overlap tolerance used to bind an audio segment to the
+	// vision frames around it. Default 300ms.
+	Tolerance time.Duration `yaml:"tolerance" json:"tolerance"`
+	// ModelsDir optionally overrides the audio/ASR models directory (Fase B).
+	// Empty → standard resolution. Unused in Fase A but kept for the config
+	// contract to be stable.
+	ModelsDir string `yaml:"models_dir,omitempty" json:"modelsDir,omitempty"`
+	// SampleRate is the audio capture sample rate (Hz). Default 16000.
+	SampleRate int `yaml:"sample_rate" json:"sampleRate"`
+	// ChunkMS is the audio chunk length in milliseconds. Default 100.
+	ChunkMS int `yaml:"chunk_ms" json:"chunkMs"`
+}
+
+// ChangeDetectionConfig configures the change-detection gate on the Perception
+// Loop (see the ChangeDetector in internal/perception).
+type ChangeDetectionConfig struct {
+	// Enabled turns the gate on. Default true.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// Threshold is the normalised mean-absolute-delta (in [0,1]) above which a
+	// frame is treated as a real change. In the 0.02–0.05 window from the
+	// motion-detect learnings. Default 0.02. <=0 falls back to the default.
+	Threshold float64 `yaml:"threshold" json:"threshold"`
 }
 
 // PipelineConfig configures the pipeline.
@@ -687,6 +742,17 @@ func DefaultConfig() *Config {
 			Interval:    2 * time.Second,
 			MaxInterval: 30 * time.Second,
 			Capture:     "screen",
+			ChangeDetection: ChangeDetectionConfig{
+				Enabled:   DefaultChangeDetection,
+				Threshold: DefaultChangeDetectionThreshold,
+			},
+			Audio: AudioConfig{
+				Enabled:    false, // opt-in (FASE A): bus only created on explicit enable
+				Window:     DefaultPerceptionAudioWindow,
+				Tolerance:  DefaultPerceptionAudioTolerance,
+				SampleRate: DefaultPerceptionAudioSampleRate,
+				ChunkMS:    DefaultPerceptionAudioChunkMS,
+			},
 		},
 		Plugins: PluginConfig{
 			Enabled:         DefaultEnablePluginSystem,
@@ -1112,6 +1178,40 @@ func (c *Config) loadFromEnv() {
 	if v, ok := envMap["PERCEPTION__MODELS_DIR"]; ok {
 		c.Perception.ModelsDir = v
 	}
+	if v, ok := envMap["PERCEPTION__CHANGE_DETECTION__ENABLED"]; ok {
+		c.Perception.ChangeDetection.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["PERCEPTION__CHANGE_DETECTION__THRESHOLD"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			c.Perception.ChangeDetection.Threshold = f
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__ENABLED"]; ok {
+		c.Perception.Audio.Enabled = v == "true" || v == "1"
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__WINDOW"]; ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			c.Perception.Audio.Window = d
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__TOLERANCE"]; ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			c.Perception.Audio.Tolerance = d
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__MODELS_DIR"]; ok {
+		c.Perception.Audio.ModelsDir = v
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__SAMPLE_RATE"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.SampleRate = n
+		}
+	}
+	if v, ok := envMap["PERCEPTION__AUDIO__CHUNK_MS"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Perception.Audio.ChunkMS = n
+		}
+	}
 	if v, ok := envMap["ORCHESTRATION__DELIBERATION__ENABLED"]; ok {
 		c.Orchestration.Deliberation.Enabled = v == "true" || v == "1"
 	}
@@ -1243,6 +1343,30 @@ func (c *Config) Validate() error {
 			// valid capture source (empty → screen)
 		default:
 			errs = append(errs, "perception.capture must be one of: screen, camera")
+		}
+		// change_detection.threshold must be in (0, 1] when the gate is enabled
+		// (a <=0 value is invalid and would mean "never change"; >1 is a no-op).
+		if c.Perception.ChangeDetection.Enabled {
+			if c.Perception.ChangeDetection.Threshold <= 0 || c.Perception.ChangeDetection.Threshold > 1 {
+				errs = append(errs, "perception.change_detection.threshold must be in (0, 1]")
+			}
+		}
+	}
+
+	// Perception Bus (FASE A) validation — only when the bus is opted in. An
+	// absent/disabled audio section is inert (fail-closed, no behaviour change).
+	if c.Perception.Audio.Enabled {
+		if c.Perception.Audio.Window <= 0 {
+			errs = append(errs, "perception.audio.window must be > 0")
+		}
+		if c.Perception.Audio.Tolerance <= 0 {
+			errs = append(errs, "perception.audio.tolerance must be > 0")
+		}
+		if c.Perception.Audio.SampleRate <= 0 {
+			errs = append(errs, "perception.audio.sample_rate must be > 0")
+		}
+		if c.Perception.Audio.ChunkMS <= 0 {
+			errs = append(errs, "perception.audio.chunk_ms must be > 0")
 		}
 	}
 

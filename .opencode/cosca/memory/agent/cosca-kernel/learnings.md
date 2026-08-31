@@ -1195,3 +1195,29 @@
 - DNN-POSE-DETECTION: pipeline CONCORRENTE com channels + buffers (images chan *Mat, poses chan [][]Point): captura -> canal -> DNN -> canal -> resultado. Bounded queue + goroutines = o padrao do professor (fila limitada / drop em vez de acumular). O COSCA ja tem goroutines; aplicar o padrao de canal para desacoplar captura/inferencia.
 - VIDEOIO: OpenVideoCapture -> Read(&m) -> Grab(skip) -> Close(); Set/Get para propriedades (resolucao/fps). Grab(skip) pula frames = drop.
 - PLANO: (1) gate de mudanca (MOG2-style/absdiff) no Perception Loop; (2) desacoplar captura/inferencia com canal bounded. Ambos sao as otimizacoes que o professor pediu pra deixar o loop leve.
+
+## 2026-08-31 - CHANGE DETECTION aplicado no Perception Loop (aprendizado do gocv motion-detect)
+- O Perception Loop agora so processa a visao (CLIP/GroundingDINO/Depth) quando a tela MUDOU. Tela parada = barato (0 inferencia, mas COSCa 'continua vendo').
+- ALGORITMO (Go puro, sem OpenCV): internal/perception/change_detect.go - decodifica frame, downsample em grade 16x16 (patch 3x3 = rejeita ruido de 1px, como o Dilate do MOG2), mean abs delta normalizada [0,1]. 1o frame -> muda; delta>threshold -> muda e atualiza referencia (adapta, como MOG2); delta<=threshold -> pula (referencia fica antiga, drift lento acumula); frame nao decodificavel -> muda (degrada seguro).
+- LOOP: tickOnce -> captura -> GATE de mudanca -> se nao mudou: recordSkipped + publish(heartbeatState) + RETURN (visao nunca roda); se mudou: recordChanged + fluxo normal. heartbeatState mantem MESMO WorldState/Version (mundo nao mudou), so atualiza Timestamp/LastSeenAt (COSCa 'continua olhando').
+- CONFIG: perception.change_detection.{enabled,threshold} - default enabled:true, threshold:0.02. Env COSCA_PERCEPTION__CHANGE_DETECTION__*.
+- METRICAS: Metrics.SkippedFrames, ChangedFrames (janela), LastChangeAt (persistente). State.LastSeenAt + LastChangeAt.
+- TESTES: static screen -> visao chamada 1x, skipped=ticks-1, version mantem 1; alternando A/B -> visao a cada mudanca; disabled -> sempre processa; bad frame -> muda (safe).
+- VALIDACAO: build/vet/test verdes. Behavior preservado quando disabled (sempre processa).
+
+## 2026-08-31 - DIRECAO DO PROFESSOR: sincronizacao multimodal (audio + visao) - Perception Bus
+- PERGUNTA DO DON: como sincronizar audio com a visao. O professor deu a arquitetura.
+- PRINCIPIO: sincronizar percepcoes de modalidades diferentes no MESMO tempo. NAO mandar Vision->agente e Audio->agente separado (bagunca). Fazer PERCEPTION BUS com temporal buffer + World State + Kernel.
+- ARQUITETURA: MONOTONIC CLOCK compartilhado (vision/audio) -> PERCEPTION BUS -> temporal buffer (2-5s) -> WORLD STATE -> Kernel. Usar timestamps MONOTONICOS (nao time.Now() puro) para intervalos/latencia.
+- Observation multimodal: {Timestamp, Modality (vision|audio), Duration, Sequence, Confidence, Payload}. Ex: '10:32:15.420 olho botao Voltar' + '10:32:15.840 audio volta para a tela anterior' -> COSCA entende 'a fala aconteceu enquanto o botao Voltar estava visivel'.
+- AUDIO STREAMING (vantagem): microfone -> PCM chunks -> VAD -> wake word -> STT streaming -> partial transcript -> perception bus. Nao precisa esperar STT terminar; usa transcricao parcial enquanto a pessoa fala.
+- ESTADO DO COSCA: visao = nativa Go (ONNX, completa). Audio = cosca-voice (projeto DESACOPLADO, ~/Documents/projects/cosca-voice, wake word 'cosca', pipeline heavy torch+faster-whisper+kokoro, NAO always-on). OU SEJA: visao e runtime Go nativo; audio e projeto separado Python.
+- MINERACAO: k2-fsa/sherpa-onnx (14.5k) = STT/TTS/VAD local via onnxruntime SEM internet, 12 linguagens, x86_64, tem bindings Go (k2-fsa/sherpa-onnx-go). PERFEITO para STT nativo Go (soberania igual a visao). pion/webrtc (16.7k) = WebRTC puro Go (timestamps/sync de midia).
+- PROXIMO PASSO (proposta): 1) Perception Bus (temporal fusion com clock monotonico + Observation multimodal); 2) temporal buffer 2-5s (ouvir o que foi visto no instante da fala); 3) STT nativo Go via sherpa-onnx (substituir/aliar o cosca-voice Python); 4) memoria episodica multimodal. Git a minerar quando rate-limit passar: pion/webrtc (sync), sherpa-onnx-go (STT), LiveKit, gortsplib, go2rtc, GStreamer. Buscar no codigo: timestamp, PTS, DTS, clock, jitter, buffer, sync, VAD, stream, latency, backpressure.
+
+## 2026-08-31 - PERCEPTION BUS FASE A IMPLEMENTADA (sincronizacao multimodal)
+- FASE A completa: internal/perception/bus (clock.go, types.go, ring.go, match.go, bus.go) + api/rest/handler/perception_bus.go + config perception.audio + wiring serve.go. Build/vet/test verdes (bus 0.5s, perception 0.4s, config 0.78s, api 1.2s).
+- COMPONENTES: MonotonicTime (via time.Since(epoch) seguro, sem //go:linkname); Observation{Timestamp, Modality(vision|audio), Duration, Sequence, Confidence, Payload}; Ring circular O(1) com eviction por tempo(5s default)/cap(256) + WindowAround(t,before,after); match() por overlap temporal (tol 300ms) -> MultiRel liga segmento de audio a WindowRefs da visao sobreposta; Bus assina o perception.Service (visao) + AudioSource (Noop na Fase A), projeta WorldState multimodal, publica non-blocking.
+- ENDPOINTS: /v1/perception/bus (SSE) + /v1/perception/bus/state (JSON) via closure lento (le s.busSvc a cada request - evita captura-nil, o bug latente do perception existente). Nil/disabled -> 503.
+- AGENTE PODE: 'o que estava vendo quando ouviu X' via MultiRel/WindowAround.
+- PENDENCIAS: Fase B (STT nativo sherpa-onnx = 3 DLLs mingw + build tag cgo); Fase C (memoria episodica multimodal); bug latente do /v1/perception/* existente (NewPerceptionHandler captura nil; recomendado corrigir com o mesmo closure, ticket separado).

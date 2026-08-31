@@ -42,6 +42,19 @@ type Metrics struct {
 	// VisionFailures is the number of vision-pipeline failures in the window
 	// (excluding safety-timeout drops).
 	VisionFailures uint64 `json:"vision_failures"`
+	// SkippedFrames is the number of frames the change-detection gate skipped
+	// (no meaningful screen change → vision not run). The efficiency signal:
+	// a long static screen yields many skipped frames and ~0 inferences while
+	// COSCA keeps "perceiving".
+	SkippedFrames uint64 `json:"skipped_frames"`
+	// ChangedFrames is the number of frames the change-detection gate passed
+	// (screen changed → vision ran). When the gate is disabled this stays 0 and
+	// every tick is processed (previous behaviour).
+	ChangedFrames uint64 `json:"changed_frames"`
+	// LastChangeAt is when the screen last actually changed (a frame ran vision).
+	// Persistent across measurement windows (the "time since last change" is a
+	// feature, not a rate).
+	LastChangeAt time.Time `json:"last_change_at,omitempty"`
 	// CaptureFPS is the achieved capture cadence (ticks/sec) over the window.
 	CaptureFPS float64 `json:"capture_fps"`
 	// VisionFPS is the inference throughput the vision pipeline sustains
@@ -84,6 +97,11 @@ type metricTracker struct {
 	dropped     uint64
 	capFails    uint64
 	visFails    uint64
+	skipped     uint64
+	changed     uint64
+	// lastChange is persistent: it is NOT reset when the measurement window
+	// rolls, so "time since last real change" stays meaningful across windows.
+	lastChange time.Time
 
 	clipMS      float64
 	groundingMS float64
@@ -113,6 +131,16 @@ func (m *metricTracker) record(elapsed time.Duration, clip, grounding, depth, sa
 func (m *metricTracker) recordDrop()       { m.dropped++ }
 func (m *metricTracker) recordCapFail()    { m.capFails++ }
 func (m *metricTracker) recordVisFail()    { m.visFails++ }
+func (m *metricTracker) recordSkipped()    { m.skipped++ }
+func (m *metricTracker) recordChanged()    { m.changed++ }
+
+// markChanged records the timestamp of a real change and is persistent across
+// window resets.
+func (m *metricTracker) markChanged(t time.Time) {
+	if !t.IsZero() {
+		m.lastChange = t
+	}
+}
 
 // snapshot computes a Metrics view and lazily resets the window once it has
 // elapsed, so FPS/CPU reflect the recent past. The caller must hold the owning
@@ -126,8 +154,12 @@ func (m *metricTracker) snapshot() *Metrics {
 		m.dropped = 0
 		m.capFails = 0
 		m.visFails = 0
+		m.skipped = 0
+		m.changed = 0
 		m.ringN = 0
 		m.ringPos = 0
+		// m.lastChange is deliberately kept: it is a persistent timestamp, not
+		// a per-window rate.
 	}
 
 	elapsed := now.Sub(m.windowStart)
@@ -163,6 +195,9 @@ func (m *metricTracker) snapshot() *Metrics {
 		DroppedFrames:   m.dropped,
 		CaptureFailures: m.capFails,
 		VisionFailures:  m.visFails,
+		SkippedFrames:   m.skipped,
+		ChangedFrames:   m.changed,
+		LastChangeAt:    m.lastChange,
 		CaptureFPS:      float64(m.ticks) / secs,
 		VisionFPS:       visionFPS,
 		LatencyAvgMS:    toMS(avg),

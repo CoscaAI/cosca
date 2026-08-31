@@ -94,6 +94,25 @@ type Config struct {
 	Capture string
 	// ModelsDir optionally overrides the vision .onnx models directory.
 	ModelsDir string
+	// ChangeDetection gates the heavy vision inference behind a cheap frame
+	// comparator: when Enabled and the captured frame has not changed beyond
+	// Threshold (mean absolute delta), the loop skips the vision pipeline and
+	// keeps the previous WorldState (refreshing last_seen_at only). Default:
+	// enabled with DefaultChangeDetectionThreshold. Disable to always process
+	// (previous behaviour).
+	ChangeDetection ChangeDetectionConfig
+}
+
+// ChangeDetectionConfig configures the change-detection gate on the Perception
+// Loop. See ChangeDetector for the underlying pure-Go comparator.
+type ChangeDetectionConfig struct {
+	// Enabled turns the gate on. When false the loop always runs vision
+	// (previous behaviour).
+	Enabled bool
+	// Threshold is the normalised mean-absolute-delta (in [0,1]) above which a
+	// frame is a real change. In the 0.02–0.05 window from the motion-detect
+	// learnings. <=0 falls back to DefaultChangeDetectionThreshold.
+	Threshold float64
 }
 
 // resolvedMode returns the canonical mode, normalising empty/unknown values to
@@ -184,6 +203,14 @@ func defaultVision(ctx context.Context, frame []byte, _, _ int) (*vision.Observa
 type State struct {
 	// Timestamp is the UTC time of the update.
 	Timestamp time.Time `json:"timestamp"`
+	// LastSeenAt is when the loop last *captured* a frame (heartbeat). It bumps
+	// on every tick, including frames skipped by the change-detection gate, so
+	// a consumer knows COSCA is still looking even when the screen did not
+	// change. Compare against Version for world-revision fencing.
+	LastSeenAt time.Time `json:"last_seen_at"`
+	// LastChangeAt is when the screen last actually changed (a frame ran through
+	// the vision pipeline). It stays put across skipped frames.
+	LastChangeAt time.Time `json:"last_change_at"`
 	// Version is a monotonic revision counter (fencing: consumers can detect
 	// a stale view by comparing Version).
 	Version uint64 `json:"version"`
@@ -229,6 +256,10 @@ type Service struct {
 	state   *State
 	version uint64
 	metrics *metricTracker
+	// changeDetector runs the cheap pure-Go frame comparator that gates the
+	// heavy vision inference (change detection). Only touched from the loop
+	// goroutine (a single tick at a time, guarded by busy).
+	changeDetector *ChangeDetector
 
 	subMu sync.Mutex
 	subs  map[chan *State]struct{}
@@ -256,12 +287,13 @@ func NewService(cfg Config, opts ...Option) *Service {
 	}
 	cfg.Interval = cfg.resolvedInterval()
 	s := &Service{
-		cfg:     cfg,
-		captor:  ScreenCaptor{},
-		vision:  defaultVision,
-		logger:  log.Logger,
-		subs:    make(map[chan *State]struct{}),
-		metrics: newMetricTracker(),
+		cfg:            cfg,
+		captor:         ScreenCaptor{},
+		vision:         defaultVision,
+		logger:         log.Logger,
+		subs:           make(map[chan *State]struct{}),
+		metrics:        newMetricTracker(),
+		changeDetector: newChangeDetector(cfg.ChangeDetection.Threshold),
 	}
 	for _, o := range opts {
 		o(s)
@@ -447,6 +479,21 @@ func (s *Service) tickOnce(ctx context.Context) {
 		return
 	}
 
+	// 1b. Change-detection gate (opt-in). If the screen did NOT change beyond
+	//     the threshold, skip the heavy vision inference: the WorldState stays
+	//     as the previous one and only the "still looking" heartbeat is bumped.
+	//     This is the cost win — a static screen costs ~0 inferences while COSCA
+	//     keeps perceiving.
+	if s.cfg.ChangeDetection.Enabled {
+		if !s.changeDetector.Evaluate(frame, w, h) {
+			s.logger.Debug().Msg("perception: no meaningful change — skipping vision")
+			s.recordSkipped()
+			s.publish(s.heartbeatState(time.Now().UTC()))
+			return
+		}
+		s.recordChanged()
+	}
+
 	// 2. Run the vision pipeline over the frame.
 	if s.vision == nil {
 		st := s.emptyState(tickCtx)
@@ -503,20 +550,25 @@ func (s *Service) buildState(obs *vision.Observation, w, h int) *State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.version++
+	now := time.Now().UTC()
+	// A frame that ran vision is, by definition, a change the loop observed.
+	s.metrics.markChanged(now)
 
 	summary := ""
 	if obs != nil {
 		summary = obs.SummaryText()
 	}
 	st := &State{
-		Timestamp: time.Now().UTC(),
-		Version:   s.version,
-		Capture:   s.cfg.Capture,
-		Summary:   summary,
-		Width:     w,
-		Height:    h,
-		Degraded:  obs != nil && len(obs.Warnings) > 0,
-		Metrics:   s.metrics.snapshot(),
+		Timestamp:    now,
+		LastSeenAt:   now,
+		LastChangeAt: now,
+		Version:      s.version,
+		Capture:      s.cfg.Capture,
+		Summary:      summary,
+		Width:        w,
+		Height:       h,
+		Degraded:     obs != nil && len(obs.Warnings) > 0,
+		Metrics:      s.metrics.snapshot(),
 	}
 	if obs != nil {
 		st.Entities = obs.Entities
@@ -534,14 +586,18 @@ func (s *Service) degradedState(reason string, err error) *State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.version++
+	now := time.Now().UTC()
+	s.metrics.markChanged(now)
 
 	st := &State{
-		Timestamp: time.Now().UTC(),
-		Version:   s.version,
-		Capture:   s.cfg.Capture,
-		Summary:   "Perception degraded: " + reason,
-		Degraded:  true,
-		Metrics:   s.metrics.snapshot(),
+		Timestamp:    now,
+		LastSeenAt:   now,
+		LastChangeAt: now,
+		Version:      s.version,
+		Capture:      s.cfg.Capture,
+		Summary:      "Perception degraded: " + reason,
+		Degraded:     true,
+		Metrics:      s.metrics.snapshot(),
 	}
 	st.Warnings = []string{"perception degraded: " + reason}
 	if err != nil {
@@ -557,18 +613,23 @@ func (s *Service) emptyState(_ context.Context) *State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return &State{
-		Timestamp: time.Now().UTC(),
-		Capture:   s.cfg.Capture,
-		Metrics:   s.metrics.snapshot(),
+		Timestamp:    time.Now().UTC(),
+		LastSeenAt:   time.Now().UTC(),
+		LastChangeAt: time.Now().UTC(),
+		Capture:      s.cfg.Capture,
+		Metrics:      s.metrics.snapshot(),
 	}
 }
 
 // emptyLocked returns an empty not-yet-updated state (called under Lock; the
 // caller attaches a fresh metrics snapshot).
 func (s *Service) emptyLocked() *State {
+	now := time.Now().UTC()
 	return &State{
-		Timestamp: time.Now().UTC(),
-		Capture:   s.cfg.Capture,
+		Timestamp:    now,
+		LastSeenAt:   now,
+		LastChangeAt: now,
+		Capture:      s.cfg.Capture,
 	}
 }
 
@@ -608,6 +669,40 @@ func (s *Service) recordVisFail() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.metrics.recordVisFail()
+}
+
+// recordSkipped counts a frame that the change-detection gate skipped (no
+// meaningful screen change → vision not run).
+func (s *Service) recordSkipped() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.metrics.recordSkipped()
+}
+
+// recordChanged counts a frame that the change-detection gate passed (screen
+// changed → vision ran).
+func (s *Service) recordChanged() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.metrics.recordChanged()
+}
+
+// heartbeatState builds (and stores) a "still looking" heartbeat: it refreshes
+// the timestamp / last_seen_at while keeping the SAME WorldState and the SAME
+// Version, so the change-detection gate can tell consumers "COSCA is still
+// perceiving, nothing changed" without rerunning the heavy vision pipeline.
+// LastChangeAt is deliberately left untouched (no change happened).
+func (s *Service) heartbeatState(now time.Time) *State {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	base := s.stateOrEmptyLocked()
+	st := copyState(base)
+	st.Timestamp = now
+	st.LastSeenAt = now
+	// The world is unchanged → keep LastChangeAt and Version as they were.
+	st.Metrics = s.metrics.snapshot()
+	s.state = st
+	return copyState(st)
 }
 
 // publish fans a new state out to every subscriber. Non-blocking: a slow
