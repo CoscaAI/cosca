@@ -60,6 +60,12 @@ type Daemon struct {
 	backupFunc      func(context.Context) error
 	backupDir       string
 	maxBackups      int
+
+	// Circadian ORC (Operational Rest Cycle) — manutenção não-atendida
+	// quando o sistema está ocioso.
+	orcInterval time.Duration
+	orcStop     chan struct{}
+	orcFunc     func(context.Context) error
 	shutdownTimeout time.Duration
 
 	// Reload hook
@@ -103,6 +109,13 @@ type DaemonConfig struct {
 	// MaxBackups is the maximum number of automatic backups to retain.
 	// Zero or negative disables retention.
 	MaxBackups int
+	// ORCInterval is how often the Circadian ORC (Operational Rest Cycle) is
+	// evaluated. When zero, the ORC loop is disabled.
+	ORCInterval time.Duration
+	// ORCFunc is the Circadian ORC maintenance function (unattended
+	// housekeeping when the system is idle). Conecta o circadian ao daemon
+	// (era órfão — só rodava via `cosca circadian watch` manual).
+	ORCFunc func(context.Context) error
 	// OnReload is called when SIGHUP is received.
 	OnReload func() error
 	// ShutdownTimeout bounds the wait for daemon goroutines after cancellation.
@@ -146,6 +159,8 @@ func NewDaemon(r *Runtime, cfg DaemonConfig) *Daemon {
 		backupFunc:       cfg.BackupFunc,
 		backupDir:        cfg.BackupDir,
 		maxBackups:       cfg.MaxBackups,
+		orcInterval:      cfg.ORCInterval,
+		orcFunc:          cfg.ORCFunc,
 		shutdownTimeout:  cfg.ShutdownTimeout,
 		onReload:         cfg.OnReload,
 		ctx:              ctx,
@@ -154,6 +169,7 @@ func NewDaemon(r *Runtime, cfg DaemonConfig) *Daemon {
 		watchdogStop:     make(chan struct{}),
 		syncStop:         make(chan struct{}),
 		backupStop:       make(chan struct{}),
+		orcStop:          make(chan struct{}),
 	}
 }
 
@@ -199,10 +215,19 @@ func (d *Daemon) Start() error {
 		go d.backupLoop()
 	}
 
+	// Start Circadian ORC (Operational Rest Cycle) — manutenção não-atendida
+	// quando o sistema está ocioso. Conecta o circadian ao daemon (antes só
+	// rodava via `cosca circadian watch` manual — fio solto da auditoria).
+	if d.orcFunc != nil {
+		d.wg.Add(1)
+		go d.orcLoop()
+	}
+
 	d.logger.Info().
 		Dur("watchdog_interval", d.watchdogInterval).
 		Dur("sync_interval", d.syncInterval).
 		Dur("backup_interval", d.backupInterval).
+		Bool("orc_enabled", d.orcFunc != nil).
 		Msg("daemon started")
 	return nil
 }
@@ -234,6 +259,9 @@ func (d *Daemon) stopOnceBody() error {
 	close(d.watchdogStop)
 	close(d.syncStop)
 	close(d.backupStop)
+	if d.orcFunc != nil {
+		close(d.orcStop)
+	}
 	d.mu.Unlock()
 
 	// Wait for goroutines to finish
@@ -614,6 +642,48 @@ func (d *Daemon) runBackup() {
 
 	d.logger.Info().Dur("elapsed", time.Since(start)).Msg("background backup completed")
 	d.pruneOldBackups()
+}
+
+// orcLoop periodically runs the Circadian ORC maintenance (Operational Rest
+// Cycle) — housekeeping that runs when the system is idle. Conecta o circadian
+// ao daemon (fio solto da auditoria: antes só rodava via `cosca circadian
+// watch` manual).
+func (d *Daemon) orcLoop() {
+	defer d.wg.Done()
+
+	ticker := time.NewTicker(d.orcInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			d.runORC()
+		case <-d.orcStop:
+			return
+		case <-d.ctx.Done():
+			return
+		}
+	}
+}
+
+// runORC executes the Circadian ORC maintenance. A failure is non-fatal: it
+// is logged and the loop keeps running (o ORC é housekeeping, nunca derruba o
+// daemon).
+func (d *Daemon) runORC() {
+	if d.orcFunc == nil {
+		return
+	}
+
+	d.logger.Debug().Msg("circadian ORC maintenance starting")
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(d.ctx, d.orcInterval)
+	defer cancel()
+
+	if err := d.orcFunc(ctx); err != nil {
+		d.logger.Warn().Err(err).Msg("circadian ORC maintenance failed (non-fatal)")
+		return
+	}
+	d.logger.Info().Dur("elapsed", time.Since(start)).Msg("circadian ORC maintenance completed")
 }
 
 // pruneOldBackups deletes automatic backup files beyond the retention limit,

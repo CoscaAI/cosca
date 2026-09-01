@@ -20,6 +20,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/adapter"
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/circadian"
 	"github.com/CoscaAI/cosca/internal/compute"
 	"github.com/CoscaAI/cosca/internal/contextpipeline"
 	"github.com/CoscaAI/cosca/internal/di"
@@ -421,6 +422,14 @@ func Compose(cfg Config) (*Result, error) {
 				return nil
 			}
 			_, err := res.Knowledge.Snapshot(rt.AutoBackupName())
+			return err
+		}
+		// Circadian ORC (Operational Rest Cycle): manutenção não-atendida no
+		// daemon (fio solto da auditoria — antes só rodava via `cosca
+		// circadian watch` manual). Intervalo de 30s (default do scheduler).
+		daemonCfg.ORCInterval = 30 * time.Second
+		daemonCfg.ORCFunc = func(ctx context.Context) error {
+			_, err := circadian.RunORC(ctx, cfg.DataDir)
 			return err
 		}
 		daemon := rt.NewDaemon(rtInstance, daemonCfg)
