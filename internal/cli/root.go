@@ -201,6 +201,7 @@ Documentation: https://cosca.enterprise/docs
 		NewRoutesCommand(),
 		NewRecoveryCommand(),
 		NewConfidenceCommand(),
+		NewSetupCommand(),
 	)
 
 	return rootCmd
