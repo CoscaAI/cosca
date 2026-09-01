@@ -581,6 +581,12 @@ type STTConfig struct {
 	// EnableEndpoint enables sherpa's streaming endpoint detector (finalize a
 	// segment on trailing silence). Default true.
 	EnableEndpoint bool `yaml:"enable_endpoint" json:"enableEndpoint"`
+	// MaxSegmentDuration is the maximum length of a single STT segment — a
+	// memory watchdog. If a streaming segment never hits an endpoint (continuous
+	// speech / noise / a frozen mic), sherpa accumulates the accepted input
+	// features until a reset; this caps that window so a segment is force
+	// finalised + reset within the limit. 0/empty → DefaultSTTMaxSegmentDuration.
+	MaxSegmentDuration time.Duration `yaml:"max_segment_duration,omitempty" json:"maxSegmentDuration,omitempty"`
 	// Optional per-model file overrides (relative to ModelDir or absolute).
 	// Empty → conventional names derived from ModelDir + ModelType.
 	Encoder  string `yaml:"encoder,omitempty" json:"encoder,omitempty"`

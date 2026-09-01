@@ -214,6 +214,21 @@ const (
 // DefaultPerceptionSTTModelType is the default streaming STT model architecture.
 const DefaultPerceptionSTTModelType = "transducer"
 
+// DefaultSTTMaxSegmentDuration is the default maximum STT segment length (the
+// memory watchdog cap): a streaming segment that never hits an endpoint is
+// force-finalised and reset within this window so the recognizer cannot
+// accumulate input features (and memory) without bound.
+const DefaultSTTMaxSegmentDuration = 30 * time.Second
+
+// resolveSTTMaxSegmentDuration normalizes an STT MaxSegmentDuration: 0/negative
+// falls back to DefaultSTTMaxSegmentDuration so the watchdog is ALWAYS on.
+func resolveSTTMaxSegmentDuration(d time.Duration) time.Duration {
+	if d <= 0 {
+		return DefaultSTTMaxSegmentDuration
+	}
+	return d
+}
+
 // DefaultSTTConfig returns the sensible-default native-Go STT config (FASE B).
 // Provider is "" (disabled) so existing Fase A behaviour is bit-for-bit
 // unchanged until the user opts into `perception.audio.stt.provider: sherpa`.
@@ -222,10 +237,11 @@ func DefaultSTTConfig() STTConfig {
 		Provider:       "", // opt-in: no STT until explicitly set to "sherpa"
 		SampleRate:     16000,
 		NumThreads:      2,
-		Device:          "cpu",
-		DecodingMethod:  "greedy_search",
-		EnableEndpoint:  true,
-		ModelType:       DefaultPerceptionSTTModelType,
+		Device:             "cpu",
+		DecodingMethod:     "greedy_search",
+		EnableEndpoint:     true,
+		MaxSegmentDuration: DefaultSTTMaxSegmentDuration,
+		ModelType:          DefaultPerceptionSTTModelType,
 	}
 }
 

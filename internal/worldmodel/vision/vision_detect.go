@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/CoscaAI/cosca/internal/worldmodel"
 )
@@ -68,6 +69,30 @@ func DecodeDataURI(uri string) ([]byte, string, error) {
 	return data, contentType, nil
 }
 
+// defaultPipelineOnce guards the process-wide default Pipeline. The Perception
+// Loop calls DetectImageAndRunVision once per tick: building a brand-new
+// Pipeline (and re-loading the ONNX sessions of every adapter) on every tick is
+// a memory/cpu leak vector in a long-running loop — the model graph and
+// onnxruntime session would be created, and never destroyed, each frame. We
+// therefore build the default pipeline ONCE and reuse it. (onnxruntime sessions
+// are safe for concurrent Run calls; the perception loop serialises ticks, so
+// there is no concurrent use in the serving path.)
+var (
+	defaultPipelineOnce sync.Once
+	defaultPipelineObj  *Pipeline
+)
+
+// defaultPipeline returns the shared, process-wide default vision pipeline
+// (DefaultPipelineConfig). It is built lazily once and reused forever. The
+// adapters' sessions are loaded once and shared; the pipeline is never rebuilt
+// per-frame. A nil return (unreachable) degrades gracefully at the call site.
+func defaultPipeline() *Pipeline {
+	defaultPipelineOnce.Do(func() {
+		defaultPipelineObj = NewPipeline(DefaultPipelineConfig())
+	})
+	return defaultPipelineObj
+}
+
 // DetectImageAndRunVision sniffs the image, runs the vision pipeline over it,
 // and returns the resulting Observation. It is deliberately "best effort": if
 // no .onnx model is downloaded yet, the pipeline degrades to an observation
@@ -76,8 +101,25 @@ func DecodeDataURI(uri string) ([]byte, string, error) {
 // contentType is used as a hint when the magic-bytes sniff returns an empty
 // string (e.g. it was already decoded upstream); it may be "" to rely on the
 // sniff alone.
+//
+// MEMORY NOTE: this reuse is the corrective for the slow leak the Don observed
+// (heap_objects rising monotonically in the perception loop). The default
+// pipeline is built once and shared, so the ONNX sessions are never churned per
+// frame. Callers that need a bespoke config should build a *Pipeline once via
+// NewPipeline and reuse it (DetectImageAndRunVisionWithConfig keeps the
+// fresh-per-call behaviour for one-off classification).
 func DetectImageAndRunVision(ctx context.Context, data []byte, contentType string) (*Observation, error) {
-	return DetectImageAndRunVisionWithConfig(ctx, data, contentType, DefaultPipelineConfig())
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ct := DetectImageContentType(data)
+	if ct == "" {
+		ct = contentType
+	}
+	if !IsImageData(data) && !IsImageContentType(ct) {
+		return nil, fmt.Errorf("not a supported image (expected PNG or JPEG)")
+	}
+	return defaultPipeline().Process(ctx, data, worldmodel.Pose6DoF{})
 }
 
 // DetectImageAndRunVisionWithPrompt is DetectImageAndRunVision with a caller

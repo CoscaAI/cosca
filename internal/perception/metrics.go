@@ -71,6 +71,13 @@ type Metrics struct {
 	MemBytes uint64 `json:"mem_bytes"`
 	// MemMB is MemBytes expressed in MiB.
 	MemMB float64 `json:"mem_mb"`
+	// NumGoroutine is the current number of goroutines — a leak indicator: a
+	// steady climb over time points to goroutines never exiting (e.g. a bus
+	// subscriber / capture pump / TTS worker left behind).
+	NumGoroutine int `json:"num_goroutine"`
+	// HeapObjects is the count of live heap objects (another leak/retention
+	// indicator that rises steadily when buffers/observations accumulate).
+	HeapObjects uint64 `json:"heap_objects"`
 	// ClipMS / GroundingMS / DepthMS / SAMMS are the per-model latencies (ms)
 	// observed on the most recent frame. 0 is reported when the model is not in
 	// the pipeline or degraded (absent/onnxruntime-unavailable).
@@ -183,7 +190,7 @@ func (m *metricTracker) snapshot() *Metrics {
 		cpuPct = 0
 	}
 
-	heapAlloc := memHeapAlloc()
+	heapAlloc, numGoroutine, heapObjCount := memInfo()
 
 	visionFPS := 0.0
 	if avg > 0 {
@@ -205,6 +212,8 @@ func (m *metricTracker) snapshot() *Metrics {
 		CPUPercent:      cpuPct,
 		MemBytes:        heapAlloc,
 		MemMB:           float64(heapAlloc) / (1024 * 1024),
+		NumGoroutine:    numGoroutine,
+		HeapObjects:     heapObjCount,
 		ClipMS:          m.clipMS,
 		GroundingMS:     m.groundingMS,
 		DepthMS:         m.depthMS,
@@ -263,9 +272,12 @@ func processCPUSeconds() float64 {
 	return 0
 }
 
-// memHeapAlloc returns the current Go heap bytes in use (best-effort).
-func memHeapAlloc() uint64 {
+// memInfo returns the current Go heap bytes, the live goroutine count and the
+// live heap object count — the three leak/retention indicators the stress test
+// (and the perception metrics) use to tell a stable pipeline from one that is
+// accumulating.
+func memInfo() (heapAlloc uint64, numGoroutine int, heapObjects uint64) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	return m.HeapAlloc
+	return m.HeapAlloc, runtime.NumGoroutine(), m.HeapObjects
 }

@@ -19,6 +19,7 @@ package stt
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -42,9 +43,15 @@ type AudioSource struct {
 	mu       sync.Mutex
 	segID    uint64
 	segStart bus.MonotonicTime
-	lastText string
-	closed   bool
-	started  bool
+	// segWallStart is the wall-clock start of the current segment. It drives the
+	// max-segment watchdog: sherpa's streaming recognizer accumulates the
+	// features it accepted since the last Reset(), so a segment that never hits
+	// an endpoint (continuous speech / noise / a frozen mic) must be force
+	// finalised within MaxSegmentDuration to bound memory per segment.
+	segWallStart time.Time
+	lastText     string
+	closed       bool
+	started      bool
 }
 
 // pcmChunk is a slice of normalized samples stamped with its capture-start time.
@@ -169,10 +176,18 @@ func (s *AudioSource) handleChunk(ch pcmChunk) {
 	if s.stream == nil {
 		return
 	}
+	maxSeg := s.cfg.resolveMaxSegmentDuration()
+
 	s.mu.Lock()
 	if s.segStart == 0 {
 		s.segStart = ch.at
 	}
+	// Start the segment watchdog clock on the first chunk of a segment (or any
+	// first chunk if the source idled and was restarted by a PushPCM burst).
+	if s.segWallStart.IsZero() {
+		s.segWallStart = time.Now()
+	}
+	segWallStart := s.segWallStart
 	s.mu.Unlock()
 
 	if err := s.stream.AcceptWaveform(ch.samples, ch.sr); err != nil {
@@ -191,9 +206,6 @@ func (s *AudioSource) handleChunk(ch pcmChunk) {
 		s.logger.Warn().Err(err).Msg("stt result error")
 		return
 	}
-	if res == nil {
-		return
-	}
 
 	s.mu.Lock()
 	segStart := s.segStart
@@ -201,17 +213,31 @@ func (s *AudioSource) handleChunk(ch pcmChunk) {
 	s.mu.Unlock()
 
 	// Emit a partial only when the transcript advanced (avoid spam).
-	if res.Text != "" && res.Text != s.lastText {
+	if res != nil && res.Text != "" && res.Text != s.lastText {
 		s.lastText = res.Text
 		s.emit(partialSample(segID, res, segStart, false))
 	}
 
-	// Finalise on endpoint: emit the final, reset, and start the next segment.
-	if s.stream.IsEndpoint() {
-		s.emit(partialSample(segID, res, segStart, true))
+	// Finalise the segment on (a) an endpoint detected by sherpa (trailing
+	// silence / utterance end) OR (b) the max-segment watchdog: the segment
+	// exceeded MaxSegmentDuration and we force a reset so the recognizer cannot
+	// accumulate input features (and memory) without bound.
+	forceFinal := maxSeg > 0 && !segWallStart.IsZero() && time.Since(segWallStart) >= maxSeg
+	if s.stream.IsEndpoint() || forceFinal {
+		if res != nil && res.Text != "" {
+			s.emit(partialSample(segID, res, segStart, true))
+		} else if forceFinal {
+			// Nothing recognised in an over-long segment: still reset to bound
+			// memory (a silent/noise feed must not accumulate forever).
+			s.logger.Warn().
+				Uint64("segment", segID).
+				Dur("max_segment", maxSeg).
+				Msg("stt: force-finalised over-long segment (no text) to bound memory")
+		}
 		_ = s.stream.Reset()
 		s.mu.Lock()
 		s.segStart = 0
+		s.segWallStart = time.Time{}
 		s.segID++
 		s.lastText = ""
 		s.mu.Unlock()

@@ -25,6 +25,12 @@ var (
 	ErrNoModel = errors.New("stt: model not loaded")
 )
 
+// DefaultMaxSegmentDuration is the maximum STT segment length when Config does
+// not set one. This is the memory watchdog cap: a streaming recognizer that
+// never hits an endpoint must be force-finalised and reset within this window
+// so it cannot accumulate features (and memory) without bound.
+const DefaultMaxSegmentDuration = 30 * time.Second
+
 // ModelType selects the streaming recognizer architecture.
 type ModelType string
 
@@ -56,6 +62,15 @@ type Config struct {
 	// EnableEndpoint enables sherpa's streaming endpoint detector, which lets
 	// the bus finalize a segment on trailing silence. Default true.
 	EnableEndpoint bool `json:"enable_endpoint" yaml:"enable_endpoint"`
+	// MaxSegmentDuration is the maximum length of a single STT segment. It is a
+	// safety watchdog: sherpa's streaming recognizer accumulates the input
+	// features it has accepted since the last Reset(); if an endpoint is never
+	// hit (continuous speech, silence over noise, a frozen mic feeding constant
+	// audio), the internal buffer grows without bound and can exhaust memory.
+	// When a segment exceeds this, the source force-finalises it (emits the
+	// final transcript) and resets the stream, bounding the memory per segment.
+	// 0/negative disables the watchdog (NOT recommended — keep a finite cap).
+	MaxSegmentDuration time.Duration `json:"max_segment_duration,omitempty" yaml:"max_segment_duration,omitempty"`
 	// ModelType selects the architecture. Default ModelTypeTransducer.
 	ModelType ModelType `json:"model_type" yaml:"model_type"`
 
@@ -135,6 +150,16 @@ type Stream interface {
 	Reset() error
 	// Close releases the stream. Idempotent.
 	Close() error
+}
+
+// resolveMaxSegmentDuration returns cfg.MaxSegmentDuration or the default
+// (DefaultMaxSegmentDuration). The watchdog is ALWAYS on: a 0/negative value
+// falls back to the default cap so no build can silently run unbounded.
+func (c Config) resolveMaxSegmentDuration() time.Duration {
+	if c.MaxSegmentDuration <= 0 {
+		return DefaultMaxSegmentDuration
+	}
+	return c.MaxSegmentDuration
 }
 
 // resolveSampleRate returns cfg.SampleRate or the default (16000).

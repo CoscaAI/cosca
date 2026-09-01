@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"strings"
@@ -385,6 +386,11 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	s.mux.Handle("POST /v1/knowledge/index", editorOnly(http.HandlerFunc(kh.Index)))
 	s.mux.HandleFunc("GET /v1/knowledge/stats", kh.Stats)
 	s.mux.HandleFunc("GET /v1/knowledge/epistemology", kh.Epistemology)
+	// pprof profiling (diagnostics: heap/goroutine leak hunting).
+	s.mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+	s.mux.HandleFunc("GET /debug/pprof/heap", pprof.Handler("heap").ServeHTTP)
+	s.mux.HandleFunc("GET /debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
+	s.mux.HandleFunc("GET /debug/pprof/allocs", pprof.Handler("allocs").ServeHTTP)
 	s.mux.HandleFunc("GET /v1/knowledge/epistemology/{status}", kh.EpistemologyByStatus)
 	s.mux.Handle("POST /v1/knowledge/sync", editorOnly(http.HandlerFunc(kh.Sync)))
 	s.mux.Handle("POST /v1/knowledge/sync/stream", editorOnly(http.HandlerFunc(kh.SyncStream)))

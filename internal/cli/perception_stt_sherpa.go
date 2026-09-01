@@ -32,6 +32,7 @@ func newSherpaSTTSource(cfg config.PerceptionConfig, logger zerolog.Logger) (*st
 		DecodingMethod:  cfg.Audio.STT.DecodingMethod,
 		EnableEndpoint:  cfg.Audio.STT.EnableEndpoint,
 		ModelType:       stt.ModelType(cfg.Audio.STT.ModelType),
+		MaxSegmentDuration: cfg.Audio.STT.MaxSegmentDuration,
 		Encoder:         cfg.Audio.STT.Encoder,
 		Decoder:         cfg.Audio.STT.Decoder,
 		Joiner:          cfg.Audio.STT.Joiner,

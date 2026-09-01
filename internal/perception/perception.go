@@ -64,6 +64,19 @@ const (
 	// DefaultRealtimeInterval is the cadence ModeRealtime falls back to when the
 	// caller does not set an explicit interval (~6-7 FPS, keep-up-with-screen).
 	DefaultRealtimeInterval = 150 * time.Millisecond
+
+	// DefaultMemoryWatchdogInterval is the memory watchdog sampling cadence.
+	DefaultMemoryWatchdogInterval = 10 * time.Second
+	// DefaultMemoryWatchdogRatio is the heap-growth multiplier over the settling
+	// baseline that the watchdog treats as "suspicious" (2× baseline).
+	DefaultMemoryWatchdogRatio = 2.0
+	// DefaultMemoryWatchdogMaxConsecutive is the number of consecutive
+	// over-Ratio samples before the watchdog records a warning.
+	DefaultMemoryWatchdogMaxConsecutive = 3
+	// memoryWatchdogMinHeapMB is the baseline floor: growth is only measured
+	// against a baseline above this many MiB, so a tiny heap (a few MB) does not
+	// trip 2× and falsely alarm.
+	memoryWatchdogMinHeapMB = 20
 )
 
 // ──────────────────────────────────────────────────────────────
@@ -101,6 +114,40 @@ type Config struct {
 	// enabled with DefaultChangeDetectionThreshold. Disable to always process
 	// (previous behaviour).
 	ChangeDetection ChangeDetectionConfig
+	// MemoryWatchdog is the process-memory safety net. When Enabled, the loop
+	// periodically samples the live Go heap and compares it to a settling
+	// baseline; if the heap grows beyond Ratio × baseline for MaxConsecutive
+	// consecutive samples it records a clear warning (surfaced on
+	// /v1/perception/state via metrics.memory_warning) and, when StopOnLeak is
+	// set, gracefully stops the loop instead of letting a component (vision /
+	// bus / sink) accumulate unbounded memory.
+	MemoryWatchdog MemoryWatchdogConfig
+}
+
+// MemoryWatchdogConfig configures the perception memory watchdog (the safety
+// net against unbounded memory growth in a long-running loop). See
+// Config.MemoryWatchdog.
+type MemoryWatchdogConfig struct {
+	// Enabled turns the watchdog on. Default true (safety net always on; it is
+	// cheap — a few ReadMemStats calls per interval).
+	Enabled bool
+	// Interval is how often a memory sample is taken. Default 10s.
+	Interval time.Duration
+	// Ratio is the growth multiplier over the settling baseline that flags a
+	// leak (e.g. 2.0 = heap must reach 2× baseline). Default 2.0. Ratios <= 0
+	// fall back to DefaultMemoryWatchdogRatio.
+	Ratio float64
+	// MaxConsecutive is the number of consecutive over-Ratio samples before a
+	// warning is recorded. Default 3 (a single transient spike is not a leak).
+	MaxConsecutive int
+	// StopOnLeak, when true, gracefully stops the loop once a sustained leak is
+	// detected (after MaxConsecutive samples). Default false (warn only) so a
+	// benign workload never self-terminates unless the operator opts in.
+	StopOnLeak bool
+	// MaxStop is the second threshold: after MaxStop consecutive over-Ratio
+	// samples the watchdog force-stops the loop even when StopOnLeak is false.
+	// 0 disables the force-stop. Default 0 (off) — StopOnLeak is the opt-in.
+	MaxStop int
 }
 
 // ChangeDetectionConfig configures the change-detection gate on the Perception
@@ -150,6 +197,26 @@ func (c Config) resolvedInterval() time.Duration {
 		}
 	}
 	return c.Interval
+}
+
+// resolveMemoryWatchdog normalises the memory watchdog config. The watchdog is a
+// safety net and is ALWAYS constructed: the loop samples the live heap every
+// Interval and compares it to a settling baseline. `Enabled` merely controls
+// how loudly it escalates (log + auto-stop eligibility); the detection itself
+// is unconditional so no sense can accumulate memory silently.
+func (c Config) resolveMemoryWatchdog() MemoryWatchdogConfig {
+	mw := c.MemoryWatchdog
+	mw.Enabled = true // safety net: never silent by construction
+	if mw.Interval <= 0 {
+		mw.Interval = DefaultMemoryWatchdogInterval
+	}
+	if mw.Ratio <= 0 {
+		mw.Ratio = DefaultMemoryWatchdogRatio
+	}
+	if mw.MaxConsecutive <= 0 {
+		mw.MaxConsecutive = DefaultMemoryWatchdogMaxConsecutive
+	}
+	return mw
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -256,6 +323,11 @@ type Service struct {
 	state   *State
 	version uint64
 	metrics *metricTracker
+	// memWatch is the process-memory safety net: it samples the live Go heap
+	// and records/raises a clear warning (and optionally stops the loop) when a
+	// component is accumulating memory without bound. Only touched from the loop
+	// goroutine (guarded by the single-tick `busy` guard).
+	memWatch *memoryWatchdog
 	// changeDetector runs the cheap pure-Go frame comparator that gates the
 	// heavy vision inference (change detection). Only touched from the loop
 	// goroutine (a single tick at a time, guarded by busy).
@@ -293,6 +365,7 @@ func NewService(cfg Config, opts ...Option) *Service {
 		logger:         log.Logger,
 		subs:           make(map[chan *State]struct{}),
 		metrics:        newMetricTracker(),
+		memWatch:       newMemoryWatchdog(cfg.resolveMemoryWatchdog()),
 		changeDetector: newChangeDetector(cfg.ChangeDetection.Threshold),
 	}
 	for _, o := range opts {
@@ -448,6 +521,11 @@ func (s *Service) executeTick(ctx context.Context) {
 		return
 	}
 	defer s.busy.Store(false)
+	// Safety net: sample the heap each tick and, if the memory watchdog detects a
+	// sustained leak (and is configured to stop), request a graceful stop.
+	if s.memWatch != nil {
+		s.memWatch.sample()
+	}
 	s.tickOnce(ctx)
 }
 
