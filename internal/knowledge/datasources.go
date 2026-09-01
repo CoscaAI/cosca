@@ -162,6 +162,42 @@ func (ds *DataSources) Present() []moduleName {
 	return out
 }
 
+// tableModule mapeia uma tabela do schema do knowledge.db para o módulo que a
+// possui no corte (ADR-013 §2.1). É o roteador de escrita da D3: o indexer
+// escreve `QualifiedTable("documents")` → "core.documents" quando o módulo
+// existe, ou "documents" (monolito) quando ainda não foi cortado.
+func tableModule(table string) (moduleName, bool) {
+	switch table {
+	case "documents", "knowledge_entries", "claims", "snapshots", "users", "cache", "sync_log":
+		return modCore, true
+	case "entities", "relationships":
+		return modGraph, true
+	case "chunks", "headings", "code_blocks", "tables":
+		return modProjects, true
+	case "vectors":
+		return modVector, true
+	}
+	return "", false
+}
+
+// QualifiedTable devolve o nome qualificado da tabela no corte: "core.documents"
+// quando o módulo core existe (escrita direta no módulo via ATTACH), ou a
+// tabela pura "documents" quando o módulo ainda não existe (corte progressivo —
+// a fatia fica no knowledge.db até o módulo nascer).
+//
+// É a função central da D3: o indexer continua com a MESMA query, mas a tabela
+// é qualificada no ponto de escrita — sem reescrever os INSERTs do indexer.
+func (ds *DataSources) QualifiedTable(table string) string {
+	mod, ok := tableModule(table)
+	if !ok {
+		return table // tabela desconhecida — sem roteamento (monolito)
+	}
+	if ds == nil || !ds.HasModule(mod) {
+		return table // módulo ausente — corte progressivo (monolito)
+	}
+	return string(mod) + "." + table
+}
+
 // Close fecha todas as conexões abertas.
 func (ds *DataSources) Close() error {
 	if ds == nil {
