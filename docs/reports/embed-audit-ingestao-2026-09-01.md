@@ -61,3 +61,21 @@
 A ingestão dos 692 arquivos disparou a Family Chain (fail-closed funcionando). Os blocks 61/62 foram git-anchored (testemunho de imutabilidade — fallback), mas o DON re-assinou pessoalmente: **Block 63 Ed25519, autoridade real** (fator máquina DPAPI + TTY + consentimento-ao-conteúdo). Chain validada: 63 blocks, 2.005 arquivos.
 
 **Regra operacional (aprovada pelo Don):** mudou o embed ? commit ? DON assina com `cosca-check --sign`. O `--sign-auto` é apenas fallback emergencial, sempre seguido do `--sign`. O `--sign` não quebra com commits (não depende do git HEAD); o git-anchor quebra (lição: os blocks 61/62 quebraram após commits de docs/gitignore).
+
+## 8. Incidente — queda do índice vetorial + recuperação (2026-09-01)
+
+**Sintoma:** a tabela de vetores (que o Don celebrou como "vector é minoria") revelou na verdade uma QUEDA: o knowledge.db tinha 6.031 vetores (11% de cobertura) contra 58.756 no backup de 13:35 (índice completo de 22/08).
+
+**Causa raiz:** o reindex de hoje (18:00-18:12) vetorizou 6.031 chunks e PAROU — o índice ficou caído pela metade. A busca semântica operava com 11% do índice. Não foi perda de dados (o conteúdo/chunks estava intacto; o backup preservou o índice antigo).
+
+**Recuperação:** `cosca knowledge vectors-backfill` (idempotente, aditivo, não-destrutivo) re-embebeu os chunks faltantes em 2 passadas:
+- Passada 1: 6.031 ? 54.304 (15.869 embebidos, 400 falharam)
+- Passada 2: ? 54.507 (200 embebidos, 200 falharam)
+- **Final: 54.507/54.709 chunks = 99,6% de cobertura**
+
+**Gap residual (202):** chunks de 12-53 chars ("## Strengths", headers pequenos) — curtos demais para o modelo de embedding (nomic-embed-text 768-dim). Não é conhecimento perdido; é ruído de fragmentação rejeitado legitimamente pelo provider.
+
+**Lições:**
+1. A tabela de vetores é métrica de SAÚDE do índice, não de design — o Don deve pedir `cosca db mirror`/`vectors-backfill --dry-run` para auditar cobertura.
+2. O backup automático salvou o índice antigo — a retenção de backups (decisão da Fase A: NÃO apagar) provou valor.
+3. Sempre verificar cobertura (vetores/chunks) após qualquer operação de reindex ou housekeeping.

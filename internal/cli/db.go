@@ -19,6 +19,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/dbhealth"
+	"github.com/CoscaAI/cosca/internal/vectoragg"
 )
 
 // NewDBCommand cria a árvore de comandos `cosca db`.
@@ -52,6 +54,7 @@ Subcomandos:
 	}
 
 	cmd.AddCommand(NewDBCheckCommand())
+	cmd.AddCommand(NewDBMirrorCommand())
 	return cmd
 }
 
@@ -246,8 +249,97 @@ func formatDBSize(n int64) string {
 	return fmt.Sprintf("%.1f %s", float64(n)/float64(div), units[idx])
 }
 
+// NewDBMirrorCommand cria `cosca db mirror` — o espelho de leitura do ADR-013
+// (§6.3, Fase B): abre os módulos lógicos (vector/graph/fts/projects) via
+// ATTACH read-only sobre o knowledge.db atual e prova que o agregador lê as
+// projeções tipadas SEM escrever, migrar ou tocar em nada.
+//
+// 100% READ-ONLY por construção (vectoragg abre tudo com mode=ro). Uma escrita
+// acidental falharia no nível SQLite — o espelho é verificação, não migração.
+func NewDBMirrorCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mirror",
+		Short: "Espelho de leitura (ADR-013 Fase B) — agrega os módulos lógicos sobre o knowledge.db sem escrever",
+		Long: `Espelho de leitura (split-de-leitura) do ADR-013 §6.3.
+
+Os módulos lógicos (vector, graph, fts, projects) ainda vivem num único
+knowledge.db. Este comando abre o agregador read-only (vectoragg) com o
+catálogo-espelho (todos os módulos apontando para o mesmo arquivo), e reporta
+as contagens de cada projeção tipada — provando que o agregador lê de módulos
+separados SEM escrever, migrar ou alterar nada.
+
+Isso é a verificação da Fase B: o dia em que os módulos virarem arquivos
+físicos, o mesmo agregador lerá sem mudança de contrato.
+
+O comando é 100% READ-ONLY: mode=ro em todas as conexões, nenhuma escrita,
+nenhum migrate, nenhum drop.`,
+		Example: `  cosca db mirror
+  cosca db mirror --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			useJSON := IsJSONOutput(cmd)
+			f := GetFormatter(cmd)
+
+			dir, dirErr := resolveDataDir("")
+			if dirErr != nil {
+				return fmt.Errorf("resolve data directory: %w", dirErr)
+			}
+			kb := filepath.Join(dir, "knowledge.db")
+			if _, statErr := os.Stat(kb); statErr != nil {
+				return fmt.Errorf("knowledge.db não encontrado em %s: %w", kb, statErr)
+			}
+
+			agg, openErr := vectoragg.Open(vectoragg.MirrorCatalog(kb))
+			if openErr != nil {
+				return fmt.Errorf("abrir espelho: %w", openErr)
+			}
+			defer agg.Close()
+
+			counts, countErr := agg.CatalogCounts()
+			if countErr != nil {
+				return fmt.Errorf("contar módulos: %w", countErr)
+			}
+
+			type mirrorReport struct {
+				KnowledgeDB   string          `json:"knowledge_db"`
+				Modules       []string        `json:"modules"`
+				Counts        vectoragg.Counts `json:"counts"`
+				ReadOnly      bool            `json:"read_only"`
+			}
+			rep := mirrorReport{
+				KnowledgeDB: kb,
+				Modules:     agg.Modules(),
+				Counts:      counts,
+				ReadOnly:    true,
+			}
+
+			if useJSON {
+				b, _ := json.MarshalIndent(rep, "", "  ")
+				f.Println(string(b))
+				return nil
+			}
+
+			f.Header("Espelho de leitura (ADR-013 Fase B) — read-only")
+			f.KeyValue("knowledge.db", kb)
+			f.KeyValue("Módulos lógicos", fmt.Sprintf("%v", rep.Modules))
+			f.Println("")
+			f.Header("Projeções tipadas (contagens)")
+			f.KeyValue("vectors", fmt.Sprintf("%d", counts.Vectors))
+			f.KeyValue("entities", fmt.Sprintf("%d", counts.Entities))
+			f.KeyValue("relationships", fmt.Sprintf("%d", counts.Relationships))
+			f.KeyValue("chunks_fts", fmt.Sprintf("%d", counts.ChunksFTS))
+			f.KeyValue("entities_fts", fmt.Sprintf("%d", counts.EntitiesFTS))
+			f.Println("")
+			f.Print("O espelho lê os módulos lógicos sem escrever (mode=ro). Split físico pendente (Fase C).")
+			return nil
+		},
+	}
+	return cmd
+}
+
 // guarda de compilação: o comando db segue o padrão cobra.
 var (
 	_ *cobra.Command = NewDBCommand()
 	_ *cobra.Command = NewDBCheckCommand()
+	_ *cobra.Command = NewDBMirrorCommand()
 )
