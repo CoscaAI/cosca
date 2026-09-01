@@ -1,7 +1,7 @@
 # ADR-013: Bancos de Dados Modulares — Memória Imutável como Âncora + Módulos Coesos
 
-> **Status:** Proposed | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-08-24
-> **Revisão:** aguardando cosca-cto + cosca-security + Don. **Decisão de design — NÃO implementada.**
+> **Status:** PARTIAL — mecanismos implementados, split físico NÃO (2026-09-01, verificado em código) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-09-01
+> **Revisão:** a fatia 1 (mecanismos: `internal/modlink`, `internal/vectoragg`, `cosca db check --gate`) existe; o **split físico NÃO ocorreu** — `knowledge.db` continua monolítico (~548MB, viola o teto de 100MB da Decisão 1) sem core.db/vector.db/fts.db/graph.db. O `db check --gate` existe mas não bloqueia a operação normal.
 > **Fonte:** Visão do Don (proposta arquitetural de bancos de dados modulares) + tese do kernel semântico (apreensão holística) + `.opencode/cosca/memory/context/cognitive-state.md` + `ADR-012` (2 zonas) + **Decisões de governança do Don (2026-08-24): Limite 100MB por banco, Zero Redundância de conteúdo (Core → módulos), e residência dos índices pesados em módulos derivados** + **refinamento do professor/advisor técnico (2026-08-24)**: regra anti-monstro (§2.0), modelo de 4 níveis com Core-mapa (§2.1), tabelas de governança `module`/`capability`/`route` (§3.0), router determinístico (§3.2), submódulos (§2.1), gatilho zero-conteúdo (§2.1/§3.0), World Model como linguagem (§1/§7/§9) e busca semântica modular (§3.2).
 > **Relação:** especifica o desenho de "bancos por módulo, idempotentes, orquestrados" que hoje vive fragmentado. Não altera código, não migra banco, não roda nada destrutivo.
 

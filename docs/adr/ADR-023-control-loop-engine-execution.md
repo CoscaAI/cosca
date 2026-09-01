@@ -1,7 +1,7 @@
 # ADR-023: Control Loop & Engine-gated Execution — o sistema decide a convergência e a execução (I1 mecânico)
 
-> **Status:** Proposed | **Owner:** cosca-kernel + cosca-architecture | **Last Updated:** 2026-08-28
-> **Revisão:** aguardando Don + cosca-cto. **Design aditivo — não quebra o Root.**
+> **Status:** PARTIAL — Fase 1 implementada (2026-09-01, verificado em código) | **Owner:** cosca-kernel + cosca-architecture | **Last Updated:** 2026-09-01
+> **Revisão:** itens 1 (workqueue k8s-style em `internal/pipeline/workqueue.go` + `control_loop.go`) e 4 (argument-aware deny em `internal/policy/mcp_policy.go`) implementados; item 2 (`internal/workflow/execgate.go`) presente. Fase 2 parcial. O header anterior "Proposed" estava STALE.
 > **Referência (base):** big-tech mining (`kubernetes`, `sample-controller`, `vercel/workflow`, `n8n`,
 > `aws/agent-toolkit`, `google/agents-cli`) + `ADR-017` (Crystallization — ratificado) + `ADR-016/018/019/020/021/022`.
 

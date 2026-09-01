@@ -1,7 +1,7 @@
 # ADR-015: Task Continuation Loop — primitivas neutras de control plane elevadas ao Root
 
-> **Status:** Proposed | **Owner:** cosca-architecture | **Last Updated:** 2026-08-27
-> **Revisão:** aguardando cosca-cto + cosca-backend + Don. **Design — F1 aditiva implementada (não quebra o Root).**
+> **Status:** PARTIAL — F1 implementada (2026-09-01, verificado em código) | **Owner:** cosca-architecture | **Last Updated:** 2026-09-01
+> **Revisão:** F1 (primitiva neutra) implementada em `internal/task` + `internal/orchestrator` (TaskContinuationLoop, sem persistência — estado em memória). F2–F5 pendentes: `task.TaskRepository` é um contrato sem implementação concreta (o adapter pode reusar `internal/durable`).
 > **Referência (campo de prova):** `internal/{task,orchestrator,decision}` do cosca-trader (provado no
 > domínio de trading). **F1** eleva as 3 primitivas NEUTRAS para o Cosca Root
 > (`github.com/CoscaAI/cosca`), como infraestrutura genérica, sem dependência de domínio.

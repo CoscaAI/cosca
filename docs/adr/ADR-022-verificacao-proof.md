@@ -1,7 +1,7 @@
 # ADR-022: Verificação & Proof — evolução só promove com prova estatística + receipt
 
-> **Status:** Proposed | **Owner:** cosca-kernel + cosca-architecture | **Last Updated:** 2026-08-28
-> **Revisão:** aguardando Don + cosca-cto. **Design aditivo — não quebra o Root.**
+> **Status:** IMPLEMENTED (2026-09-01 — verificado em código: `internal/evolution/proof.go` com ProofGate, BootstrapCILow, ProofReceipt) | **Owner:** cosca-kernel + cosca-architecture | **Last Updated:** 2026-09-01
+> **Revisão:** implementado em `internal/evolution/proof.go` (ProofGate + BootstrapCILow + ProofReceipt) + `conformal.go`/`checkpoint.go`; gems #1 (proof) e parcialmente #4/#5. O header anterior "Proposed" estava STALE.
 > **Referência (base):** mineração `ruvnet` (ruflo, RuView, RuVector, federated-mcp, metaharness) +
 > `ADR-016` (Evolution Engine) + `ADR-017` (Borrowing) + invariantes I1–I8.
 
