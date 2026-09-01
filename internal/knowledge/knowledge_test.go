@@ -1605,9 +1605,11 @@ func TestEngine_CleanupDanglingVectors(t *testing.T) {
 
 	engine := initTestEngine(t)
 
-	// Insert a dangling vector pointing at a non-existent chunk.
-	_, err := engine.db.Exec(`INSERT INTO vectors (id, vector, document_id, chunk_id, entity_id, content)
-		VALUES ('vec-orphan-1', X'00000000', 'doc-nonexistent', 'chunk-nonexistent', '', 'stale')`)
+	// Insert a dangling vector pointing at a non-existent chunk. O created_at
+	// é forçado para o PASSADO (> grace period de 15 min) — um vetor órfão
+	// legítimo e antigo deve ser removido.
+	_, err := engine.db.Exec(`INSERT INTO vectors (id, vector, document_id, chunk_id, entity_id, content, created_at)
+		VALUES ('vec-orphan-1', X'00000000', 'doc-nonexistent', 'chunk-nonexistent', '', 'stale', datetime('now', '-1 hour'))`)
 	require.NoError(t, err)
 
 	// Sanity: verify now reports a vector/chunk mismatch.
@@ -1624,6 +1626,32 @@ func TestEngine_CleanupDanglingVectors(t *testing.T) {
 	result, err = engine.Verify()
 	require.NoError(t, err)
 	assert.True(t, result.Checks["vector_chunk_match"], "mismatch should be resolved after cleanup")
+}
+
+// TestEngine_CleanupDanglingVectors_RaceSafe é a REGRESSÃO do incidente de
+// 2026-09-01: um reindex insere chunks e vetores em passos separados. Se o
+// cleanup rodar ENTRE os dois, todo vetor recém-criado parece órfão. O grace
+// period garante que vetores NOVOS (< 15 min) nunca sejam julgados órfãos.
+func TestEngine_CleanupDanglingVectors_RaceSafe(t *testing.T) {
+	t.Parallel()
+
+	engine := initTestEngine(t)
+
+	// Vetor órfão RECÉM-CRIADO (created_at = now) — o reindex ainda não
+	// commitou o chunk. Com o grace period, NÃO pode ser removido.
+	_, err := engine.db.Exec(`INSERT INTO vectors (id, vector, document_id, chunk_id, entity_id, content)
+		VALUES ('vec-recent-orphan', X'00000000', 'doc-nonexistent', 'chunk-nonexistent', '', 'recent')`)
+	require.NoError(t, err)
+
+	// O cleanup NÃO pode comer o vetor recente (race do reindex).
+	removed, err := engine.CleanupDanglingVectors()
+	require.NoError(t, err)
+	assert.Equal(t, 0, removed, "vetor recente não pode ser julgado órfão (grace period)")
+
+	var count int
+	err = engine.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE id = 'vec-recent-orphan'").Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "vetor recente deve sobreviver ao cleanup")
 }
 
 func TestEngine_CleanupDanglingVectors_KeepsValidVectors(t *testing.T) {

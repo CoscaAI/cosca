@@ -1,4 +1,4 @@
-// Package knowledge provides the main Knowledge Engine for the Cosca Enterprise Platform.
+﻿// Package knowledge provides the main Knowledge Engine for the Cosca Enterprise Platform.
 // It orchestrates indexing, search, graph construction, caching, and lifecycle management.
 package knowledge
 
@@ -94,8 +94,8 @@ type Config struct {
 	EmbeddingModel string
 
 	// EmbeddingDigest pina o digest esperado do modelo (L376): quando
-	// definido, o provider precisa provar a identidade antes de operar —
-	// fail-closed contra mudança silenciosa do modelo "latest".
+	// definido, o provider precisa provar a identidade antes de operar â€”
+	// fail-closed contra mudanÃ§a silenciosa do modelo "latest".
 	EmbeddingDigest string
 
 	// EmbeddingAPIKey optionally overrides the embedding provider's API key.
@@ -233,8 +233,8 @@ func (e *Engine) Init() error {
 		selCfg := e.embeddingSelectionConfig()
 		selCfg.Primary = e.cfg.EmbeddingProvider
 		if err := e.embRegistry.Select(context.Background(), selCfg); err != nil {
-			// Fail-closed (L376): erro de IDENTIDADE (digest do modelo) é
-			// falha de integridade — NUNCA cai em auto-detect/fallback.
+			// Fail-closed (L376): erro de IDENTIDADE (digest do modelo) Ã©
+			// falha de integridade â€” NUNCA cai em auto-detect/fallback.
 			if errors.Is(err, embeddings.ErrEmbeddingIdentityMismatch) {
 				return fmt.Errorf("embedding identity mismatch: %w", err)
 			}
@@ -251,7 +251,7 @@ func (e *Engine) Init() error {
 			// an explicit provider. Auto-detection could otherwise select a
 			// provider that ignores the override and reach its default remote
 			// endpoint. Fail loudly instead of silently.
-			log.Warn().Msg("embedding.base_url is set but embedding.provider is auto/empty — the base_url override is IGNORED; set an explicit provider (e.g. embedding.provider: openai) to route embeddings to a custom endpoint")
+			log.Warn().Msg("embedding.base_url is set but embedding.provider is auto/empty â€” the base_url override is IGNORED; set an explicit provider (e.g. embedding.provider: openai) to route embeddings to a custom endpoint")
 		}
 		selCfg := e.embeddingSelectionConfig()
 		selCfg.AutoDetect = true
@@ -312,10 +312,10 @@ func (e *Engine) Init() error {
 
 	// 10. Create cache
 	cacheCfg := e.cfg.CacheConfig
-	// Aplica o default quando o chamador não configurou níveis (Config{}
-	// vazio deixa EnabledLevels=nil → cache inerte SILENCIOSAMENTE — bug real:
+	// Aplica o default quando o chamador nÃ£o configurou nÃ­veis (Config{}
+	// vazio deixa EnabledLevels=nil â†’ cache inerte SILENCIOSAMENTE â€” bug real:
 	// buscas repetidas nunca batiam no cache). Um chamador que queira cache
-	// desativado deve passar EnabledLevels: []cache.Level{} explícito.
+	// desativado deve passar EnabledLevels: []cache.Level{} explÃ­cito.
 	if len(cacheCfg.EnabledLevels) == 0 {
 		def := cache.DefaultConfig()
 		cacheCfg.EnabledLevels = def.EnabledLevels
@@ -361,6 +361,14 @@ func (e *Engine) Init() error {
 
 	e.initialized = true
 
+	// HEALTH CHECK NA INICIALIZAÃ‡ÃƒO (ordem do Don, 2026-09-01): detecta o
+	// Ã­ndice vetorial caÃ­do logo no boot â€” ANTES de o sistema operar com a
+	// busca semÃ¢ntica degradada. O incidente de hoje: um reindex/cleanup
+	// concurrente zerou os 54k vetores da fonte (ficou com 63) e o sistema
+	// sÃ³ descobriu depois. O check mede a cobertura (vetores com chunk
+	// presente) e alerta com severidade se estiver degradada.
+	e.checkVectorCoverage()
+
 	log.Info().
 		Str("db", e.cfg.DBPath).
 		Str("root", e.cfg.RootDir).
@@ -374,7 +382,7 @@ func (e *Engine) Init() error {
 	if e.embRegistry != nil && e.vecStore != nil && e.db != nil {
 		orphanCount := e.countOrphanVectors()
 		if orphanCount > 0 {
-			log.Warn().Int("orphans", orphanCount).Msg("orphan vectors detected — run 'cosca knowledge verify --fix' to repair")
+			log.Warn().Int("orphans", orphanCount).Msg("orphan vectors detected â€” run 'cosca knowledge verify --fix' to repair")
 		}
 	}
 
@@ -398,7 +406,7 @@ func (e *Engine) countOrphanVectors() int {
 
 // orphanChunksQuery returns the SELECT for vectorless chunks. The campaign
 // columns chunks.is_trivial / chunks.dedup_of only exist after the idempotent
-// "migração leve" of the cleanup campaign (L360) runs; on fresh databases they
+// "migraÃ§Ã£o leve" of the cleanup campaign (L360) runs; on fresh databases they
 // are absent, so the query must not reference them. When the columns are
 // missing every vectorless chunk is a genuine orphan (nothing was marked
 // trivial/duplicated yet), so the filter is simply dropped.
@@ -464,7 +472,7 @@ func (e *Engine) RepairOrphanVectors() {
 	}
 
 	// Find chunks that have no corresponding vector. The campaign columns
-	// (is_trivial/dedup_of) may not exist on fresh databases — see
+	// (is_trivial/dedup_of) may not exist on fresh databases â€” see
 	// orphanChunksQuery.
 	q := "SELECT c.id, c.content, c.document_id FROM chunks c LEFT JOIN vectors v ON c.id = v.chunk_id " +
 		"WHERE v.chunk_id IS NULL"
@@ -566,26 +574,41 @@ func (e *Engine) RepairOrphanVectors() {
 // Returns the number of vectors removed.
 //
 // A "vector count mismatch" reported by Verify() is caused by these dangling
-// vectors — RepairOrphanVectors alone cannot fix them, so the CLI --fix path
+// vectors â€” RepairOrphanVectors alone cannot fix them, so the CLI --fix path
 // invokes both.
 //
 // The deletion keys on chunk_id only. Every vector in the cosca model is tied
 // to a chunk (the indexer always sets ChunkID), so a vector whose chunk no
 // longer exists is dangling. document_id is intentionally NOT checked here: a
 // vector whose chunk still exists but whose document was deleted matches an
-// orphaned chunk — a separate integrity issue (Verify's "orphaned chunks")
+// orphaned chunk â€” a separate integrity issue (Verify's "orphaned chunks")
 // that should not be conflated with vector cleanup.
 //
-// Entity vectors (entity_id != ”) are NEVER dangling: they are tied to graph
+// Entity vectors (entity_id != â€) are NEVER dangling: they are tied to graph
 // entities, not chunks, and are owned by `cosca knowledge index-entities`.
 // The CLI --fix path must not eat them (L338).
+//
+// RACE-SAFE (fix 2026-09-01): um reindex insere chunks e vetores em passos
+// separados. Se o cleanup rodar ENTRE os dois (ex.: o ORC dispara verify --fix
+// enquanto o index reindexa), todo vetor recÃ©m-criado ainda nÃ£o tem o chunk
+// correspondente commitado â†’ pareceria Ã³rfÃ£o â†’ o DELETE comeria os 54k vetores
+// (incidente: fonte ficou com 63 vetores). CorreÃ§Ã£o: sÃ³ apaga vetores cujo
+// chunk estÃ¡ ausente E cujo created_at tem mais de `vectorGracePeriod` â€” dÃ¡
+// tempo ao reindex de commitar os chunks antes do cleanup julgar os vetores.
 func (e *Engine) CleanupDanglingVectors() (int, error) {
 	if e.db == nil {
 		return 0, fmt.Errorf("database not available")
 	}
 
+	// Grace period: vetores mais novos que isso NUNCA sÃ£o julgados Ã³rfÃ£os
+	// (um reindex em andamento pode ainda nÃ£o ter commitado os chunks).
+	const vectorGracePeriod = "datetime('now', '-15 minutes')"
+
 	res, err := e.db.Exec(
-		`DELETE FROM vectors WHERE chunk_id NOT IN (SELECT id FROM chunks) AND entity_id = ''`,
+		`DELETE FROM vectors
+		 WHERE chunk_id NOT IN (SELECT id FROM chunks)
+		   AND entity_id = ''
+		   AND created_at < `+vectorGracePeriod,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("delete dangling vectors: %w", err)
@@ -597,7 +620,7 @@ func (e *Engine) CleanupDanglingVectors() (int, error) {
 	}
 
 	if removed > 0 {
-		log.Info().Int64("removed", removed).Msg("CleanupDanglingVectors: removed dangling vectors")
+		log.Info().Int64("removed", removed).Msg("CleanupDanglingVectors: removed dangling vectors (grace period applied)")
 	}
 
 	return int(removed), nil
@@ -606,8 +629,8 @@ func (e *Engine) CleanupDanglingVectors() (int, error) {
 // GCExpired removes documents whose tier window expired (medium = 7 days,
 // long = 1 year). Chunks are removed by FK cascade; dangling vectors are
 // cleaned afterwards by CleanupDanglingVectors. Returns the number of
-// documents removed. The tier rule (L338): TUDO entra médio, o longo só por
-// promoção explícita — "coloca tudo em medio, o longo a gente vai ver".
+// documents removed. The tier rule (L338): TUDO entra mÃ©dio, o longo sÃ³ por
+// promoÃ§Ã£o explÃ­cita â€” "coloca tudo em medio, o longo a gente vai ver".
 func (e *Engine) GCExpired() (int, error) {
 	if e.db == nil {
 		return 0, fmt.Errorf("database not available")
@@ -633,8 +656,8 @@ func (e *Engine) GCExpired() (int, error) {
 }
 
 // PromoteDocument moves a document to another tier, extending its life:
-// medium (7 days) → long (1 year) or back. Only explicit promotion moves a
-// document to the long tier — the Don decides what lives long (L338).
+// medium (7 days) â†’ long (1 year) or back. Only explicit promotion moves a
+// document to the long tier â€” the Don decides what lives long (L338).
 func (e *Engine) PromoteDocument(id, tier string) error {
 	if e.db == nil {
 		return fmt.Errorf("database not available")
@@ -647,7 +670,7 @@ func (e *Engine) PromoteDocument(id, tier string) error {
 	case "medium":
 		ttl = "+7 days"
 	default:
-		return fmt.Errorf("tier inválido: %s (use 'long' ou 'medium')", tier)
+		return fmt.Errorf("tier invÃ¡lido: %s (use 'long' ou 'medium')", tier)
 	}
 
 	res, err := e.db.Exec(
@@ -670,7 +693,7 @@ func (e *Engine) PromoteDocument(id, tier string) error {
 }
 
 // ListDocumentsByTier returns the ids of documents currently in a tier
-// ("medium" or "long") — used by `cosca knowledge promote --all`.
+// ("medium" or "long") â€” used by `cosca knowledge promote --all`.
 func (e *Engine) ListDocumentsByTier(tier string) []string {
 	if e.db == nil {
 		return nil
@@ -693,7 +716,7 @@ func (e *Engine) ListDocumentsByTier(tier string) []string {
 	return ids
 }
 
-// RootDir returns the configured knowledge root directory — the sandbox
+// RootDir returns the configured knowledge root directory â€” the sandbox
 // boundary enforced by the indexer's path containment checks.
 func (e *Engine) RootDir() string {
 	e.mu.RLock()
@@ -701,17 +724,17 @@ func (e *Engine) RootDir() string {
 	return e.cfg.RootDir
 }
 
-// Ranker expõe o re-rankear multi-fator do engine, para que camadas
-// superiores (ex.: LayeredSearch no CLI) possam injetá-lo via SetRanker. É
-// imutável após Init() — retorno direto é seguro e não exige cópia.
+// Ranker expÃµe o re-rankear multi-fator do engine, para que camadas
+// superiores (ex.: LayeredSearch no CLI) possam injetÃ¡-lo via SetRanker. Ã‰
+// imutÃ¡vel apÃ³s Init() â€” retorno direto Ã© seguro e nÃ£o exige cÃ³pia.
 func (e *Engine) Ranker() *ranking.Ranker {
 	return e.ranker
 }
 
-// Graph expõe o grafo de conhecimento do engine, para que camadas superiores
-// (ex.: LayeredSearch no CLI) possam injetá-lo via SetGraph e alimentar o sinal
-// GraphDistance do re-rank. O ponteiro do grafo é estável após Init() — retorno
-// direto é seguro e não exige cópia, no mesmo padrão de Ranker().
+// Graph expÃµe o grafo de conhecimento do engine, para que camadas superiores
+// (ex.: LayeredSearch no CLI) possam injetÃ¡-lo via SetGraph e alimentar o sinal
+// GraphDistance do re-rank. O ponteiro do grafo Ã© estÃ¡vel apÃ³s Init() â€” retorno
+// direto Ã© seguro e nÃ£o exige cÃ³pia, no mesmo padrÃ£o de Ranker().
 func (e *Engine) Graph() *graph.Graph {
 	return e.graph
 }
@@ -797,7 +820,7 @@ func (e *Engine) WatchDirectory(dir string) error {
 }
 
 // Search performs a hybrid search across all indexes with multi-tier caching.
-// Results are cached for 5 minutes (Mem→SQLite→FS) keyed by all search parameters.
+// Results are cached for 5 minutes (Memâ†’SQLiteâ†’FS) keyed by all search parameters.
 func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*search.SearchResults, error) {
 	e.mu.RLock()
 	if !e.initialized {
@@ -809,7 +832,7 @@ func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*searc
 	// Generate a deterministic cache key from all distinguishing search parameters
 	cacheKey := searchCacheKey(params)
 
-	// Check multi-tier cache (Memory → SQLite → Filesystem)
+	// Check multi-tier cache (Memory â†’ SQLite â†’ Filesystem)
 	if e.cache != nil {
 		if cached, ok := e.cache.Get(cacheKey); ok {
 			// Memory cache returns original value types; SQLite/FS return JSON-deserialized types
@@ -827,13 +850,13 @@ func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*searc
 		}
 	}
 
-	// Cache miss — execute full hybrid search
+	// Cache miss â€” execute full hybrid search
 	results, err := e.search.Search(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	// FASE 4.1 — enriquece cada resultado com a classe epistêmica
+	// FASE 4.1 â€” enriquece cada resultado com a classe epistÃªmica
 	// (metadata_json.epistemic) do documento de origem, para que o agente veja
 	// a NATUREZA do conhecimento ([FACT], [INFERRED], ...) e o filtro
 	// `epistemic=` funcione de ponta a ponta.
@@ -855,8 +878,8 @@ func (e *Engine) Search(ctx context.Context, params search.SearchParams) (*searc
 // enrichEpistemic popula `Metadata["epistemic"]` de cada resultado a partir de
 // `documents.metadata_json.epistemic`. Chaveia por `DocumentID` OU
 // `DocumentPath` (os caminhos de resultado preenchem um dos dois, mas nem
-// sempre ambos). FASE 4.1 — torna a classe epistêmica visível no resultado e
-// utilizável pelo filtro `confineEpistemic`. Idempotente e barato.
+// sempre ambos). FASE 4.1 â€” torna a classe epistÃªmica visÃ­vel no resultado e
+// utilizÃ¡vel pelo filtro `confineEpistemic`. Idempotente e barato.
 func (e *Engine) enrichEpistemic(results *search.SearchResults) {
 	if results == nil || len(results.Results) == 0 {
 		return
@@ -868,7 +891,7 @@ func (e *Engine) enrichEpistemic(results *search.SearchResults) {
 		return
 	}
 
-	// Mapeia chave (id ou path) → resultado, coletando os documentos únicos.
+	// Mapeia chave (id ou path) â†’ resultado, coletando os documentos Ãºnicos.
 	byKey := make(map[string]*search.SearchResult)
 	ids := make([]string, 0)
 	paths := make([]string, 0)
@@ -891,7 +914,7 @@ func (e *Engine) enrichEpistemic(results *search.SearchResults) {
 		return
 	}
 
-	// Monta cláusulas IN para id e/ou path.
+	// Monta clÃ¡usulas IN para id e/ou path.
 	placeholders2 := func(n int) string {
 		p := strings.Repeat("?,", n)
 		return p[:len(p)-1]
@@ -948,7 +971,7 @@ func (e *Engine) Query(ctx context.Context, query string) (*search.SearchResults
 	return e.Search(ctx, params)
 }
 
-// SymbolHit é um símbolo de código encontrado por busca semântica.
+// SymbolHit Ã© um sÃ­mbolo de cÃ³digo encontrado por busca semÃ¢ntica.
 type SymbolHit struct {
 	Name      string  `json:"name"`
 	Kind      string  `json:"kind"`
@@ -959,9 +982,9 @@ type SymbolHit struct {
 	Score     float64 `json:"score"`
 }
 
-// SearchSymbols busca símbolos de código semanticamente (por embedding) na
+// SearchSymbols busca sÃ­mbolos de cÃ³digo semanticamente (por embedding) na
 // tabela code_symbols. Gera o embedding da query e ordena por similaridade
-// coseno — achar a função pelo que ela FAZ, não só pelo nome.
+// coseno â€” achar a funÃ§Ã£o pelo que ela FAZ, nÃ£o sÃ³ pelo nome.
 func (e *Engine) SearchSymbols(ctx context.Context, query string, limit int) ([]SymbolHit, error) {
 	if e.db == nil {
 		return nil, fmt.Errorf("knowledge db not initialized")
@@ -990,9 +1013,9 @@ func (e *Engine) SearchSymbols(ctx context.Context, query string, limit int) ([]
 	}
 	defer rows.Close()
 
-	// Coleta serial (rows.Next não é concorrente), depois decodifica e pontua
-	// em paralelo. O embedding é lido como BLOB binário float64 (novo formato)
-	// ou JSON (legado) — decode rápido em ambos, sem reflect.
+	// Coleta serial (rows.Next nÃ£o Ã© concorrente), depois decodifica e pontua
+	// em paralelo. O embedding Ã© lido como BLOB binÃ¡rio float64 (novo formato)
+	// ou JSON (legado) â€” decode rÃ¡pido em ambos, sem reflect.
 	records := make([]symbolRecord, 0, 256)
 	for rows.Next() {
 		var rec symbolRecord
@@ -1085,7 +1108,7 @@ func scoreSymbolRecords(query []float64, records []symbolRecord, limit int) []Sy
 // JSON float64 array ("[0.1,0.2,...]"), the current format is a binary
 // little-endian float64 BLOB (8 bytes per value, same values as JSON). Binary
 // matches the byte-exact float64s the indexer writes, so results are
-// identical to the old json.Unmarshal path — just ~10-20x faster.
+// identical to the old json.Unmarshal path â€” just ~10-20x faster.
 func decodeEmbedding(b []byte) []float64 {
 	if len(b) == 0 {
 		return nil
@@ -1560,9 +1583,9 @@ func (e *Engine) Sync(ctx context.Context) (*SyncResult, error) {
 // can stream progress updates to clients (e.g. via SSE).
 //
 // Phases reported:
-//   - "scanning"  — walking the filesystem, comparing hashes
-//   - "comparing" — checking the database for removed files
-//   - "indexing"  — processing added, updated, and removed files
+//   - "scanning"  â€” walking the filesystem, comparing hashes
+//   - "comparing" â€” checking the database for removed files
+//   - "indexing"  â€” processing added, updated, and removed files
 //
 // fn is always called from the same goroutine, so no additional
 // synchronisation is required.
@@ -1598,7 +1621,7 @@ func (e *Engine) syncInternal(ctx context.Context, fn SyncProgressFn) (*SyncResu
 		Errors:  make([]string, 0),
 	}
 
-	// Phase 1: Scanning — walk root directory and compare against database.
+	// Phase 1: Scanning â€” walk root directory and compare against database.
 	rootDir := e.cfg.RootDir
 	scanCount := 0
 
@@ -1669,7 +1692,7 @@ func (e *Engine) syncInternal(ctx context.Context, fn SyncProgressFn) (*SyncResu
 		return nil, fmt.Errorf("walk failed: %w", err)
 	}
 
-	// Phase 2: Comparing — find removed files (in DB but not on filesystem).
+	// Phase 2: Comparing â€” find removed files (in DB but not on filesystem).
 	// Count documents first to report an accurate total.
 	if fn != nil {
 		fn(SyncProgress{Phase: "comparing", Processed: 0, Total: 0, Message: "Comparing with database..."})
@@ -1726,7 +1749,7 @@ func (e *Engine) syncInternal(ctx context.Context, fn SyncProgressFn) (*SyncResu
 		log.Warn().Err(err).Msg("sync: failed to query documents for removed files")
 	}
 
-	// Phase 3: Indexing — process all changes.
+	// Phase 3: Indexing â€” process all changes.
 	indexTotal := len(result.Added) + len(result.Updated) + len(result.Removed)
 	indexProcessed := 0
 
@@ -1796,9 +1819,9 @@ func (e *Engine) syncInternal(ctx context.Context, fn SyncProgressFn) (*SyncResu
 }
 
 // Close gracefully shuts down the knowledge engine.
-// SetMetricsSink expõe o sink de métricas do caminho real (campanha de
+// SetMetricsSink expÃµe o sink de mÃ©tricas do caminho real (campanha de
 // performance, FASE 1): cada busca vetorial reporta quantos vetores foram de
-// fato escaneados. Nil-safe no engine de busca. Para diagnóstico/monitoração.
+// fato escaneados. Nil-safe no engine de busca. Para diagnÃ³stico/monitoraÃ§Ã£o.
 func (e *Engine) SetMetricsSink(sink func(vector.SearchMetrics)) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -1853,17 +1876,17 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-// ── Graph persistence ─────────────────────────────────────────────────────
+// â”€â”€ Graph persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func (e *Engine) saveGraph() error {
 	if e.graph == nil || e.db == nil {
 		return nil
 	}
 
-	// Busca/leitura não sujam o grafo: persisti-lo (DELETE + re-insert de 13k
-	// entidades) a cada Close custava ~1.8s por invocação CLI sem nada mudar.
+	// Busca/leitura nÃ£o sujam o grafo: persisti-lo (DELETE + re-insert de 13k
+	// entidades) a cada Close custava ~1.8s por invocaÃ§Ã£o CLI sem nada mudar.
 	if !e.graph.IsDirty() {
-		log.Debug().Msg("graph not modified — skipping persistence on close")
+		log.Debug().Msg("graph not modified â€” skipping persistence on close")
 		return nil
 	}
 
@@ -1907,7 +1930,7 @@ func (e *Engine) persistGraphToSQL() {
 		}
 	}()
 
-	// Clear existing graph rows (entities + relationships only — chunks/documents
+	// Clear existing graph rows (entities + relationships only â€” chunks/documents
 	// are managed by the indexer separately).
 	if _, err := tx.Exec("DELETE FROM entities"); err != nil {
 		log.Warn().Err(err).Msg("graph-sql: clear entities failed")
@@ -1938,7 +1961,7 @@ func (e *Engine) persistGraphToSQL() {
 	// Insert nodes
 	for _, node := range nodes {
 		// Skip chunk-type nodes without edges (there are 62K chunks, we don't
-		// need all of them in entities — the chunks table already stores them).
+		// need all of them in entities â€” the chunks table already stores them).
 		if node.Type == "chunk" && !referencedNodes[node.ID] {
 			continue
 		}
@@ -2025,16 +2048,16 @@ func (e *Engine) loadGraph() error {
 	e.graph = loadedGraph
 	e.graphBuilder = graph.NewBuilder(e.graph)
 
-	// O Deserialize popula via AddNode (marca dirty). A leitura do cache NÃO
-	// é mutação: limpa o flag para que um Close pós-busca (read-only) pule a
-	// persistência de 13k entidades no SQL (~1.8s).
+	// O Deserialize popula via AddNode (marca dirty). A leitura do cache NÃƒO
+	// Ã© mutaÃ§Ã£o: limpa o flag para que um Close pÃ³s-busca (read-only) pule a
+	// persistÃªncia de 13k entidades no SQL (~1.8s).
 	e.graph.MarkClean()
 
 	log.Info().Int("nodes", e.graph.GetNodeCount()).Int("edges", e.graph.GetEdgeCount()).Msg("graph loaded from cache")
 	return nil
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Explanation describes why a result was returned.
 type Explanation struct {
@@ -2089,7 +2112,7 @@ type VerificationResult struct {
 	Issues    []string        `json:"issues,omitempty"`
 }
 
-// ── File watcher handler ───────────────────────────────────────────────
+// â”€â”€ File watcher handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type indexingHandler struct {
 	engine *Engine
@@ -2117,7 +2140,7 @@ func (h *indexingHandler) HandleEvent(ctx context.Context, event watcher.FileEve
 	// Persist the graph after any incremental index change. Without this,
 	// entities/relationships stay empty: incremental indexing only builds the
 	// graph in memory, and saveGraph() was previously invoked solely on
-	// Sync/Rebuild/Close — which never run on a long-lived serve using the
+	// Sync/Rebuild/Close â€” which never run on a long-lived serve using the
 	// file watcher for re-indexing.
 	if err == nil {
 		if sErr := h.engine.saveGraph(); sErr != nil {
@@ -2128,7 +2151,7 @@ func (h *indexingHandler) HandleEvent(ctx context.Context, event watcher.FileEve
 	return err
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // searchCacheKey generates a deterministic cache key from all distinguishing
 // search parameters. Any change to query, filters, pagination, or enabled
@@ -2152,21 +2175,21 @@ func searchCacheKey(params search.SearchParams) string {
 		fmt.Sprintf("%f", params.MinScore),
 	}
 
-	// FASE 1.5 — Cache Scope Safety: a chave deve ser específica ao SearchScope
+	// FASE 1.5 â€” Cache Scope Safety: a chave deve ser especÃ­fica ao SearchScope
 	// que originou a consulta, para que um resultado de escopo A jamais seja
 	// servido para um escopo B.
 	//
-	// Semântica explícita (requisito 4 + preservação da LEGACY, requisito 5):
+	// SemÃ¢ntica explÃ­cita (requisito 4 + preservaÃ§Ã£o da LEGACY, requisito 5):
 	//   - Scope nil OU com Modules vazio = SEM confinamento (LEGACY, busca
-	//     ilimitada). Ambos são semanticamente idênticos e NÃO recebem
-	//     componente de escopo → a chave/semântica LEGACY permanece exatamente
+	//     ilimitada). Ambos sÃ£o semanticamente idÃªnticos e NÃƒO recebem
+	//     componente de escopo â†’ a chave/semÃ¢ntica LEGACY permanece exatamente
 	//     a mesma de antes deste ajuste.
-	//   - Apenas um escopo que realmente confina (Modules não-vazio) contribui
-	//     com uma representação CANÔNICA dos módulos (ordenada), pois
-	//     `confineToScope` trata os módulos como um CONJUNTO — a semântica não
-	//     depende da ordem. Assim, módulos equivalentes em qualquer ordem
+	//   - Apenas um escopo que realmente confina (Modules nÃ£o-vazio) contribui
+	//     com uma representaÃ§Ã£o CANÃ”NICA dos mÃ³dulos (ordenada), pois
+	//     `confineToScope` trata os mÃ³dulos como um CONJUNTO â€” a semÃ¢ntica nÃ£o
+	//     depende da ordem. Assim, mÃ³dulos equivalentes em qualquer ordem
 	//     produzem a mesma chave (requisito 7), e escopos distintos produzem
-	//     chaves distintas (impossível o cache servir um resultado de escopo A
+	//     chaves distintas (impossÃ­vel o cache servir um resultado de escopo A
 	//     para o escopo B).
 	if params.Scope != nil && len(params.Scope.Modules) > 0 {
 		parts = append(parts, "scope:"+canonicalScopeModules(params.Scope.Modules))
@@ -2175,8 +2198,8 @@ func searchCacheKey(params search.SearchParams) string {
 	return cache.Key(parts...)
 }
 
-// canonicalScopeModules devolve a representação canônica (ordenada e dedup) dos
-// módulos de um SearchScope, insensível à ordem — a mesma semântica de
+// canonicalScopeModules devolve a representaÃ§Ã£o canÃ´nica (ordenada e dedup) dos
+// mÃ³dulos de um SearchScope, insensÃ­vel Ã  ordem â€” a mesma semÃ¢ntica de
 // confinamento produz sempre a mesma chave.
 func canonicalScopeModules(modules []string) string {
 	seen := make(map[string]struct{}, len(modules))
@@ -2202,3 +2225,53 @@ func computeHash(content string) string {
 	h := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", h[:])
 }
+
+// VectorCoverageCounts devolve (chunks, vetores-chunk) — usado pelo watchdog
+// de cobertura (`cosca index rebuild --watch`) e pelo check de inicialização.
+func (e *Engine) VectorCoverageCounts() (chunks, vectors int) {
+	if e.db == nil {
+		return 0, 0
+	}
+	_ = e.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&chunks)
+	_ = e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&vectors)
+	return chunks, vectors
+}
+
+// checkVectorCoverage mede a cobertura do índice vetorial na inicialização e
+// alerta se degradada (ordem do Don, 2026-09-01).
+//
+// Cobertura = vetores com chunk presente / total de chunks. Um valor baixo
+// indica o índice caído (incidente de hoje: cleanup concurrente zerou 54k
+// vetores da fonte). Nunca falha o boot (warn-and-continue) — mas GRITA no
+// log para a operação agir (rodar `cosca knowledge vectors-backfill`).
+func (e *Engine) checkVectorCoverage() {
+	if e.db == nil {
+		return
+	}
+	chunks, vectors := e.VectorCoverageCounts()
+	if chunks == 0 {
+		return // base vazia — nada a cobrir
+	}
+	coverage := float64(vectors) / float64(chunks) * 100.0
+	switch {
+	case coverage >= 80.0:
+		log.Info().
+			Int("chunks", chunks).
+			Int("vectors", vectors).
+			Float64("coverage_pct", coverage).
+			Msg("vector coverage healthy")
+	case coverage >= 30.0:
+		log.Warn().
+			Int("chunks", chunks).
+			Int("vectors", vectors).
+			Float64("coverage_pct", coverage).
+			Msg("vector coverage DEGRADED — semantic search partially blind; run 'cosca knowledge vectors-backfill'")
+	default:
+		log.Error().
+			Int("chunks", chunks).
+			Int("vectors", vectors).
+			Float64("coverage_pct", coverage).
+			Msg("vector coverage CRITICAL — index crashed; run 'cosca knowledge vectors-backfill' immediately")
+	}
+}
+
