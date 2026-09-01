@@ -206,6 +206,10 @@ Examples:
 			}
 
 			// 8. Build orchestration engine
+			// Executor de ferramentas ÚNICO (Opção B): o executor canônico com
+			// sandbox+permission é injetado no orchestration — o run usa as
+			// MESMAS tools reais (read/write/shell/search...) do exec/serve.
+			orchConfig.ToolRunner = buildCanonicalToolRunner(dir, coscaDir)
 			engine := orchestration.NewFactory(orchestration.FactoryConfig{
 				Knowledge:       knowledgeSearcher,
 				MemoryRetriever: memRetriever,
@@ -214,11 +218,6 @@ Examples:
 				SkillResolver:   skillResolver,
 				ChatProvider:    registry,
 				Config:          orchConfig,
-				// WorkspaceDir liga as ferramentas de sistema (write_file,
-				// read_file, execute_command, etc.) ao executor: sem isso o
-				// agente só "conversa" e não escreve software. Usa o cwd do
-				// cosca run — rode de dentro do projeto alvo para construir nele.
-				WorkspaceDir: dir,
 			})
 
 			// Store engine reference for metrics command.

@@ -51,6 +51,11 @@ type OrchestratorConfig struct {
 	// WorkspaceDir is the root directory for tool execution (read_file,
 	// write_file, execute_command, etc.). When non-empty, the engine creates
 	// a ToolExecutor with this workspace root.
+	//
+	// DEPRECADO (Opção B, Etapa 3): o executor de ferramentas agora é INJETADO
+	// via ToolRunner (o executor canônico chat/executor). Este campo permanece
+	// apenas por compatibilidade de chamadas; o caminho de execução de tools
+	// usa ToolRunner.
 	WorkspaceDir string
 
 	// Sandbox is the optional per-command execution sandbox (chat.Sandbox)
@@ -58,6 +63,8 @@ type OrchestratorConfig struct {
 	// OUTSIDE the jail), every execute_command tool call runs inside the
 	// sandbox confined to the workspace. When nil, the enclosing jail provides
 	// isolation.
+	//
+	// DEPRECADO (Opção B, Etapa 3): ver WorkspaceDir.
 	Sandbox chat.Sandbox
 
 	// Budget is the per-execution cost ceiling forwarded to the Executor. When
@@ -70,7 +77,14 @@ type OrchestratorConfig struct {
 	// via execute_command, confinada ao WorkspaceDir. Quando vazia, usa o
 	// default seguro do executor. Permite ampliar por projeto (ex.: build de
 	// um monorepo JS) SEM abrir comando arbitrário — só o que está listado.
+	//
+	// DEPRECADO (Opção B, Etapa 3): ver WorkspaceDir.
 	AllowedCommands []string
+
+	// ToolRunner é o executor de ferramentas CANÔNICO (chat/executor via
+	// adapter, com sandbox+policy+permission+level). Quando nil, o Executor
+	// roda sem execução de tools. É a ÚNICA fonte de execução de ferramentas.
+	ToolRunner ToolRunner
 
 	// DeliberateConfig configures the Kernel-First Deliberation stage
 	// (ADR-032). When Enabled is false (the default, fail-closed / LEI DO
@@ -162,24 +176,20 @@ func NewEngine(
 
 	var executor *Executor
 	if chatProvider != nil {
-		var toolExecutor *ToolExecutor
-		if config.WorkspaceDir != "" {
-			toolCfg := DefaultToolExecutorConfig()
-			toolCfg.WorkspaceDir = config.WorkspaceDir
-			toolCfg.Sandbox = config.Sandbox
-			// Allowlist de comandos ampliada por projeto (ex.: build JS), SEM
-			// abrir comando arbitrário. Se vazia, mantém o default seguro.
-			if len(config.AllowedCommands) > 0 {
-				toolCfg.AllowedCommands = append(toolCfg.AllowedCommands, config.AllowedCommands...)
-			}
-			toolExecutor = NewToolExecutor(toolCfg)
-		}
 		executorCfg := DefaultExecutorConfig()
 		// Forward an explicit budget ceiling (overrides the executor's default).
 		if config.Budget != nil {
 			executorCfg.Budget = config.Budget
 		}
-		executor = NewExecutor(chatProvider, executorCfg, toolExecutor)
+		// O executor de ferramentas é INJETADO (ToolRunner sobre o executor
+		// canônico chat/executor com sandbox+policy+permission+level). Quando
+		// nil, o Executor roda sem execução de tools (o caminho de conhecimento/
+		// contexto continua intacto).
+		var toolRunner ToolRunner
+		if config.ToolRunner != nil {
+			toolRunner = config.ToolRunner
+		}
+		executor = NewExecutor(chatProvider, executorCfg, toolRunner)
 	}
 
 	var pipeline *Pipeline

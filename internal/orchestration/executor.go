@@ -110,8 +110,8 @@ func DefaultExecutorConfig() ExecutorConfig {
 type Executor struct {
 	provider         chat.ChatProvider
 	config           ExecutorConfig
-	toolExecutor     *ToolExecutor // optional: executes tool calls returned by LLMs
-	lastAttemptCount int64         // atomic: number of attempts used by last chatWithRetry
+	toolRunner       ToolRunner // optional: executes tool calls returned by LLMs (executor canônico via adapter)
+	lastAttemptCount int64      // atomic: number of attempts used by last chatWithRetry
 
 	// stalls optionally records provider stall/retry events so a run can be
 	// compared with a healthy one (timeouts, retries, recoveries). May be nil.
@@ -143,8 +143,8 @@ func (e *Executor) recordStall(spec stallwatch.WatchSpec, action stallwatch.Acti
 }
 
 // NewExecutor creates an Executor backed by the given ChatProvider.
-// toolExecutor is optional — pass nil if tool execution is not needed.
-func NewExecutor(provider chat.ChatProvider, config ExecutorConfig, toolExecutor *ToolExecutor) *Executor {
+// toolRunner is optional — pass nil if tool execution is not needed.
+func NewExecutor(provider chat.ChatProvider, config ExecutorConfig, toolRunner ToolRunner) *Executor {
 	if config.MaxRetries <= 0 {
 		config.MaxRetries = 3
 	}
@@ -160,7 +160,7 @@ func NewExecutor(provider chat.ChatProvider, config ExecutorConfig, toolExecutor
 	if config.EstimateCost == nil {
 		config.EstimateCost = defaultEstimateCost
 	}
-	return &Executor{provider: provider, config: config, toolExecutor: toolExecutor}
+	return &Executor{provider: provider, config: config, toolRunner: toolRunner}
 }
 
 // recordConsumption acumula o consumo de uma resposta de IA no BudgetTracker
@@ -221,7 +221,7 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	}
 
 	// 5. Build ChatOptions with tools derived from agent capabilities.
-	opts := e.buildChatOptions(pc.Data)
+	opts := e.buildChatOptions(ctx, pc.Data)
 
 	// 5.5 ── MODO DETERMINÍSTICO: a IA é o último recurso ─────────────
 	// Se o conhecimento (knowledge.db) já responde com precisão, o Cosca
@@ -295,14 +295,14 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	if len(toolCalls) > 0 {
 		pc = pc.WithToolCalls(toolCalls)
 
-		// Diagnostic: confirm toolExecutor wiring in the serve path.
+		// Diagnostic: confirm toolRunner wiring in the serve path.
 		logger.Info().
-			Bool("tool_executor_wired", e.toolExecutor != nil).
+			Bool("tool_executor_wired", e.toolRunner != nil).
 			Int("tool_call_count", len(toolCalls)).
 			Strs("tool_names", toolCallNames(toolCalls)).
 			Msg("executor: tool calls detected (diagnostic)")
 
-		if e.toolExecutor != nil {
+		if e.toolRunner != nil {
 			roundMessages := make([]chat.Message, len(messages))
 			copy(roundMessages, messages)
 
@@ -326,7 +326,7 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 					Strs("tool_names", toolCallNames(toolCalls)).
 					Msg("tool calls detected in response")
 
-				toolResults, toolErr := e.toolExecutor.ExecuteAll(ctx, toolCalls)
+				toolResults, toolErr := e.toolRunner.ExecuteAll(ctx, toolCalls)
 				if toolErr != nil {
 					info := safeError("tool_calls_failed", toolErr)
 					logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("some tool calls failed")
@@ -457,7 +457,7 @@ func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventC
 	}
 
 	// 5. Build ChatOptions with stream=true.
-	opts := e.buildChatOptions(pc.Data)
+	opts := e.buildChatOptions(ctx, pc.Data)
 	opts.Stream = true
 
 	// 6. Open the chat stream. This is the only synchronous I/O; the rest
@@ -713,10 +713,21 @@ func (e *Executor) buildSystemPrompt(agentName, agentRole, agentDept, agentDesc 
 
 // buildChatOptions constructs ChatOptions by deriving tool definitions from
 // the agent's capabilities stored in the pipeline context.
-func (e *Executor) buildChatOptions(data PipelineData) chat.ChatOptions {
+func (e *Executor) buildChatOptions(ctx context.Context, data PipelineData) chat.ChatOptions {
 	opts := chat.DefaultChatOptions()
 
-	// Derive tools from agent context.
+	// Vocabulário de ferramentas ÚNICO (Opção B, Etapa 3): quando o ToolRunner
+	// canônico está injetado, o LLM vê as tools REAIS do registry
+	// (read/write/edit/glob/shell/search/git/build/test...) — o mesmo conjunto
+	// de todos os caminhos. Fallback para deriveTools apenas quando não há
+	// executor (sem regressão).
+	if e.toolRunner != nil {
+		if tools, err := e.toolRunner.ListTools(ctx); err == nil && len(tools) > 0 {
+			opts.Tools = tools
+			return opts
+		}
+	}
+
 	tools := e.deriveTools(data)
 	if len(tools) > 0 {
 		opts.Tools = tools

@@ -155,6 +155,10 @@ Examples:
 			}
 			orchConfig.EnableMAG = memRetriever != nil
 			orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
+			// Executor de ferramentas ÚNICO (Opção B): o executor canônico com
+			// sandbox+permission é injetado no orchestration — o chat usa as
+			// MESMAS tools reais (read/write/shell/search...) do exec/serve.
+			orchConfig.ToolRunner = buildCanonicalToolRunner(dir, coscaDir)
 
 			engine := orchestration.NewFactory(orchestration.FactoryConfig{
 				MemoryRetriever: memRetriever,

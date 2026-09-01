@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/chat/executor"
+	"github.com/CoscaAI/cosca/internal/chat/tool"
 )
 
 func TestSafeErrorDoesNotExposeSensitiveText(t *testing.T) {
@@ -27,12 +29,23 @@ func TestSafeErrorDoesNotExposeSensitiveText(t *testing.T) {
 		t.Fatalf("stage result exposed secret: %+v", stage)
 	}
 
-	result, executeErr := (&ToolExecutor{}).Execute(context.Background(), chat.ToolCall{Function: chat.FunctionCall{Arguments: "{not-json"}})
-	if executeErr != nil {
-		t.Fatalf("tool execution returned unexpected error: %v", executeErr)
+	// O executor canônico (via adapter) mascara erros de parsing de
+	// argumentos — nunca expõe o texto bruto.
+	adapter := newExecutorAdapter(executor.New(tool.NewRegistry(), nil, t.TempDir()))
+	results, execErr := adapter.ExecuteAll(context.Background(), []chat.ToolCall{
+		{ID: "t1", Function: chat.FunctionCall{Name: "read", Arguments: "{not-json"}},
+	})
+	if execErr != nil {
+		t.Fatalf("tool execution returned unexpected error: %v", execErr)
 	}
-	if result == nil || strings.Contains(result.Error, secret) || strings.Contains(result.Error, "not-json") {
-		t.Fatalf("tool result exposed raw error: %+v", result)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 masked result, got %d", len(results))
+	}
+	if strings.Contains(results[0].Error, "not-json") || strings.Contains(results[0].Error, "{") {
+		t.Fatalf("tool result exposed raw args: %+v", results[0])
+	}
+	if results[0].ErrorCode == "" {
+		t.Fatal("expected error code on masked result")
 	}
 }
 

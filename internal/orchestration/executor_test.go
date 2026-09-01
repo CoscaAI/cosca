@@ -1037,7 +1037,7 @@ func TestExtractString_WrongType(t *testing.T) {
 
 func TestBuildChatOptions_DefaultOptions(t *testing.T) {
 	exec := NewExecutor(newMockChatProvider("t", "m"), DefaultExecutorConfig(), nil)
-	opts := exec.buildChatOptions(PipelineData{})
+	opts := exec.buildChatOptions(context.Background(), PipelineData{})
 
 	if opts.Temperature != 0.7 {
 		t.Errorf("expected default temperature 0.7, got %f", opts.Temperature)
@@ -1046,7 +1046,7 @@ func TestBuildChatOptions_DefaultOptions(t *testing.T) {
 
 func TestBuildChatOptions_WithDerivedTools(t *testing.T) {
 	exec := NewExecutor(newMockChatProvider("t", "m"), DefaultExecutorConfig(), nil)
-	opts := exec.buildChatOptions(PipelineData{
+	opts := exec.buildChatOptions(context.Background(), PipelineData{
 		AgentRole:       "Backend Chief",
 		AgentDepartment: "backend",
 	})

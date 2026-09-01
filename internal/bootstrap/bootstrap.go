@@ -31,6 +31,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	rt "github.com/CoscaAI/cosca/internal/runtime"
+	"github.com/CoscaAI/cosca/internal/toolrun"
 )
 
 // PipelineConfig controls pipeline component wiring during bootstrap.
@@ -103,6 +104,10 @@ type Config struct {
 	// WorkspaceDir is the project root for tool execution (search_codebase,
 	// read_file, etc.). When set, the orchestration engine wires a
 	// ToolExecutor. Inside the jail this is COSCA_PROJECT_DIR.
+	//
+	// DEPRECADO (Opção B, Etapa 3): o executor de ferramentas é montado via
+	// ToolRunner (internal/toolrun) — o executor canônico com sandbox+
+	// permission. Este campo é mantido para compat de chamadas.
 	WorkspaceDir string
 
 	// DeliberateConfig configures the Kernel-First Deliberation stage
@@ -424,6 +429,14 @@ func Compose(cfg Config) (*Result, error) {
 		if memRetriever != nil {
 			orchConfig.EnableMAG = true
 			orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
+		}
+
+		// Executor de ferramentas ÚNICO (Opção B): o executor canônico
+		// (registry real + sandbox + permission) é montado via internal/toolrun
+		// e injetado no orchestration — o serve usa as MESMAS tools reais de
+		// todos os caminhos.
+		if cfg.WorkspaceDir != "" {
+			orchConfig.ToolRunner = toolrun.Build(toolrun.Config{Workspace: cfg.WorkspaceDir})
 		}
 
 		orchEngine := orchestration.NewFactory(orchestration.FactoryConfig{

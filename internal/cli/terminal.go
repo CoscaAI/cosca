@@ -201,8 +201,10 @@ Examples:
 			}
 			orchConfig.EnableMAG = memRetriever != nil
 			orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
-			orchConfig.WorkspaceDir = dir
-			orchConfig.Sandbox = gate
+			// Executor de ferramentas ÚNICO (Opção B): o terminal roda FORA da
+			// jail, então injeta o executor canônico com o sandbox per-command
+			// explícito (gate) — as MESMAS tools reais de todos os caminhos.
+			orchConfig.ToolRunner = buildCanonicalToolRunnerWithGate(dir, coscaDir, gate)
 
 			engine := orchestration.NewFactory(orchestration.FactoryConfig{
 				Knowledge:       knowledgeSearcher,

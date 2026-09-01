@@ -154,7 +154,9 @@ func buildPipelineWiring(dir string) (*pipelineWiring, error) {
 		orchConfig.EnableMAG = true
 		orchConfig.MAGConfig = orchestration.DefaultMAGConfig()
 	}
-	orchConfig.WorkspaceDir = dir
+	// Executor de ferramentas ÚNICO (Opção B): executor canônico com
+	// sandbox+permission injetado no orchestration.
+	orchConfig.ToolRunner = buildCanonicalToolRunner(dir, coscaDir)
 
 	engine := orchestration.NewFactory(orchestration.FactoryConfig{
 		Knowledge:       knowledgeSearcher,
