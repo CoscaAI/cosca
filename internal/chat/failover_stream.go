@@ -84,8 +84,23 @@ func (s *failoverStream) Recv() (*ChatStreamChunk, error) {
 			if streamChunkHasContent(chunk) {
 				s.sawContent = true
 			}
+			return chunk, nil
 		}
-		return chunk, nil
+
+		// CONTRATO: um ChatStream NUNCA devolve (nil, nil). Um chunk nil sem
+		// erro é um provider degenerado (ex.: fail-closed sem credenciais que
+		// "abre" mas não produz). Em vez de propagar o nil (que panica no
+		// consumidor — incidente run.go:831), trata como stream morto antes
+		// de entregar conteúdo: reconneta ao próximo provider ou falha limpa.
+		if !s.reconnect() {
+			return nil, fmt.Errorf(
+				"stream produced no content and no fallback available (chunks=%d reconnects=%d)",
+				s.chunks, s.reconnects,
+			)
+		}
+		// Reconnected — loop and read from the new stream.
+		s.sawContent = false
+		continue
 	}
 }
 

@@ -827,6 +827,13 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 			// Stream ended — treat as successful completion if we have content.
 			break
 		}
+		// Defesa em profundidade (ordem do Don + professor): um chunk nil sem
+		// erro NUNCA deve panica o handler (incidente: chunk.Model com nil).
+		// O failoverStream já não devolve (nil, nil); esta guarda cobre
+		// qualquer provider degenerado futuro.
+		if chunk == nil {
+			continue
+		}
 
 		if chunk.Model != "" {
 			model = chunk.Model

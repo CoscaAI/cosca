@@ -170,3 +170,24 @@ func (p *PartitionStore) DeleteByDocument(id string) error   { return p.base.Del
 func (p *PartitionStore) DeleteByEntity(id string) error     { return p.base.DeleteByEntity(id) }
 func (p *PartitionStore) Rebuild() error                     { return p.base.Rebuild() }
 func (p *PartitionStore) Close() error                       { return p.base.Close() }
+
+// ── Interfaces opcionais (TransactionalStore / StoreTxCommitter) ──
+// A escrita do PartitionStore delega ao monolito (base) — então as
+// capacidades transacionais também delegam ao base quando ele as suporta.
+// Isso preserva os contratos que os consumidores (indexer, search) esperam:
+// sem suporte, os testes que usam StoreTx degradariam (como aconteceu).
+
+// StoreTx implementa TransactionalStore delegando ao base.
+func (p *PartitionStore) StoreTx(tx *sql.Tx, dimension int, vectors []VectorRecord) error {
+	if ts, ok := p.base.(TransactionalStore); ok {
+		return ts.StoreTx(tx, dimension, vectors)
+	}
+	return fmt.Errorf("partition store: base does not support StoreTx")
+}
+
+// StoreTxCommitted implementa StoreTxCommitter delegando ao base.
+func (p *PartitionStore) StoreTxCommitted() {
+	if c, ok := p.base.(StoreTxCommitter); ok {
+		c.StoreTxCommitted()
+	}
+}

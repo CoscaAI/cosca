@@ -306,7 +306,11 @@ func TestBaselineReadonly(t *testing.T) {
 
 	rows, badDim := loadRows(t, db)
 	if len(rows) == 0 {
-		t.Fatalf("nenhum vetor válido (dim=768) carregado")
+		// PÓS-CORTE (Plano D): o knowledge.db (monolito) está drenado — a
+		// verdade vive nos módulos (vector-*.db). O baseline mede um índice
+		// POPULADO: sem vetores no alvo, SKIP (não falha) — o operador aponta
+		// COSCA_KB_PATH para a partição a medir.
+		t.Skip("nenhum vetor válido (dim=768) — pós-corte, aponte COSCA_KB_PATH para uma partição vector-*.db")
 	}
 	t.Logf("── ESTADO DO ÍNDICE ──")
 	t.Logf("vetores válidos (dim=768, len(blob)/4==768): %d   rows-dim-mismatch(puladas no load)=%d", len(rows), badDim)
