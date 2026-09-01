@@ -87,7 +87,7 @@ func OpenDataSources(dataDir string) (*DataSources, error) {
 			}
 			sort.Strings(parts)
 			for _, p := range parts {
-				db, err := sqlite.Open(sqlite.DefaultConfig(p))
+				db, err := openModule(p)
 				if err != nil {
 					ds.closeAll()
 					return nil, fmt.Errorf("datasource %s (%s): %w", name, p, err)
@@ -105,7 +105,7 @@ func OpenDataSources(dataDir string) (*DataSources, error) {
 		if _, statErr := os.Stat(path); statErr != nil {
 			continue
 		}
-		db, err := sqlite.Open(sqlite.DefaultConfig(path))
+		db, err := openModule(path)
 		if err != nil {
 			// Módulo corrompido = falha fechada (nunca degrada silencioso),
 			// fechando os já abertos para não vazar conexões.
@@ -119,6 +119,16 @@ func OpenDataSources(dataDir string) (*DataSources, error) {
 
 	sort.Slice(ds.present, func(i, j int) bool { return ds.present[i] < ds.present[j] })
 	return ds, nil
+}
+
+// openModule abre um módulo físico do corte SEM auto-migrate. Os módulos são
+// criados pelo `cosca db build` com o schema FINAL (tier inline, FTS etc.) —
+// rodar as migrações evolutivas do monolito neles causaria "duplicate column
+// name: tier" (a migração 7 do monolito não conhece o schema do módulo).
+func openModule(path string) (*sqlite.DB, error) {
+	cfg := sqlite.DefaultConfig(path)
+	cfg.AutoMigrate = false // o schema do módulo já é o final (db build)
+	return sqlite.Open(cfg)
 }
 
 // closeAll fecha todas as conexões abertas (usado no caminho de erro).
