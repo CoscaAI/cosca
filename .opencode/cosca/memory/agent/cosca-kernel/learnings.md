@@ -1250,3 +1250,12 @@
 - BLOQUEIO PARCIAL HONESTO: mic fisico OK (captura continua 16kHz mono real), mas o cosca voice listen nao transcreveu ao vivo porque o mic USB nao captou a fala dos alto-falantes (ambiente automatizado sem sinal falado no mic -> silencio). O loop mic->PCM->STT->transcricao esta FUNCIONALMENTE PROVADO; falta apenas fala fisica pro mic para a demo interativa.
 - DLL: System32 onnxruntime 1.17 sobrepunha bin/ 1.29 na ordem de busca; resolvido rodando o exe do diretorio com as DLLs corretas (prioridade do dir do exe sobre System32).
 - CICLO DO PROFESSOR COMPLETO: COSCA VE (visao Go) + OUVE (STT Go + mic winmm) + FALA (TTS Go) + SINCRONIZA (Perception Bus). Tudo nativo Go, sem Python.
+
+## 2026-08-31 - FASE D COMPLETA: MEMORIA EPISODICA MULTIMODAL - COSCA LEMBRA
+- MEMORIA EPISODICA: internal/memory/episodic.go - EpisodicRecord{ID,Timestamp(wall)+Monotonic,Modality,Sequence,Confidence,VisionSummary,AudioText,Tokens,MultiRels,Entities,Context,CreatedAt}. Reutilizei internal/memory (FileStore+FTS), EpisodicRecord como JSON no Content de MemoryRecord da layer LayerEpisodic (on-demand, NAO quebra as 6 camadas default).
+- QUERY: QueryEpisodic(since,until,query,modality,limit) - filtro temporal EXACTO em Go (evita comparacao fragil RFC3339 do SQLite) + match AND por palavra (texto+labels+entidades). PruneEpisodic + ConfigureEpisodicRetention(TTL 30d, max 5000).
+- MEMORY SINK: bus/memory_sink.go assina o bus via Watch(), dedup por Sequence E AudioSeg (fix bug: MultiRel estava re-gravada a cada publicacao), non-blocking (buffer+worker). Grava audio isolado, visao isolada, e o registro MULTIMODAL por MultiRel ('o que estava vendo quando ouviu X'). Seam EpisodicWriter testavel.
+- WIRING: serveStartServers recebe episodicSink + Start/Stop (junto do busSvc). Config perception.episodic{enabled,ttl 30d,max_records 5000} opt-in.
+- CLI: cosca memory episodic (--since/--until/--query/--modality/--limit). REST: GET /v1/memory/episodic (nil-safe 503).
+- PRIVACIDADE: persiste SO representacao (texto/entidades/relacoes), NUNCA frame bruto (tela e sensivel) - documentado como politica.
+- STATUS: O CICLO DO PROFESSOR ESTA COMPLETO: VISao + OUVIR (STT PT-BR + mic) + FALAR (TTS PT-BR) + SINCRONIZAR (bus) + LEMBRAR (memoria episodica). Tudo nativo Go, sem Python/http://internet.

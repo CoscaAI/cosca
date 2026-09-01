@@ -85,3 +85,16 @@ func (t MonotonicTime) Duration() time.Duration { return time.Duration(t) }
 // representation (nanoseconds). Both are int64 nanoseconds, so it is a plain
 // cast; kept explicit for readability at call sites.
 func ToMonotonic(d time.Duration) MonotonicTime { return MonotonicTime(d) }
+
+// MonoToWall converts a process-relative MonotonicTime back to an absolute
+// wall-clock time.Time, using the same process-start epoch as Now(). It is the
+// bridge from the monotonic clock domain (used for sync) to the wall clock
+// (used for persistence/episodic memory and human-facing timestamps).
+//
+// The epoch is captured lazily on the first call to either Now() or MonoToWall(),
+// so both agree. The returned time carries the monotonic reading of the object
+// it was derived from, so time.Since/wall math stays drift-free.
+func MonoToWall(m MonotonicTime) time.Time {
+	monoOnce.Do(func() { monoEpoch = time.Now() })
+	return monoEpoch.Add(time.Duration(m))
+}

@@ -405,6 +405,8 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	s.mux.Handle("DELETE /v1/memory/delete", editorOnly(http.HandlerFunc(mh.Delete)))
 	s.mux.Handle("POST /v1/memory/promote", editorOnly(http.HandlerFunc(mh.Promote)))
 	s.mux.Handle("GET /v1/memory/stats", handler.RequireMemoryScope(http.HandlerFunc(mh.Stats)))
+	// Memória episódica multimodal (FASE D) — leitura (nil-safe engine → 503).
+	s.mux.Handle("GET /v1/memory/episodic", handler.RequireMemoryScope(http.HandlerFunc(mh.Episodic)))
 
 	// Runtime endpoints
 	s.mux.HandleFunc("GET /v1/status", rh.Status)

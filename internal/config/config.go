@@ -468,6 +468,14 @@ type PerceptionConfig struct {
 	// vision frames (the agent can answer "what was it seeing when it heard X").
 	// Opt-in (default false): existing behaviour is unchanged.
 	Audio AudioConfig `yaml:"audio" json:"audio"`
+
+	// Episodic configures the multimodal episodic memory (FASE D) — the layer
+	// that makes the COSCa REMEMBER what it saw/heard, synchronised, between
+	// sessions. When Enabled, the runtime records EpisodicRecords (the semantic
+	// representation — NEVER raw frames) into a dedicated memory layer, so the
+	// agent can later answer "o que estava vendo quando ouvi X". Opt-in
+	// (default false): existing behaviour is unchanged.
+	Episodic EpisodicConfig `yaml:"episodic" json:"episodic"`
 }
 
 // AudioConfig configures the Perception Bus audio/multimodal synchronisation.
@@ -605,6 +613,24 @@ type MicConfig struct {
 	// ChunkMS is the capture chunk length in milliseconds (push-to-ASR cadence).
 	// Default 100.
 	ChunkMS int `yaml:"chunk_ms,omitempty" json:"chunkMs,omitempty"`
+}
+
+// EpisodicConfig configures the multimodal episodic memory (FASE D).
+//
+// When Enabled, the perception runtime records EpisodicRecords (the semantic
+// representation of synchronised vision+audio observations) into a dedicated
+// memory layer — the COSCa "lembra" o que viu/ouviu entre sessões. Opt-in
+// (default false): existing behaviour is unchanged. Persists representation
+// only (text/entities/relations), never raw frames (privacy policy).
+type EpisodicConfig struct {
+	// Enabled turns episodic memory recording on. Default false (opt-in).
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// TTL is the retention for episodic records. Default DefaultEpisodicTTL
+	// (30 days) — nothing grows forever.
+	TTL time.Duration `yaml:"ttl" json:"ttl"`
+	// MaxRecords is the soft cap of episodic records. Default
+	// DefaultEpisodicMaxRecords (5000). Above it the oldest are trimmed.
+	MaxRecords int `yaml:"max_records" json:"maxRecords"`
 }
 
 // ChangeDetectionConfig configures the change-detection gate on the Perception
@@ -864,6 +890,11 @@ func DefaultConfig() *Config {
 				STT:        DefaultSTTConfig(),
 				TTS:        DefaultTTSConfig(),
 				Mic:        DefaultMicConfig(),
+			},
+			Episodic: EpisodicConfig{
+				Enabled:    false, // opt-in (FASE D): só grava quando explicitamente ligado
+				TTL:        DefaultEpisodicTTL,
+				MaxRecords: DefaultEpisodicMaxRecords,
 			},
 		},
 		Plugins: PluginConfig{

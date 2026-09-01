@@ -139,6 +139,14 @@ func (a *memoryManagerAdapter) Search(opts MemorySearchOptions) ([]MemorySearchR
 	return result, nil
 }
 
+// QueryEpisodic (FASE D) consulta a memória episódica multimodal da engine.
+func (a *memoryManagerAdapter) QueryEpisodic(ctx context.Context, q memory.EpisodicQuery) ([]memory.EpisodicRecord, error) {
+	if a.inner == nil {
+		return nil, fmt.Errorf("memory not available")
+	}
+	return a.inner.QueryEpisodic(ctx, q)
+}
+
 // CreateSnapshot creates a memory snapshot.
 func (a *memoryManagerAdapter) CreateSnapshot() (MemorySnapshotEx, error) {
 	if a.inner == nil {

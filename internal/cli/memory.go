@@ -62,6 +62,7 @@ Subcommands:
 		NewMemoryReindexCommand(),
 		NewMemoryStatsCommand(),
 		NewMemoryCuratedFailuresCommand(),
+		NewMemoryEpisodicCommand(),
 	)
 
 	return cmd

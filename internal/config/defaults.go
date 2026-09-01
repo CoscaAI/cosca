@@ -202,6 +202,13 @@ const (
 	DefaultPerceptionAudioSampleRate = 16000
 	// DefaultPerceptionAudioChunkMS is the default audio chunk length (ms).
 	DefaultPerceptionAudioChunkMS = 100
+
+	// DefaultEpisodicTTL is the retention of multimodal episodic memory
+	// (FASE D): 30 days. Nothing grows forever — expired records are pruned.
+	DefaultEpisodicTTL = 30 * 24 * time.Hour
+	// DefaultEpisodicMaxRecords is the soft cap of episodic records. Above it
+	// the oldest are trimmed. Bounded memory, never unbounded.
+	DefaultEpisodicMaxRecords = 5000
 )
 
 // DefaultPerceptionSTTModelType is the default streaming STT model architecture.

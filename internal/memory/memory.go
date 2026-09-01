@@ -83,6 +83,12 @@ type MemoryEngine struct {
 	layers    *LayerManager
 	config    EngineConfig
 	snapshots *SnapshotManager
+
+	// episodicTTL / episodicMaxRecords são a retenção da camada episódica
+	// (FASE D). Configuráveis via ConfigureEpisodicRetention; defaults
+	// DefaultEpisodicTTL / DefaultEpisodicMaxRecords.
+	episodicTTL        time.Duration
+	episodicMaxRecords int
 }
 
 // EngineConfig configures the memory engine.
@@ -169,6 +175,14 @@ func NewEngine(opts ...Option) (*MemoryEngine, error) {
 	// an explicit interval is safe.
 	if e.config.PruneInterval <= 0 {
 		e.config.PruneInterval = 30 * time.Minute
+	}
+
+	// Retenção episódica (FASE D): defaults se não configurada.
+	if e.episodicTTL <= 0 {
+		e.episodicTTL = DefaultEpisodicTTL
+	}
+	if e.episodicMaxRecords <= 0 {
+		e.episodicMaxRecords = DefaultEpisodicMaxRecords
 	}
 
 	if e.config.AutoPrune {

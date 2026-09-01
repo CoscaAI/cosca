@@ -281,6 +281,7 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			runtimeClient, deterministic, boot, eng.searchMode, eng.deliberateCfg,
 			eng.perceptionSvc,
 			eng.busSvc,
+			eng.episodicSink,
 			eng.voiceSpeaker,
 			host, port, metricsPort, corsOrigins,
 			tlsCertFile, tlsKeyFile,
@@ -320,6 +321,10 @@ type serveEngineResult struct {
 	// Nil-safe: criado apenas quando perception.audio.enabled (opt-in). Quando
 	// nil, /v1/perception/bus* reporta 503.
 	busSvc *bus.Bus
+	// episodicSink é o gravador de memória episódica multimodal (FASE D).
+	// Nil-safe: criado apenas quando perception.episodic.enabled (opt-in). Quando
+	// nil, nenhum EpisodicRecord é persistido.
+	episodicSink *bus.MemorySink
 	// voiceSpeaker é o Speaker TTS nativo (FASE C — "o COSCA fala"). Nil-safe:
 	// criado apenas quando perception.audio.tts.provider=sherpa (opt-in). Quando
 	// nil, /v1/voice/speaks reporta 503.
@@ -359,6 +364,7 @@ type serveServerResult struct {
 	gitInit       gitState
 	perceptionSvc *perception.Service
 	busSvc        *bus.Bus
+	episodicSink  *bus.MemorySink
 	voiceSpeaker  *tts.Speaker
 }
 
@@ -514,6 +520,12 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		voiceSpeaker = nil
 	}
 
+	// FASE D: memória episódica multimodal (opt-in). Gravador que assina o
+	// Perception Bus e persiste EpisodicRecords (representação — nunca frames
+	// brutos) na engine de memória. Nil-safe: só criado quando
+	// perception.episodic.enabled e há bus + engine de memória.
+	episodicSink := buildEpisodicSink(perceptionCfg, busSvc, boot.Memory, logger)
+
 	return &serveEngineResult{
 		client:        runtimeClient,
 		deterministic: deterministic,
@@ -526,6 +538,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		perceptionCfg: perceptionCfg,
 		perceptionSvc: perceptionSvc,
 		busSvc:        busSvc,
+		episodicSink:  episodicSink,
 		voiceSpeaker:  voiceSpeaker,
 	}, nil
 }
@@ -592,6 +605,44 @@ func buildPerceptionBus(cfg config.PerceptionConfig, visionSvc *perception.Servi
 		MaxObs:    bus.DefaultMaxObs,
 		Tolerance: cfg.Audio.Tolerance,
 	}, visionSvc, audioSrc, logger.With().Str("component", "perception-bus").Logger())
+}
+
+// buildEpisodicSink monta o gravador de memória episódica multimodal (FASE D).
+// Retorna nil quando não está opt-in (perception.episodic.enabled) ou quando
+// não há bus ativo nem engine de memória disponível. O sink NUNCA bloqueia o
+// bus (grava em goroutine de fundo, buffer com descarte).
+func buildEpisodicSink(cfg config.PerceptionConfig, busSvc *bus.Bus, memEngine *memory.MemoryEngine, logger zerolog.Logger) *bus.MemorySink {
+	if !cfg.Episodic.Enabled {
+		return nil
+	}
+	if busSvc == nil {
+		logger.Warn().Msg("perception episodic: enabled but no perception bus wired — episodic memory disabled")
+		return nil
+	}
+	if memEngine == nil {
+		logger.Warn().Msg("perception episodic: enabled but no memory engine wired — episodic memory disabled")
+		return nil
+	}
+	// Garante que a camada episódica está registrada na engine (idempotente).
+	if err := memEngine.EnsureEpisodicLayer(); err != nil {
+		logger.Warn().Err(err).Msg("perception episodic: ensure layer failed — episodic memory disabled")
+		return nil
+	}
+	ttl := cfg.Episodic.TTL
+	if ttl <= 0 {
+		ttl = config.DefaultEpisodicTTL
+	}
+	maxRec := cfg.Episodic.MaxRecords
+	if maxRec <= 0 {
+		maxRec = config.DefaultEpisodicMaxRecords
+	}
+	memEngine.ConfigureEpisodicRetention(ttl, maxRec)
+
+	return bus.NewMemorySink(busSvc, memEngine, bus.MemorySinkConfig{
+		Enabled:     true,
+		MaxBuffered: 256,
+		MaxSeen:     2048,
+	}, logger.With().Str("component", "episodic").Logger())
 }
 
 // ── 3. initManagers ───────────────────────────────────────────────────────────
@@ -825,6 +876,7 @@ func serveStartServers(
 	deliberateCfg orchestration.DeliberateConfig,
 	perceptionSvc *perception.Service,
 	busSvc *bus.Bus,
+	episodicSink *bus.MemorySink,
 	voiceSpeaker *tts.Speaker,
 	host *string,
 	port *int,
@@ -887,6 +939,13 @@ func serveStartServers(
 	if busSvc != nil {
 		server.SetBusService(busSvc)
 		busSvc.Start(context.Background())
+	}
+
+	// FASE D: memória episódica multimodal (opt-in). Inicia o gravador que
+	// assina o bus. Nil-safe: quando não opt-in, nenhum EpisodicRecord é
+	// persistido. O sink é aditivo e nunca bloqueia o bus.
+	if episodicSink != nil {
+		episodicSink.Start(context.Background())
 	}
 
 	// FASE C: native-Go TTS speaker (opt-in). Enables /v1/voice/speaks. Nil-safe:
@@ -1045,6 +1104,7 @@ func serveStartServers(
 		gitInit:       gitInit,
 		perceptionSvc: perceptionSvc,
 		busSvc:        busSvc,
+		episodicSink:  episodicSink,
 		voiceSpeaker:  voiceSpeaker,
 	}
 }
@@ -1105,6 +1165,12 @@ func serveEventLoop(srv *serveServerResult, dir string, logger zerolog.Logger, r
 	if srv.busSvc != nil {
 		srv.busSvc.Stop()
 		logger.Info().Msg("perception bus stopped")
+	}
+
+	// FASE D: memória episódica multimodal (opt-in): para o gravador.
+	if srv.episodicSink != nil {
+		srv.episodicSink.Stop()
+		logger.Info().Msg("episodic memory sink stopped")
 	}
 
 	// FASE C: fecha o Speaker TTS (libera o modelo sherpa/ONNX).

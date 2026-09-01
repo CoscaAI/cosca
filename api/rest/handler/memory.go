@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	cospb "github.com/CoscaAI/cosca/api/grpc/pb"
@@ -411,6 +413,135 @@ func (h *MemoryHandler) Promote(w http.ResponseWriter, r *http.Request) {
 
 	resp := PromoteResponse{Record: recordToAPI(*promoted)}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// Episodic handles GET /v1/memory/episodic — consulta a memória episódica
+// multimodal (FASE D) por faixa temporal e/ou texto. Nil-safe: quando o engine
+// não está disponível, reporta 503 em vez de um 200 vazio. Os registros são a
+// REPRESENTAÇÃO (áudio/visão/entidades/relações), nunca frames brutos.
+func (h *MemoryHandler) Episodic(w http.ResponseWriter, r *http.Request) {
+	if h.engine == nil {
+		writeError(w, http.StatusServiceUnavailable, "memory engine not available")
+		return
+	}
+
+	q := r.URL.Query()
+	limit := 100
+	if l, err := strconv.Atoi(q.Get("limit")); err == nil && l > 0 {
+		limit = l
+	}
+	if limit > maxMemorySearchLimit {
+		limit = maxMemorySearchLimit
+	}
+
+	query := memory.EpisodicQuery{
+		Query:    q.Get("query"),
+		Modality: q.Get("modality"),
+		Limit:    limit,
+	}
+	if since := q.Get("since"); since != "" {
+		t, err := parseEpisodicHTTPTime(since)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid since: "+err.Error())
+			return
+		}
+		query.Since = t
+	}
+	if until := q.Get("until"); until != "" {
+		t, err := parseEpisodicHTTPTime(until)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid until: "+err.Error())
+			return
+		}
+		query.Until = t
+	}
+
+	records, err := h.engine.QueryEpisodic(r.Context(), query)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "episodic query failed: "+err.Error())
+		return
+	}
+
+	out := make([]EpisodicRecordAPI, 0, len(records))
+	for _, rec := range records {
+		out = append(out, episodicRecordToAPI(rec))
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"records": out,
+		"total":   len(out),
+	})
+}
+
+// EpisodicRecordAPI é a projeção de um EpisodicRecord na resposta REST.
+type EpisodicRecordAPI struct {
+	ID            string                 `json:"id"`
+	Timestamp     string                 `json:"timestamp"`
+	Modality      string                 `json:"modality,omitempty"`
+	Sequence      uint64                 `json:"sequence,omitempty"`
+	Confidence    float64                `json:"confidence,omitempty"`
+	VisionSummary string                 `json:"vision_summary,omitempty"`
+	AudioText     string                 `json:"audio_text,omitempty"`
+	Entities      []EpisodicEntityAPI    `json:"entities,omitempty"`
+	MultiRels     []EpisodicMultiRelAPI  `json:"multi_rels,omitempty"`
+}
+
+type EpisodicEntityAPI struct {
+	ID         string  `json:"id,omitempty"`
+	Label      string  `json:"label"`
+	Type       string  `json:"type,omitempty"`
+	Confidence float64 `json:"confidence,omitempty"`
+}
+
+type EpisodicMultiRelAPI struct {
+	AudioSeg   uint64                    `json:"audio_seg"`
+	TextHint   string                    `json:"text_hint"`
+	Confidence float64                   `json:"confidence"`
+	Overlap    int                       `json:"overlap"`
+}
+
+func episodicRecordToAPI(r memory.EpisodicRecord) EpisodicRecordAPI {
+	e := EpisodicRecordAPI{
+		ID:            r.ID,
+		Timestamp:     r.Timestamp.UTC().Format(time.RFC3339),
+		Modality:      r.Modality,
+		Sequence:      r.Sequence,
+		Confidence:    r.Confidence,
+		VisionSummary: r.VisionSummary,
+		AudioText:     r.AudioText,
+	}
+	for _, ent := range r.Entities {
+		e.Entities = append(e.Entities, EpisodicEntityAPI{
+			ID:         ent.ID,
+			Label:      ent.Label,
+			Type:       ent.Type,
+			Confidence: ent.Confidence,
+		})
+	}
+	for _, rel := range r.MultiRels {
+		e.MultiRels = append(e.MultiRels, EpisodicMultiRelAPI{
+			AudioSeg:   rel.AudioSeg,
+			TextHint:   rel.TextHint,
+			Confidence: rel.Confidence,
+			Overlap:    len(rel.Overlap),
+		})
+	}
+	return e
+}
+
+// parseEpisodicHTTPTime interpreta since/until do query string (RFC3339 ou
+// YYYY-MM-DD). Retorna erro para formatos não reconhecidos.
+func parseEpisodicHTTPTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", raw); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("unrecognized time format %q (use RFC3339 or YYYY-MM-DD)", raw)
 }
 
 // Stats handles GET /v1/memory/stats
