@@ -1259,3 +1259,18 @@
 - CLI: cosca memory episodic (--since/--until/--query/--modality/--limit). REST: GET /v1/memory/episodic (nil-safe 503).
 - PRIVACIDADE: persiste SO representacao (texto/entidades/relacoes), NUNCA frame bruto (tela e sensivel) - documentado como politica.
 - STATUS: O CICLO DO PROFESSOR ESTA COMPLETO: VISao + OUVIR (STT PT-BR + mic) + FALAR (TTS PT-BR) + SINCRONIZAR (bus) + LEMBRAR (memoria episodica). Tudo nativo Go, sem Python/http://internet.
+
+## 2026-08-31 - BENCHMARK REVELOU O LIMITE REAL da visao (e o wiring nao estava morto)
+- ACHADO CHAVE (AI Chief): o Perception Loop NO serve NAO estava morto — ele RODA. O 'ticks=0' era ARTEFATO de observabilidade: (1) a 1a frame demora ~5-10s (carrega ~1.1GB de ONNX); (2) a janela de metricas (5s) era MENOR que a latencia por frame (~3.5s quente/7s frio) -> ticks/fps oscilavam a 0; (3) degraded=True = so o modelo SAM ausente (degradacao elegante, nao falha).
+- LIMITE REAL da visao em CPU: ~3.5-7s por frame -> vision_fps ~0.14-0.28. CLIP+GroundingDINO+Depth em CPU e LENTO (isso e o limite fisico que o professor queria descobrir). nao roda em FPS alto por CPU.
+- WIRING NAO estava quebrado: o serve usa config.Load() (user config BASE + project config OVERRIDE via Paths.Project); o CLI usa loadConfig() (so project). Divergencia de doc, nao bug. O serve le perception.enabled=true + mode=normal (project override).
+- FIX aplicado (janela adaptativa no metrics.go): windowLen = max(5s, 2*avgLatency), teto 60s -> state reporta ticks/fps ESTAVEL em pipeline lento (antes oscilava a 0).
+- PENDENCIA: obter modelo SAM2 (sam2_hiera_large.onnx) p/ eliminar degraded (o professor mediria FPS de pipeline parcialmente degradado). Otimizacao p/ FPS maior: GPU (CUDA) em vez de CPU, ou modelo menor (GroundingDINO é 'absurdamente mais pesado que YOLO' - professor).
+
+## 2026-08-31 - FASE 1: o cerebro do COSCA usa os sentidos (percepcao -> deliberacao)
+- OBJETIVO: ligar a percepcao multimodal ao CEREBRO (modelo qwen3:8b via Ollama) em vez de template. O COSCa passa a RESPONDER COM INTELIGENCIA baseado no que ve/ouve/lembra.
+- IMPLEMENTADO: internal/cli/voice_chat_deliberate.go - respondWithDeliberation(ctx, state *bus.WorldState, utterance, memoryHints) (string, error). Monta o prompt perceptual (visao entities/summary + transcricao audio + memoria episodica QueryEpisodic + pergunta do Don) e chama o modelo. FALLBACK: sem cerebro/modelo falha/timeout -> responde com o template antigo (respondFromWorldState) - degradacao graciosa, nunca quebra.
+- buildVoiceBrain: reusa o pipeline de chat existente (chat.NewChatRegistry + RegisterChatProviders + registry.Select, igual a cosca chat); cnfig provider.name=ollama, model=qwen3:8b, timeout, temperature. Sem provider -> cerebro disabled (nao fatal).
+- CONECTADO no voice_chat_sherpa.go: runVoiceChatLoop agora chama respondWithDeliberation (com memoryHints da memoria episodica) e fala via TTS.
+- VERIFICACAO: build default exit 0, build -tags stt_sherpa exit 0, vet exit 0, 6 testes PASS (NoBrain/BrainSmart/BrainFails/BrainEmptyContent/BuildPerceptualPrompt).
+- VALOR: o COSCa deixa de ser 'relator de objetos' e vira um cerebro que PENSA com os sentidos (usa percepcao + memoria). Fase 1 do plano (percepcao->deliberacao->acao).
