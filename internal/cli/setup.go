@@ -120,5 +120,13 @@ func provisionPhases() []installer.Phase {
 			},
 			NextState: installer.StateDepsReady,
 		},
+		{
+			ID:   "ai",
+			Name: "AI / Embedding provisioning",
+			Checks: []installer.Check{
+				&aiProvisionCheck{},
+			},
+			NextState: installer.StateAIReady,
+		},
 	}
 }
