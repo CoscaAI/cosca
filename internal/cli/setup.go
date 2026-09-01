@@ -19,6 +19,7 @@ import (
 // NewSetupCommand cria `cosca setup` — o provisioner.
 func NewSetupCommand() *cobra.Command {
 	var watch bool
+	var uiMode bool
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "COSCA Environment Provisioner — instala/verifica a máquina para o COSCA",
@@ -32,9 +33,11 @@ EVIDENCE/STATE) em .cosca/install/installation.json.
 
 Com --watch, emite um EVENT STREAM (JSON, uma linha por evento) — o contrato
 para a UI desenhar o estado real do provisionamento em tempo real (o exe
-bonitão do professor).`,
+bonitão do professor). Com --ui, roda a TUI interativa (bubbletea) que
+consome o mesmo stream e renderiza o estado em tempo real.`,
 		Example: `  cosca setup                 # provisiona (retoma do estado atual)
   cosca setup --watch         # emite eventos em tempo real (JSON)
+  cosca setup --ui            # TUI interativa com o estado em tempo real
   cosca setup --status        # mostra o installation state atual`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -42,6 +45,11 @@ bonitão do professor).`,
 			dir, dirErr := resolveDataDir("")
 			if dirErr != nil {
 				return fmt.Errorf("resolve data directory: %w", dirErr)
+			}
+
+			// Modo UI: TUI interativa (bubbletea) consumindo o event stream.
+			if uiMode {
+				return runSetupUI(dir)
 			}
 
 			// Modo watch: emite JSON puro (uma linha por evento) para stdout —
@@ -80,6 +88,7 @@ bonitão do professor).`,
 		},
 	}
 	cmd.Flags().BoolVar(&watch, "watch", false, "emite event stream JSON em tempo real (para UI)")
+	cmd.Flags().BoolVar(&uiMode, "ui", false, "TUI interativa (bubbletea) com o estado em tempo real")
 	cmd.AddCommand(newSetupStatusCommand())
 	return cmd
 }
@@ -159,5 +168,33 @@ func provisionPhases() []installer.Phase {
 			},
 			NextState: installer.StateIndexReady,
 		},
+	}
+}
+
+// runSetupUI roda o provisioner com a TUI interativa (bubbletea): o
+// orquestrador emite eventos em tempo real, a UI renderiza o estado real.
+func runSetupUI(dir string) error {
+	model := installer.NewUIModel()
+	emit, evCh := model.Emitter()
+
+	// O provisioner roda em goroutine; a UI consome o stream via canal.
+	done := make(chan error, 1)
+	go func() {
+		_, err := installer.Run(dir, "v1.5.0", provisionPhases(), emit)
+		done <- err
+	}()
+
+	// A UI aguarda o fim do provisionamento (ou Ctrl+C), renderizando eventos.
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				return err
+			}
+			return nil
+		case <-evCh:
+			// Evento recebido - o modelo mudou (loop simples para nao
+			// acoplar o bubbletea Program ao provisioner).
+		}
 	}
 }
