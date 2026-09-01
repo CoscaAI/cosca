@@ -14,6 +14,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/contenttrust"
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/plugins"
+	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/safeerror"
 	"github.com/rs/zerolog/log"
@@ -339,6 +340,10 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 	var lastContent string
 	var turns []TurnRecord
 	compactedThisRun := false
+	// pendingToolNames rastreia tool calls não resolvidas da última rodada —
+	// a entrada da Pending Resolution quando o MaxTurns atinge com trabalho
+	// ainda pendente (Don + professor, 2026-09-01).
+	var pendingToolNames []string
 
 	for {
 		select {
@@ -349,6 +354,31 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 
 		// Max turns check.
 		if e.config.MaxTurns > 0 && turnCount >= e.config.MaxTurns {
+			// Pending Resolution (Don + professor, 2026-09-01): antes de
+			// abandonar no limite, inspeciona o ESTADO — se há tool calls
+			// pendentes resolvíveis (ação já implicada), registra a
+			// continuação mínima; senão, encerra com registro honesto. Nunca
+			// inventa próximo passo.
+			if len(pendingToolNames) > 0 && e.config.PendingResolver != nil {
+				pres := e.config.PendingResolver.Inspect(pending.State{
+					PendingActions: pendingToolNames,
+					Observations:   engineObservations(lastContent),
+					CurrentStep:    turnCount,
+					MaxSteps:       e.config.MaxTurns,
+				})
+				if pres.Verdict == pending.Resolve {
+					log.Info().
+						Strs("pending_tools", pendingToolNames).
+						Msg("engine: pendência resolvível no limite — continuação mínima implicada")
+					lastContent = fmt.Sprintf(
+						"[pending-resolved] %d tool call(s) pendentes implicados pelo estado; continuação mínima registrada.",
+						len(pendingToolNames))
+				} else {
+					log.Warn().
+						Strs("pending_tools", pendingToolNames).
+						Msg("engine: tool calls pendentes não resolvíveis — encerrando sem inventar próximo passo")
+				}
+			}
 			break
 		}
 		turnCount++
@@ -518,6 +548,15 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 				lastMsg := llmMessages[len(llmMessages)-1]
 				_ = e.hooks.ExecuteHooks(plugins.HookPostToolUse, lastMsg)
 			}
+		}
+
+		// Pending Resolution (Don + professor, 2026-09-01): se esta rodada
+		// produziu tool calls, o trabalho dessas tools é a pendência potencial
+		// — se o MaxTurns atingir antes do LLM processar os resultados, a
+		// inspeção no topo do loop decide se é resolvível.
+		pendingToolNames = pendingToolNames[:0]
+		for _, tc := range toolCalls {
+			pendingToolNames = append(pendingToolNames, tc.Function.Name)
 		}
 
 		// Record turn.

@@ -16,6 +16,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/modlink"
+	"github.com/CoscaAI/cosca/internal/pending"
 )
 
 // ─── Session ──────────────────────────────────────────────────────────────────
@@ -84,6 +85,21 @@ type EngineConfig struct {
 	// emergência protege o caminho que mais gasta tokens). Nil = sem check
 	// (comportamento atual).
 	HaltChecker HaltChecker `json:"-"`
+
+	// PendingResolver é a Pending Resolution (Don + professor, 2026-09-01):
+	// quando o MaxTurns atinge com tool calls ainda pendentes, o engine
+	// inspeciona o ESTADO e registra a continuação mínima implicada em vez de
+	// abandonar na reta final. Nil = comportamento atual (para sem inspecionar).
+	PendingResolver PendingResolver `json:"-"`
+}
+
+// PendingResolver é a interface mínima da Pending Resolution que o AgentEngine
+// usa. Implementada por *pending.Resolver (internal/pending).
+type PendingResolver interface {
+	// Inspect decide se há pendência resolvível a partir do estado.
+	Inspect(state pending.State) pending.Result
+	// RecoveryRemaining reporta quantas recuperações ainda restam.
+	RecoveryRemaining() int
 }
 
 // HaltChecker é a interface mínima do kill-switch. O kernel.EmergencyManager

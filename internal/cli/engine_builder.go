@@ -28,6 +28,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/models"
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/plugins"
+	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/search"
 	"github.com/CoscaAI/cosca/internal/skills"
 )
@@ -326,6 +327,11 @@ func buildEngineWithModeHalt(modelName string, allowNoProvider bool, haltChecker
 		// Kill-switch do kernel (Etapa 3b): bloqueia chamadas LLM se o
 		// kernel foi haltado (emergência).
 		HaltChecker: haltChecker,
+		// Pending Resolution (Don + professor, 2026-09-01): quando o MaxTurns
+		// atinge com tool calls pendentes, o engine inspeciona o estado e
+		// registra a continuação mínima — "termina o que estava quase
+		// terminado, sem inventar". Recovery limit próprio (2) impede loop.
+		PendingResolver: pending.New(2),
 	}
 	if engineCfg.MaxTurns <= 0 {
 		engineCfg.MaxTurns = 100
