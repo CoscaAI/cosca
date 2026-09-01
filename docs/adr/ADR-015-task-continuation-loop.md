@@ -1,7 +1,7 @@
 # ADR-015: Task Continuation Loop — primitivas neutras de control plane elevadas ao Root
 
-> **Status:** PARTIAL — F1 implementada (2026-09-01, verificado em código) | **Owner:** cosca-architecture | **Last Updated:** 2026-09-01
-> **Revisão:** F1 (primitiva neutra) implementada em `internal/task` + `internal/orchestrator` (TaskContinuationLoop, sem persistência — estado em memória). F2–F5 pendentes: `task.TaskRepository` é um contrato sem implementação concreta (o adapter pode reusar `internal/durable`).
+> **Status:** PARTIAL — F1 implementada + Pending Resolution ativa nos 2 motores (2026-09-01, verificado em código) | **Owner:** cosca-architecture | **Last Updated:** 2026-09-01
+> **Revisão:** F1 (primitiva neutra) implementada em `internal/task` + `internal/orchestrator` (TaskContinuationLoop, sem persistência — estado em memória). Pending Resolution (`internal/pending`) integrada aos 2 motores de execução — `AgentEngine.MaxTurns` e `orchestration.Executor.MaxToolRounds` — ambos inspecionam o estado antes de parar no limite e resolvem pendências implicadas (sem atalho secreto: registram sinal, nunca executam tool direto). Wiring: serve default ON (`COSCA_PENDING_RESOLUTION=false` desliga). F2–F5 pendentes: `task.TaskRepository` é um contrato sem implementação concreta; `internal/orchestrator` (control plane completo do ADR-015) permanece órfão no bootstrap — a resolução conectada diretamente aos motores foi a decisão pragmática do Don+professor.
 > **Referência (campo de prova):** `internal/{task,orchestrator,decision}` do cosca-trader (provado no
 > domínio de trading). **F1** eleva as 3 primitivas NEUTRAS para o Cosca Root
 > (`github.com/CoscaAI/cosca`), como infraestrutura genérica, sem dependência de domínio.
