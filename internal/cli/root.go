@@ -200,6 +200,7 @@ Documentation: https://cosca.enterprise/docs
 		NewDBCommand(),
 		NewRoutesCommand(),
 		NewRecoveryCommand(),
+		NewConfidenceCommand(),
 	)
 
 	return rootCmd
