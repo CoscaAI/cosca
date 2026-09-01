@@ -159,7 +159,16 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		}
 		defer func() { _ = db.Close() }()
 
-		idx, err := buildIndexer(db)
+		// D4 do Plano D: o ORC roteia as escritas para os módulos físicos
+		// quando eles existem (como o serve) — eliminando o 2º ponto de
+		// escrita no monolito. Nil = comportamento histórico (monolito).
+		var qualify func(string) string
+		if ds, dsErr := knowledge.OpenDataSources(coscaDir); dsErr == nil && len(ds.Present()) > 0 {
+			qualify = ds.QualifiedTable
+			defer func() { _ = ds.Close() }()
+		}
+
+		idx, err := buildIndexer(db, qualify)
 		if err != nil {
 			return skipResult("init indexer"), err
 		}
@@ -489,7 +498,11 @@ func openSQLite(path string) (*sql.DB, error) {
 
 // buildIndexer assembles a fully wired indexer.Indexer on top of the given
 // (already open and migrated) database.
-func buildIndexer(db *sqlite.DB) (*indexer.Indexer, error) {
+// buildIndexer monta o indexer do ORC. `qualify` (opcional) roteia as tabelas
+// para os módulos físicos do corte (Plano D D3): quando não-nil, o ORC escreve
+// NOS MÓDULOS (core/graph/projects) como o serve — eliminando o 2º ponto de
+// escrita no monolito (D4). Nil preserva o comportamento histórico.
+func buildIndexer(db *sqlite.DB, qualify func(string) string) (*indexer.Indexer, error) {
 	cfg := indexer.DefaultConfig()
 	// Only index text content so binaries (knowledge.db, WAL files, …) are
 	// never treated as documents during the rebuild.
@@ -511,9 +524,14 @@ func buildIndexer(db *sqlite.DB) (*indexer.Indexer, error) {
 	fts := sqlite.NewFTSClient(db)
 	g := graph.New()
 
+	opts := []func(*indexer.Indexer){}
+	if qualify != nil {
+		opts = append(opts, indexer.WithQualifier(qualify))
+	}
 	return indexer.New(
 		cfg, mdParser, entityParser, chunker,
 		embRegistry, vecStore, fts, db, graph.NewBuilder(g),
+		opts...,
 	), nil
 }
 

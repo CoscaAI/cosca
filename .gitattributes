@@ -1,0 +1,4 @@
+
+# Embed canonical LF (chain assina com LF; autocrlf quebraria)
+internal/embed/cosca/** text eol=lf
+
