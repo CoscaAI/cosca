@@ -31,6 +31,8 @@ import (
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/orchestrator"
+	"github.com/CoscaAI/cosca/internal/task"
 	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	rt "github.com/CoscaAI/cosca/internal/runtime"
@@ -135,6 +137,23 @@ type Config struct {
 	// limite com trabalho pendente, o executor inspeciona o ESTADO e resolve a
 	// continuação mínima implicada em vez de abandonar na reta final.
 	PendingResolution PendingResolutionConfig
+
+	// TaskOrchestrator configura o TaskOrchestrator (ADR-015): quando
+	// Enabled, o bootstrap instancia o control plane com o TaskRepository
+	// SQLStore (F2) + Pending Resolution + watchdog — fechando o ciclo que a
+	// auditoria marcou como "orchestrator órfão no bootstrap".
+	TaskOrchestrator TaskOrchestratorConfig
+}
+
+// TaskOrchestratorConfig configura o TaskOrchestrator (ADR-015) no bootstrap.
+type TaskOrchestratorConfig struct {
+	// Enabled liga o control plane no bootstrap. Fail-closed: false = não
+	// instancia (comportamento atual preservado bit-for-bit).
+	Enabled bool
+	// MaxContinue é o teto de continuações sem o Don (default 5).
+	MaxContinue int
+	// MaxPendingRecovery é o teto próprio da Pending Resolution (default 2).
+	MaxPendingRecovery int
 }
 
 // ContextCompilerConfig configura o Context Compiler (ADR-035 F6) no serve.
@@ -194,6 +213,12 @@ type Result struct {
 	Runner pipeline.Runner
 	// Orchestrator is the shared orchestration engine.
 	Orchestrator orchestration.Orchestrator
+
+	// TaskOrchestrator é o control plane do ADR-015. Não-nil quando
+	// cfg.TaskOrchestrator.Enabled — fecha o ciclo F1-F3 (TaskContinuationLoop
+	// + SQLStore persistente + Pending Resolution + watchdog). Nil preserva o
+	// comportamento atual (órfão documentado).
+	TaskOrchestrator *orchestrator.TaskOrchestrator
 
 	// ── Pipeline components (nil when Pipeline.Enabled=false) ─────────
 	// Planner decomposes user intent into executable task graphs.
@@ -588,6 +613,35 @@ func Compose(cfg Config) (*Result, error) {
 	res.Services = RegisterEngines(res)
 	cfg.Logger.Info().Str("services", res.Services.String()).
 		Msg("declarative service registry initialized")
+
+	// ── TaskOrchestrator (ADR-015 control plane) ───────────────────────
+	// Fechava o ciclo da auditoria: o control plane existia mas NUNCA era
+	// instanciado (órfão no bootstrap). Com Enabled, monta o TaskContinuationLoop
+	// com o TaskRepository SQLStore (F2) + Pending Resolution + watchdog.
+	// Fail-closed: false (default) preserva o comportamento atual.
+	if cfg.TaskOrchestrator.Enabled {
+		repo, repoErr := task.NewSQLStore(filepath.Join(cfg.DataDir, "tasks.db"))
+		if repoErr != nil {
+			return res, fmt.Errorf("task repository (ADR-015 F2): %w", repoErr)
+		}
+
+		maxContinue := cfg.TaskOrchestrator.MaxContinue
+		if maxContinue <= 0 {
+			maxContinue = 5 // default do orquestrador
+		}
+		recovery := cfg.TaskOrchestrator.MaxPendingRecovery
+		if recovery <= 0 {
+			recovery = 2
+		}
+
+		tc := orchestrator.New(orchestrator.Config{MaxContinue: maxContinue},
+			orchestrator.WithRepository(repo),
+			orchestrator.WithPendingResolver(recovery),
+		)
+		res.TaskOrchestrator = tc
+		cfg.Logger.Info().Int("max_continue", maxContinue).
+			Msg("task orchestrator (ADR-015) initialized with SQLStore")
+	}
 
 	return res, nil
 }

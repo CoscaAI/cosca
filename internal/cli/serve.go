@@ -504,6 +504,15 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 			Enabled:       os.Getenv("COSCA_PENDING_RESOLUTION") != "false",
 			RecoverySteps: 2,
 		},
+		// TaskOrchestrator (ADR-015): o control plane com persistência
+		// (SQLStore F2) + Pending Resolution + watchdog — fecha o ciclo que a
+		// auditoria marcou como "órfão no bootstrap". Habilita por padrão;
+		// desliga com COSCA_TASK_ORCHESTRATOR=false.
+		TaskOrchestrator: bootstrap.TaskOrchestratorConfig{
+			Enabled:    os.Getenv("COSCA_TASK_ORCHESTRATOR") != "false",
+			MaxContinue: 5,
+			MaxPendingRecovery: 2,
+		},
 		Pipeline: bootstrap.PipelineConfig{
 			Enabled: *pipelineEnable,
 		},
