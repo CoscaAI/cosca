@@ -86,6 +86,10 @@ type OrchestratorConfig struct {
 	// roda sem execução de tools. É a ÚNICA fonte de execução de ferramentas.
 	ToolRunner ToolRunner
 
+	// HaltChecker é o kill-switch do kernel (Etapa 3b). Quando não-nil, o
+	// executor bloqueia chamadas LLM se o kernel foi haltado.
+	HaltChecker HaltChecker
+
 	// DeliberateConfig configures the Kernel-First Deliberation stage
 	// (ADR-032). When Enabled is false (the default, fail-closed / LEI DO
 	// COFRE), the stage is a no-op and the flow is EXACTLY the current one.
@@ -181,6 +185,9 @@ func NewEngine(
 		if config.Budget != nil {
 			executorCfg.Budget = config.Budget
 		}
+		// Kill-switch do kernel (Etapa 3b): o executor bloqueia chamadas LLM
+		// se o kernel foi haltado.
+		executorCfg.HaltChecker = config.HaltChecker
 		// O executor de ferramentas é INJETADO (ToolRunner sobre o executor
 		// canônico chat/executor com sandbox+policy+permission+level). Quando
 		// nil, o Executor roda sem execução de tools (o caminho de conhecimento/

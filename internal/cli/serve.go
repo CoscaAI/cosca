@@ -279,6 +279,7 @@ func runServeProvider(provider *string, host *string, port, metricsPort *int, co
 			authRes.store, authRes.apiKey, authRes.jwtSecret, authRes.tokens,
 			stores.audit, stores.secrets, stores.trace, stores.department,
 			runtimeClient, deterministic, boot, eng.searchMode, eng.deliberateCfg,
+			eng.emergency,
 			eng.perceptionSvc,
 			eng.busSvc,
 			eng.episodicSink,
@@ -304,7 +305,11 @@ type serveEngineResult struct {
 	ke            *knowledge.Engine
 	mem           *memory.MemoryEngine
 	rt            *runtime.Runtime
-	// searchMode é o modo de busca da config ("legacy" | "modular") — FASE 1
+	// emergency é o kill-switch do kernel (Etapa 3b), criado ANTES do Compose
+	// e reusado pelo serveStartServers — o MESMO emergencyMgr protege o
+	// orchestration (via bootstrap) e o servidor REST.
+	emergency *kernel.EmergencyManager
+	// searchMode é o modo de busca da config ("legacy" | "modular") - FASE 1
 	// routing/scope. Vazio = legacy (comportamento atual).
 	searchMode string
 	// deliberateCfg é a configuração da Kernel-First Deliberation (ADR-032)
@@ -462,6 +467,12 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		}
 	}
 
+	// Kill-switch do kernel (Etapa 3b): criado ANTES do Compose para fluir ao
+	// orchestration (via Config.HaltChecker) e ao servidor REST (via
+	// serveStartServers) — o MESMO emergencyMgr protege todos os caminhos LLM
+	// do serve (REST /v1/run + pipeline + run).
+	emergencyMgr := kernel.NewEmergencyManager()
+
 	boot, bootErr := bootstrap.Compose(bootstrap.Config{
 		DataDir:             dir,
 		Logger:              logger,
@@ -476,6 +487,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		WatchFrameworkDir:   watchFrameworkDir,
 		WorkspaceDir:        workspaceDir(),
 		DeliberateConfig:    deliberateCfg,
+		HaltChecker:         emergencyMgr,
 		Pipeline: bootstrap.PipelineConfig{
 			Enabled: *pipelineEnable,
 		},
@@ -533,6 +545,7 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		ke:            boot.Knowledge,
 		mem:           boot.Memory,
 		rt:            boot.Runtime,
+		emergency:     emergencyMgr,
 		searchMode:    embeddingSearchMode,
 		deliberateCfg: deliberateCfg,
 		perceptionCfg: perceptionCfg,
@@ -874,6 +887,7 @@ func serveStartServers(
 	boot *bootstrap.Result,
 	searchMode string,
 	deliberateCfg orchestration.DeliberateConfig,
+	emergencyMgr *kernel.EmergencyManager,
 	perceptionSvc *perception.Service,
 	busSvc *bus.Bus,
 	episodicSink *bus.MemorySink,
@@ -891,7 +905,12 @@ func serveStartServers(
 	wsAllowedOrigins *string,
 	pipelineEnable *bool,
 ) *serveServerResult {
-	emergencyMgr := kernel.NewEmergencyManager()
+	// O emergencyMgr vem do serveComposeEngines (Etapa 3b) — o MESMO que
+	// protege o orchestration via bootstrap. Aqui só configuramos o shutdown
+	// hook e o passamos ao servidor REST.
+	if emergencyMgr == nil {
+		emergencyMgr = kernel.NewEmergencyManager()
+	}
 	emergencyCh := make(chan string, 1)
 	emergencyMgr.SetShutdownFn(func(reason string) {
 		select {

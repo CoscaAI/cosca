@@ -115,6 +115,11 @@ type Config struct {
 	// the legacy orchestration path bit-for-bit. Only an explicit
 	// enabled:true in config turns the stage on.
 	DeliberateConfig orchestration.DeliberateConfig
+
+	// HaltChecker é o kill-switch do kernel (Etapa 3b). Quando não-nil, o
+	// orchestration (via serve/run) bloqueia chamadas LLM se o kernel foi
+	// haltado — o botão de emergência cobre o caminho do servidor.
+	HaltChecker orchestration.HaltChecker
 }
 
 // NewDefaultConfig returns a Config with safe defaults suitable for
@@ -448,6 +453,7 @@ func Compose(cfg Config) (*Result, error) {
 			ChatProvider:    chat.GetRegistry(),
 			Config:          orchConfig,
 			WorkspaceDir:    cfg.WorkspaceDir,
+			HaltChecker:     cfg.HaltChecker,
 		})
 		res.Orchestrator = orchEngine
 		res.Runner = pipeline.NewOrchAdapter(orchEngine)

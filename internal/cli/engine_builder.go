@@ -50,6 +50,13 @@ func buildEngine(modelName string) (*engine.AgentEngine, error) {
 // (modo interativo), o engine é construído mesmo sem provider — o Don
 // configura o modelo dentro da interface. O `cosca exec` usa false.
 func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentEngine, error) {
+	return buildEngineWithModeHalt(modelName, allowNoProvider, nil)
+}
+
+// buildEngineWithModeHalt é a variante que injeta o kill-switch do kernel
+// (Etapa 3b): quando o HaltChecker não-nil, o engine bloqueia chamadas LLM se
+// o kernel foi haltado.
+func buildEngineWithModeHalt(modelName string, allowNoProvider bool, haltChecker engine.HaltChecker) (*engine.AgentEngine, error) {
 	workspace, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("get workspace: %w", err)
@@ -316,6 +323,9 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 		MaxTurns:    cfg.Session.MaxTurns,
 		Temperature: engine.DefaultTemperature,
 		Ephemeral:   !cfg.Session.AutoSave,
+		// Kill-switch do kernel (Etapa 3b): bloqueia chamadas LLM se o
+		// kernel foi haltado (emergência).
+		HaltChecker: haltChecker,
 	}
 	if engineCfg.MaxTurns <= 0 {
 		engineCfg.MaxTurns = 100

@@ -63,6 +63,19 @@ type ExecutorConfig struct {
 	// ceiling. When nil, a conservative default rate is used (see
 	// defaultEstimateCost).
 	EstimateCost CostEstimator
+
+	// HaltChecker é o kill-switch do kernel (interface mínima IsHalted).
+	// Quando não-nil, o executor verifica ANTES de cada chamada LLM — se o
+	// kernel foi haltado, a chamada é bloqueada com erro claro. Nil = sem
+	// check (comportamento atual).
+	HaltChecker HaltChecker
+}
+
+// HaltChecker é a interface mínima do kill-switch. O kernel.EmergencyManager
+// a satisfaz — o orchestration conhece apenas a interface, sem depender do
+// kernel.
+type HaltChecker interface {
+	IsHalted() bool
 }
 
 // CostEstimator computes the estimated USD cost of a single LLM chat response
@@ -116,6 +129,13 @@ type Executor struct {
 	// stalls optionally records provider stall/retry events so a run can be
 	// compared with a healthy one (timeouts, retries, recoveries). May be nil.
 	stalls *stallwatch.Collector
+}
+
+// haltBlocked reporta se o kill-switch do kernel foi acionado (Etapa 3b).
+// O Executor não depende do kernel — apenas da interface mínima HaltChecker
+// injetada via ExecutorConfig.
+func (e *Executor) haltBlocked() bool {
+	return e.config.HaltChecker != nil && e.config.HaltChecker.IsHalted()
 }
 
 // SetStallCollector attaches (or detaches, with nil) the stall-event collector
@@ -459,6 +479,17 @@ func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventC
 	// 5. Build ChatOptions with stream=true.
 	opts := e.buildChatOptions(ctx, pc.Data)
 	opts.Stream = true
+
+	// Kill-switch guard (Etapa 3b): kernel haltado → bloqueia o streaming
+	// antes de abrir a chamada.
+	if e.haltBlocked() {
+		info := safeError("kernel_halted", fmt.Errorf("kernel haltado (kill-switch acionado) — execução bloqueada"))
+		e.emitEvent(eventCh, StreamEvent{
+			Type:    StreamEventError,
+			Content: safeErrorMessage(info.Code), Metadata: safeErrorEvent(info.Code, fmt.Errorf("kernel halted")),
+		})
+		return pc, nil
+	}
 
 	// 6. Open the chat stream. This is the only synchronous I/O; the rest
 	//    runs in the background goroutine.
@@ -909,6 +940,12 @@ func (e *Executor) chatWithRetry(ctx context.Context, messages []chat.Message, o
 		if err := ctx.Err(); err != nil {
 			atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
 			return nil, safeContextError("chat_context_cancelled", err)
+		}
+
+		// Kill-switch guard (Etapa 3b): kernel haltado → nenhuma chamada LLM.
+		if e.haltBlocked() {
+			atomic.StoreInt64(&e.lastAttemptCount, attemptCount)
+			return nil, safePublicError("chat", "kernel_halted", fmt.Errorf("kernel haltado (kill-switch acionado) — execução bloqueada"))
 		}
 
 		// Create a per-attempt context with the configured timeout.

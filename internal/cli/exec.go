@@ -10,6 +10,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/engine"
+	"github.com/CoscaAI/cosca/internal/kernel"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 )
 
@@ -46,7 +47,12 @@ func NewExecCommand() *cobra.Command {
 			clearSession, _ := cmd.Flags().GetBool("clear-session")
 			agentName, _ := cmd.Flags().GetString("agent")
 
-			eng, err := buildEngine(model)
+			// Kill-switch do kernel (Etapa 3b): o `cosca exec` cria o seu
+			// EmergencyManager e o injeta no engine — se o Don acionar o
+			// kill-switch, a execução em andamento para de chamar o LLM.
+			// (O serve tem o seu próprio; o exec é um processo standalone.)
+			emergencyMgr := kernel.NewEmergencyManager()
+			eng, err := buildEngineWithModeHalt(model, false, emergencyMgr)
 			if err != nil {
 				return err
 			}

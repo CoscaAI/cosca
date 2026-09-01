@@ -24,6 +24,9 @@ type FactoryConfig struct {
 	// WorkspaceDir is the root directory for tool execution. When set, the
 	// engine wires a ToolExecutor (search_codebase, read_file, etc.).
 	WorkspaceDir string
+	// HaltChecker é o kill-switch do kernel (Etapa 3b). Quando não-nil, o
+	// executor do orchestration bloqueia chamadas LLM se o kernel foi haltado.
+	HaltChecker HaltChecker
 }
 
 // NewFactory creates an orchestration Engine from a FactoryConfig struct.
@@ -32,6 +35,7 @@ type FactoryConfig struct {
 func NewFactory(cfg FactoryConfig) *Engine {
 	cfg.Config.WorkspaceDir = cfg.WorkspaceDir
 	cfg.Config.ShadowStore = cfg.ShadowStore
+	cfg.Config.HaltChecker = cfg.HaltChecker
 	eng := NewEngine(
 		cfg.Knowledge, cfg.MemoryRetriever, cfg.MemoryStorer,
 		cfg.AgentResolver, cfg.SkillResolver, cfg.ChatProvider,

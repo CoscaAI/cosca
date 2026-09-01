@@ -77,6 +77,19 @@ type EngineConfig struct {
 	// current behavior unchanged). When set, the engine checks CanCall before
 	// each model call and records tokens/time/cost after each one.
 	Budget *CognitiveBudget `json:"budget,omitempty"`
+
+	// HaltChecker é o kill-switch do kernel (interface mínima IsHalted).
+	// Quando não-nil, o engine verifica ANTES de cada chamada LLM — se o
+	// kernel foi haltado, a chamada é bloqueada com erro claro (o botão de
+	// emergência protege o caminho que mais gasta tokens). Nil = sem check
+	// (comportamento atual).
+	HaltChecker HaltChecker `json:"-"`
+}
+
+// HaltChecker é a interface mínima do kill-switch. O kernel.EmergencyManager
+// a satisfaz — o engine conhece apenas a interface, sem depender do kernel.
+type HaltChecker interface {
+	IsHalted() bool
 }
 
 // ─── Engine Result ────────────────────────────────────────────────────────────

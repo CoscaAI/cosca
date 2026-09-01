@@ -366,6 +366,14 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 				"budget cognitivo estourado (tokens/tempo/custo)", budgetTracker, turns...), nil
 		}
 
+		// Kill-switch guard (Etapa 3b): se o kernel foi haltado (emergência),
+		// NENHUMA chamada LLM acontece — o botão do Don protege o caminho que
+		// mais gasta tokens. Verificado a cada turno, junto do budget.
+		if e.config.HaltChecker != nil && e.config.HaltChecker.IsHalted() {
+			return e.buildResult(lastContent, llmMessages, totalUsage, turnCount, sessionID,
+				"kernel haltado (kill-switch acionado) — execução bloqueada", budgetTracker, turns...), nil
+		}
+
 		// LLM call.
 		resp, err := e.provider.Chat(ctx, llmMessages, opts)
 		if err != nil {
@@ -685,6 +693,18 @@ func (e *AgentEngine) RunStream(ctx context.Context, userInput string, history [
 				if !emit(EngineEvent{
 					Type:  EngineEventError,
 					Error: errors.New("budget cognitivo estourado (tokens/tempo/custo)"),
+				}) {
+					return
+				}
+				return
+			}
+
+			// Kill-switch guard (Etapa 3b): kernel haltado → bloqueia o
+			// streaming antes de abrir a chamada.
+			if e.config.HaltChecker != nil && e.config.HaltChecker.IsHalted() {
+				if !emit(EngineEvent{
+					Type:  EngineEventError,
+					Error: errors.New("kernel haltado (kill-switch acionado) — execução bloqueada"),
 				}) {
 					return
 				}
