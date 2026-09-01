@@ -130,6 +130,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"vision",
 		"recovery",
 		"confidence",
+		"setup",
 	}
 
 	for _, name := range expected {
