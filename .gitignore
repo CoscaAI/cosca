@@ -17,6 +17,10 @@
 .cosca/graph.db
 .cosca/vector.db
 .cosca/fts.db
+.cosca/core.db
+# Módulos derivados do split físico (ADR-013 Fase C): reconstruíveis via
+# `cosca db build` — NUNCA versionados (a fonte é o knowledge.db).
+.cosca/vector-*.db
 
 # Fase C ADR-030 — state CoW derivado do KnowledgeFS (reconstruível via
 # `cosca knowledge snapshot`, NÃO é fonte). manifest.yaml/lock.yaml (a fonte)
@@ -30,6 +34,10 @@
 
 # ADR-033 Fase 0 — Cognitive Shadow Mode (registro contrafactual, runtime derivado)
 .cosca/shadow/
+
+# Artefatos de fetch em quarentena (dados externos não-confiáveis) — runtime,
+# nunca versionar. A memória da família (.cosca/memory/...) É versionada.
+.cosca/quarantine/
 
 # Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
 *.db-wal
