@@ -11,6 +11,7 @@ package cli
 import (
 	"fmt"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/installer"
@@ -171,30 +172,32 @@ func provisionPhases() []installer.Phase {
 	}
 }
 
-// runSetupUI roda o provisioner com a TUI interativa (bubbletea): o
-// orquestrador emite eventos em tempo real, a UI renderiza o estado real.
+// runSetupUI roda o provisioner com a TUI premium (bubbletea): o orquestrador
+// emite eventos em tempo real e o Program renderiza cada frame (spinner
+// animado + barra de progresso real). A animação nunca é falsa.
 func runSetupUI(dir string) error {
 	model := installer.NewUIModel()
 	emit, evCh := model.Emitter()
 
-	// O provisioner roda em goroutine; a UI consome o stream via canal.
+	p := tea.NewProgram(model)
+
+	// O provisioner roda em goroutine; cada evento é enviado ao Program.
 	done := make(chan error, 1)
 	go func() {
 		_, err := installer.Run(dir, "v1.5.0", provisionPhases(), emit)
 		done <- err
 	}()
 
-	// A UI aguarda o fim do provisionamento (ou Ctrl+C), renderizando eventos.
-	for {
-		select {
-		case err := <-done:
-			if err != nil {
-				return err
-			}
-			return nil
-		case <-evCh:
-			// Evento recebido - o modelo mudou (loop simples para nao
-			// acoplar o bubbletea Program ao provisioner).
+	// Ponte: eventos do orquestrador → tea.Msg do Program.
+	go func() {
+		for msg := range evCh {
+			p.Send(msg)
 		}
+	}()
+
+	// Roda a TUI até o provisioner terminar.
+	if _, err := p.Run(); err != nil {
+		return err
 	}
+	return <-done
 }

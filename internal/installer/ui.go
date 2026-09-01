@@ -1,11 +1,14 @@
-﻿// Package installer â€” UI do provisioner (versÃ£o terminal, TUI bubbletea).
+﻿// Package installer — UI AVANÇADA do provisioner (TUI bubbletea premium).
 //
-// A visÃ£o do professor: "a UI visualiza o que o Provisioner REALMENTE faz".
-// Esta TUI consome o event stream (EmitFunc) e renderiza o estado real em
-// tempo real â€” logo, fases, progresso, certificaÃ§Ã£o. A animaÃ§Ã£o nunca Ã©
-// falsa: cada linha reflete o evento emitido pelo orquestrador.
+// A visão do professor: "a UI visualiza o que o Provisioner REALMENTE faz".
+// Esta TUI premium consome o event stream e renderiza em tempo real com:
+//   - spinner animado na etapa em andamento;
+//   - barra de progresso dinâmica (estado real, não falsa);
+//   - cores por veredito (✓ verde / ⚠ âmbar / ✗ vermelho);
+//   - contador de etapas + estado atual;
+//   - tela de certificação final (COSCA IS READY).
 //
-// A versÃ£o .exe com partÃ­culas Ã© uma evoluÃ§Ã£o desta mesma UI (mesmo contrato).
+// A animação nunca é falsa: cada frame reflete um evento do orquestrador.
 package installer
 
 import (
@@ -13,72 +16,83 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// â”€â”€ estilos (reusa a identidade visual do COSCA) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── estilos (identidade visual do COSCA) ──────────────────────────────────
 
 var (
-	// colorPurple/colorGold seguem o logo do chat/ui.
-	styleLogo = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
+	styleLogo   = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
 	styleAccent = lipgloss.NewStyle().Foreground(lipgloss.Color("178")).Bold(true)
 	styleOK     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	styleWarn   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	styleFail   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	styleDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	styleTitle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
+	styleState  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("45"))
 )
 
-// uiLogo Ã© a arte ASCII do COSCA (simplificada para a TUI).
+// uiLogo é a arte ASCII do COSCA (estilo Kernel).
 const uiLogo = `
-  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—
- â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—
- â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘
- â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â•šâ•â•â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘
- â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘
-  â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â•â• â•šâ•â•â•â•â•â•â•šâ•â•  â•šâ•â•
+  ██████╗ ██████╗ ███████╗ ██████╗ █████╗
+ ██╔════╝██╔═══██╗██╔════╝██╔════╝██╔══██╗
+ ██║     ██║   ██║███████╗██║     ███████║
+ ██║     ██║   ██║╚════██║██║     ██╔══██║
+ ╚██████╗╚██████╔╝███████║╚██████╗██║  ██║
+  ╚═════╝ ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝
 `
 
-// UIModel Ã© o estado da TUI do provisioner.
+// tickMsg dispara o próximo frame do spinner (animação real).
+type tickMsg timeTick
+
+// timeTick evita colisão de nome com o pacote time.
+type timeTick struct{}
+
+// UIModel é o estado da TUI premium do provisioner.
 type UIModel struct {
-	logo    string
-	title   string
-	steps   []string // linha por etapa concluÃ­da (mark + check)
-	current string   // etapa em andamento
-	progress int     // 0..100 (estimado pelas fases)
-	state   State    // installation state atual
-	done    bool
+	logo      string
+	title     string
+	spinner   spinner.Model
+	steps     []string
+	current   string
+	state     State
+	progress  int
+	done      bool
 	certified bool
-	mu      sync.Mutex
+	mu        sync.Mutex
 }
 
-// NewUIModel monta o modelo inicial da TUI do provisioner.
+// NewUIModel monta o modelo inicial (com spinner animado).
 func NewUIModel() *UIModel {
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = styleAccent
 	return &UIModel{
-		logo:  styleLogo.Render(uiLogo),
-		title: styleTitle.Render("COSCA ENVIRONMENT PROVISIONER"),
+		logo:    styleLogo.Render(uiLogo),
+		title:   styleTitle.Render("COSCA ENVIRONMENT PROVISIONER"),
+		spinner: sp,
 	}
 }
 
-// â”€â”€ Consumo do event stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// UIEmitter devolve um EmitFunc que atualiza a TUI a partir dos eventos.
-// A TUI roda em goroutine; o bubbletea Update recebe os eventos via canal.
+// Emitter devolve o EmitFunc + canal de eventos para o orquestrador.
 func (m *UIModel) Emitter() (EmitFunc, chan tea.Msg) {
-	ch := make(chan tea.Msg, 64)
+	ch := make(chan tea.Msg, 128)
 	emit := func(e Event) {
 		select {
 		case ch <- e:
-		default: // buffer cheio â€” descarta (nÃ£o bloqueia o provisioner)
+		default: // buffer cheio — descarta (não bloqueia o provisioner)
 		}
 	}
 	return emit, ch
 }
 
-// â”€â”€ bubbletea contract â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── bubbletea contract ─────────────────────────────────────────────────────
 
-func (m *UIModel) Init() tea.Cmd { return nil }
+func (m *UIModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
 
 func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.mu.Lock()
@@ -87,12 +101,17 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch e := msg.(type) {
 	case Event:
 		m.applyEvent(e)
+		return m, m.spinner.Tick
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	case tea.KeyMsg:
 		if e.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 	}
-	return m, nil
+	return m, m.spinner.Tick
 }
 
 // applyEvent atualiza o modelo a partir de um evento real do provisioner.
@@ -101,22 +120,21 @@ func (m *UIModel) applyEvent(e Event) {
 	case EventStepStarted:
 		m.current = e.Check
 	case EventStepComplete:
-		mark := styleOK.Render("âœ“")
+		mark := styleOK.Render("✓")
 		if e.Result != ResultPass {
-			mark = styleWarn.Render("âš ")
+			mark = styleWarn.Render("⚠")
 		}
-		m.steps = append(m.steps, fmt.Sprintf("  %s %-30s %s",
+		m.steps = append(m.steps, fmt.Sprintf("  %s %-32s %s",
 			mark, e.Check, styleDim.Render(string(e.Result))))
 		m.current = ""
 	case EventStateChanged:
 		m.state = e.State
-		// Progresso estimado: posiÃ§Ã£o do estado na ordem canÃ´nica.
 		m.progress = progressFor(e.State)
 		m.steps = append(m.steps, styleAccent.Render(
-			fmt.Sprintf("  â—† %s â†’ %s", e.FromState, e.State)))
+			fmt.Sprintf("  ◆ %s → %s", e.FromState, e.State)))
 	case EventError:
 		m.steps = append(m.steps, styleFail.Render(
-			fmt.Sprintf("  âœ— %s: %s", e.Check, e.Message)))
+			fmt.Sprintf("  ✗ %s: %s", e.Check, e.Message)))
 	case EventCertified:
 		m.certified = true
 		m.done = true
@@ -124,7 +142,7 @@ func (m *UIModel) applyEvent(e Event) {
 	}
 }
 
-// â”€â”€ RenderizaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Renderização premium ───────────────────────────────────────────────────
 
 func (m *UIModel) View() string {
 	m.mu.Lock()
@@ -132,37 +150,49 @@ func (m *UIModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(m.logo + "\n")
-	b.WriteString(m.title + "\n\n")
+	b.WriteString(m.title + "\n")
 
-	// Estado atual (header).
-	if m.state != "" {
-		b.WriteString(styleAccent.Render("  Estado: " + string(m.state)) + "\n")
+	// Linha de estado + spinner (animação real na etapa em andamento).
+	if m.current != "" {
+		b.WriteString("\n  " + m.spinner.View() + " " +
+			styleState.Render(m.current) + "\n")
+	} else if !m.done {
+		b.WriteString("\n  " + styleDim.Render("○ aguardando etapa...") + "\n")
 	}
 
-	// Etapas concluÃ­das.
-	for _, s := range m.steps {
+	// Estado atual (header com cor).
+	if m.state != "" {
+		b.WriteString("\n  " + styleAccent.Render("ESTADO: "+string(m.state)) + "\n")
+	}
+
+	// Etapas concluídas (últimas 8 para não estourar a tela).
+	start := 0
+	if len(m.steps) > 8 {
+		start = len(m.steps) - 8
+	}
+	b.WriteString("\n")
+	for _, s := range m.steps[start:] {
 		b.WriteString(s + "\n")
 	}
 
-	// Etapa em andamento (com animaÃ§Ã£o do spinner simplificada).
-	if m.current != "" {
-		b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("â—‰"), m.current))
-	}
-
-	// Barra de progresso (estado real, nÃ£o falsa).
+	// Barra de progresso dinâmica (estado real).
 	b.WriteString("\n  " + renderBar(m.progress) + "\n")
 
+	// Contador de etapas.
+	b.WriteString("  " + styleDim.Render(fmt.Sprintf("etapas: %d", len(m.steps))) + "\n")
+
+	// Certificação final.
 	if m.done && m.certified {
-		b.WriteString("\n" + styleAccent.Render("  ðŸ§  COSCA IS READY â€” CERTIFIED") + "\n")
+		b.WriteString("\n" + styleAccent.Render("  🧠 COSCA IS READY — CERTIFIED") + "\n")
 	} else if m.done {
-		b.WriteString("\n" + styleWarn.Render("  Provisionamento interrompido â€” retomÃ¡vel") + "\n")
+		b.WriteString("\n" + styleWarn.Render("  Provisionamento interrompido — retomável") + "\n")
 	}
 
-	b.WriteString(styleDim.Render("\n  ctrl+c para sair (o estado Ã© persistido)"))
+	b.WriteString(styleDim.Render("\n  ctrl+c para sair (o estado é persistido)"))
 	return b.String()
 }
 
-// renderBar desenha uma barra de progresso simples (estado real em %).
+// renderBar desenha a barra de progresso (estado real em %).
 func renderBar(pct int) string {
 	const width = 40
 	if pct < 0 {
@@ -172,11 +202,11 @@ func renderBar(pct int) string {
 		pct = 100
 	}
 	filled := pct * width / 100
-	bar := strings.Repeat("â–ˆ", filled) + strings.Repeat("â–‘", width-filled)
-	return styleAccent.Render("[" + bar + "]") + fmt.Sprintf(" %d%%", pct)
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	return styleAccent.Render("["+bar+"]") + fmt.Sprintf(" %d%%", pct)
 }
 
-// progressFor estima o progresso pela posiÃ§Ã£o do estado na ordem canÃ´nica.
+// progressFor estima o progresso pela posição do estado na ordem canônica.
 func progressFor(s State) int {
 	idx := stateIndex(s)
 	if idx < 0 {
@@ -184,4 +214,3 @@ func progressFor(s State) int {
 	}
 	return idx * 100 / (len(Order) - 1)
 }
-
