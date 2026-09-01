@@ -13,6 +13,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/embeddings"
+	"github.com/CoscaAI/cosca/internal/modlink"
 )
 
 // ─── Knowledge Searcher ──────────────────────────────────────────────────────
@@ -36,6 +37,10 @@ type KnowledgeSearchParams struct {
 
 	// MinScore filters results below this score threshold.
 	MinScore float64 `json:"min_score,omitempty"`
+
+	// Scope, quando não-nil num adapter em modo modular, confina a busca ao
+	// espaço roteado (ADR-013 §3.2). Nil mantém o comportamento atual (legacy).
+	Scope *modlink.SearchScope `json:"scope,omitempty"`
 }
 
 // KnowledgeSearchResult is a lightweight projection of a single knowledge-base
@@ -50,6 +55,10 @@ type KnowledgeSearchResult struct {
 	// PolicyState is optional for legacy providers; explicit quarantine/block is
 	// excluded before the result can reach model context.
 	PolicyState string `json:"policy_state,omitempty"`
+	// Epistemic é a classe epistêmica do item (FACT, MEASURED, EVIDENCE,
+	// INFERRED, RULE, DECISION, PROFILE) — a NATUREZA do conhecimento, usada
+	// para exibir o prefixo ao agente (FASE 4). Empty = não classificada.
+	Epistemic string `json:"epistemic,omitempty"`
 }
 
 // KnowledgeSearchResults bundles search hits with query metadata.
@@ -57,6 +66,15 @@ type KnowledgeSearchResults struct {
 	Results    []KnowledgeSearchResult `json:"results"`
 	TotalCount int                     `json:"total_count"`
 	Query      string                  `json:"query"`
+	// NoRoute é o sinal NO_ROUTE explícito (modo modular): true significa que o
+	// roteador determinístico não encontrou um espaço semântico confiável para a
+	// consulta, então o retrieval foi 0 SEM full-scan. False = rotas conhecidas
+	// (ou busca legacy, que nunca roteou).
+	NoRoute bool `json:"no_route,omitempty"`
+	// Scope é o *modlink.SearchScope decidido pelo roteador (módulos, RouteID,
+	// NoRoute). Populado pelo adapter em modo modular — o "onde" da busca.
+	// Nil em modo legacy.
+	Scope *modlink.SearchScope `json:"scope,omitempty"`
 }
 
 // KnowledgeSearcher searches the knowledge engine for information relevant

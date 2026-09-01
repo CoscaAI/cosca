@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
 	"github.com/CoscaAI/cosca/internal/results"
 	"github.com/CoscaAI/cosca/internal/search"
@@ -28,13 +29,20 @@ type KnowledgeAdapter struct {
 	// Degraded (paridade D6) — ex.: backend opcional offline/fallback de
 	// provider. Não é um error; a operação teve efeito.
 	degradedReason string
+	// resolver/mode (FASE 1 routing/scope, ADR-013 §3.2): quando configurado
+	// com um resolver e o modo `modular`, o adapter roteia a query e confina a
+	// busca ao espaço roteado. Uma rota desconhecida (NoRoute) resulta em 0
+	// resultados + o sinal NoRoute=true — NUNCA um full-scan silencioso. Em
+	// modo `legacy` (default) nada muda.
+	resolver *modlink.Resolver
+	mode     string
 }
 
 // NewKnowledgeAdapter creates a new KnowledgeAdapter backed by the given
 // knowledge engine. The engine must be initialized (Init() called) before
 // searches are performed.
 func NewKnowledgeAdapter(engine *knowledge.Engine) *KnowledgeAdapter {
-	return &KnowledgeAdapter{engine: engine}
+	return &KnowledgeAdapter{engine: engine, mode: search.ModeLegacy}
 }
 
 // SetDegraded marca o adapter como degradado com o motivo informado. Operações
@@ -44,12 +52,44 @@ func (a *KnowledgeAdapter) SetDegraded(reason string) {
 	a.degradedReason = reason
 }
 
+// WithScope configura o adapter para o roteamento determinístico: um resolver
+// (modlink) e o modo (`legacy` ou `modular`). Em modo `modular` com resolver
+// não-nil, a busca passa a ser confinada ao espaço roteado e uma NoRoute nunca
+// faz full-scan. Devolve o próprio adapter para encadeamento.
+func (a *KnowledgeAdapter) WithScope(resolver *modlink.Resolver, mode string) *KnowledgeAdapter {
+	a.resolver = resolver
+	if mode == "" {
+		mode = search.ModeLegacy
+	}
+	a.mode = mode
+	return a
+}
+
 // Search implements orchestration.KnowledgeSearcher. It converts orchestration
 // search parameters to internal search parameters, delegates to the knowledge
 // engine's Search method, and maps the results back to orchestration-level
 // results.
 func (a *KnowledgeAdapter) Search(ctx context.Context, params orchestration.KnowledgeSearchParams) (*orchestration.KnowledgeSearchResults, error) {
 	sp := toSearchParams(params)
+
+	if a.mode == search.ModeModular && a.resolver != nil {
+		var scope *modlink.SearchScope
+		sp, scope = search.ApplyScope(a.resolver, params.Query, sp)
+		if scope.NoRoute {
+			// NUNCA full-scan silencioso: sem espaço semântico confiável →
+			// retrieval 0 + sinal NO_ROUTE explícito.
+			return &orchestration.KnowledgeSearchResults{
+				NoRoute: true,
+				Query:   params.Query,
+				Scope:   scope,
+			}, nil
+		}
+		// FASE B (ADR-013 §3.2): confinar a fase vetorial aos candidatos
+		// permitidos do escopo roteado (nunca full-scan do índice).
+		if cands, cErr := a.engine.RouteCandidateIDs(scope); cErr == nil && len(cands) > 0 {
+			sp.CandidateIDs = cands
+		}
+	}
 
 	sr, err := a.engine.Search(ctx, sp)
 	if err != nil {
@@ -81,6 +121,7 @@ func toSearchParams(p orchestration.KnowledgeSearchParams) search.SearchParams {
 	sp.EnableVector = true
 	sp.EnableGraph = false
 	sp.EnableFacets = false
+	sp.Scope = p.Scope
 
 	if p.Limit > 0 {
 		sp.Limit = p.Limit
@@ -132,5 +173,6 @@ func toOrchSearchResult(r search.SearchResult) orchestration.KnowledgeSearchResu
 		Snippet:      r.Snippet,
 		Score:        r.Score,
 		DocumentPath: r.DocumentPath,
+		Epistemic:    r.Metadata["epistemic"], // FASE 4 — classe epistêmica do item
 	}
 }

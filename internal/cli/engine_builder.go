@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/CoscaAI/cosca/internal/adapter"
 	"github.com/CoscaAI/cosca/internal/chat"
 	chatconfig "github.com/CoscaAI/cosca/internal/chat/config"
 	"github.com/CoscaAI/cosca/internal/chat/executor"
@@ -334,7 +335,8 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to initialize memory engine, memory disabled")
 	} else {
-		memAdapter := engine.NewMemoryEngineAdapter(memEngine)
+		// Adapter canônico (internal/adapter) — o mesmo usado por serve/chat/run.
+		memAdapter := adapter.NewMemoryAdapter(memEngine)
 		memRetriever = memAdapter
 		memStorer = memAdapter
 		log.Debug().Msg("memory engine initialized")
@@ -351,7 +353,7 @@ func buildEngineWithMode(modelName string, allowNoProvider bool) (*engine.AgentE
 		if err := knowEngine.Init(); err != nil {
 			log.Warn().Err(err).Msg("failed to init knowledge engine, knowledge disabled")
 		} else {
-			knowAdapter := engine.NewKnowledgeAdapter(knowEngine)
+			knowAdapter := adapter.NewKnowledgeAdapter(knowEngine)
 			// FASE 1 routing/scope: em modo modular (config search.mode=modular)
 			// o adapter confina a busca de conhecimento ao espaço roteado pelo
 			// modlink — NoRoute → 0 resultados + NoRoute=true, NUNCA full-scan.

@@ -1,110 +1,48 @@
 package engine
 
-import (
-	"context"
-
-	"github.com/CoscaAI/cosca/internal/modlink"
-)
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // Memory & Knowledge Port Interfaces
 //
-// These interfaces mirror the orchestration-level ports defined in
-// internal/orchestration/ports.go so that the AgentEngine can wire
-// memory and knowledge dependencies without circular imports.
+// CONTRATO ÚNICO: estas portas vivem em internal/orchestration/ports.go — o
+// pacote de orquestração é o DONO dos contratos de memória/conhecimento que
+// atravessam camadas. Este arquivo apenas RE-EXPORTA os tipos via aliases para
+// que a AgentEngine e seus consumidores (engine_builder) usem a MESMA
+// definição — sem fork de structs.
 //
-// Production implementations live in internal/memory/ and internal/knowledge/.
-// Tests may provide lightweight stubs.
+// (Antes havia aqui cópias campo-a-campo "para evitar import circular"; isso
+// era um sintoma de dependência invertida — orchestration NÃO importa engine,
+// então engine pode importar orchestration sem ciclo. A unificação elimina a
+// divergência de campos: Scope/NoRoute/Epistemic agora vivem no contrato único.)
+//
+// Produção implementations live in internal/memory/ and internal/knowledge/,
+// adaptadas em internal/adapter/ e internal/engine/.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// MemoryRetriever searches and retrieves records from the memory engine.
-// Matches the orchestration.MemoryRetriever interface.
-type MemoryRetriever interface {
-	// Search searches across memory layers for records matching the query.
-	Search(ctx context.Context, query string, opts MemorySearchOptions) ([]MemoryRecord, error)
+import (
+	"github.com/CoscaAI/cosca/internal/orchestration"
+)
 
-	// Retrieve fetches a specific memory record by ID and layer.
-	Retrieve(ctx context.Context, id, layer string) (*MemoryRecord, error)
-}
+// MemoryRetriever searches and retrieves records from the memory engine.
+type MemoryRetriever = orchestration.MemoryRetriever
 
 // MemoryStorer persists results into the memory engine.
-// Matches the orchestration.MemoryStorer interface.
-type MemoryStorer interface {
-	// Store saves a memory record and returns the persisted record.
-	Store(ctx context.Context, record MemoryRecord) (*MemoryRecord, error)
-}
+type MemoryStorer = orchestration.MemoryStorer
 
 // KnowledgeSearcher searches the knowledge engine for information relevant
 // to the current request.
-// Matches the orchestration.KnowledgeSearcher interface.
-type KnowledgeSearcher interface {
-	// Search executes a knowledge-base search and returns matching documents.
-	Search(ctx context.Context, params KnowledgeSearchParams) (*KnowledgeSearchResults, error)
-}
+type KnowledgeSearcher = orchestration.KnowledgeSearcher
 
-// ─── Supporting Types ─────────────────────────────────────────────────────────
-
-// MemoryRecord is a projection of a memory record carrying only the fields
-// needed by the engine. Matches orchestration.MemoryRecord.
-type MemoryRecord struct {
-	ID       string            `json:"id"`
-	Type     string            `json:"type"`
-	Layer    string            `json:"layer"`
-	Content  string            `json:"content"`
-	Metadata map[string]string `json:"metadata,omitempty"`
-	Priority int               `json:"priority"`
-}
+// MemoryRecord is the memory contract shared with orchestration.
+type MemoryRecord = orchestration.MemoryRecord
 
 // MemorySearchOptions filters memory searches within the engine layer.
-// Matches orchestration.MemorySearchOptions.
-type MemorySearchOptions struct {
-	Types    []string `json:"types,omitempty"`
-	Layers   []string `json:"layers,omitempty"`
-	Limit    int      `json:"limit"`
-	MinScore float64  `json:"min_score,omitempty"`
-}
+type MemorySearchOptions = orchestration.MemorySearchOptions
 
 // KnowledgeSearchParams carries search parameters for the knowledge engine.
-// Matches orchestration.KnowledgeSearchParams.
-type KnowledgeSearchParams struct {
-	Query    string              `json:"query"`
-	Limit    int                 `json:"limit,omitempty"`
-	Types    []string            `json:"types,omitempty"`
-	Path     string              `json:"path,omitempty"`
-	MinScore float64             `json:"min_score,omitempty"`
-	// Scope, quando não-nil num adapter em modo modular, confina a busca ao
-	// espaço roteado (ADR-013 §3.2). Nil mantém o comportamento atual (legacy).
-	Scope *modlink.SearchScope `json:"scope,omitempty"`
-}
+type KnowledgeSearchParams = orchestration.KnowledgeSearchParams
 
 // KnowledgeSearchResult is a single knowledge-base search hit.
-// Matches orchestration.KnowledgeSearchResult.
-type KnowledgeSearchResult struct {
-	ID           string  `json:"id"`
-	Title        string  `json:"title,omitempty"`
-	Content      string  `json:"content,omitempty"`
-	Snippet      string  `json:"snippet,omitempty"`
-	Score        float64 `json:"score"`
-	DocumentPath string  `json:"document_path,omitempty"`
-	// Epistemic é a classe epistêmica do item (FACT, MEASURED, EVIDENCE,
-	// INFERRED, RULE, DECISION, PROFILE) — a NATUREZA do conhecimento, usada
-	// para exibir o prefixo ao agente (FASE 4). Empty = não classificada.
-	Epistemic string `json:"epistemic,omitempty"`
-}
+type KnowledgeSearchResult = orchestration.KnowledgeSearchResult
 
 // KnowledgeSearchResults bundles search hits with query metadata.
-// Matches orchestration.KnowledgeSearchResults.
-type KnowledgeSearchResults struct {
-	Results    []KnowledgeSearchResult `json:"results"`
-	TotalCount int                     `json:"total_count"`
-	Query      string                  `json:"query"`
-	// NoRoute é o sinal NO_ROUTE explícito (modo modular): true significa que o
-	// roteador determinístico não encontrou um espaço semântico confiável para a
-	// consulta, então o retrieval foi 0 SEM full-scan. False = rotas conhecidas
-	// (ou busca legacy, que nunca roteou).
-	NoRoute bool `json:"no_route,omitempty"`
-	// Scope é o *modlink.SearchScope decidido pelo roteador (módulos, RouteID,
-	// NoRoute). Populado pelo adapter em modo modular — o "onde" da busca.
-	// Nil em modo legacy.
-	Scope *modlink.SearchScope `json:"scope,omitempty"`
-}
+type KnowledgeSearchResults = orchestration.KnowledgeSearchResults

@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/CoscaAI/cosca/internal/search"
 )
 
 // FASE 4.1 — o resultado de conhecimento carrega a classe epistêmica e o
@@ -19,16 +17,3 @@ func TestConcatEpistemic_Prefix(t *testing.T) {
 	assert.Equal(t, "conteúdo", concatEpistemic(KnowledgeSearchResult{Content: "conteúdo"}))
 }
 
-func TestToEngineKnowledgeResults_Epistemic(t *testing.T) {
-	t.Parallel()
-	sr := &search.SearchResults{
-		Results: []search.SearchResult{
-			{ID: "a", Content: "medido", Metadata: map[string]string{"epistemic": "MEASURED"}},
-			{ID: "b", Content: "sem classe", Metadata: map[string]string{}},
-		},
-	}
-	out := toEngineKnowledgeResults(sr)
-	assert.Len(t, out.Results, 2)
-	assert.Equal(t, "MEASURED", out.Results[0].Epistemic)
-	assert.Equal(t, "", out.Results[1].Epistemic)
-}
