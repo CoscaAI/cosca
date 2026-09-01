@@ -392,6 +392,18 @@ func findDBs(coscaDir string) []string {
 			return nil
 		}
 		if strings.EqualFold(filepath.Ext(path), ".db") {
+			// Backups automáticos (backups/auto-*.db) e lixo transitório
+			// (_lixo_da_festa/) NÃO são módulos do sistema — são cópias/
+			// resíduos. O gate do ADR-013 mede MÓDULOS; incluí-los faria o
+			// gate falhar pelo tamanho de cópias (ex.: backup de 530 MB de um
+			// knowledge.db que viola o teto). Excluir cópias é a leitura
+			// honesta do teto: cada banco-módulo < 100 MB.
+			rel := relativeTo(coscaDir, path)
+			relSlash := filepath.ToSlash(rel)
+			if strings.HasPrefix(relSlash, "backups/") ||
+				strings.Contains(relSlash, "_lixo_da_festa/") {
+				return nil
+			}
 			if abs, err := filepath.Abs(path); err == nil {
 				out = append(out, abs)
 			}
