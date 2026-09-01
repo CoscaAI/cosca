@@ -162,6 +162,20 @@ func (ds *DataSources) Present() []moduleName {
 	return out
 }
 
+// modulesPresent devolve os nomes dos módulos presentes como strings —
+// usado no log de inicialização do corte (D3b).
+func modulesPresent(ds *DataSources) []string {
+	if ds == nil {
+		return nil
+	}
+	present := ds.Present()
+	out := make([]string, 0, len(present))
+	for _, m := range present {
+		out = append(out, string(m))
+	}
+	return out
+}
+
 // tableModule mapeia uma tabela do schema do knowledge.db para o módulo que a
 // possui no corte (ADR-013 §2.1). É o roteador de escrita da D3: o indexer
 // escreve `QualifiedTable("documents")` → "core.documents" quando o módulo

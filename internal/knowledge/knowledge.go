@@ -57,6 +57,10 @@ type Engine struct {
 	search       *search.Engine
 	ranker       *ranking.Ranker
 	cache        *cache.Cache
+	// dataSources é o provider dos módulos físicos do corte (Plano D D1).
+	// Quando os módulos existem, o indexer escreve neles via QualifiedTable
+	// (D3). Nil = monolito (comportamento histórico preservado).
+	dataSources *DataSources
 
 	// File watcher
 	fileWatcher *watcher.Watcher
@@ -354,10 +358,29 @@ func (e *Engine) Init() error {
 	if len(e.cfg.IndexerConfig.AllowedExtensions) > 0 {
 		idxCfg.AllowedExtensions = e.cfg.IndexerConfig.AllowedExtensions
 	}
-	e.indexer = indexer.New(
-		idxCfg, e.mdParser, e.entityParser, e.chunker,
-		e.embRegistry, e.vecStore, e.fts, e.db, e.graphBuilder,
-	)
+	// Corte do Plano D (D3): se os módulos físicos existirem no data dir, o
+	// indexer escreve NELES (via QualifiedTable); senão, usa o monolito
+	// (comportamento histórico). O DataSources é aberto best-effort — um
+	// erro aqui NÃO derruba o boot (o monolito cobre).
+	if ds, dsErr := OpenDataSources(filepath.Dir(e.cfg.DBPath)); dsErr == nil && len(ds.Present()) > 0 {
+		e.dataSources = ds
+		idxOpts := []func(*indexer.Indexer){
+			indexer.WithQualifier(ds.QualifiedTable),
+		}
+		e.indexer = indexer.New(
+			idxCfg, e.mdParser, e.entityParser, e.chunker,
+			e.embRegistry, e.vecStore, e.fts, e.db, e.graphBuilder,
+			idxOpts...,
+		)
+		log.Info().
+			Strs("modules", modulesPresent(ds)).
+			Msg("knowledge engine: corte ativo — indexer escreve nos módulos físicos")
+	} else {
+		e.indexer = indexer.New(
+			idxCfg, e.mdParser, e.entityParser, e.chunker,
+			e.embRegistry, e.vecStore, e.fts, e.db, e.graphBuilder,
+		)
+	}
 
 	e.initialized = true
 
@@ -1868,6 +1891,11 @@ func (e *Engine) Close() error {
 	if e.db != nil {
 		if err := e.db.Close(); err != nil {
 			log.Warn().Err(err).Msg("failed to close database")
+		}
+	}
+	if e.dataSources != nil {
+		if err := e.dataSources.Close(); err != nil {
+			log.Warn().Err(err).Msg("failed to close data sources")
 		}
 	}
 

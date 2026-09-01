@@ -120,6 +120,10 @@ type Indexer struct {
 	fts          *sqlite.FTSClient
 	db           *sqlite.DB
 	graphBuilder *graph.Builder
+	// qualify roteia um nome de tabela para o módulo físico do corte
+	// (Plano D D3): "documents" → "core.documents". Nil (default) = identidade
+	// — o comportamento histórico (monolito) é preservado bit-for-bit.
+	qualify      func(string) string
 	mu           sync.RWMutex
 	stats        IndexStats
 	errors       []IndexError
@@ -136,6 +140,23 @@ type IndexError struct {
 }
 
 // New creates a new indexer with the given dependencies.
+// WithQualifier injeta o roteador de tabelas do corte (Plano D D3): quando
+// não-nil, cada escrita de tabela do indexer é roteada ao módulo físico
+// (ex.: "documents" → "core.documents"). Nil preserva o comportamento
+// histórico (monolito). O qualifier NUNCA altera leituras internas de
+// verificações de schema (chunksHaveDedupCols usa o schema da conexão).
+func WithQualifier(q func(string) string) func(*Indexer) {
+	return func(idx *Indexer) { idx.qualify = q }
+}
+
+// q aplica o roteador de tabelas (ou devolve a tabela pura quando nil).
+func (idx *Indexer) q(table string) string {
+	if idx == nil || idx.qualify == nil {
+		return table
+	}
+	return idx.qualify(table)
+}
+
 func New(
 	cfg IndexerConfig,
 	mdParser *markdown.Parser,
@@ -146,8 +167,9 @@ func New(
 	ftsClient *sqlite.FTSClient,
 	db *sqlite.DB,
 	graphBuilder *graph.Builder,
+	opts ...func(*Indexer),
 ) *Indexer {
-	return &Indexer{
+	idx := &Indexer{
 		cfg:          cfg,
 		mdParser:     mdParser,
 		entityParser: entityParser,
@@ -163,6 +185,10 @@ func New(
 			DocumentsByType: make(map[string]int),
 		},
 	}
+	for _, o := range opts {
+		o(idx)
+	}
+	return idx
 }
 
 // SetProgressCallback sets a callback for progress reporting.
@@ -485,7 +511,7 @@ func (idx *Indexer) IndexRemoved(_ context.Context, path string) error {
 	}
 
 	// Remove from SQLite
-	_, err = idx.db.Exec("DELETE FROM documents WHERE id = ?", docID)
+	_, err = idx.db.Exec("DELETE FROM "+idx.q("documents")+" WHERE id = ?", docID)
 	if err != nil {
 		return fmt.Errorf("delete document: %w", err)
 	}
@@ -808,11 +834,11 @@ func (idx *Indexer) storeDocument(docID, path, hash string, doc *markdown.Docume
 
 	if oldID != "" {
 		for _, table := range []string{"chunks", "headings", "code_blocks", "tables"} {
-			if _, err := tx.Exec("DELETE FROM "+table+" WHERE document_id = ?", oldID); err != nil {
+			if _, err := tx.Exec("DELETE FROM "+idx.q(table)+" WHERE document_id = ?", oldID); err != nil {
 				return rollback(fmt.Errorf("remove old %s: %w", table, err))
 			}
 		}
-		if _, err := tx.Exec("DELETE FROM documents WHERE id = ?", oldID); err != nil {
+		if _, err := tx.Exec("DELETE FROM "+idx.q("documents")+" WHERE id = ?", oldID); err != nil {
 			return rollback(fmt.Errorf("remove old document: %w", err))
 		}
 	}
@@ -843,7 +869,7 @@ func (idx *Indexer) storeDocument(docID, path, hash string, doc *markdown.Docume
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO documents (id, path, hash, title, doc_type, metadata_json, frontmatter_json, size, token_count, created_at, updated_at, tier, expires_at)
+		`INSERT INTO `+idx.q("documents")+` (id, path, hash, title, doc_type, metadata_json, frontmatter_json, size, token_count, created_at, updated_at, tier, expires_at)
 		 VALUES (?, ?, ?, ?, 'markdown', ?, ?, ?, ?, datetime('now'), datetime('now'), 'medium', datetime('now', '+7 days'))`,
 		docID, path, hash, doc.Title, metadataJSON, frontmatterJSON, len(doc.RawContent), doc.TokenCount,
 	)
@@ -1109,11 +1135,11 @@ func (idx *Indexer) removeExistingDocument(path string) error {
 		}
 	}
 	for _, table := range []string{"chunks", "headings", "code_blocks", "tables"} {
-		if _, err := idx.db.Exec("DELETE FROM "+table+" WHERE document_id = ?", oldID); err != nil {
+		if _, err := idx.db.Exec("DELETE FROM "+idx.q(table)+" WHERE document_id = ?", oldID); err != nil {
 			return err
 		}
 	}
-	_, err = idx.db.Exec("DELETE FROM documents WHERE id = ?", oldID)
+	_, err = idx.db.Exec("DELETE FROM "+idx.q("documents")+" WHERE id = ?", oldID)
 	return err
 }
 
