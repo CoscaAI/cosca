@@ -1,4 +1,4 @@
-package installer
+﻿package installer
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeCheck é um Check determinístico para testes.
+// fakeCheck Ã© um Check determinÃ­stico para testes.
 type fakeCheck struct {
 	id         string
 	name       string
@@ -25,7 +25,7 @@ func (f *fakeCheck) Validate() (Result, []string) {
 	return f.validateRes, []string{"validated"}
 }
 
-// fakePhases monta as fases de teste: preflight → deps → auth.
+// fakePhases monta as fases de teste: preflight â†’ deps â†’ auth.
 func fakePhases() []Phase {
 	return []Phase{
 		{
@@ -58,14 +58,14 @@ func fakePhases() []Phase {
 func TestRun_CompleteFlow(t *testing.T) {
 	dir := t.TempDir()
 
-	rep, err := Run(dir, "test", fakePhases())
+	rep, err := Run(dir, "test", fakePhases(), nil)
 	require.NoError(t, err)
-	// As fases vão até AUTH_READY — não certificam ainda (faltam as fases
-	// finais). O importante: o estado avançou corretamente.
+	// As fases vÃ£o atÃ© AUTH_READY â€” nÃ£o certificam ainda (faltam as fases
+	// finais). O importante: o estado avanÃ§ou corretamente.
 	require.Equal(t, StateAuthReady, rep.CurrentState)
 	require.Len(t, rep.Steps, 3, "3 fases = 3 steps")
 
-	// O git foi instalado (detect=Fail → install → validate).
+	// O git foi instalado (detect=Fail â†’ install â†’ validate).
 	gitStep := rep.Steps[1]
 	require.Equal(t, ResultPass, gitStep.Result)
 	require.Equal(t, "install", gitStep.Action)
@@ -74,7 +74,7 @@ func TestRun_CompleteFlow(t *testing.T) {
 func TestRun_CertifiesWhenComplete(t *testing.T) {
 	dir := t.TempDir()
 
-	// Fases completas até CERTIFIED.
+	// Fases completas atÃ© CERTIFIED.
 	phases := append(fakePhases(), Phase{
 		ID:   "certify",
 		Name: "Certification",
@@ -84,7 +84,7 @@ func TestRun_CertifiesWhenComplete(t *testing.T) {
 		NextState: StateCertified,
 	})
 
-	rep, err := Run(dir, "test", phases)
+	rep, err := Run(dir, "test", phases, nil)
 	require.NoError(t, err)
 	require.True(t, rep.Certified, "fase final deve certificar")
 	require.Equal(t, StateCertified, rep.CurrentState)
@@ -93,18 +93,18 @@ func TestRun_CertifiesWhenComplete(t *testing.T) {
 func TestRun_IdempotentResume(t *testing.T) {
 	dir := t.TempDir()
 
-	// Primeira execução completa (até AUTH_READY).
-	rep, err := Run(dir, "test", fakePhases())
+	// Primeira execuÃ§Ã£o completa (atÃ© AUTH_READY).
+	rep, err := Run(dir, "test", fakePhases(), nil)
 	require.NoError(t, err)
 	require.Equal(t, StateAuthReady, rep.CurrentState)
 
-	// Segunda execução: tudo já completo — deve pular com PASS, sem reinstalar.
-	rep2, err := Run(dir, "test", fakePhases())
+	// Segunda execuÃ§Ã£o: tudo jÃ¡ completo â€” deve pular com PASS, sem reinstalar.
+	rep2, err := Run(dir, "test", fakePhases(), nil)
 	require.NoError(t, err)
 	require.Equal(t, StateAuthReady, rep2.CurrentState)
-	// Todos os steps são "skip" (fase já completa).
+	// Todos os steps sÃ£o "skip" (fase jÃ¡ completa).
 	for _, s := range rep2.Steps {
-		require.Equal(t, "skip", s.Action, "idempotência: nada re-executa")
+		require.Equal(t, "skip", s.Action, "idempotÃªncia: nada re-executa")
 		require.Equal(t, ResultPass, s.Result)
 	}
 }
@@ -112,7 +112,7 @@ func TestRun_IdempotentResume(t *testing.T) {
 func TestRun_FailureBlocks(t *testing.T) {
 	dir := t.TempDir()
 
-	// Git falha na instalação → a fase deps bloqueia.
+	// Git falha na instalaÃ§Ã£o â†’ a fase deps bloqueia.
 	phases := []Phase{
 		{
 			ID:   "dependencies",
@@ -123,16 +123,16 @@ func TestRun_FailureBlocks(t *testing.T) {
 			NextState: StateDepsReady,
 		},
 	}
-	rep, err := Run(dir, "test", phases)
-	require.Error(t, err, "falha na instalação deve bloquear")
-	require.Equal(t, StateNotReady, rep.CurrentState, "estado não avança em falha")
+	rep, err := Run(dir, "test", phases, nil)
+	require.Error(t, err, "falha na instalaÃ§Ã£o deve bloquear")
+	require.Equal(t, StateNotReady, rep.CurrentState, "estado nÃ£o avanÃ§a em falha")
 }
 
 func TestRun_PersistsState(t *testing.T) {
 	dir := t.TempDir()
 
-	// Persistência: o arquivo de evidência existe após a execução.
-	_, err := Run(dir, "test", fakePhases())
+	// PersistÃªncia: o arquivo de evidÃªncia existe apÃ³s a execuÃ§Ã£o.
+	_, err := Run(dir, "test", fakePhases(), nil)
 	require.NoError(t, err)
 
 	path := filepath.Join(PersistDir(dir), "installation.json")
@@ -150,3 +150,5 @@ func TestStepResult_Evidence(t *testing.T) {
 	require.Len(t, step.Evidence, 2)
 	require.Equal(t, StateAuthReady, step.State)
 }
+
+

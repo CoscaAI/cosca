@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Phase é uma etapa do provisionamento: um conjunto de Checks orquestrados.
@@ -64,7 +65,10 @@ func LoadState(dataDir string) State {
 // Run executa as phases do provisionamento a partir do estado atual (ou do
 // início), registrando evidência e persistindo após cada fase. Idempotente:
 // uma fase já completa (state >= NextState) é pulada com RESULT=PASS.
-func Run(dataDir, version string, phases []Phase) (*RunReport, error) {
+//
+// `emit` (opcional) recebe os eventos em tempo real — o contrato da UI
+// (cosca setup --watch). Nil = modo silencioso.
+func Run(dataDir, version string, phases []Phase, emit EmitFunc) (*RunReport, error) {
 	dir := PersistDir(dataDir)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create install dir: %w", err)
@@ -77,31 +81,44 @@ func Run(dataDir, version string, phases []Phase) (*RunReport, error) {
 		CurrentState:   current,
 		Certified:      current == StateCertified,
 	}
+	if emit == nil {
+		emit = NopEmitter()
+	}
 
 	for _, phase := range phases {
 		// Idempotência: fase já alcançada é pulada (com evidência).
 		if stateIndex(current) >= stateIndex(phase.NextState) {
-			rep.Steps = append(rep.Steps, StepResult{
+			step := StepResult{
 				Check:    "installer.phase." + phase.ID,
 				Action:   "skip",
 				Result:   ResultPass,
 				State:    current,
 				Evidence: []string{"phase already complete (state " + string(current) + ")"},
-			})
+			}
+			rep.Steps = append(rep.Steps, step)
+			emit(Event{Type: EventStepComplete, Check: step.Check, Action: step.Action,
+				Result: step.Result, State: current, Phase: phase.ID, Message: "already complete", Time: now()})
 			continue
 		}
 
 		// Executa os checks da fase na ordem.
 		phaseOK := true
 		for _, c := range phase.Checks {
+			emit(Event{Type: EventStepStarted, Check: c.ID(), Phase: phase.ID,
+				Message: c.Name(), Time: now()})
 			step := runCheck(c, phase.NextState)
 			rep.Steps = append(rep.Steps, step)
+			emit(Event{Type: EventStepComplete, Check: step.Check, Action: step.Action,
+				Result: step.Result, State: phase.NextState, Phase: phase.ID,
+				Evidence: step.Evidence, Time: now()})
 			if step.Result != ResultPass {
 				phaseOK = false
 				// Fail = bloqueia a fase; Skip (não aplicável) não bloqueia.
 				if step.Result == ResultFail {
 					rep.CurrentState = current // permanece onde está
 					_ = persist(rep, dataDir)
+					emit(Event{Type: EventError, Check: c.ID(), Result: ResultFail,
+						State: current, Phase: phase.ID, Message: "phase blocked", Time: now()})
 					return rep, fmt.Errorf("phase %s falhou no check %s", phase.ID, c.ID())
 				}
 			}
@@ -109,15 +126,21 @@ func Run(dataDir, version string, phases []Phase) (*RunReport, error) {
 
 		// Fase completa → avança o estado e persiste.
 		if phaseOK {
+			from := current
 			current = phase.NextState
 			rep.CurrentState = current
 			rep.Certified = current == StateCertified
+			emit(Event{Type: EventStateChanged, FromState: from, State: current,
+				Phase: phase.ID, Message: phase.Name, Time: now()})
 		}
 		if err := persist(rep, dataDir); err != nil {
 			return nil, err
 		}
 	}
 
+	if rep.Certified {
+		emit(Event{Type: EventCertified, State: StateCertified, Message: "COSCA READY", Time: now()})
+	}
 	return rep, nil
 }
 
@@ -169,3 +192,6 @@ func stateIndex(s State) int {
 	}
 	return -1
 }
+
+// now é o relógio do orquestrador (indireto para testes determinísticos).
+var now = time.Now

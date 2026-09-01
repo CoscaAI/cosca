@@ -18,6 +18,7 @@ import (
 
 // NewSetupCommand cria `cosca setup` — o provisioner.
 func NewSetupCommand() *cobra.Command {
+	var watch bool
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "COSCA Environment Provisioner — instala/verifica a máquina para o COSCA",
@@ -27,8 +28,13 @@ health, knowledge, embeddings, index).
 
 Idempotente: persiste o Installation State e retoma de onde parou (fechou no
 meio → detecta → resume). Cada etapa produz evidência (CHECK/ACTION/RESULT/
-EVIDENCE/STATE) em .cosca/install/installation.json.`,
+EVIDENCE/STATE) em .cosca/install/installation.json.
+
+Com --watch, emite um EVENT STREAM (JSON, uma linha por evento) — o contrato
+para a UI desenhar o estado real do provisionamento em tempo real (o exe
+bonitão do professor).`,
 		Example: `  cosca setup                 # provisiona (retoma do estado atual)
+  cosca setup --watch         # emite eventos em tempo real (JSON)
   cosca setup --status        # mostra o installation state atual`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -38,11 +44,19 @@ EVIDENCE/STATE) em .cosca/install/installation.json.`,
 				return fmt.Errorf("resolve data directory: %w", dirErr)
 			}
 
+			// Modo watch: emite JSON puro (uma linha por evento) para stdout —
+			// a UI consome este stream. Sem formatação de tabela.
+			if watch {
+				emit := installer.JSONEmitter(cmd.OutOrStdout())
+				_, err := installer.Run(dir, "v1.5.0", provisionPhases(), emit)
+				return err
+			}
+
 			f.Header("COSCA Environment Provisioner")
 			f.KeyValue("Estado atual", string(installer.LoadState(dir)))
 
 			phases := provisionPhases()
-			rep, err := installer.Run(dir, "v1.5.0", phases)
+			rep, err := installer.Run(dir, "v1.5.0", phases, nil)
 			if err != nil {
 				f.Error(fmt.Sprintf("Provisionamento parou: %v", err))
 				return err
@@ -65,6 +79,7 @@ EVIDENCE/STATE) em .cosca/install/installation.json.`,
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&watch, "watch", false, "emite event stream JSON em tempo real (para UI)")
 	cmd.AddCommand(newSetupStatusCommand())
 	return cmd
 }
