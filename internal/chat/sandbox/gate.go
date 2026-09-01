@@ -10,16 +10,15 @@
 package sandbox
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/processutil"
 )
 
 // Gate implements chat.Sandbox with OS-level isolation.
@@ -163,30 +162,25 @@ func (g *Gate) execDirect(ctx context.Context, cmd chat.Command) (*chat.SandboxR
 	}
 	execCmd.Dir = workDir
 
-	// Capture stdout and stderr.
-	var stdout, stderr bytes.Buffer
-	execCmd.Stdout = &stdout
-	execCmd.Stderr = &stderr
-
-	start := time.Now()
-	err := execCmd.Run()
-	duration := time.Since(start)
-
-	var exitCode int
+	// Run through the shared executor: it streams stdout/stderr, enforces an
+	// independent idle timeout and hard runtime cap, and terminates the whole
+	// process tree (including grandchildren that hold the output pipe open)
+	// so a command that daemonises cannot hang the caller or leak processes.
+	res, err := processutil.Run(ctx, execCmd, processutil.Config{
+		IdleTimeout: cmd.IdleTimeout,
+		MaxRuntime:  cmd.Timeout,
+	})
 	if err != nil {
-		var exitErr *exec.ExitError
-		if ok := isExitError(err, &exitErr); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			return nil, fmt.Errorf("sandbox: command execution failed: %w", err)
-		}
+		return nil, fmt.Errorf("sandbox: command execution failed: %w", err)
 	}
 
 	return &chat.SandboxResult{
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-		ExitCode: exitCode,
-		Duration: duration,
+		Stdout:   res.Stdout,
+		Stderr:   res.Stderr,
+		ExitCode: res.ExitCode,
+		Duration: res.Duration,
+		Status:   string(res.Status),
+		IdleFor:  res.IdleFor,
 	}, nil
 }
 
@@ -242,19 +236,4 @@ func (g *Gate) execReadOnly(ctx context.Context, cmd chat.Command) (*chat.Sandbo
 		return g.execBwrap(ctx, cmd, chat.SandboxReadOnly)
 	}
 	return g.execWithoutSandbox(ctx, cmd)
-}
-
-// isExitError is a helper to extract *exec.ExitError from an error.
-// It exists to avoid a direct type assertion that could panic on unexpected
-// error wrapping.
-func isExitError(err error, target **exec.ExitError) bool {
-	if err == nil {
-		return false
-	}
-	ee, ok := err.(*exec.ExitError)
-	if !ok {
-		return false
-	}
-	*target = ee
-	return true
 }

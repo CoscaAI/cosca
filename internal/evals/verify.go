@@ -33,8 +33,9 @@ func RunVerifyCommands(ctx context.Context, dir string, commands []string, timeo
 		vctx, cancel := context.WithTimeout(ctx, timeout)
 		cmd := exec.CommandContext(vctx, "sh", "-c", cmdline)
 		cmd.Dir = dir
-		configureProcessGroup(cmd)
+		release := configureProcessGroup(cmd)
 		out, err := cmd.CombinedOutput()
+		release()
 		cancel()
 
 		vr := VerifyResult{Command: cmdline, OutputTail: tail(string(out), maxVerifyTail)}

@@ -144,6 +144,10 @@ func (t *ShellTool) Execute(ctx context.Context, params json.RawMessage) (*chat.
 	cmd := chat.Command{
 		Args:    shellArgs,
 		WorkDir: input.Workdir,
+		// The tool's `timeout` becomes the hard runtime cap (MaxRuntime) in the
+		// executor. Alongside the context deadline above, this lets the executor
+		// report hard_timeout and kill the whole process tree.
+		Timeout: time.Duration(input.Timeout) * time.Millisecond,
 	}
 
 	// Execute through the sandbox gate with workspace-level isolation.

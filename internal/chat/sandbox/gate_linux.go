@@ -3,7 +3,6 @@
 package sandbox
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
+	"github.com/CoscaAI/cosca/internal/processutil"
 	"golang.org/x/sys/unix"
 )
 
@@ -128,37 +127,40 @@ func (g *Gate) execBwrap(ctx context.Context, cmd chat.Command, mode chat.Sandbo
 		return nil, err
 	}
 
-	// Capture stdout and stderr.
-	var stdout, stderr bytes.Buffer
-	execCmd.Stdout = &stdout
-	execCmd.Stderr = &stderr
-
 	// bwrap needs access to /dev/null for its own internal setup; ensure
 	// stdin is wired up properly.
 	execCmd.Stdin = os.Stdin
 
-	start := time.Now()
-	err = execCmd.Run()
-	duration := time.Since(start)
-
-	var exitCode int
+	// Run through the shared executor (streaming capture, idle detection,
+	// hard runtime cap, whole-tree termination).
+	res, err := processutil.Run(ctx, execCmd, processutil.Config{
+		IdleTimeout: cmd.IdleTimeout,
+		MaxRuntime:  cmd.Timeout,
+	})
 	if err != nil {
-		var exitErr *exec.ExitError
-		if ok := isExitError(err, &exitErr); ok {
-			// A bwrap exit before/while establishing namespaces is not a normal
-			// command result. Returning it as a result would silently turn a
-			// failed jail into an unsandboxed tool invocation.
-			return nil, fmt.Errorf("sandbox: bwrap failed to establish sandbox (exit %d): %s", exitErr.ExitCode(), sanitizeSandboxDiagnostic(stderr.String(), cmd.Env))
-		} else {
-			return nil, fmt.Errorf("sandbox: bwrap execution failed: %w", err)
-		}
+		return nil, fmt.Errorf("sandbox: bwrap execution failed: %w", err)
+	}
+
+	// Preserve the sandbox-establishment diagnostic: a bwrap exit before/while
+	// establishing namespaces is not a normal command result. Returning it as a
+	// result would silently turn a failed jail into an unsandboxed invocation.
+	// An interruption (idle/hard timeout or cancellation) is reported as such.
+	switch res.Status {
+	case processutil.StatusSuccess:
+		// clean exit — fall through to result construction
+	case processutil.StatusIdleTimeout, processutil.StatusHardTimeout, processutil.StatusCancelled:
+		return nil, fmt.Errorf("sandbox: bwrap execution interrupted (%s)", string(res.Status))
+	default:
+		return nil, fmt.Errorf("sandbox: bwrap failed to establish sandbox (exit %d): %s", res.ExitCode, sanitizeSandboxDiagnostic(res.Stderr, cmd.Env))
 	}
 
 	return &chat.SandboxResult{
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-		ExitCode: exitCode,
-		Duration: duration,
+		Stdout:   res.Stdout,
+		Stderr:   res.Stderr,
+		ExitCode: res.ExitCode,
+		Duration: res.Duration,
+		Status:   string(res.Status),
+		IdleFor:  res.IdleFor,
 	}, nil
 }
 

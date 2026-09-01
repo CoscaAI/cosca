@@ -246,6 +246,17 @@ type Command struct {
 	// WorkDir is the working directory for the command. If empty, defaults to
 	// the workspace root.
 	WorkDir string `json:"work_dir,omitempty"`
+
+	// Timeout overrides the maximum runtime (hard cap) for the command. Zero
+	// means use the executor's default MaxRuntime. It is independent of the
+	// caller's context deadline: a caller deadline is reported as hard_timeout
+	// and a manual cancel as cancelled.
+	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// IdleTimeout bounds how long the command may run without producing any
+	// stdout or stderr output before it is cancelled. Zero means use the
+	// executor's default IdleTimeout.
+	IdleTimeout time.Duration `json:"idle_timeout,omitempty"`
 }
 
 // SandboxMode defines the level of sandbox isolation for command execution.
@@ -293,4 +304,14 @@ type SandboxResult struct {
 
 	// Duration is the wall-clock time the command took to execute.
 	Duration time.Duration `json:"duration"`
+
+	// Status is the semantic outcome of the execution:
+	// "success" | "command_failure" | "cancelled" | "idle_timeout" | "hard_timeout".
+	// Empty with the legacy ExitCode field preserved means the caller did not
+	// opt into status reporting.
+	Status string `json:"status,omitempty"`
+
+	// IdleFor is how long the command had been silent when it was cancelled as
+	// idle. Populated only when Status == "idle_timeout".
+	IdleFor time.Duration `json:"idle_for,omitempty"`
 }
