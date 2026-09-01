@@ -34,6 +34,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/task"
 )
 
@@ -88,6 +89,17 @@ type Config struct {
 // Option configura o orquestrador no New.
 type Option func(*TaskOrchestrator)
 
+// WithPendingResolver liga a Pending Resolution (decisão do Don + professor,
+// 2026-09-01): quando o limite de steps atinge, o orquestrador inspeciona o
+// ESTADO e executa a continuação mínima implicada (pendência resolvível) em
+// vez de escalar direto. recoverySteps é o teto próprio de recuperações
+// (default 2 — nunca vira loop).
+func WithPendingResolver(recoverySteps int) Option {
+	return func(o *TaskOrchestrator) {
+		o.pending = pending.New(recoverySteps)
+	}
+}
+
 // WithObjectiveSatisfied injeta o predicado que decide se o objetivo foi
 // satisfeito. Default: snapshot do data plane indicando o estado "em curso"
 // (ArtifactOpen == "true") na direção do objetivo (F1 simples); em F4 o
@@ -130,6 +142,11 @@ type TaskOrchestrator struct {
 	satisfied   func(*task.TaskState) bool
 	emit        func(task.Event) error
 	repo        task.TaskRepository // F2: persistência durável (nil = em memória)
+	// pending é a Pending Resolution (decisão do Don + professor 2026-09-01):
+	// quando o limite de steps atinge, inspeciona o ESTADO e executa a
+	// continuação MÍNIMA implicada (se existir pendência resolvível) antes de
+	// escalar. Nil = comportamento atual (STEP_LIMIT escala direto).
+	pending *pending.Resolver
 }
 
 // New cria o orquestrador com o limite padrão de continuações.
@@ -334,6 +351,18 @@ func (o *TaskOrchestrator) Decide(id task.TaskID) (DecisionResult, error) {
 	case o.satisfied(st):
 		return o.makeResult(st, DecisionComplete, ""), nil
 	case st.CurrentStep >= o.maxContinue:
+		// Pending Resolution (Don + professor, 2026-09-01): antes de escalar
+		// por limite de steps, inspeciona o ESTADO — se existe uma pendência
+		// resolvível (ação já implicada: persistir observação, confirmar
+		// checkpoint), devolve a continuação MÍNIMA com motivo próprio, em vez
+		// de escalar. Nunca inventa: sem ação determinística derivável →
+		// STEP_LIMIT (escala para o Don, fail-closed). O limite próprio de
+		// recuperação impede o loop.
+		if o.pending != nil {
+			if pres := o.pending.Inspect(pending.FromTaskState(st, o.maxContinue)); pres.Verdict == pending.Resolve {
+				return o.makeResult(st, DecisionContinue, task.ContPendingResolved), nil
+			}
+		}
 		return o.makeResult(st, DecisionContinue, task.ContStepLimit), nil
 	case st.Status == task.StatusWaiting:
 		return o.makeResult(st, DecisionContinue, task.ContInputRequired), nil
@@ -367,6 +396,8 @@ func nextAction(dec Decision, reason task.ContinuationReason) string {
 		return "complete_task"
 	case reason == task.ContStepLimit:
 		return "escalate_to_don" // teto de continuações → escala p/ o Don
+	case reason == task.ContPendingResolved:
+		return "resolve_pending" // continuação mínima para terminar pendência implicada
 	case reason == task.ContInputRequired:
 		return "await_input"
 	case reason == task.ContWatchdog:

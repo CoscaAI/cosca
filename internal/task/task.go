@@ -69,6 +69,12 @@ const (
 	ContStepLimit           ContinuationReason = "STEP_LIMIT"           // limite de continuações atingido → escala p/ o Don
 	ContInputRequired       ContinuationReason = "INPUT_REQUIRED"       // a task aguarda insumo do Kernel/dono
 	ContWatchdog            ContinuationReason = "WATCHDOG"             // dead-man switch marcado (exceção/erro/risco)
+	// ContPendingResolved é a continuação MÍNIMA da Pending Resolution
+	// (decisão do Don + professor, 2026-09-01): o estado provou que existe
+	// uma pendência resolvível (persistir observação, confirmar checkpoint) —
+	// continuar SÓ para terminar o que estava quase terminado, sem inventar
+	// próximo passo.
+	ContPendingResolved ContinuationReason = "PENDING_RESOLVED"
 )
 
 // TaskObjective é a descrição do objetivo. `Direction` é a direção
@@ -200,7 +206,7 @@ func ValidateObjective(obj TaskObjective) error {
 // Valid devolve se a ContinuationReason é conhecida.
 func (r ContinuationReason) Valid() bool {
 	switch r {
-	case ContIncompleteObjective, ContStepLimit, ContInputRequired, ContWatchdog:
+	case ContIncompleteObjective, ContStepLimit, ContInputRequired, ContWatchdog, ContPendingResolved:
 		return true
 	}
 	return false
