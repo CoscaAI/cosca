@@ -476,6 +476,14 @@ type PerceptionConfig struct {
 	// agent can later answer "o que estava vendo quando ouvi X". Opt-in
 	// (default false): existing behaviour is unchanged.
 	Episodic EpisodicConfig `yaml:"episodic" json:"episodic"`
+
+	// KnowledgeCache (memory-first) liga o CACHE DE CONHECIMENTO de voz (QA:
+	// pergunta→resposta) persistido em <data-dir>/knowledge.json. Quando ligado,
+	// o COSCa SÓ chama o LLM quando ainda não sabe a resposta — a próxima vez que
+	// o Don perguntar a mesma coisa (ou algo muito parecido), o COSCa responde do
+	// cache sem gastar o modelo. Default true (opt-out). Degrada gracioso: um dir
+	// ausente/arquivo corrompido deixa o cache vazio (comportamento atual).
+	KnowledgeCache bool `yaml:"knowledge_cache" json:"knowledgeCache"`
 }
 
 // AudioConfig configures the Perception Bus audio/multimodal synchronisation.
@@ -902,6 +910,9 @@ func DefaultConfig() *Config {
 				TTL:        DefaultEpisodicTTL,
 				MaxRecords: DefaultEpisodicMaxRecords,
 			},
+			// Cache de conhecimento (memory-first): ligado por padrão — o LLM só
+			// é chamado quando o COSCa ainda não sabe a resposta. Opt-out.
+			KnowledgeCache: true,
 		},
 		Plugins: PluginConfig{
 			Enabled:         DefaultEnablePluginSystem,

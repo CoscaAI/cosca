@@ -92,22 +92,32 @@ Para usar, compile com -tags stt_sherpa e configure perception.audio.stt.provide
 			}
 
 			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				default:
-				}
+				// Guarda contra nil: quando duration == 0 o timer não existe
+				// (nunca dispara), então só selecionamos timer.C se não-nil.
 				if timer != nil {
 					select {
+					case <-ctx.Done():
+						return nil
 					case <-timer.C:
 						return nil
-					default:
+					case sample, ok := <-samples:
+						if !ok {
+							return nil
+						}
+						text := sample.Payload.Text
+						if text == "" {
+							continue
+						}
+						if sample.Payload.IsFinal {
+							fmt.Fprintf(cmd.OutOrStdout(), "\r[final]  %s\n", text)
+						} else {
+							fmt.Fprintf(cmd.OutOrStdout(), "\r[parcial] %s", text)
+						}
 					}
+					continue
 				}
 				select {
 				case <-ctx.Done():
-					return nil
-				case <-timer.C:
 					return nil
 				case sample, ok := <-samples:
 					if !ok {

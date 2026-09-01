@@ -3,17 +3,19 @@
 package cli
 
 // This file compiles only with `-tags stt_sherpa` (the native-Go sherpa STT
-// engine). It implements `cosca voice chat` — the "teste absurdo do professor":
-// the COSCA's first LOOP de voz, the proof of the full architecture, all native
-// Go, WITHOUT manually attaching an image:
+// engine). It implements `cosca voice chat` — the COSCA's live dialogue loop,
+// all native Go, WITHOUT manually attaching an image:
 //
-//	ouve (mic→STT streaming) → interpreta (query bus.State() for what vision is
-//	seeing NOW) → responde (describe the detected entities) → fala (sherpa TTS)
+//	ouve (mic→STT streaming) → reconhece a AÇÃO ("olha a tela" / "grava Ns e
+//	interpreta") → dispara a ferramenta de percepção (visionact: LookAtScreen /
+//	RecordAndInterpret) → interpreta (cérebro) → responde → fala (sherpa TTS)
 //
-// The recognition + vision are synchronised on a single Perception Bus
-// (internal/perception/bus), so the "agora" the COSCA answers about is the same
-// multimodal instant it heard the Don. Everything is local and sovereign: no
-// Python, no Internet, no torch.
+// PERCEPÇÃO POR AÇÃO (pedido do Don): a visão NÃO roda a cada frame o tempo
+// todo. O COSCa só processa a visão quandocê PEDE por comando falado — leve,
+// alinhado ao "agente com ferramentas". A fala (STT) é sincronizada no
+// Perception Bus (internal/perception/bus), mas a visão é disparada sob demanda
+// pela ferramenta (internal/visionact). Tudo local e soberano: sem Python, sem
+// Internet, sem torch.
 
 import (
 	"context"
@@ -30,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/CoscaAI/cosca/internal/perception/bus"
+	"github.com/CoscaAI/cosca/internal/visionact"
 	"github.com/CoscaAI/cosca/internal/worldmodel/audio/mic"
 	"github.com/CoscaAI/cosca/internal/worldmodel/audio/tts"
 )
@@ -112,28 +115,29 @@ DLLs (sherpa-onnx-c-api.dll / sherpa-onnx-cxx-api.dll / onnxruntime.dll) em bin/
 			micSrc := mic.NewMicrophoneAudioSource(mc, sttSrc, logger)
 			defer micSrc.Close()
 
-			// 3) VER: build the Perception Loop (opt-in via perception.enabled).
-			// A nil service (perception disabled) means the bus has no vision →
-			// the loop degrades gracefully to "A visão não está ativa agora".
-			visionSvc := buildPerceptionService(cfg.Perception, logger)
+		// 3) PERCEPÇÃO POR AÇÃO (sob demanda): o Don pediu que o COSCa NÃO
+		// processasse a visão a cada frame o tempo todo (isso pesa o sistema).
+		// Em vez do loop contínuo de percepção, montamos o engine de FERRAMENTAS
+		// de percepção (internal/visionact): o COSCa só VÊ quando o Don PEDE
+		// ("olha a tela" / "grava 30 segundos e interpreta"). Sem loop de fundo.
+		actEngine := buildActionEngine(cfg.Perception, logger)
 
-			// 4) SINCRONIZAR: the Perception Bus ties vision (Perception Loop)
-			//    + live audio (mic→STT) onto one monotonic clock, so the answer
-			//    describes what the COSCA is seeing at the instant it heard you.
-			b := bus.NewBus(bus.Config{
-				Window:    cfg.Perception.Audio.Window,
-				MaxObs:    bus.DefaultMaxObs,
-				Tolerance: cfg.Perception.Audio.Tolerance,
-			}, visionSvc, micSrc, logger.With().Str("component", "voice-chat/bus").Logger())
+		// 4) SINCRONIZAR: the Perception Bus ties live audio (mic→STT) onto one
+		// monotonic clock. A nil vision service means the bus does NOT attach a
+		// continuous vision source — perception is BY ACTION now; the actions
+		// (LookAtScreen / RecordAndInterpret) bypass the bus and go straight to
+		// the brain. Normal chatter honestly degrades to "a visão não está ativa".
+		b := bus.NewBus(bus.Config{
+			Window:    cfg.Perception.Audio.Window,
+			MaxObs:    bus.DefaultMaxObs,
+			Tolerance: cfg.Perception.Audio.Tolerance,
+		}, nil, micSrc, logger.With().Str("component", "voice-chat/bus").Logger())
 
-			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-			defer cancel()
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
 
-			if visionSvc != nil && visionSvc.Enabled() {
-				visionSvc.Start(ctx)
-			}
-			b.Start(ctx)
-			defer b.Stop()
+		b.Start(ctx)
+		defer b.Stop()
 
 			// 5) FALAR: build the sherpa TTS speaker (opt-in via tts.provider).
 			//    A nil speaker means TTS is disabled — the loop still answers
@@ -166,15 +170,24 @@ DLLs (sherpa-onnx-c-api.dll / sherpa-onnx-cxx-api.dll / onnxruntime.dll) em bin/
 				defer mem.Close()
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), "COSCA está ouvindo e vendo (Ctrl-C para parar)…")
-			if visionSvc == nil || !visionSvc.Enabled() {
-				fmt.Fprintln(cmd.OutOrStdout(), "aviso: perception.enabled=false — a visão NÃO está ativa; o COSCA responderá \"A visão não está ativa agora\".")
+			// 8) CACHE DE CONHECIMENTO (memory-first): o COSCa SÓ chama o LLM
+			// quando ainda não sabe a resposta. Persiste pergunta→resposta em
+			// <coscaDir>/knowledge.json. Degrada gracioso: dir/arquivo ausente →
+			// cache vazio (fluxo atual, sem mudança).
+			if cfg.Perception.KnowledgeCache {
+				kc := newKnowledgeCache(coscaDir)
+				kc.logger = logger.With().Str("component", "voice-chat/knowledge-cache").Logger()
+				setVoiceKnowledgeCache(kc)
+				defer setVoiceKnowledgeCache(nil)
 			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "COSCA está ouvindo (Ctrl-C para parar).")
+			fmt.Fprintln(cmd.OutOrStdout(), "Visão POR AÇÃO: fale \"olha a tela\" ou \"grava 30 segundos e interpreta\" — o COSCa só processa a visão quando você pede.")
 			if spk == nil {
 				fmt.Fprintln(cmd.OutOrStdout(), "aviso: TTS nativo não compilado/percepção.tts.provider != sherpa — o COSCA escreverá a resposta mas NÃO a falará.")
 			}
 
-			return runVoiceChatLoop(cmd, b, spk, mem, sid, speed, play, outDir, logger, ctx)
+			return runVoiceChatLoop(cmd, b, spk, mem, actEngine, sid, speed, play, outDir, logger, ctx)
 		},
 	}
 
@@ -193,7 +206,7 @@ DLLs (sherpa-onnx-c-api.dll / sherpa-onnx-cxx-api.dll / onnxruntime.dll) em bin/
 // ticker surfaces the "vejo agora" status so the Don can see what the COSCA is
 // perceiving even before it speaks.
 func runVoiceChatLoop(cmd *cobra.Command, b *bus.Bus, spk *tts.Speaker, mem *memoryManagerAdapter,
-	sid int, speed float64, play bool, outDir string,
+	actEngine *visionact.Engine, sid int, speed float64, play bool, outDir string,
 	logger zerolog.Logger, ctx context.Context) error {
 
 	sub := b.Watch()
@@ -207,6 +220,11 @@ func runVoiceChatLoop(cmd *cobra.Command, b *bus.Bus, spk *tts.Speaker, mem *mem
 	// (a subsequent vision-only WorldState re-carries the same last audio).
 	// Segment IDs start at 0, so -1 is a sentinel meaning "none answered yet".
 	lastFinalSeg := int64(-1)
+
+	// ECHO SUPPRESSION: after the COSCa speaks (TTS), its own voice comes back
+	// through the mic. Without a pause, the loop responds to itself endlessly.
+	// We ignore audio for this cooldown window right after speaking.
+	lastSpeak := time.Now().Add(-time.Hour)
 
 	for {
 		select {
@@ -234,15 +252,42 @@ func runVoiceChatLoop(cmd *cobra.Command, b *bus.Bus, spk *tts.Speaker, mem *mem
 			lastFinalSeg = int64(a.SegmentID)
 
 			utterance := strings.TrimSpace(a.Text)
+
+			// GATE de resposta: evita o COSCa responder a CADA som/ruído. Ele só
+			// responde quando a fala é uma PERGUNTA, uma AÇÃO de percepção, ou um
+			// endereçamento ("cosca..."). Ruído/palavras soltas são ignoradas, senão
+			// o loop entra num ciclo infinito falando a cada segmento.
+			if !shouldRespond(utterance) {
+				fmt.Fprintf(cmd.OutOrStdout(), "\r[ignorado] %q\n", utterance)
+				continue
+			}
+			// ECHO SUPPRESSION: if we spoke very recently, ignore what we just heard
+			// (it is most likely our own TTS coming back through the mic).
+			if time.Since(lastSpeak) < voiceEchoCooldown {
+				fmt.Fprintf(cmd.OutOrStdout(), "\r[eco ignorado] %q\n", utterance)
+				continue
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "\r[ouvi] %s\n", utterance)
 
-			// INTERPRETAR (FASE 1 — o cérebro usa os sentidos): monta o contexto
-			// perceptual (visão + áudio + memória episódica) + a pergunta do Don e
-			// deixa o MODELO deliberar a resposta inteligente em PT-BR. Degradação
-			// graciosa: se o modelo falhar/for ausente, cai no template antigo.
-			nowState := b.State()
-			memoryHints := buildMemoryHints(ctx, mem, utterance, 4)
-			resp, delibErr := respondWithDeliberation(ctx, nowState, utterance, memoryHints)
+			// PERCEPÇÃO POR AÇÃO: decide se o Don pediu uma ação de percepção
+			// ("olha a tela" / "grava N segundos e interpreta"). Se sim, dispara a
+			// FERRAMENTA e entrega o RESULTADO ao cérebro. Senão, comportamento
+			// normal (o cérebro usa o contexto atual do bus).
+			act := parsePerceptionAction(utterance)
+			var resp string
+			var delibErr error
+			if act.kind != actionNone {
+				fmt.Fprintf(cmd.OutOrStdout(), "[ação] %s\n", describeAction(act))
+				resp, delibErr = runPerceptionAction(ctx, act, actEngine, utterance, mem, logger)
+			} else {
+				// INTERPRETAR (FASE 1 — o cérebro usa os sentidos): monta o contexto
+				// perceptual (visão + áudio + memória episódica) + a pergunta do Don e
+				// deixa o MODELO deliberar a resposta inteligente em PT-BR. Degradação
+				// graciosa: se o modelo falhar/for ausente, cai no template antigo.
+				nowState := b.State()
+				memoryHints := buildMemoryHints(ctx, mem, utterance, 4)
+				resp, delibErr = respondWithDeliberation(ctx, nowState, utterance, memoryHints)
+			}
 			if delibErr != nil {
 				logger.Warn().Err(delibErr).Msg("voice chat: deliberation degraded — spoke template")
 			}
@@ -257,15 +302,21 @@ func runVoiceChatLoop(cmd *cobra.Command, b *bus.Bus, spk *tts.Speaker, mem *mem
 				logger.Warn().Err(err).Msg("voice chat: speak failed")
 				fmt.Fprintf(cmd.OutOrStdout(), "(fala falhou: %v)\n", err)
 			}
+			// MARCA a hora da fala para o ECHO SUPPRESSION ignorar o que voltar
+			// pelo mic logo em seguida.
+			lastSpeak = time.Now()
 		}
 	}
 }
 
-// printVoiceChatVisionStatus surfaces the live vision status on the heartbeat.
+// printVoiceChatVisionStatus surfaces the vision status on the heartbeat. In
+// the perception-BY-ACTION mode the bus carries no continuous vision source, so
+// the honest status is "a visão é sob demanda" (fale a ação) — this is the Don's
+// design: a continuous vision loop would weigh the system.
 func printVoiceChatVisionStatus(cmd *cobra.Command, b *bus.Bus) {
 	st := b.State()
 	if st == nil || st.Vision == nil {
-		fmt.Fprintln(cmd.OutOrStdout(), "[status] visão: inativa (bus sem WorldState de visão)")
+		fmt.Fprintln(cmd.OutOrStdout(), "[status] visão por ação: fale \"olha a tela\" ou \"grava 30 segundos e interpreta\" para eu ver agora.")
 		return
 	}
 	entities := st.Vision.Entities
@@ -334,3 +385,8 @@ func playVoiceChatWAV(path string) error {
 }
 
 func newVoiceChatLogger() zerolog.Logger { return zerolog.New(zerolog.Nop()) }
+
+// voiceEchoCooldown é o intervalo de supressão de eco: após o COSCa falar (TTS),
+// a própria voz dele volta pelo microfone. Ignoramos o áudio por este tempo para
+// o loop não responder a si mesmo em loop infinito.
+const voiceEchoCooldown = 4 * time.Second

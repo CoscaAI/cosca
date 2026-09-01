@@ -1274,3 +1274,40 @@
 - CONECTADO no voice_chat_sherpa.go: runVoiceChatLoop agora chama respondWithDeliberation (com memoryHints da memoria episodica) e fala via TTS.
 - VERIFICACAO: build default exit 0, build -tags stt_sherpa exit 0, vet exit 0, 6 testes PASS (NoBrain/BrainSmart/BrainFails/BrainEmptyContent/BuildPerceptualPrompt).
 - VALOR: o COSCa deixa de ser 'relator de objetos' e vira um cerebro que PENSA com os sentidos (usa percepcao + memoria). Fase 1 do plano (percepcao->deliberacao->acao).
+
+## 2026-09-01 - VISAO EM TEMPO REAL + CACHE DE CONHECIMENTO + MINERACAO HF
+- OBJETIVO: acelerar a visao do COSCa (6-10s/frame) e evitar chamar o LLM a toda fala (consumo de tokens). Don pediu minerar os repos padrao do HF para achar "diamantes".
+
+### 1) VOICE CHAT: gate + echo suppression (resolveu "fala a cada som")
+- shouldRespond(utterance) -> so responde se pergunta/acao/enderecamento; ruido vira "[ignorado]". Definida em voice_chat_action.go.
+- voiceEchoCooldown = 4s: apos falar (TTS), ignora audio que volta pelo micro (a propria voz) -> "[eco ignorado]". Quebra o loop de repetir a si mesmo.
+- sanitizePerceptionContext(summary): remove warnings "degradation warning"/config de modelo antes de dar ao brain (senao o brain reclama de "degradado" em vez de descrever).
+
+### 2) DIRECTML na GPU AMD (RX 6700 XT) = NENHUM ganho (veredito)
+- O onnxruntime.dll no bin era CPU-only. Baixei o build DirectML 1.24.4 (NuGet); DirectML.dll ja esta no System32.
+- CONFIRMEI via harness: AppendExecutionProviderDirectML(0) retorna nil (anexa) MAS os frames warm continuam 6-10s. Os OPERADORES do GroundingDINO/CLIP/Depth nao rodam na GPU AMD via DirectML -> caem pra CPU. Professor acertou ("depende dos operadores").
+- ROCm: onnxruntime-rocm NAO tem build Windows (Linux-only) -> inviavel na maquina. Conclusao: GPU AMD no Windows nao acelera esses modelos; o caminho e CPU otimizado (int8 + graph opt) ou modelos leves.
+
+### 3) BINDING onnxruntime_go: incompatibilidade de versao (importante)
+- v1.35 pede API 29 (runtime 1.29). DirectML build so vai ate 1.24.4 (API 24). O binding compativel com API 24 e **v1.27.0** (testado: inicializa + AppendExecutionProviderDirectML ok). Trocar go.mod v1.35 -> v1.27.0 (compila, APIs do nucleo intactas). go get github.com/yalue/onnxruntime_go@v1.27.0.
+- loadModel (internal/worldmodel/vision/onnx.go): agora tenta AppendExecutionProviderDirectML(0) com fallback CPU (opts nil) - degradacao graciosa. Sem ganho real, mas inofensivo.
+
+### 4) RECEITA PARA ACELERAR VISAO EM CPU (do optimum-onnx)
+- QUANTIZACAO int8 DINAMICA (off-line, uma vez): onnxruntime.quantization.quantize_dynamic(model, out, weight_type=QInt8, per_channel=True, reduce_range=False, op_types_to_quantize=["MatMul","Add","Conv","Gemm"], optimize_model=True, extra_options={WeightSymmetric:True, ActivationSymmetric:False}). GroundingDINO: quantizar cada subgrafo separado (e multi-modelo text+vision+DETR).
+- NAO usar fp16 (LayerNorm -> NaN; eps pequeno). Ir fp32 -> int8.
+- RUNTIME Go: SessionOptions graph_optimization_level = 99 (ORT_ENABLE_ALL), CPUExecutionProvider, AVX2 (Zen tem). Setup: `enableCPU_arena`, execution mode sequential.
+- O codigo real do ORTOptimizer/ORTQuantizer mudou para o repo huggingface/optimum-onnx (optimum foi split).
+
+### 5) MINERACAO HF (6 repos) - diamantes por cor
+- VERMELHO (acelerar): optimum (EPs AMD, graph opt, int8) + optimum-onnx (params exatos). ROCm descartado (Windows).
+- ROSA (arquitetura, transformadores/diffusers): Pipeline de 4 estagios (pre->forward->post + batch/stream/device); ProcessorMixin multimodal; Pipeline por Blocos + PipelineState; ComponentSpec (lazy load).
+- AZUL (memoria/32GB - datasets/accelerate): fingerprint->cache; MemoryMappedTable + replay (memoria em disco lazy); streaming lazy + buffer shuffle; cpu_offload_with_hook + pre-check de bytes + reserva da maior-camada (causa-raiz do estouro); offload 3 niveis (grupo+prefetch) + memory_reserve_margin.
+- ROXO (personalizar cerebro - peft): LoRA (target_modules q_proj/k_proj/..., r=8-16, lora_alpha, fan_in_fan_out=True p/ qwen); adapters EMPILHAVEIS = "skins" (set_adapter em runtime); aLoRA (ativa adapter so apos token de invocacao, ~10x em agentic); PiSSA/CORDA (init sem SVD caro).
+- LILAS (robustez): registry de backends + is_x_available + _LazyModule (degradacao graciosa); AutoModel/PipelineRegistry (descobrir provider por string); BaseOutput (dict+tuple, omite None).
+
+### 6) CACHE DE CONHECIMENTO (memory-first) - IMPLEMENTADO
+- PROBLEMA: LLM (Ollama) chamado a TODA deliberacao de voz (consumo de tokens). Sem cache: memoria episodica era so contexto, nunca fonte da resposta.
+- novo internal/cli/knowledge_cache.go: knowledgeCache persistente (pergunta->resposta, JSON em <.cosca>/knowledge.json). Lookup(query) (answer, ok, score) token-overlap ponderado (stopwords pt ignoradas, normalizePT, threshold defaultKnowledgeCacheThreshold=0.62, query identica->1.0). Store(query, answer) upsert.
+- Integrado em respondWithDeliberation e respondWithDeliberationTool (voice_chat_deliberate.go): LOOKUP antes do brain (se ok -> resposta do cache SEM LLM); STORE apos resposta do brain (aprende). Config Perception.KnowledgeCache bool (default true). Wiring em voice_chat_sherpa.go (atras tag stt_sherpa, setVoiceKnowledgeCache).
+- VALORES: 7 testes PASS; build tags OK; vet OK. Fluxo: pergunta -> lookup cache -> (achou: resposta do cache | nao: LLM + store). LLM so quando NAO sabe.
+- NOTA: TestInstall_DriftKnowledgeDB_Repairs e flaky pre-existente (passa isolado).

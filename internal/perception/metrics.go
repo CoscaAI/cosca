@@ -95,11 +95,15 @@ type Metrics struct {
 type metricTracker struct {
 	windowStart time.Time
 	windowCPU   float64
+	// windowLen is the adaptive measurement window. It grows to hold at least
+	// two completed ticks (max(metricsWindow, 2*avg latency)), capped at 60s, so
+	// a slow pipeline (e.g. ~3.5s/frame vision) still reports stable ticks/FPS
+	// instead of oscillating to zero because one tick barely fits a 5s window.
+	windowLen time.Duration
 
 	ring    [metricsRingCap]time.Duration
 	ringPos int
 	ringN   int
-
 	ticks       uint64
 	dropped     uint64
 	capFails    uint64
@@ -117,7 +121,7 @@ type metricTracker struct {
 }
 
 func newMetricTracker() *metricTracker {
-	return &metricTracker{windowStart: time.Now()}
+	return &metricTracker{windowStart: time.Now(), windowLen: metricsWindow}
 }
 
 // record pushes a completed tick's latency and per-model timings into the
@@ -154,7 +158,7 @@ func (m *metricTracker) markChanged(t time.Time) {
 // Service's mu (it mutates the tracker on reset).
 func (m *metricTracker) snapshot() *Metrics {
 	now := time.Now()
-	if now.Sub(m.windowStart) >= metricsWindow {
+	if now.Sub(m.windowStart) >= m.windowLen {
 		m.windowStart = now
 		m.windowCPU = processCPUSeconds()
 		m.ticks = 0
@@ -179,6 +183,19 @@ func (m *metricTracker) snapshot() *Metrics {
 	copy(latencies, m.ring[:m.ringN])
 	avg := meanDuration(latencies)
 	p95 := percentileDuration(latencies, 0.95)
+
+	// Adaptive window: grow to hold at least 2 ticks, capped at 60s. A slow
+	// frame (e.g. 3.5s) would otherwise fall outside a fixed 5s window and make
+	// ticks/FPS oscillate to 0.
+	if m.ringN > 0 {
+		m.windowLen = 2 * avg
+		if m.windowLen < metricsWindow {
+			m.windowLen = metricsWindow
+		}
+		if m.windowLen > 60*time.Second {
+			m.windowLen = 60 * time.Second
+		}
+	}
 
 	// CPU: delta of Go's own CPU accounting over the window, as a %.
 	cpuSec := processCPUSeconds() - m.windowCPU

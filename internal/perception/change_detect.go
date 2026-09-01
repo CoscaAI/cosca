@@ -65,6 +65,15 @@ func newChangeDetector(threshold float64) *ChangeDetector {
 	return &ChangeDetector{threshold: threshold}
 }
 
+// NewChangeDetector builds a ChangeDetector with the given normalised
+// mean-absolute-delta threshold (<=0 falls back to the default). It is the
+// exported constructor so other packages (e.g. the perception-by-action tools in
+// internal/visionact) can reuse the same pure-Go change-detection comparator
+// without re-implementing the downsample + mean-abs-delta logic.
+func NewChangeDetector(threshold float64) *ChangeDetector {
+	return newChangeDetector(threshold)
+}
+
 // Evaluate compares `frame` (encoded PNG/JPEG bytes) against the stored
 // reference and returns true when the screen meaningfully changed (or when
 // there is no reference yet, i.e. the first frame).

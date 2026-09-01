@@ -82,6 +82,7 @@ sempre: ele é desabilitado no boot e liga só quando você quiser falar.
 		// the noop twin (voice_listen_noop.go) reports STT desabilitado.
 		newVoiceListenCommand(),
 		newVoiceDevicesCommand(),
+		newVoiceChatCommand(),
 	)
 	return cmd
 }

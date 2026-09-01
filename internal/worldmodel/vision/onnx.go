@@ -174,8 +174,23 @@ func loadModel(path string) (*modelSession, error) {
 	if err != nil {
 		return nil, fmt.Errorf("introspect model %s: %w", path, err)
 	}
+	// Tenta habilitar o DirectML (GPU AMD) para acelerar a inferência ONNX.
+	// A RX 6700 XT não tem CUDA; DirectML é a via correta. Se o runtime não
+	// tiver o provider DirectML compilado (ex: onnxruntime.dll CPU-only), a
+	// sessão cai graciosamente para CPU — nunca quebra a percepção.
+	opts, err := onnxruntime_go.NewSessionOptions()
+	if err != nil {
+		opts = nil // degrada para CPU
+	}
+	if opts != nil {
+		if dmlErr := opts.AppendExecutionProviderDirectML(0); dmlErr != nil {
+			// DirectML indisponível (DLL sem o provider). Usa CPU.
+			_ = opts.Destroy()
+			opts = nil
+		}
+	}
 	sess, err := onnxruntime_go.NewDynamicAdvancedSession(path,
-		infoNames(in), infoNames(out), nil)
+		infoNames(in), infoNames(out), opts)
 	if err != nil {
 		return nil, fmt.Errorf("create session %s: %w", path, err)
 	}

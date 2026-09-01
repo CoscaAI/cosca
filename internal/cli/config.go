@@ -59,6 +59,17 @@ func getConfigDir() string {
 	if dir := os.Getenv("COSCA_PROJECT_DIR"); dir != "" {
 		return dir
 	}
+	// Primeiro tenta resolver a raiz do projeto a partir do executável
+	// (bin\cosca.exe → diretório pai = raiz do projeto quando esta tiver
+	// .cosca/config.yaml). Assim o binário funciona de QUALQUER CWD — não só
+	// quando invocado da raiz. Só cai no CWD como último recurso.
+	if exe, err := os.Executable(); err == nil {
+		binDir := filepath.Dir(exe)
+		root := filepath.Dir(binDir)
+		if _, statErr := os.Stat(filepath.Join(root, ".cosca", "config.yaml")); statErr == nil {
+			return root
+		}
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		return "."

@@ -141,6 +141,31 @@ func getVoiceBrain() *voiceBrain {
 	return voiceBrainDefault
 }
 
+// ──────────────────────────────────────────────────────────────
+// Knowledge cache (memory-first, QA) — package-level, injectable
+// ──────────────────────────────────────────────────────────────
+
+var (
+	voiceKnowledgeCacheMu      sync.RWMutex
+	voiceKnowledgeCacheDefault *knowledgeCache
+)
+
+// setVoiceKnowledgeCache injeta o cache de conhecimento padrão usado por
+// respondWithDeliberation / respondWithDeliberationTool. Os testes injetam um
+// cache fake (ou nil para exercitar o caminho sem cache).
+func setVoiceKnowledgeCache(c *knowledgeCache) {
+	voiceKnowledgeCacheMu.Lock()
+	voiceKnowledgeCacheDefault = c
+	voiceKnowledgeCacheMu.Unlock()
+}
+
+// getVoiceKnowledgeCache retorna o cache de conhecimento padrão atual (ou nil).
+func getVoiceKnowledgeCache() *knowledgeCache {
+	voiceKnowledgeCacheMu.RLock()
+	defer voiceKnowledgeCacheMu.RUnlock()
+	return voiceKnowledgeCacheDefault
+}
+
 // buildVoiceBrain monta o cérebro a partir da config do provider (a mesma que
 // o `cosca chat` usa): registra os providers de chat, propaga a config para
 // env vars e seleciona o primário declarado no config (ex.: ollama/qwen3:8b).
@@ -208,13 +233,113 @@ func respondWithDeliberation(ctx context.Context, state *bus.WorldState, utteran
 		return respondFromWorldState(state, utterance), nil
 	}
 
+	// MEMORY-FIRST: antes de gastar o LLM, o COSCa pergunta ao cache de
+	// conhecimento. Se ele JÁ sabe a resposta (score >= threshold), devolve do
+	// cache — sem chamar o modelo. Degrada gracioso: cache nil/vazio → flui.
+	if cache := getVoiceKnowledgeCache(); cache != nil {
+		if ans, ok, score := cache.Lookup(utterance); ok {
+			brain.logger.Debug().
+				Str("hint", "knowledge-cache").
+				Float64("score", score).
+				Msg("voice brain: answered from knowledge cache (no LLM)")
+			return ans, nil
+		}
+	}
+
 	prompt := buildPerceptualPrompt(state, utterance, memoryHints)
 	resp, err := brain.deliberate(ctx, prompt)
 	if err != nil {
 		brain.logger.Warn().Err(err).Msg("voice brain: deliberation failed — falling back to template")
 		return respondFromWorldState(state, utterance), err
 	}
+	// APRENDIZADO (memory-first): guarda a pergunta→resposta para a próxima vez
+	// vir do cache sem gastar o LLM.
+	if cache := getVoiceKnowledgeCache(); cache != nil {
+		cache.Store(utterance, resp)
+		brain.logger.Debug().Str("hint", "knowledge-cache").Msg("voice brain: stored response in knowledge cache")
+	}
 	return resp, nil
+}
+
+// respondWithDeliberationTool is the perception-BY-ACTION deliberation: when the
+// Don asks the COSCa to "olha a tela" / "grava N segundos e interpreta", the
+// loop runs the perception TOOL (internal/visionact) and hands the RESULT (the
+// Observation.SummaryText() or the change report) to the brain as the
+// perceptual context, instead of the bus WorldState.
+//
+// Graceful degradation contract (never breaks the loop):
+//   - no brain (provider nil)             → template (respondWithTool).
+//   - brain call fails / timeout / empty  → template (respondWithTool).
+//   - brain succeeds                      → the smart response.
+func respondWithDeliberationTool(ctx context.Context, toolContext, utterance string, memoryHints []string) (string, error) {
+	brain := getVoiceBrain()
+	if !brain.Enabled() {
+		// Sem cérebro: o COSCa relata o que a ferramenta percebeu (template).
+		return respondWithTool(toolContext, utterance), nil
+	}
+
+	// MEMORY-FIRST: antes de gastar o LLM, o COSCa pergunta ao cache de
+	// conhecimento. Se ele JÁ sabe a resposta (score >= threshold), devolve do
+	// cache — sem chamar o modelo. Degrada gracioso: cache nil/vazio → flui.
+	if cache := getVoiceKnowledgeCache(); cache != nil {
+		if ans, ok, score := cache.Lookup(utterance); ok {
+			brain.logger.Debug().
+				Str("hint", "knowledge-cache").
+				Float64("score", score).
+				Msg("voice brain: tool answered from knowledge cache (no LLM)")
+			return ans, nil
+		}
+	}
+
+	prompt := buildToolPerceptualPrompt(toolContext, utterance, memoryHints)
+	resp, err := brain.deliberate(ctx, prompt)
+	if err != nil {
+		brain.logger.Warn().Err(err).Msg("voice brain: tool deliberation failed — falling back to template")
+		return respondWithTool(toolContext, utterance), err
+	}
+	// APRENDIZADO (memory-first): guarda a pergunta→resposta para a próxima vez
+	// vir do cache sem gastar o LLM.
+	if cache := getVoiceKnowledgeCache(); cache != nil {
+		cache.Store(utterance, resp)
+		brain.logger.Debug().Str("hint", "knowledge-cache").Msg("voice brain: tool stored response in knowledge cache")
+	}
+	return resp, nil
+}
+
+// buildToolPerceptualPrompt monta o prompt da deliberação por AÇÃO: o RESULTADO
+// da ferramenta de percepção (o que o COSCa percebeu ao executar "olha a tela" /
+// "grava N segundos") + a memória episódica + a pergunta do Don. É uma função
+// pura (sem I/O), testável.
+func buildToolPerceptualPrompt(toolContext, utterance string, memoryHints []string) string {
+	var b strings.Builder
+
+	b.WriteString(defaultBrainSystemPrompt())
+	b.WriteString("\n\nCONTEXTO PERCEPTUAL DA AÇÃO (o que o COSCa percebeu ao executar a ferramenta):\n")
+
+	ctxText := strings.TrimSpace(toolContext)
+	if ctxText == "" {
+		b.WriteString("- A ferramenta de percepção não retornou informação (percepção indisponível/degradada)\n")
+	} else {
+		b.WriteString("- " + ctxText + "\n")
+	}
+
+	// Memória episódica.
+	if len(memoryHints) > 0 {
+		b.WriteString("\nMEMÓRIA EPISÓDICA (o que você LEMBRA do que viu/ouviu antes):\n")
+		for i, h := range memoryHints {
+			h = strings.TrimSpace(h)
+			if h == "" {
+				continue
+			}
+			fmt.Fprintf(&b, "- [lembrança %d] %s\n", i+1, h)
+		}
+	}
+
+	b.WriteString("\nPERGUNTA DO DON:\n\"" + strings.TrimSpace(utterance) + "\"\n")
+	b.WriteString("\nResponda em português do Brasil, como o COSCa: 1-3 frases, natural e inteligente, ")
+	b.WriteString("baseando-se APENAS no que a ferramenta de percepção retornou. Se você não percebeu ")
+	b.WriteString("algo, diga honestamente. Não invente objetos, sons ou memórias.")
+	return b.String()
 }
 
 // buildMemoryHints consulta a memória episódica (FASE D) com a pergunta do Don
@@ -338,5 +463,10 @@ func defaultBrainSystemPrompt() string {
 	return "Você é o COSCa, um agente de IA com percepção multimodal: você VÊ (visão por " +
 		"modelo ONNX local), OUVE (STT sherpa local) e LEMBRA (memória episódica). " +
 		"Você está observando o mundo real AGORA e a pessoa está falando com você. " +
-		"Responda com inteligência e naturalidade, com base no contexto perceptual que recebe."
+		"Responda com inteligência e naturalidade, com base no contexto perceptual que recebe.\n\n" +
+		"IMPORTANTE: o contexto perceptual é o resultado de uma ANÁLISE QUE VOCÊ JÁ EXECUTOU — " +
+		"mesmo que ele liste 0 objetos ou tenha avisos, você CONSEGUIU ver a imagem. Nunca diga " +
+		"\"não consigo ver\" ou \"não estou enxergando\". Em vez disso, DESCREVA o que você percebe " +
+		"no contexto (ex.: se não há objetos detectados, descreva como a tela parece estar, como " +
+		"um terminal/modo texto, sem elementos destacados). Seja específico e honesto."
 }
