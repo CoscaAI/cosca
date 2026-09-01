@@ -12,11 +12,14 @@ package mcpserver
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
 )
@@ -87,6 +90,63 @@ type Server struct {
 
 	// outMu serializa a escrita de respostas no stdout (uma por vez).
 	outMu sync.Mutex
+
+	// replayCache protege contra REPLAY de tools/call: o OpenCode (ou um retry
+	// do cliente) pode reenviar a MESMA chamada (mesmo name+arguments) quando o
+	// stream trava ou o usuário manda continuar. Sem proteção, cada reenvio
+	// RE-EXECUTA a tool — custo duplicado de LLM/tokens e efeitos repetidos.
+	// A chave é um hash determinístico de name+arguments; o valor é o resultado
+	// já computado, servido do cache em vez de re-executar.
+	replayCache *replayStore
+}
+
+// replayEntry guarda um resultado de tools/call já computado, com expiração
+// (TTL curto — o replay só importa na janela de retry do cliente).
+type replayEntry struct {
+	result  *toolCallResult
+	rpcErr  *rpcError
+	expires time.Time
+}
+
+// replayStore é o cache de replay com mutex (concorrente: o Serve é
+// single-threaded, mas testes e chamadas futuras podem paralelizar).
+type replayStore struct {
+	mu    sync.Mutex
+	items map[string]replayEntry
+	// ttl é o tempo de vida de uma entrada de replay. 5min cobre retries
+	// humanos e de rede sem segurar memória indefinidamente.
+	ttl time.Duration
+}
+
+func newReplayStore(ttl time.Duration) *replayStore {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &replayStore{items: make(map[string]replayEntry), ttl: ttl}
+}
+
+// get devolve a entrada de replay para a chave, se existir e não tiver
+// expirado (expirada é removida e tratada como ausente).
+func (r *replayStore) get(key string) (replayEntry, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entry, ok := r.items[key]
+	if !ok {
+		return replayEntry{}, false
+	}
+	if time.Now().After(entry.expires) {
+		delete(r.items, key)
+		return replayEntry{}, false
+	}
+	return entry, true
+}
+
+// set armazena o resultado de replay para a chave.
+func (r *replayStore) set(key string, entry replayEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entry.expires = time.Now().Add(r.ttl)
+	r.items[key] = entry
 }
 
 // NewServer cria um servidor MCP sobre um engine e um par in/out injetável.
@@ -96,9 +156,10 @@ func NewServer(engine *Engine, input io.Reader, output io.Writer) *Server {
 	s := bufio.NewScanner(input)
 	s.Buffer(make([]byte, 0, 256*1024), 256*1024)
 	return &Server{
-		engine:  engine,
-		scanner: s,
-		out:     output,
+		engine:      engine,
+		scanner:     s,
+		out:         output,
+		replayCache: newReplayStore(5 * time.Minute),
 	}
 }
 
@@ -199,6 +260,11 @@ func (s *Server) handleToolsList(req request) response {
 
 // handleToolCall roteia tools/call para o Engine.Call. Tool desconhecida ou
 // erro de execução → erro JSON-RPC (fail-closed). Sucesso → resultado MCP.
+//
+// PROTEÇÃO DE REPLAY: a mesma chamada (mesmo name+arguments) reenviada dentro
+// da janela de TTL (ex.: o OpenCode reenviou porque o stream travou, ou o
+// usuário mandou continuar) NÃO re-executa — devolve o resultado em cache.
+// Isso elimina o custo duplicado de LLM/tokens e efeitos repetidos.
 func (s *Server) handleToolCall(req request) response {
 	params := toolCallParams{}
 	if len(req.Params) > 0 {
@@ -218,15 +284,58 @@ func (s *Server) handleToolCall(req request) response {
 		return errorResponse(req.ID, codeInvalidParams, fmt.Sprintf("tool %q não encontrada", params.Name))
 	}
 
-	callResult, err := s.engine.Call(context.Background(), params.Name, params.Arguments)
+	// ── Replay guard: chave determinística da chamada (name + arguments). ──
+	key := replayKey(params.Name, params.Arguments)
+	if s.replayCache != nil {
+		if entry, ok := s.replayCache.get(key); ok {
+			if entry.rpcErr != nil {
+				return errorResponse(req.ID, entry.rpcErr.Code, entry.rpcErr.Message)
+			}
+			return successResponse(req.ID, mustMarshal(entry.result))
+		}
+	}
+
+	// ── Timeout de execução (cada tool tem teto; o MCP nunca trava o loop
+	// para sempre). O OpenCode tem timeout próprio — se a tool exceder,
+	// devolvemos erro claro em vez de bloquear o stdio indefinidamente.
+	callCtx, cancel := context.WithTimeout(context.Background(), defaultToolCallTimeout)
+	defer cancel()
+
+	callResult, err := s.engine.Call(callCtx, params.Name, params.Arguments)
 	if err != nil {
 		// Falha dura (sem órgão, kernel halted, erro interno) → erro JSON-RPC.
+		rpcErr := errorResponse(req.ID, codeServerError, err.Error()).Error
+		if s.replayCache != nil {
+			s.replayCache.set(key, replayEntry{rpcErr: rpcErr})
+		}
 		return errorResponse(req.ID, codeServerError, err.Error())
 	}
-	return successResponse(req.ID, mustMarshal(toolCallResult{
+	res := toolCallResult{
 		Content: callResult.Content,
 		IsError: callResult.IsError,
-	}))
+	}
+	if s.replayCache != nil {
+		s.replayCache.set(key, replayEntry{result: &res})
+	}
+	return successResponse(req.ID, mustMarshal(res))
+}
+
+// defaultToolCallTimeout é o teto de execução de uma tool MCP. Um retry do
+// cliente reenviaria a chamada dentro da janela de replay (5min), então o
+// timeout não perde trabalho — apenas evita o bloqueio infinito do stdio.
+const defaultToolCallTimeout = 60 * time.Second
+
+// replayKey devolve a chave determinística de uma chamada de tool — o hash
+// SHA-256 de name + arguments. A mesma intenção reenviada gera a mesma chave;
+// intenções diferentes (mesmo nome, args diferentes) geram chaves diferentes.
+func replayKey(name string, arguments json.RawMessage) string {
+	h := sha256.New()
+	h.Write([]byte(name))
+	h.Write([]byte{0})
+	if len(arguments) > 0 {
+		h.Write(arguments)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // ─── JSON-RPC helpers ─────────────────────────────────────────────────────
