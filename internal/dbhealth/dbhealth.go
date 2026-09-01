@@ -81,7 +81,9 @@ type Target struct {
 	// Name é o rótulo/identificador do módulo (ex.: "knowledge").
 	Name string
 	// Path é o caminho relativo ao `.cosca` (ex.: "knowledge.db" ou
-	// "memory/index.db").
+	// "memory/index.db"). Pode conter um glob (ex.: "vector-*.db") — o gate
+	// expande e mede CADA partição individualmente (o teto de 100 MB é por
+	// banco, ADR-013 Decisão 1; uma partição nunca é somada às outras).
 	Path string
 }
 
@@ -90,6 +92,11 @@ type Target struct {
 // projetados pelo ADR (core, events e os derivados projects/graph/vector/fts).
 // Módulos que ainda não existem no disco são reportados como "não encontrado",
 // sem quebrar o gate — o gate é extensível a eles por construção.
+//
+// O módulo vector é particionado por RESPONSABILIDADE (ADR-013 §2.0/§2.2.1:
+// nunca por função; particionar quando o índice estoura o teto). O índice
+// vetorial de ~170 MB não cabe num único arquivo de 100 MB, então o gate
+// monitora o glob "vector-*.db" e mede cada partição individualmente.
 var DefaultTargets = []Target{
 	{Name: "knowledge", Path: "knowledge.db"},
 	{Name: "memory", Path: "memory/index.db"},
@@ -97,7 +104,7 @@ var DefaultTargets = []Target{
 	{Name: "events", Path: "events.db"},
 	{Name: "projects", Path: "projects.db"},
 	{Name: "graph", Path: "graph.db"},
-	{Name: "vector", Path: "vector.db"},
+	{Name: "vector", Path: "vector-*.db"},
 	{Name: "fts", Path: "fts.db"},
 }
 
@@ -241,6 +248,44 @@ func Check(opts Options) (*Result, error) {
 
 	// 1. Módulos alvo — sempre reportados (mesmo quando não existem).
 	for _, t := range opts.Targets {
+		// Suporte a glob (ex.: "vector-*.db"): expande e mede cada arquivo
+		// como um sub-módulo individual (o teto de 100 MB é POR banco).
+		if strings.ContainsAny(t.Path, "*?[") {
+			pattern := filepath.Join(opts.CoscaDir, filepath.FromSlash(t.Path))
+			matches, globErr := filepath.Glob(pattern)
+			if globErr != nil {
+				continue
+			}
+			if len(matches) == 0 {
+				// Nenhuma partição ainda — reporta o módulo como não encontrado
+				// (sem quebrar o gate). Usa o path "canônico" do glob apenas
+				// para exibição; nunca chama measure com um path contendo "*"
+				// (o os.Stat trataria o glob literal de forma não-portável).
+				displayPath := filepath.Join(opts.CoscaDir, filepath.FromSlash(t.Path))
+				rep := Report{
+					Name:    t.Name,
+					Path:    displayPath,
+					RelPath: relativeTo(opts.CoscaDir, displayPath),
+					Found:   false,
+					Status:  StatusNotFound,
+				}
+				res.Databases = append(res.Databases, rep)
+				continue
+			}
+			sort.Strings(matches)
+			for _, m := range matches {
+				m = filepath.Clean(m)
+				if seen[m] {
+					continue
+				}
+				seen[m] = true
+				// Rótulo: "vector/embed-memory" (nome do módulo + partição).
+				name := derivePartitionName(opts.CoscaDir, m, t.Name)
+				rep := measure(m, name, opts.CoscaDir, l)
+				res.Databases = append(res.Databases, rep)
+			}
+			continue
+		}
 		abs := filepath.Join(opts.CoscaDir, filepath.FromSlash(t.Path))
 		abs = filepath.Clean(abs)
 		if seen[abs] {
@@ -416,6 +461,24 @@ func findDBs(coscaDir string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// derivePartitionName gera o rótulo de uma partição de módulo: "vector" +
+// "/" + a parte do nome que diferencia a partição. Ex.: "vector-embed-memory.db"
+// → "vector/embed-memory". Para módulos não particionados devolve o próprio
+// nome (comportamento identico ao deriveName).
+func derivePartitionName(coscaDir, absPath, moduleName string) string {
+	base := filepath.Base(absPath)
+	base = strings.TrimSuffix(base, ".db")
+	if !strings.HasPrefix(base, moduleName) {
+		return deriveName(coscaDir, absPath)
+	}
+	suffix := strings.TrimPrefix(base, moduleName)
+	suffix = strings.TrimPrefix(suffix, "-")
+	if suffix == "" {
+		return moduleName
+	}
+	return moduleName + "/" + suffix
 }
 
 // deriveName gera um rótulo legível a partir do caminho relativo ao `.cosca`
