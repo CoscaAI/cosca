@@ -12,11 +12,14 @@
 package cli
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -34,6 +37,7 @@ type dbVerifyCounts struct {
 
 // NewDBVerifyCommand cria `cosca db verify`.
 func NewDBVerifyCommand() *cobra.Command {
+	var withChecksum bool
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Valida a integridade dos módulos físicos vs a fonte (ADR-013)",
@@ -41,8 +45,13 @@ func NewDBVerifyCommand() *cobra.Command {
 contagens dos módulos (core/graph/projects/vector-*.db) com o knowledge.db
 (a fonte da verdade). Exit 0 = íntegro; exit != 0 = divergência detectada.
 
+Com --checksum: além das contagens, compara o HASH de conteúdo de cada
+tabela (linhas ordenadas pela PK, todas as colunas) — a prova de que a
+cópia foi FIEL, não só no volume (D2 do Plano D).
+
 READ-ONLY: todas as conexões em mode=ro. Nunca escreve, migra ou apaga.`,
 		Example: `  cosca db verify
+  cosca db verify --checksum
   cosca db verify --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -143,6 +152,41 @@ READ-ONLY: todas as conexões em mode=ro. Nunca escreve, migra ou apaga.`,
 			}
 			rows = append(rows, row{Module: "vector-*.db (soma)", Table: "vectors", ModuleCnt: vecTotal, SourceCnt: srcCounts.vectors, OK: vecOK})
 
+			// D2 do Plano D: checksum de conteúdo (prova de cópia FIEL, não
+			// só de volume). Compara o hash das linhas ordenadas pela PK,
+			// com todas as colunas, entre módulo e fonte.
+			if withChecksum {
+				for _, m := range mods {
+					path := filepath.Join(dir, m.file)
+					if _, statErr := os.Stat(path); statErr != nil {
+						continue // ausente já reportado na contagem
+					}
+					srcHash, hErr := tableChecksum(src, m.table)
+					if hErr != nil {
+						f.Printf("  ⚠️ checksum fonte.%s: %v\n", m.table, hErr)
+						continue
+					}
+					db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?mode=ro")
+					if err != nil {
+						continue
+					}
+					modHash, hErr := tableChecksum(db, m.table)
+					_ = db.Close()
+					if hErr != nil {
+						f.Printf("  ⚠️ checksum %s.%s: %v\n", m.file, m.table, hErr)
+						continue
+					}
+					if srcHash != modHash {
+						allOK = false
+						f.Printf("  ❌ CHECKSUM %-20s %-14s diverge (fonte=%s módulo=%s)\n",
+							m.file, m.table, srcHash[:12], modHash[:12])
+					} else {
+						f.Printf("  ✅ CHECKSUM %-20s %-14s idêntico (%s)\n",
+							m.file, m.table, srcHash[:12])
+					}
+				}
+			}
+
 			if useJSON {
 				b, _ := jsonMarshalImpl(map[string]any{
 					"knowledge_db": kb,
@@ -179,7 +223,71 @@ READ-ONLY: todas as conexões em mode=ro. Nunca escreve, migra ou apaga.`,
 			return fmt.Errorf("db verify: divergência nos módulos do split")
 		},
 	}
+	cmd.Flags().BoolVar(&withChecksum, "checksum", false, "comparar também o hash de conteúdo de cada tabela (prova de cópia fiel)")
 	return cmd
+}
+
+// tableChecksum calcula o SHA-256 das linhas de uma tabela ordenadas pela
+// primeira coluna (a PK), serializando todas as colunas — a prova de que
+// duas bases têm o MESMO conteúdo, não só o mesmo volume. Determinístico:
+// mesma tabela + mesma ordenação = mesmo hash.
+func tableChecksum(db *sql.DB, table string) (string, error) {
+	cols, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return "", err
+	}
+	var colNames []string
+	for cols.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt interface{}
+		if err := cols.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			cols.Close()
+			return "", err
+		}
+		colNames = append(colNames, name)
+	}
+	cols.Close()
+	if len(colNames) == 0 {
+		return "", fmt.Errorf("tabela %s sem colunas", table)
+	}
+
+	colList := strings.Join(colNames, ", ")
+	orderCol := colNames[0] // PK (convenção do schema: primeira coluna)
+	rows, err := db.Query("SELECT " + colList + " FROM " + table + " ORDER BY " + orderCol)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	h := sha256.New()
+	args := make([]any, len(colNames))
+	for i := range args {
+		args[i] = new(any)
+	}
+	for rows.Next() {
+		if err := rows.Scan(args...); err != nil {
+			return "", err
+		}
+		for _, a := range args {
+			v := *(a.(*any))
+			switch tv := v.(type) {
+			case nil:
+				h.Write([]byte{0})
+			case []byte:
+				h.Write([]byte{1})
+				h.Write(tv)
+			default:
+				h.Write([]byte{2})
+				h.Write([]byte(fmt.Sprintf("%v", tv)))
+			}
+		}
+		h.Write([]byte{0xFF}) // separador de linha
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // srcFor devolve a contagem da fonte para uma tabela.
