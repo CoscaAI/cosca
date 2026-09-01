@@ -57,6 +57,7 @@ Subcomandos:
 	cmd.AddCommand(NewDBMirrorCommand())
 	cmd.AddCommand(NewDBBuildCommand())
 	cmd.AddCommand(NewDBVerifyCommand())
+	cmd.AddCommand(NewDBMigrateCommand())
 	return cmd
 }
 
