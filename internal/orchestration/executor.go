@@ -69,6 +69,30 @@ type ExecutorConfig struct {
 	// kernel foi haltado, a chamada é bloqueada com erro claro. Nil = sem
 	// check (comportamento atual).
 	HaltChecker HaltChecker
+
+	// ContextPipeline é o Context Compiler (ADR-035, F6). Quando não-nil, o
+	// executor compila o contexto (TASK/STATE/FACTS...) com budget por seção
+	// antes da chamada LLM, e decodifica a resposta como instruction packet.
+	// Nil = comportamento atual (sem compilação de contexto).
+	ContextPipeline ContextPipeline
+}
+
+// ContextPipeline é a interface mínima que o Executor usa do Context Compiler.
+// Implementada por *contextpipeline.Pipeline (internal/contextpipeline).
+// Definida aqui como interface para não acoplar o orchestration ao pacote.
+type ContextPipeline interface {
+	// BuildContext decide a camada e compila o estado operacional. Devolve o
+	// texto do contexto compilado (para injetar no system prompt) e a camada
+	// decidida.
+	BuildContext(prompt string, data *PipelineData) (string, PipelineLevel)
+}
+
+// PipelineLevel é a camada de contexto decidida (L0/L1/L2).
+type PipelineLevel struct {
+	// Name é L0/L1/L2.
+	Name string
+	// Deterministic indica que a decisão foi resolvida SEM LLM.
+	Deterministic bool
 }
 
 // HaltChecker é a interface mínima do kill-switch. O kernel.EmergencyManager
@@ -233,6 +257,20 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	// 3. Build the system prompt from agent metadata and any
 	//    knowledge / memory context.
 	systemContent := e.buildSystemPrompt(agentName, agentRole, agentDept, agentDesc, pc.Data)
+
+	// 3.5 ── CONTEXT COMPILER (ADR-035, F6, opt-in) ─────────────
+	// Quando o ContextPipeline está configurado, o contexto entregue ao LLM é
+	// o ESTADO OPERACIONAL compilado (TASK/STATE/FACTS... com budget por
+	// seção) em vez de documentos empilhados. Aditivo: nil = comportamento
+	// atual. O contexto compilado é injetado no system prompt; a camada
+	// decidida (L0/L1/L2) fica registrada no PipelineContext.
+	if e.config.ContextPipeline != nil {
+		compiled, level := e.config.ContextPipeline.BuildContext(pc.Prompt, &pc.Data)
+		if compiled != "" {
+			systemContent += "\n\n" + compiled
+		}
+		pc = pc.WithPipelineLevel(level)
+	}
 
 	// 4. Build the message list.
 	messages := []chat.Message{

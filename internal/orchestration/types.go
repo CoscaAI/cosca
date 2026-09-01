@@ -51,6 +51,15 @@ type Result struct {
 
 // ─── Pipeline Data ───────────────────────────────────────────────────────────
 
+// PipelineLevelInfo é a camada de contexto decidida pelo Context Compiler
+// (ADR-035 F6) — o "quanto contexto o LLM precisou" para a decisão.
+type PipelineLevelInfo struct {
+	// Name é L0/L1/L2.
+	Name string `json:"name"`
+	// Deterministic indica que a decisão foi resolvida SEM LLM (L0 emit).
+	Deterministic bool `json:"deterministic,omitempty"`
+}
+
 // PipelineData holds typed pipeline stage outputs instead of map[string]interface{}.
 // Each field corresponds to a well-known key previously stored in ContextData.
 type PipelineData struct {
@@ -89,7 +98,10 @@ type PipelineData struct {
 	ExecutorFallback      bool    // whether executor used retry/fallback
 	ExecutorDeterministic bool    // whether executor answered WITHOUT LLM (knowledge-only)
 	DeliberationHandled   bool    // whether the Kernel deliberation already produced the final response (skip LLM)
-	MemoryID              string  // stored memory ID
+	// PipelineLevel é a camada de contexto decidida pelo Context Compiler
+	// (ADR-035 F6): L0/L1/L2 + se a decisão foi determinística (sem LLM).
+	PipelineLevel PipelineLevelInfo `json:"pipeline_level,omitempty"`
+	MemoryID      string            // stored memory ID
 
 	// DeliberationTrace is the audit trail of the Kernel-First Deliberation
 	// stage (ADR-032). It is populated only when DeliberateConfig.Enabled is
@@ -368,9 +380,15 @@ func (pc PipelineContext) WithExecutorFallback(v bool) PipelineContext {
 }
 
 // WithExecutorDeterministic sets whether the executor answered WITHOUT LLM
-// (knowledge-only path — the Cosca is a deterministic AI with optional motor).
 func (pc PipelineContext) WithExecutorDeterministic(v bool) PipelineContext {
 	pc.Data.ExecutorDeterministic = v
+	return pc
+}
+
+// WithPipelineLevel registra a camada de contexto decidida pelo Context
+// Compiler (ADR-035 F6).
+func (pc PipelineContext) WithPipelineLevel(level PipelineLevel) PipelineContext {
+	pc.Data.PipelineLevel = PipelineLevelInfo{Name: level.Name, Deterministic: level.Deterministic}
 	return pc
 }
 
