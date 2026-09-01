@@ -74,22 +74,7 @@ Valida por contagem/checksum após criar; --dry-run audita sem criar nada.`,
 			}
 			defer src.Close()
 
-			modules := []struct {
-				name  string
-				build func(*sql.DB, string) error
-			}{
-				{"core.db", buildCore},
-				{"graph.db", buildGraph},
-				{"projects.db", buildProjects},
-				{"vector-embed-memory.db", buildVectorDomain("embed-memory")},
-				{"vector-embed-engines.db", buildVectorDomain("embed-engines")},
-				{"vector-embed-core.db", buildVectorDomain("embed-core")},
-				{"vector-code.db", buildVectorDomain("code")},
-				{"vector-docs.db", buildVectorDomain("docs")},
-				{"vector-fallback.db", buildVectorDomain("fallback")},
-				{"vector-opencode.db", buildVectorDomain("opencode")},
-				{"vector-other.db", buildVectorDomain("other")},
-			}
+			modules := dbModules()
 
 			if dryRun {
 				f.Header("Auditoria (dry-run) — módulos a criar")
@@ -105,23 +90,9 @@ Valida por contagem/checksum após criar; --dry-run audita sem criar nada.`,
 				return nil
 			}
 
-			report := []string{}
-			for _, m := range modules {
-				target := filepath.Join(dir, m.name)
-				// Projeção derivada (ADR-013): SEMPRE recriar do zero. O destino
-				// é um read-model reconstruível — re-executar o build nunca
-				// acumula dados (o INSERT OR REPLACE não remove linhas antigas
-				// de momentos diferentes). Apagar antes é seguro e idempotente.
-				if _, statErr := os.Stat(target); statErr == nil {
-					if rmErr := os.Remove(target); rmErr != nil {
-						return fmt.Errorf("remover %s (recriação): %w", m.name, rmErr)
-					}
-				}
-				if err := m.build(src, target); err != nil {
-					return fmt.Errorf("criar %s: %w", m.name, err)
-				}
-				sz := fileSize(target)
-				report = append(report, fmt.Sprintf("%s: %s", m.name, formatDBSize(sz)))
+			report, buildErr := dbBuildModules(f, kb, dir)
+			if buildErr != nil {
+				return buildErr
 			}
 
 			if useJSON {
@@ -143,6 +114,61 @@ Valida por contagem/checksum após criar; --dry-run audita sem criar nada.`,
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "auditar sem criar")
 	return cmd
+}
+
+// dbModule descreve um módulo físico derivado (nome do arquivo + builder).
+type dbModule struct {
+	name  string
+	build func(*sql.DB, string) error
+}
+
+// dbModules lista os módulos derivados do split físico (ADR-013 Fase C).
+func dbModules() []dbModule {
+	return []dbModule{
+		{"core.db", buildCore},
+		{"graph.db", buildGraph},
+		{"projects.db", buildProjects},
+		{"vector-embed-memory.db", buildVectorDomain("embed-memory")},
+		{"vector-embed-engines.db", buildVectorDomain("embed-engines")},
+		{"vector-embed-core.db", buildVectorDomain("embed-core")},
+		{"vector-code.db", buildVectorDomain("code")},
+		{"vector-docs.db", buildVectorDomain("docs")},
+		{"vector-fallback.db", buildVectorDomain("fallback")},
+		{"vector-opencode.db", buildVectorDomain("opencode")},
+		{"vector-other.db", buildVectorDomain("other")},
+	}
+}
+
+// dbBuildModules reconstrói todos os módulos derivados a partir do
+// knowledge.db (a fonte). Sempre recria do zero (idempotente): o destino é um
+// read-model reconstruível — re-executar nunca acumula dados. Retorna o
+// relatório "arquivo: tamanho" e o primeiro erro, se houver.
+func dbBuildModules(f *OutputFormatter, kb, dir string) ([]string, error) {
+	src, err := sql.Open("sqlite", "file:"+filepath.ToSlash(kb)+"?mode=ro")
+	if err != nil {
+		return nil, fmt.Errorf("abrir fonte: %w", err)
+	}
+	defer src.Close()
+
+	report := []string{}
+	for _, m := range dbModules() {
+		target := filepath.Join(dir, m.name)
+		// Projeção derivada (ADR-013): SEMPRE recriar do zero. O destino
+		// é um read-model reconstruível — re-executar o build nunca
+		// acumula dados (o INSERT OR REPLACE não remove linhas antigas
+		// de momentos diferentes). Apagar antes é seguro e idempotente.
+		if _, statErr := os.Stat(target); statErr == nil {
+			if rmErr := os.Remove(target); rmErr != nil {
+				return report, fmt.Errorf("remover %s (recriação): %w", m.name, rmErr)
+			}
+		}
+		if err := m.build(src, target); err != nil {
+			return report, fmt.Errorf("criar %s: %w", m.name, err)
+		}
+		sz := fileSize(target)
+		report = append(report, fmt.Sprintf("%s: %s", m.name, formatDBSize(sz)))
+	}
+	return report, nil
 }
 
 // buildCore cria core.db com as tabelas FONTE (documents, knowledge_entries,

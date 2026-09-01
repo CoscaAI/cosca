@@ -199,6 +199,7 @@ Documentation: https://cosca.enterprise/docs
 		NewSlopCommand(),
 		NewDBCommand(),
 		NewRoutesCommand(),
+		NewRecoveryCommand(),
 	)
 
 	return rootCmd
