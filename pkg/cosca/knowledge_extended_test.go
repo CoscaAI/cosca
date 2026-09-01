@@ -167,9 +167,11 @@ func TestKnowledgeSDK_GetStats_ServerError(t *testing.T) {
 func TestKnowledgeSDK_Rebuild(t *testing.T) {
 	t.Parallel()
 
+	// Rebuild delega ao Sync (endpoint real do servidor) — /v1/knowledge/rebuild
+	// NÃO existe no servidor atual.
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assertMethodPath(t, r, http.MethodPost, "/v1/knowledge/rebuild")
-		w.WriteHeader(http.StatusOK)
+		assertMethodPath(t, r, http.MethodPost, "/v1/knowledge/sync")
+		writeJSON(t, w, http.StatusOK, SyncResponse{Synced: 1})
 	})
 
 	err := c.Knowledge.Rebuild()
@@ -178,24 +180,11 @@ func TestKnowledgeSDK_Rebuild(t *testing.T) {
 	}
 }
 
-func TestKnowledgeSDK_Rebuild_Accepted(t *testing.T) {
-	t.Parallel()
-
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-	})
-
-	err := c.Knowledge.Rebuild()
-	if err != nil {
-		t.Fatalf("expected no error for 202, got %v", err)
-	}
-}
-
 func TestKnowledgeSDK_Rebuild_Error(t *testing.T) {
 	t.Parallel()
 
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		writeErrorJSON(t, w, http.StatusConflict, "REBUILD_IN_PROGRESS", "a rebuild is already running")
+		writeErrorJSON(t, w, http.StatusConflict, "SYNC_IN_PROGRESS", "a sync is already running")
 	})
 
 	err := c.Knowledge.Rebuild()
@@ -203,8 +192,8 @@ func TestKnowledgeSDK_Rebuild_Error(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *CoscaError, got %T: %v", err, err)
 	}
-	if coscaErr.Code != "REBUILD_IN_PROGRESS" {
-		t.Errorf("expected Code %q, got %q", "REBUILD_IN_PROGRESS", coscaErr.Code)
+	if coscaErr.Code != "SYNC_IN_PROGRESS" {
+		t.Errorf("expected Code %q, got %q", "SYNC_IN_PROGRESS", coscaErr.Code)
 	}
 }
 
@@ -222,8 +211,8 @@ func TestKnowledgeSDK_SearchByType(t *testing.T) {
 		if req.Query != "setup" {
 			t.Errorf("expected Query %q, got %q", "setup", req.Query)
 		}
-		if req.Filters["entityType"] != "agent" {
-			t.Errorf("expected entityType filter 'agent', got %v", req.Filters["entityType"])
+		if len(req.Types) != 1 || req.Types[0] != "agent" {
+			t.Errorf("expected Types ['agent'], got %v", req.Types)
 		}
 
 		writeJSON(t, w, http.StatusOK, searchResponse{
@@ -290,11 +279,11 @@ func TestKnowledgeSDK_SearchFTS(t *testing.T) {
 			t.Errorf("failed to decode request: %v", err)
 			return
 		}
-		if req.Type != "fts" {
-			t.Errorf("expected Type 'fts', got %q", req.Type)
+		if req.EnableFTS == nil || !*req.EnableFTS {
+			t.Error("expected EnableFTS=true")
 		}
-		if req.Namespace != "docs" {
-			t.Errorf("expected Namespace 'docs', got %q", req.Namespace)
+		if req.EnableVec == nil || *req.EnableVec {
+			t.Error("expected EnableVec=false")
 		}
 
 		writeJSON(t, w, http.StatusOK, searchResponse{
@@ -307,8 +296,7 @@ func TestKnowledgeSDK_SearchFTS(t *testing.T) {
 	})
 
 	results, err := c.Knowledge.SearchFTS("full text search", FTSOptions{
-		Limit:     10,
-		Namespace: "docs",
+		Limit: 10,
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -345,11 +333,11 @@ func TestKnowledgeSDK_SearchVector(t *testing.T) {
 			t.Errorf("failed to decode request: %v", err)
 			return
 		}
-		if req.Type != "vector" {
-			t.Errorf("expected Type 'vector', got %q", req.Type)
+		if req.EnableVec == nil || !*req.EnableVec {
+			t.Error("expected EnableVec=true")
 		}
-		if len(req.Vector) != 3 {
-			t.Errorf("expected 3 vector elements, got %d", len(req.Vector))
+		if req.EnableFTS == nil || *req.EnableFTS {
+			t.Error("expected EnableFTS=false")
 		}
 
 		writeJSON(t, w, http.StatusOK, searchResponse{
@@ -362,8 +350,7 @@ func TestKnowledgeSDK_SearchVector(t *testing.T) {
 	})
 
 	results, err := c.Knowledge.SearchVector("concept search", VectorOptions{
-		Vector: []float64{0.1, 0.2, 0.3},
-		Limit:  5,
+		Limit: 5,
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -397,11 +384,11 @@ func TestKnowledgeSDK_HybridSearch(t *testing.T) {
 			t.Errorf("failed to decode request: %v", err)
 			return
 		}
-		if req.Type != "hybrid" {
-			t.Errorf("expected Type 'hybrid', got %q", req.Type)
+		if req.EnableFTS == nil || !*req.EnableFTS {
+			t.Error("expected EnableFTS=true (hybrid)")
 		}
-		if req.Alpha != 0.7 {
-			t.Errorf("expected Alpha 0.7, got %f", req.Alpha)
+		if req.EnableVec == nil || !*req.EnableVec {
+			t.Error("expected EnableVec=true (hybrid)")
 		}
 
 		writeJSON(t, w, http.StatusOK, searchResponse{
@@ -414,7 +401,6 @@ func TestKnowledgeSDK_HybridSearch(t *testing.T) {
 	})
 
 	results, err := c.Knowledge.HybridSearch("hybrid query", HybridOptions{
-		Alpha: 0.7,
 		Limit: 10,
 	})
 	if err != nil {
@@ -422,35 +408,6 @@ func TestKnowledgeSDK_HybridSearch(t *testing.T) {
 	}
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
-	}
-}
-
-func TestKnowledgeSDK_HybridSearch_DefaultAlpha(t *testing.T) {
-	t.Parallel()
-
-	// When Alpha is 0, it should default to 0.5
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var req searchRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			t.Errorf("failed to decode request: %v", err)
-			return
-		}
-		if req.Alpha != 0.5 {
-			t.Errorf("expected Alpha 0.5 (default), got %f", req.Alpha)
-		}
-
-		writeJSON(t, w, http.StatusOK, searchResponse{
-			Results: []SearchResult{{ID: "def-1", Score: 0.85}},
-			Total:   1,
-			TookMs:  5,
-		})
-	})
-
-	_, err := c.Knowledge.HybridSearch("test", HybridOptions{
-		Alpha: 0, // should default to 0.5
-	})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
 	}
 }
 

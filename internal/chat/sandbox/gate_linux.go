@@ -17,6 +17,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// nativeSandboxAvailable reports whether the platform has a non-bwrap native
+// sandbox backend. On Linux, bwrap IS the native backend — the bwrap path is
+// selected by findBwrap(), so this reports false (never shadows bwrap).
+func nativeSandboxAvailable() bool { return false }
+
 // envSandboxMemoryMB controls the maximum virtual address space (RLIMIT_AS)
 // and data segment (RLIMIT_DATA) granted to processes inside the bwrap jail,
 // in megabytes. Default 6144 (6 GiB): enough for real Go builds/tests inside

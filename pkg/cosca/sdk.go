@@ -54,7 +54,7 @@ import (
 // ClientConfig defines the configuration for creating a new Cosca SDK Client.
 type ClientConfig struct {
 	// RuntimeAddr is the address of the Cosca Runtime in host:port form.
-	// Defaults to "localhost:9090".
+	// Defaults to "localhost:14120" (porta real do servidor REST — api/rest).
 	RuntimeAddr string `json:"runtimeAddr" yaml:"runtimeAddr"`
 
 	// APIKey is the authentication key for the runtime API.
@@ -85,7 +85,7 @@ type ClientConfig struct {
 // setDefaults applies sensible defaults for missing configuration fields.
 func (c *ClientConfig) setDefaults() {
 	if c.RuntimeAddr == "" {
-		c.RuntimeAddr = "localhost:9090"
+		c.RuntimeAddr = "localhost:14120"
 	}
 	if c.Timeout == 0 {
 		c.Timeout = 30 * time.Second

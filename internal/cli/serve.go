@@ -662,7 +662,7 @@ func serveInitManagers(dir string, logger zerolog.Logger, deterministic bool) *s
 	logger.Info().Int("count", len(providersMgr.List())).Msg("providers manager initialized")
 
 	var durableLedger *durable.Ledger
-	if durableDB, openErr := sqlite.Open(sqlite.DefaultConfig(filepath.Join(dir, ".cosca", "durable.db"))); openErr == nil {
+	if durableDB, openErr := sqlite.Open(sqlite.DefaultConfig(filepath.Join(dir, "durable.db"))); openErr == nil {
 		if l, lErr := durable.NewLedger(durableDB); lErr == nil {
 			durableLedger = l
 			if recovered, recErr := durableLedger.RecoverStale(context.Background()); recErr == nil && recovered > 0 {

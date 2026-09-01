@@ -1,0 +1,16 @@
+---
+id: de8dfbf8-7cba-4fe1-8c2b-864442bada53
+type: session
+layer: workspace
+created_at: 2026-08-30T06:36:11.8449457-03:00
+updated_at: 2026-08-30T06:36:11.8449457-03:00
+ttl: 0s
+priority: 0
+version: 0
+metadata:
+    agent: cosca-mcp
+    provenance: P0
+    source: EVIDENCE
+---
+
+MINERACAO A FUNDO DO PINCHTAB (2026-08-30) - cofre de padroes. Dois agentes explorer mineraram o repo. ACHADOS PRINCIPAIS (aprender com o padrao, NAO copiar codigo): (1) IDPI nao e Identity/Provenance, e Indirect Prompt Injection - 3 camadas opt-in (domain whitelist, content scan, content wrap). WRAPPING ANTI-BYPASS (diamante): embrulhe conteudo nao-confiavel em <untrusted_web_content> com WARNING, e SANITIZE o delimitador (troca < por &lt;) porque o MODELO le </untrusted...> e </ untrusted...> como fechamento (replace exato NAO basta). (2) GUARD NAVEgacao/fetch em CAMADAS fail-closed: allowlist dominio (pre) + IP publico no resolve (meio) + remote-IP pos-conexao (fim) + overrides CIDR + DECODIFICAR IPv4-em-IPv6 (NAT64/6to4: 64:ff9b::a9fe:a9fe = metadata service; banir prefixo quebraria IPv4 legitimo). (3) TOOL POR CUSTO (casa com ADR-031): Goal->Tool->TokenCost - eval(menor)/find/get_text(scrape+preview)/snapshot compact/snapshot full/screenshot(maior). CUSTO relativo ordinal (Low/Med/High+ranking) e depende do FORMATO de resposta (compact 411 tok vs json 2052 vs yaml 4366 tok - 5x/10x). (4) SNAPSHOT COM REFS + vocab_superseded (diamante de design): handle ESTAVEL carrega a GERACAO em que nasceu; agir com ref de geracao velha = RECUSO com erro instrutivo (vocab_superseded -> 're-snapshot e use refs da ultima resposta'), NUNCA resolvido posicionalmente. (5) REGISTRY DECLARATIVO table-driven, validacao DERIVADA DO SCHEMA (sem lista duplicada), tolera stringified numbers, recusa arg inutilizavel ecoando valor. (6) DESCRIPTION CARREGA POLITICA: o schema diz 'use sparingly / when NOT to use / token cost' - registry ensina custo sem prompt separado. (7) AUTOSOLVER: semantic-first/LLM-last + registry por prioridade + runtime isolado por interface + backoff+max-attempts+historico completo; secrets json:"-" nunca serializados; warning-UNICO para key ausente. (8) ACTIVITY FEED append-only com proveniencia agentId/sessionId/requestId, dual-write, tailing por offset, retention por dia, dedup, URL redigida. (9) AUDIT determinístico offline (findings derivados dos dados coletados, sem modelo; falha de pagina = dado, nao erro). (10) AUTHN: token master -> cookie HttpOnly -> sessao de agente derivada com grants/idle/max-lifetime/revogavel, sem logar credenciais. (11) SKILLS: description = TRIGGER declarativo WHEN; workflow = caminho feliz; guidelines = custo/safety. (12) SCRAPE two-pass cheap-then-deep (preview charCount/snippet -> expand full-fidelity so escolhido; recurso caro so onde barato falhou; cada item source+reasons). TOP 5 PARA O COSCA: (1) guard navegacao/fetch em camadas fail-closed + NAT64/6to4, (2) trust-boundary content guard anti prompt-injection, (3) authn token->cookie->sessao agente derivada, (4) activity/audit deterministico com proveniencia, (5) runtime isolado por interface + deterministico-primeiro/LLM-ultimo. LICAO: o PinchTab trata o agente como consumidor de CONTRATO que ele documenta e valida; fundir descricao+schema+validacao+custo no MESMO registro de capability.

@@ -15,6 +15,10 @@ import (
 // Types
 // =============================================================================
 
+// boolPtr é helper para os flags enable_fts/enable_vector do SearchRequest do
+// servidor (campos *bool com omitempty).
+func boolPtr(b bool) *bool { return &b }
+
 // SearchOptions defines parameters for standard knowledge searches.
 type SearchOptions struct {
 	// Limit is the maximum number of results to return.
@@ -22,13 +26,11 @@ type SearchOptions struct {
 	// Offset is the pagination offset.
 	Offset int `json:"offset,omitempty"`
 	// MinScore is the minimum relevance score threshold (0.0 - 1.0).
-	MinScore float64 `json:"minScore,omitempty"`
-	// Filters are field-level filters applied to the search.
-	Filters map[string]interface{} `json:"filters,omitempty"`
-	// Namespace restricts search to a specific namespace.
-	Namespace string `json:"namespace,omitempty"`
-	// IncludeFields restricts the returned fields.
-	IncludeFields []string `json:"includeFields,omitempty"`
+	MinScore float64 `json:"min_score,omitempty"`
+	// Types restringe a busca por tipos de entidade.
+	Types []string `json:"types,omitempty"`
+	// PathFilter restringe a busca a um caminho.
+	PathFilter string `json:"path_filter,omitempty"`
 }
 
 // FTSOptions defines parameters for full-text search queries.
@@ -38,13 +40,9 @@ type FTSOptions struct {
 	// Offset is the pagination offset.
 	Offset int `json:"offset,omitempty"`
 	// MinScore is the minimum relevance score threshold (0.0 - 1.0).
-	MinScore float64 `json:"minScore,omitempty"`
-	// Filters are field-level filters applied to the search.
-	Filters map[string]interface{} `json:"filters,omitempty"`
-	// Namespace restricts search to a specific namespace.
-	Namespace string `json:"namespace,omitempty"`
-	// IncludeFields restricts the returned fields.
-	IncludeFields []string `json:"includeFields,omitempty"`
+	MinScore float64 `json:"min_score,omitempty"`
+	// Types restringe a busca por tipos de entidade.
+	Types []string `json:"types,omitempty"`
 }
 
 // VectorOptions defines parameters for vector similarity search.
@@ -54,15 +52,9 @@ type VectorOptions struct {
 	// Offset is the pagination offset.
 	Offset int `json:"offset,omitempty"`
 	// MinScore is the minimum relevance score threshold (0.0 - 1.0).
-	MinScore float64 `json:"minScore,omitempty"`
-	// Vector is an optional raw embedding vector for similarity search.
-	Vector []float64 `json:"vector,omitempty"`
-	// Filters are field-level filters applied to the search.
-	Filters map[string]interface{} `json:"filters,omitempty"`
-	// Namespace restricts search to a specific namespace.
-	Namespace string `json:"namespace,omitempty"`
-	// IncludeFields restricts the returned fields.
-	IncludeFields []string `json:"includeFields,omitempty"`
+	MinScore float64 `json:"min_score,omitempty"`
+	// Types restringe a busca por tipos de entidade.
+	Types []string `json:"types,omitempty"`
 }
 
 // HybridOptions defines parameters for hybrid (vector + keyword) searches.
@@ -72,16 +64,11 @@ type HybridOptions struct {
 	// Offset is the pagination offset.
 	Offset int `json:"offset,omitempty"`
 	// MinScore is the minimum relevance threshold.
-	MinScore float64 `json:"minScore,omitempty"`
-	// Alpha controls the weighting between vector (1.0) and keyword (0.0).
-	// Default is 0.5 (equal weighting).
-	Alpha float64 `json:"alpha,omitempty"`
-	// Vector is an optional raw embedding vector for similarity search.
-	Vector []float64 `json:"vector,omitempty"`
-	// Filters are field-level filters.
-	Filters map[string]interface{} `json:"filters,omitempty"`
-	// Namespace restricts search to a namespace.
-	Namespace string `json:"namespace,omitempty"`
+	MinScore float64 `json:"min_score,omitempty"`
+	// Types restringe a busca por tipos de entidade.
+	Types []string `json:"types,omitempty"`
+	// PathFilter restringe a busca a um caminho.
+	PathFilter string `json:"path_filter,omitempty"`
 }
 
 // SearchResult represents a single knowledge search result.
@@ -141,17 +128,20 @@ type indexDocumentResponse struct {
 // Search Request / Response
 // =============================================================================
 
+// searchRequest é o corpo JSON de POST /v1/knowledge/search — espelha o
+// handler.SearchRequest do servidor (api/rest/handler/knowledge.go). Não
+// divergir: o servidor é a fonte de verdade do contrato.
 type searchRequest struct {
-	Query         string                 `json:"query"`
-	Type          string                 `json:"type"`
-	Limit         int                    `json:"limit,omitempty"`
-	Offset        int                    `json:"offset,omitempty"`
-	MinScore      float64                `json:"minScore,omitempty"`
-	Filters       map[string]interface{} `json:"filters,omitempty"`
-	Namespace     string                 `json:"namespace,omitempty"`
-	Alpha         float64                `json:"alpha,omitempty"`
-	Vector        []float64              `json:"vector,omitempty"`
-	IncludeFields []string               `json:"includeFields,omitempty"`
+	Query       string            `json:"query"`
+	Limit       int               `json:"limit,omitempty"`
+	Offset      int               `json:"offset,omitempty"`
+	Types       []string          `json:"types,omitempty"`
+	PathFilter  string            `json:"path_filter,omitempty"`
+	MinScore    float64           `json:"min_score,omitempty"`
+	EnableFTS   *bool             `json:"enable_fts,omitempty"`
+	EnableVec   *bool             `json:"enable_vector,omitempty"`
+	EnableGraph *bool             `json:"enable_graph,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }
 
 type searchResponse struct {
@@ -243,14 +233,12 @@ func (s *KnowledgeSDK) Search(query string, opts SearchOptions) ([]SearchResult,
 	}
 
 	body := searchRequest{
-		Query:         query,
-		Type:          "keyword",
-		Limit:         opts.Limit,
-		Offset:        opts.Offset,
-		MinScore:      opts.MinScore,
-		Filters:       opts.Filters,
-		Namespace:     opts.Namespace,
-		IncludeFields: opts.IncludeFields,
+		Query:      query,
+		Limit:      opts.Limit,
+		Offset:     opts.Offset,
+		MinScore:   opts.MinScore,
+		Types:      opts.Types,
+		PathFilter: opts.PathFilter,
 	}
 
 	return s.search(body)
@@ -268,10 +256,7 @@ func (s *KnowledgeSDK) SearchByType(entityType string, query string) ([]SearchRe
 
 	body := searchRequest{
 		Query: query,
-		Type:  "keyword",
-		Filters: map[string]interface{}{
-			"entityType": entityType,
-		},
+		Types: []string{entityType},
 	}
 
 	return s.search(body)
@@ -346,28 +331,14 @@ func (s *KnowledgeSDK) GetStats() (KnowledgeStats, error) {
 
 // Rebuild triggers a full rebuild of the knowledge index. All documents
 // are re-processed, re-chunked, and re-embedded from scratch.
+//
+// O servidor atual não expõe /v1/knowledge/rebuild — a operação de
+// reconstrução é feita por /v1/knowledge/sync (rescan + reindex) ou
+// /v1/knowledge/index (documento a documento). Este método delega ao Sync
+// para não prometer um endpoint inexistente.
 func (s *KnowledgeSDK) Rebuild() error {
-	req, err := s.client.newRequest(
-		context.Background(),
-		http.MethodPost,
-		"/v1/knowledge/rebuild",
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	resp, err := s.client.doRequest(req)
-	if err != nil {
-		return err
-	}
-	defer safe.Close(resp.Body)
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return s.decodeError(resp)
-	}
-
-	return nil
+	_, err := s.Sync()
+	return err
 }
 
 // SearchFTS performs a full-text search with the given query. It uses
@@ -378,65 +349,55 @@ func (s *KnowledgeSDK) SearchFTS(query string, opts FTSOptions) ([]SearchResult,
 	}
 
 	body := searchRequest{
-		Query:         query,
-		Type:          "fts",
-		Limit:         opts.Limit,
-		Offset:        opts.Offset,
-		MinScore:      opts.MinScore,
-		Filters:       opts.Filters,
-		Namespace:     opts.Namespace,
-		IncludeFields: opts.IncludeFields,
+		Query:    query,
+		Limit:    opts.Limit,
+		Offset:   opts.Offset,
+		MinScore: opts.MinScore,
+		Types:    opts.Types,
+		EnableFTS: boolPtr(true),
+		EnableVec: boolPtr(false),
 	}
 
 	return s.search(body)
 }
 
 // SearchVector performs a vector-only similarity search. The query is
-// embedded and matched against the vector index. If a raw Vector is
-// supplied in opts, it is used directly instead of embedding the query.
+// embedded and matched against the vector index.
 func (s *KnowledgeSDK) SearchVector(query string, opts VectorOptions) ([]SearchResult, error) {
 	if query == "" {
 		return nil, fmt.Errorf("search query is required")
 	}
 
 	body := searchRequest{
-		Query:         query,
-		Type:          "vector",
-		Limit:         opts.Limit,
-		Offset:        opts.Offset,
-		MinScore:      opts.MinScore,
-		Vector:        opts.Vector,
-		Filters:       opts.Filters,
-		Namespace:     opts.Namespace,
-		IncludeFields: opts.IncludeFields,
+		Query:    query,
+		Limit:    opts.Limit,
+		Offset:   opts.Offset,
+		MinScore: opts.MinScore,
+		Types:    opts.Types,
+		EnableFTS: boolPtr(false),
+		EnableVec: boolPtr(true),
 	}
 
 	return s.search(body)
 }
 
 // HybridSearch performs a hybrid search combining vector similarity and
-// keyword matching. The alpha parameter in HybridOptions controls the
-// weighting between the two: 1.0 = pure vector, 0.0 = pure keyword.
+// keyword matching. O servidor decide a fusão (meaning-first no espaço
+// roteado); ambos os índices ficam habilitados.
 func (s *KnowledgeSDK) HybridSearch(query string, opts HybridOptions) ([]SearchResult, error) {
 	if query == "" {
 		return nil, fmt.Errorf("search query is required")
 	}
 
-	alpha := opts.Alpha
-	if alpha == 0 {
-		alpha = 0.5 // default equal weighting
-	}
-
 	body := searchRequest{
 		Query:     query,
-		Type:      "hybrid",
 		Limit:     opts.Limit,
 		Offset:    opts.Offset,
 		MinScore:  opts.MinScore,
-		Alpha:     alpha,
-		Vector:    opts.Vector,
-		Filters:   opts.Filters,
-		Namespace: opts.Namespace,
+		Types:     opts.Types,
+		PathFilter: opts.PathFilter,
+		EnableFTS:  boolPtr(true),
+		EnableVec:  boolPtr(true),
 	}
 
 	return s.search(body)

@@ -89,10 +89,11 @@ func (g *Gate) Mode() chat.SandboxMode {
 }
 
 // IsAvailable reports whether the sandbox gate has OS-level isolation
-// available (bwrap binary found). When false, the gate still works in
-// direct-execution fallback mode but without namespace-level enforcement.
+// available (bwrap binary found, or a native backend such as Windows
+// Job Object). When false, the gate still works in direct-execution
+// fallback mode but without namespace-level enforcement.
 func (g *Gate) IsAvailable() bool {
-	return g.bwrapPath != ""
+	return g.bwrapPath != "" || nativeSandboxAvailable()
 }
 
 // IsVerifiable reports whether a validated, absolute bwrap executable exists.
@@ -120,10 +121,19 @@ func (g *Gate) validateWorkspace() error {
 func (g *Gate) Execute(ctx context.Context, cmd chat.Command, mode chat.SandboxMode) (*chat.SandboxResult, error) {
 	switch mode {
 	case chat.SandboxReadOnly:
+		if g.bwrapPath != "" {
+			return g.execBwrap(ctx, cmd, mode)
+		}
+		if nativeSandboxAvailable() {
+			return g.execNative(ctx, cmd, mode)
+		}
 		return g.execReadOnly(ctx, cmd)
 	case chat.SandboxWorkspace:
 		if g.bwrapPath != "" {
 			return g.execBwrap(ctx, cmd, mode)
+		}
+		if nativeSandboxAvailable() {
+			return g.execNative(ctx, cmd, mode)
 		}
 		return g.execWithoutSandbox(ctx, cmd)
 	case chat.SandboxFull:

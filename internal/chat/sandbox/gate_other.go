@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !windows
 
 package sandbox
 
@@ -9,6 +9,11 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 )
+
+// nativeSandboxAvailable reports whether this platform has a native sandbox
+// backend (Windows: Job Object / AppContainer). Non-Linux, non-Windows
+// platforms have none — bwrap is the only isolation backend there.
+func nativeSandboxAvailable() bool { return false }
 
 // findBwrap returns an empty string because bwrap is not available
 // on non-Linux platforms.

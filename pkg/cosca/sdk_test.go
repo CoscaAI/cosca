@@ -222,8 +222,8 @@ func TestClientConfig_SetDefaults(t *testing.T) {
 	cfg := ClientConfig{}
 	cfg.setDefaults()
 
-	if cfg.RuntimeAddr != "localhost:9090" {
-		t.Errorf("expected RuntimeAddr %q, got %q", "localhost:9090", cfg.RuntimeAddr)
+	if cfg.RuntimeAddr != "localhost:14120" {
+		t.Errorf("expected RuntimeAddr %q, got %q", "localhost:14120", cfg.RuntimeAddr)
 	}
 	if cfg.Timeout != 30*time.Second {
 		t.Errorf("expected Timeout %v, got %v", 30*time.Second, cfg.Timeout)
@@ -1402,8 +1402,8 @@ func TestKnowledgeSDK_Search(t *testing.T) {
 		if req.Query != "golang testing" {
 			t.Errorf("expected Query %q, got %q", "golang testing", req.Query)
 		}
-		if req.Type != "keyword" {
-			t.Errorf("expected Type 'keyword', got %q", req.Type)
+		if req.Limit != 10 {
+			t.Errorf("expected Limit 10, got %d", req.Limit)
 		}
 
 		writeJSON(t, w, http.StatusOK, searchResponse{
@@ -1493,56 +1493,41 @@ func TestMemorySDK_Store(t *testing.T) {
 			t.Errorf("failed to decode request: %v", err)
 			return
 		}
-		if req.Key != "session-data" {
-			t.Errorf("expected Key %q, got %q", "session-data", req.Key)
+		if req.Content != "some-important-value" {
+			t.Errorf("expected Content %q, got %q", "some-important-value", req.Content)
 		}
-		if req.Value != "some-important-value" {
-			t.Errorf("expected Value %q, got %q", "some-important-value", req.Value)
-		}
-		if req.Type != MemoryTypeWorking {
+		if req.Type != string(MemoryTypeWorking) {
 			t.Errorf("expected Type %q, got %q", MemoryTypeWorking, req.Type)
+		}
+		if req.Layer != "session" {
+			t.Errorf("expected Layer %q, got %q", "session", req.Layer)
 		}
 
 		w.WriteHeader(http.StatusCreated)
 	})
 
 	err := c.Memory.Store(MemoryRecord{
-		Key:   "session-data",
-		Value: "some-important-value",
-		Type:  MemoryTypeWorking,
+		Content: "some-important-value",
+		Type:    MemoryTypeWorking,
+		Layer:   "session",
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
-func TestMemorySDK_Store_EmptyKey(t *testing.T) {
+func TestMemorySDK_Store_EmptyContent(t *testing.T) {
 
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		t.Error("server should not be called")
 	})
 
-	err := c.Memory.Store(MemoryRecord{Key: "", Value: "value"})
+	err := c.Memory.Store(MemoryRecord{Content: ""})
 	if err == nil {
-		t.Fatal("expected error for empty key")
+		t.Fatal("expected error for empty content")
 	}
-	if !strings.Contains(err.Error(), "memory record key is required") {
-		t.Errorf("expected 'memory record key is required', got %q", err.Error())
-	}
-}
-
-func TestMemorySDK_Store_NilValue(t *testing.T) {
-
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Error("server should not be called")
-	})
-
-	err := c.Memory.Store(MemoryRecord{Key: "key", Value: nil})
-	if err == nil {
-		t.Fatal("expected error for nil value")
-	}
-	if !strings.Contains(err.Error(), "memory record value is required") {
-		t.Errorf("expected 'memory record value is required', got %q", err.Error())
+	if !strings.Contains(err.Error(), "memory record content is required") {
+		t.Errorf("expected 'memory record content is required', got %q", err.Error())
 	}
 }
 
@@ -1552,7 +1537,7 @@ func TestMemorySDK_Store_BadRequest(t *testing.T) {
 		writeErrorJSON(t, w, http.StatusBadRequest, "INVALID_RECORD", "duplicate key")
 	})
 
-	err := c.Memory.Store(MemoryRecord{Key: "dup", Value: "test"})
+	err := c.Memory.Store(MemoryRecord{Content: "dup"})
 	coscaErr, ok := err.(*CoscaError)
 	if !ok {
 		t.Fatalf("expected *CoscaError, got %T: %v", err, err)
@@ -1576,8 +1561,8 @@ func TestMemorySDK_Search(t *testing.T) {
 
 		writeJSON(t, w, http.StatusOK, memorySearchResponse{
 			Records: []MemoryRecord{
-				{ID: "mem-1", Key: "task-1", Value: "do the thing", Score: 0.95},
-				{ID: "mem-2", Key: "task-2", Value: "remember this", Score: 0.75},
+				{ID: "mem-1", Content: "do the thing", Score: 0.95},
+				{ID: "mem-2", Content: "remember this", Score: 0.75},
 			},
 			Total: 2,
 		})

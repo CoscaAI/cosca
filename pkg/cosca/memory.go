@@ -31,30 +31,46 @@ const (
 )
 
 // MemoryRecord represents a single memory entry stored by an agent.
+//
+// ESPELHA o modelo canônico internal/memory.MemoryRecord — o wire do servidor
+// REST usa exatamente estes campos. Não divergir: o servidor é a fonte de
+// verdade (única fonte de verdade por domínio).
 type MemoryRecord struct {
 	// ID is the unique memory entry identifier.
 	ID string `json:"id,omitempty"`
-	// AgentID is the owning agent's identifier.
-	AgentID string `json:"agentId,omitempty"`
 	// Type is the memory type classification.
 	Type MemoryType `json:"type,omitempty"`
-	// Key is the memory key for lookups.
-	Key string `json:"key"`
-	// Value is the memory value. Can be any JSON-serialisable type.
-	Value interface{} `json:"value"`
-	// Embedding is an optional vector embedding.
-	Embedding []float64 `json:"embedding,omitempty"`
+	// Layer is the memory layer (session, working, long_term, episodic...).
+	Layer string `json:"layer,omitempty"`
+	// Scope is the memory scope (project, workspace, global...).
+	Scope string `json:"scope,omitempty"`
+	// Owner is the record owner (anti-IDOR).
+	Owner string `json:"owner,omitempty"`
+	// Agent is the owning agent's identifier.
+	Agent string `json:"agent,omitempty"`
+	// Content is the memory payload (string).
+	Content string `json:"content"`
 	// Metadata holds additional structured metadata.
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 	// CreatedAt is when the memory was created.
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-	// AccessedAt is when the memory was last read.
-	AccessedAt time.Time `json:"accessedAt,omitempty"`
-	// Score is the relevance score (populated in search results).
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// UpdatedAt is when the memory was last updated.
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// TTL is the record time-to-live.
+	TTL time.Duration `json:"ttl,omitempty"`
+	// Priority is the record priority.
+	Priority int `json:"priority"`
+	// Version is the record version.
+	Version int `json:"version,omitempty"`
+	// Score is the relevance score (populated in search results only).
 	Score float64 `json:"score,omitempty"`
 }
 
 // Snapshot represents a point-in-time snapshot of agent memory.
+//
+// OBSERVAÇÃO: o servidor REST atual NÃO expõe endpoints de snapshot de
+// memória. Estes tipos ficam para quando a superfície REST implementar
+// /v1/memory/snapshots — hoje não são acionáveis.
 type Snapshot struct {
 	// ID is the snapshot identifier.
 	ID string `json:"id"`
@@ -76,13 +92,16 @@ type Snapshot struct {
 // Request / Response types
 // =============================================================================
 
+// storeMemoryRequest é o corpo JSON de POST /v1/memory/store — espelha o
+// handler.StoreRequest do servidor (api/rest/handler/memory.go).
 type storeMemoryRequest struct {
-	AgentID   string                 `json:"agentId,omitempty"`
-	Type      MemoryType             `json:"type,omitempty"`
-	Key       string                 `json:"key"`
-	Value     interface{}            `json:"value"`
-	Embedding []float64              `json:"embedding,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Type     string            `json:"type"`
+	Layer    string            `json:"layer"`
+	Scope    string            `json:"scope,omitempty"`
+	Content  string            `json:"content"`
+	Priority int               `json:"priority,omitempty"`
+	TTL      string            `json:"ttl,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 type memorySearchRequest struct {
@@ -147,23 +166,23 @@ type MemorySDK struct {
 }
 
 // Store persists a memory record in the specified memory layer. The record
-// must contain at minimum a Key and Value. If ID is omitted, the runtime
-// generates one.
+// must contain at minimum a Content. If ID is omitted, the runtime generates
+// one.
 func (s *MemorySDK) Store(record MemoryRecord) error {
-	if record.Key == "" {
-		return fmt.Errorf("memory record key is required")
-	}
-	if record.Value == nil {
-		return fmt.Errorf("memory record value is required")
+	if record.Content == "" {
+		return fmt.Errorf("memory record content is required")
 	}
 
 	body := storeMemoryRequest{
-		AgentID:   record.AgentID,
-		Type:      record.Type,
-		Key:       record.Key,
-		Value:     record.Value,
-		Embedding: record.Embedding,
-		Metadata:  record.Metadata,
+		Type:     string(record.Type),
+		Layer:    record.Layer,
+		Scope:    record.Scope,
+		Content:  record.Content,
+		Priority: record.Priority,
+		Metadata: record.Metadata,
+	}
+	if record.TTL > 0 {
+		body.TTL = record.TTL.String()
 	}
 
 	payload, err := json.Marshal(body)
@@ -265,105 +284,31 @@ func (s *MemorySDK) Search(query string, layer string) ([]MemoryRecord, error) {
 }
 
 // ListSnapshots returns all available memory snapshots.
+//
+// ATENÇÃO: o servidor REST atual NÃO implementa /v1/memory/snapshots — este
+// método retorna erro claro em vez de chamar um endpoint inexistente. Volta a
+// ser funcional quando a superfície REST expor o recurso (internal/memory tem
+// SnapshotManager no motor; a exposição HTTP é que ainda não existe).
 func (s *MemorySDK) ListSnapshots() ([]Snapshot, error) {
-	req, err := s.client.newRequest(
-		context.Background(),
-		http.MethodGet,
-		"/v1/memory/snapshots",
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := s.client.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	defer safe.Close(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, s.decodeError(resp)
-	}
-
-	var result snapshotListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode snapshot list: %w", err)
-	}
-
-	return result.Snapshots, nil
+	return nil, fmt.Errorf("memory snapshots: endpoint /v1/memory/snapshots not implemented by the current server")
 }
 
 // CreateSnapshot captures a point-in-time snapshot of all memory for the
 // given agent or for all agents. The snapshot can later be restored.
+//
+// ATENÇÃO: endpoint /v1/memory/snapshots não existe no servidor atual — ver
+// ListSnapshots.
 func (s *MemorySDK) CreateSnapshot(name string) (Snapshot, error) {
-	if name == "" {
-		return Snapshot{}, fmt.Errorf("snapshot name is required")
-	}
-
-	body := createSnapshotRequest{Name: name}
-	payload, err := json.Marshal(body)
-	if err != nil {
-		return Snapshot{}, fmt.Errorf("failed to marshal snapshot request: %w", err)
-	}
-
-	req, err := s.client.newRequest(
-		context.Background(),
-		http.MethodPost,
-		"/v1/memory/snapshots",
-		bytes.NewReader(payload),
-	)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.client.doRequest(req)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	defer safe.Close(resp.Body)
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return Snapshot{}, s.decodeError(resp)
-	}
-
-	var snapshot Snapshot
-	if err := json.NewDecoder(resp.Body).Decode(&snapshot); err != nil {
-		return Snapshot{}, fmt.Errorf("failed to decode snapshot: %w", err)
-	}
-
-	return snapshot, nil
+	return Snapshot{}, fmt.Errorf("memory snapshots: endpoint /v1/memory/snapshots not implemented by the current server")
 }
 
 // RestoreSnapshot restores agent memory from a previously created snapshot.
 // This replaces the current memory state with the snapshot contents.
+//
+// ATENÇÃO: endpoint /v1/memory/snapshots/{id}/restore não existe no servidor
+// atual — ver ListSnapshots.
 func (s *MemorySDK) RestoreSnapshot(id string) error {
-	if id == "" {
-		return fmt.Errorf("snapshot ID is required")
-	}
-
-	req, err := s.client.newRequest(
-		context.Background(),
-		http.MethodPost,
-		fmt.Sprintf("/v1/memory/snapshots/%s/restore", id),
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	resp, err := s.client.doRequest(req)
-	if err != nil {
-		return err
-	}
-	defer safe.Close(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return s.decodeError(resp)
-	}
-
-	return nil
+	return fmt.Errorf("memory snapshots: endpoint /v1/memory/snapshots/{id}/restore not implemented by the current server")
 }
 
 // RetrieveWithLayer fetches a memory record by ID, optionally restricting
@@ -373,12 +318,9 @@ func (s *MemorySDK) RetrieveWithLayer(id string, layer string) (MemoryRecord, er
 		return MemoryRecord{}, fmt.Errorf("memory record ID is required")
 	}
 
-	// Preserve the legacy endpoint as an alias; the primary Retrieve method
-	// uses /v1/memory/get and supports the handler's layer query parameter.
-	path := fmt.Sprintf("/v1/memory/%s", url.QueryEscape(id))
-	if layer != "" {
-		path += "?layer=" + url.QueryEscape(layer)
-	}
+	// Alinhado ao handler real: o servidor expõe /v1/memory/get?id=...&layer=...
+	// (o endpoint legado /v1/memory/{id} não existe no servidor atual).
+	path := memoryGetPath(id, layer)
 
 	req, err := s.client.newRequest(
 		context.Background(),

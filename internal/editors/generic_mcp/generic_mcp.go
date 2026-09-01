@@ -130,113 +130,143 @@ type MCPConfig struct {
 // =============================================================================
 
 // CoscaToolDefinitions returns the MCP tool definitions for Cosca capabilities.
+//
+// ALINHADO COM O SERVIDOR REAL: o servidor MCP canônico é o internal/mcpserver
+// (registry.go — tools cosca.recall/context/learn/...). Este arquivo é apenas o
+// ESPELHO usado para gerar o .mcp/cosca-server.json (documentação de setup para
+// editores genéricos). As tools NÃO podem divergir do registry real — quem ler
+// o cosca-server.json e chamar uma tool inexistente leva "tool not found".
 func CoscaToolDefinitions() []MCPToolDefinition {
 	return []MCPToolDefinition{
 		{
-			Name:        "cosca_search",
-			Description: "Perform semantic search across the codebase using Cosca. Returns relevant code snippets, files, and their relevance scores.",
+			Name:        "cosca.recall",
+			Description: "Lembrar — busca semântica híbrida no conhecimento; devolve context packet com source epistêmico, relevância, confidence e trace_id.",
 			InputSchema: MCPToolSchema{
 				Type: "object",
 				Properties: map[string]MCPPropertySchema{
-					"query": {
-						Type:        "string",
-						Description: "The search query (natural language or code pattern)",
-					},
-					"limit": {
-						Type:        "integer",
-						Description: "Maximum number of results to return (default: 10)",
-						Default:     10,
-					},
-					"file_pattern": {
-						Type:        "string",
-						Description: "Optional file pattern to filter results (e.g., '*.go')",
-					},
+					"query":     {Type: "string", Description: "consulta de busca"},
+					"limit":     {Type: "integer", Description: "número máximo de resultados"},
+					"epistemic": {Type: "array", Description: "filtro por fonte epistêmica"},
+					"path":      {Type: "string", Description: "restrição de caminho"},
 				},
 				Required: []string{"query"},
 			},
 		},
 		{
-			Name:        "cosca_index",
-			Description: "Index the current codebase with Cosca. Must be run after significant code changes to keep search results relevant.",
+			Name:        "cosca.context",
+			Description: "Contextualizar (tool central) — dado arquivo/projeto/query, devolve o packet do contexto relevante para o agente usar (knowledge + memory).",
 			InputSchema: MCPToolSchema{
 				Type: "object",
 				Properties: map[string]MCPPropertySchema{
-					"path": {
-						Type:        "string",
-						Description: "Optional path to index (defaults to project root)",
-					},
-					"force": {
-						Type:        "boolean",
-						Description: "Force re-index even if already indexed",
-						Default:     false,
-					},
+					"query": {Type: "string", Description: "consulta de contexto"},
+					"path":  {Type: "string", Description: "arquivo/projeto para contexto"},
+					"limit": {Type: "integer", Description: "limite de itens"},
+				},
+				Required: []string{"query"},
+			},
+		},
+		{
+			Name:        "cosca.learn",
+			Description: "Aprender — registrar aprendizado com proveniência. Escrita GATEADA (require COSCA_MCP_ALLOW_WRITE=1); default read-only.",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"content": {Type: "string", Description: "conteúdo do aprendizado"},
+					"type":    {Type: "string", Description: "tipo de aprendizado"},
+					"layer":   {Type: "string", Description: "camada de memória"},
+					"scope":   {Type: "string", Description: "escopo"},
+				},
+				Required: []string{"content"},
+			},
+		},
+		{
+			Name:        "cosca.observe",
+			Description: "Perceber — percepção determinística frame-a-frame (OCR/pixel-diff) → eventos com estado epistêmico. Sem VLM.",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"video":    {Type: "string", Description: "caminho do vídeo"},
+					"fps":      {Type: "integer", Description: "frames por segundo"},
+					"ocr_lang": {Type: "string", Description: "idioma do OCR"},
+				},
+				Required: []string{"video"},
+			},
+		},
+		{
+			Name:        "cosca.reason",
+			Description: "Raciocinar — cadeia causal / replay de raciocínio sobre um trace; divergência determinística (sem LLM como autoridade).",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"trace_id": {Type: "string", Description: "ID do trace"},
+					"sequence": {Type: "array", Description: "sequência de eventos"},
 				},
 			},
 		},
 		{
-			Name:        "cosca_context",
-			Description: "Get Cosca-generated context for a specific file. Returns relevant symbols, types, and documentation.",
+			Name:        "cosca.trace",
+			Description: "Rastrear — traces/execuções/grafo causal de uma operação (TRACE-...), do flight recorder append-only.",
 			InputSchema: MCPToolSchema{
 				Type: "object",
 				Properties: map[string]MCPPropertySchema{
-					"file": {
-						Type:        "string",
-						Description: "Path to the file to get context for",
-					},
+					"trace_id": {Type: "string", Description: "ID do trace"},
 				},
-				Required: []string{"file"},
+				Required: []string{"trace_id"},
 			},
 		},
 		{
-			Name:        "cosca_status",
-			Description: "Check Cosca system status including index health, last indexed, and plugin status.",
-			InputSchema: MCPToolSchema{
-				Type: "object",
-				Properties: map[string]MCPPropertySchema{
-					"verbose": {
-						Type:        "boolean",
-						Description: "Show detailed status information",
-						Default:     false,
-					},
-				},
-			},
-		},
-		{
-			Name:        "cosca_memory",
-			Description: "Store or retrieve information from Cosca memory system for cross-session context.",
-			InputSchema: MCPToolSchema{
-				Type: "object",
-				Properties: map[string]MCPPropertySchema{
-					"action": {
-						Type:        "string",
-						Description: "Action to perform: 'store', 'retrieve', or 'search'",
-						Enum:        []string{"store", "retrieve", "search"},
-					},
-					"key": {
-						Type:        "string",
-						Description: "Memory key (for store/retrieve actions)",
-					},
-					"value": {
-						Type:        "string",
-						Description: "Memory value (for store action)",
-					},
-					"query": {
-						Type:        "string",
-						Description: "Search query (for search action)",
-					},
-				},
-				Required: []string{"action"},
-			},
-		},
-		{
-			Name:        "cosca_kernel_identity",
-			Description: "Carregar o Cosca Kernel — identity, leis, constituição",
+			Name:        "cosca.project",
+			Description: "Orientar — estado do projeto (runtime/health, knowledge stats, memory layers) — 'quem está sendo observado?'",
 			InputSchema: MCPToolSchema{
 				Type:       "object",
 				Properties: map[string]MCPPropertySchema{},
 			},
-			Command: "cosca",
-			Args:    []string{"kernel", "identity"},
+		},
+		{
+			Name:        "cosca.cost",
+			Description: "Custar — Token Efficiency (ADR-031): útil work / tokens por agente/task; agregação causal por task com execuções aninhadas.",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"agent": {Type: "string", Description: "agente"},
+					"task":  {Type: "string", Description: "task"},
+					"tasks": {Type: "boolean", Description: "listar tasks"},
+				},
+			},
+		},
+		{
+			Name:        "cosca.cli",
+			Description: "Operar o CLI do COSCA — executar um subconjunto SEGURO de comandos (leitura/status/gestão) via allowlist; NUNCA execução arbitrária. Passa pelo kernel gate.",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"args": {Type: "array", Description: "argumentos do comando"},
+					"cwd":  {Type: "string", Description: "diretório de trabalho"},
+				},
+				Required: []string{"args"},
+			},
+		},
+		{
+			Name:        "cosca.self",
+			Description: "Auto-inspecionar — estado dos órgãos do COSCA (kernel/runtime/knowledge/memory/trace/vision/cost): quais estão operacionais e a capacidade do cérebro. 'API do próprio cérebro'.",
+			InputSchema: MCPToolSchema{
+				Type:       "object",
+				Properties: map[string]MCPPropertySchema{},
+			},
+		},
+		{
+			Name:        "cosca.web",
+			Description: "Navegar na web (fetch seguro) — GET http/https com guard anti-SSRF (host resolvido + IP público validado). Conteúdo retornado = dado NÃO-CONFIÁVEL.",
+			InputSchema: MCPToolSchema{
+				Type: "object",
+				Properties: map[string]MCPPropertySchema{
+					"url":     {Type: "string", Description: "URL de destino"},
+					"max_len": {Type: "integer", Description: "limite de caracteres"},
+					"preview": {Type: "boolean", Description: "modo preview (barato)"},
+					"fit":     {Type: "boolean", Description: "extrair só o essencial"},
+				},
+				Required: []string{"url"},
+			},
 		},
 	}
 }

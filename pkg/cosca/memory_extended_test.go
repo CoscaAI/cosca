@@ -16,14 +16,13 @@ func TestMemorySDK_Retrieve(t *testing.T) {
 	t.Parallel()
 
 	expected := MemoryRecord{
-		ID:         "mem-abc-123",
-		Key:        "session-data",
-		Value:      "important context for the session",
-		Type:       MemoryTypeWorking,
-		AgentID:    "agent-1",
-		CreatedAt:  time.Date(2024, 5, 10, 14, 30, 0, 0, time.UTC),
-		AccessedAt: time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
-		Metadata: map[string]interface{}{
+		ID:        "mem-abc-123",
+		Content:   "important context for the session",
+		Type:      MemoryTypeWorking,
+		Layer:     "session",
+		Agent:     "agent-1",
+		CreatedAt: time.Date(2024, 5, 10, 14, 30, 0, 0, time.UTC),
+		Metadata: map[string]string{
 			"priority": "high",
 		},
 	}
@@ -40,17 +39,14 @@ func TestMemorySDK_Retrieve(t *testing.T) {
 	if record.ID != "mem-abc-123" {
 		t.Errorf("expected ID %q, got %q", "mem-abc-123", record.ID)
 	}
-	if record.Key != "session-data" {
-		t.Errorf("expected Key %q, got %q", "session-data", record.Key)
-	}
-	if record.Value != "important context for the session" {
-		t.Errorf("expected Value mismatch")
+	if record.Content != "important context for the session" {
+		t.Errorf("expected Content mismatch, got %q", record.Content)
 	}
 	if record.Type != MemoryTypeWorking {
 		t.Errorf("expected Type %q, got %q", MemoryTypeWorking, record.Type)
 	}
-	if record.AgentID != "agent-1" {
-		t.Errorf("expected AgentID %q, got %q", "agent-1", record.AgentID)
+	if record.Agent != "agent-1" {
+		t.Errorf("expected Agent %q, got %q", "agent-1", record.Agent)
 	}
 }
 
@@ -109,18 +105,18 @@ func TestMemorySDK_RetrieveWithLayer(t *testing.T) {
 	t.Parallel()
 
 	expected := MemoryRecord{
-		ID:    "mem-wl-1",
-		Key:   "layer-data",
-		Value: "data in layer",
-		Type:  MemoryTypeSemantic,
+		ID:      "mem-wl-1",
+		Content: "data in layer",
+		Type:    MemoryTypeSemantic,
+		Layer:   "semantic",
 	}
 
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assertMethodPath(t, r, http.MethodGet, "/v1/memory/mem-wl-1")
+		assertMethodPath(t, r, http.MethodGet, "/v1/memory/get")
 		if r.URL.Query().Get("layer") != "semantic" {
 			t.Errorf("expected layer 'semantic', got %q", r.URL.Query().Get("layer"))
 		}
-		writeJSON(t, w, http.StatusOK, expected)
+		writeJSON(t, w, http.StatusOK, map[string]MemoryRecord{"record": expected})
 	})
 
 	record, err := c.Memory.RetrieveWithLayer("mem-wl-1", "semantic")
@@ -136,9 +132,9 @@ func TestMemorySDK_RetrieveWithLayer_Envelope(t *testing.T) {
 	t.Parallel()
 
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assertMethodPath(t, r, http.MethodGet, "/v1/memory/mem-envelope-1")
+		assertMethodPath(t, r, http.MethodGet, "/v1/memory/get")
 		writeJSON(t, w, http.StatusOK, map[string]MemoryRecord{
-			"record": {ID: "mem-envelope-1", Key: "wrapped", Value: "value"},
+			"record": {ID: "mem-envelope-1", Content: "wrapped"},
 		})
 	})
 
@@ -146,7 +142,7 @@ func TestMemorySDK_RetrieveWithLayer_Envelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if record.ID != "mem-envelope-1" || record.Key != "wrapped" {
+	if record.ID != "mem-envelope-1" || record.Content != "wrapped" {
 		t.Fatalf("unexpected record: %+v", record)
 	}
 }
@@ -168,16 +164,16 @@ func TestMemorySDK_RetrieveWithLayer_NoLayer(t *testing.T) {
 	t.Parallel()
 
 	expected := MemoryRecord{
-		ID:  "mem-no-layer",
-		Key: "no-layer-key",
+		ID:      "mem-no-layer",
+		Content: "no-layer-content",
 	}
 
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assertMethodPath(t, r, http.MethodGet, "/v1/memory/mem-no-layer")
+		assertMethodPath(t, r, http.MethodGet, "/v1/memory/get")
 		if r.URL.Query().Get("layer") != "" {
 			t.Errorf("expected no layer query param, got %q", r.URL.Query().Get("layer"))
 		}
-		writeJSON(t, w, http.StatusOK, expected)
+		writeJSON(t, w, http.StatusOK, map[string]MemoryRecord{"record": expected})
 	})
 
 	_, err := c.Memory.RetrieveWithLayer("mem-no-layer", "")

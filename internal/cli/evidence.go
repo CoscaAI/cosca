@@ -53,9 +53,10 @@ import (
 func resolveArtifactStore() *acquisition.ArtifactStore {
 	dir, err := os.Getwd()
 	if err != nil {
-		return acquisition.NewArtifactStore(".")
+		return acquisition.NewArtifactStore(filepath.Join(".", ".cosca"))
 	}
-	return acquisition.NewArtifactStore(dir)
+	// A store espera o DATA DIR (<projeto>/.cosca), não o root do projeto.
+	return acquisition.NewArtifactStore(filepath.Join(dir, ".cosca"))
 }
 
 // allowPrivateArtifacts é o opt-in explícito para destinos privados/loopback

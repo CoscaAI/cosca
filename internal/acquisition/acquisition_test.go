@@ -267,7 +267,9 @@ func TestFetch_Non200Status(t *testing.T) {
 
 func TestArtifactStore_AddGetListAndSeparateBody(t *testing.T) {
 	root := t.TempDir()
-	store := NewArtifactStore(root)
+	// Novo contrato: NewArtifactStore recebe o DATA DIR (a raiz .cosca).
+	dataDir := filepath.Join(root, ".cosca")
+	store := NewArtifactStore(dataDir)
 	body := []byte("corpo do artefato externo\n")
 
 	art := &AcquiredArtifact{
@@ -290,8 +292,8 @@ func TestArtifactStore_AddGetListAndSeparateBody(t *testing.T) {
 	}
 
 	// Metadados A-0001.json e corpo A-0001 (separados).
-	meta := filepath.Join(root, ".cosca", "quarantine", "artifacts", "A-0001.json")
-	bodyPath := filepath.Join(root, ".cosca", "quarantine", "artifacts", "A-0001")
+	meta := filepath.Join(dataDir, "quarantine", "artifacts", "A-0001.json")
+	bodyPath := filepath.Join(dataDir, "quarantine", "artifacts", "A-0001")
 	if _, err := os.Stat(meta); err != nil {
 		t.Errorf("metadados não gravados: %v", err)
 	}

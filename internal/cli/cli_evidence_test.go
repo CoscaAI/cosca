@@ -102,7 +102,7 @@ func readEvidenceArtifact(t *testing.T, id string) *acquisition.AcquiredArtifact
 	if err != nil {
 		t.Fatal(err)
 	}
-	art, err := acquisition.NewArtifactStore(dir).Get(id)
+	art, err := acquisition.NewArtifactStore(filepath.Join(dir, ".cosca")).Get(id)
 	if err != nil {
 		t.Fatalf("Get %s: %v", id, err)
 	}

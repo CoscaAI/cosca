@@ -296,6 +296,12 @@ func TestGate_Execute_UnknownMode(t *testing.T) {
 }
 
 func TestGate_FailClosedWhenBwrapUnavailable(t *testing.T) {
+	// No Windows o sandbox nativo (Job Object) substitui o bwrap por design
+	// (ADR-034) — este teste cobre o comportamento de "sem bwrap E sem backend
+	// nativo", que é o caso de plataformas sem nenhum dos dois.
+	if nativeSandboxAvailable() {
+		t.Skip("native sandbox available — the bwrap-required path is not the Windows backend")
+	}
 	g := NewGate(t.TempDir(), chat.SandboxWorkspace)
 	g.bwrapPath = ""
 	t.Setenv("COSCA_ALLOW_NO_ROOT", "")

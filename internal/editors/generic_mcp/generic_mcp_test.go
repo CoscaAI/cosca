@@ -10,46 +10,57 @@ import (
 	"github.com/CoscaAI/cosca/internal/editors/types"
 )
 
-func TestCoscaToolDefinitionsIncludeKernelIdentity(t *testing.T) {
+// TestCoscaToolDefinitionsAlignedWithServer verifica que as tools espelhadas
+// são exatamente as 11 tools reais do servidor MCP canônico (internal/mcpserver
+// registry.go). Ferramenta antiga/inexistente aqui = "tool not found" para quem
+// ler o cosca-server.json — nunca pode divergir do servidor real.
+func TestCoscaToolDefinitionsAlignedWithServer(t *testing.T) {
 	tools := CoscaToolDefinitions()
 
-	var kernelTool *MCPToolDefinition
-	for i := range tools {
-		if tools[i].Name == "cosca_kernel_identity" {
-			kernelTool = &tools[i]
-			break
-		}
-	}
-	if kernelTool == nil {
-		t.Fatalf("tool cosca_kernel_identity not found in CoscaToolDefinitions")
+	if len(tools) != 11 {
+		t.Fatalf("expected 11 tools (mirror of internal/mcpserver), got %d", len(tools))
 	}
 
-	if want := "Carregar o Cosca Kernel — identity, leis, constituição"; kernelTool.Description != want {
-		t.Errorf("description = %q, want %q", kernelTool.Description, want)
+	// Conjunto canônico do servidor (registry.go registerTools).
+	want := []string{
+		"cosca.recall", "cosca.context", "cosca.learn", "cosca.observe",
+		"cosca.reason", "cosca.trace", "cosca.project", "cosca.cost",
+		"cosca.cli", "cosca.self", "cosca.web",
 	}
-	if kernelTool.Command != "cosca" {
-		t.Errorf("command = %q, want %q", kernelTool.Command, "cosca")
+
+	got := make(map[string]bool)
+	for _, tool := range tools {
+		if tool.Name == "" {
+			t.Error("tool with empty name in CoscaToolDefinitions")
+		}
+		if tool.Description == "" {
+			t.Errorf("tool %q has empty description", tool.Name)
+		}
+		if tool.InputSchema.Type != "object" {
+			t.Errorf("tool %q inputSchema.type = %q, want object", tool.Name, tool.InputSchema.Type)
+		}
+		got[tool.Name] = true
 	}
-	if len(kernelTool.Args) != 2 || kernelTool.Args[0] != "kernel" || kernelTool.Args[1] != "identity" {
-		t.Errorf("args = %v, want [kernel identity]", kernelTool.Args)
+
+	for _, name := range want {
+		if !got[name] {
+			t.Errorf("tool %q missing from CoscaToolDefinitions — divergiu do servidor real", name)
+		}
 	}
-	if kernelTool.InputSchema.Type != "object" {
-		t.Errorf("inputSchema.type = %q, want %q", kernelTool.InputSchema.Type, "object")
+
+	// Nenhuma tool antiga pode sobreviver.
+	for _, name := range []string{"cosca_search", "cosca_index", "cosca_context", "cosca_status", "cosca_memory", "cosca_kernel_identity"} {
+		if got[name] {
+			t.Errorf("tool legada %q ainda presente — remover: servidor real não a implementa", name)
+		}
 	}
 }
 
-func TestGenerateMCPServerDefinitionIncludesKernelIdentity(t *testing.T) {
+func TestGenerateMCPServerDefinitionAlignedWithServer(t *testing.T) {
 	def := GenerateMCPServerDefinition()
 
-	found := false
-	for _, tool := range def.Tools {
-		if tool.Name == "cosca_kernel_identity" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("cosca_kernel_identity missing from MCP server definition tools")
+	if len(def.Tools) != 11 {
+		t.Fatalf("expected 11 tools in server definition, got %d", len(def.Tools))
 	}
 
 	data, err := json.MarshalIndent(def, "", "  ")
@@ -59,12 +70,15 @@ func TestGenerateMCPServerDefinitionIncludesKernelIdentity(t *testing.T) {
 	if !json.Valid(data) {
 		t.Fatal("MCP server definition is not valid JSON")
 	}
-	if !containsJSON(data, "cosca_kernel_identity") {
-		t.Error("serialized server definition missing cosca_kernel_identity")
+	if !bytes.Contains(data, []byte("cosca.recall")) {
+		t.Error("serialized server definition missing cosca.recall")
+	}
+	if bytes.Contains(data, []byte("cosca_kernel_identity")) {
+		t.Error("serialized server definition still contains legacy tool cosca_kernel_identity")
 	}
 }
 
-func TestSetupWritesServerDefinitionWithKernelIdentity(t *testing.T) {
+func TestSetupWritesServerDefinitionAlignedWithServer(t *testing.T) {
 	proj := t.TempDir()
 	a := NewAdapter()
 	cfg := types.DefaultEditorConfig(proj)
@@ -87,18 +101,8 @@ func TestSetupWritesServerDefinitionWithKernelIdentity(t *testing.T) {
 		t.Fatalf("unmarshal cosca-server.json: %v", err)
 	}
 
-	found := false
-	for _, tool := range serverDef.Tools {
-		if tool.Name == "cosca_kernel_identity" {
-			found = true
-			if tool.Command != "cosca" || len(tool.Args) != 2 || tool.Args[0] != "kernel" || tool.Args[1] != "identity" {
-				t.Errorf("kernel identity tool command/args = %q %v, want cosca [kernel identity]", tool.Command, tool.Args)
-			}
-			break
-		}
-	}
-	if !found {
-		t.Error("cosca_kernel_identity missing from written cosca-server.json")
+	if len(serverDef.Tools) != 11 {
+		t.Errorf("cosca-server.json tools = %d, want 11 (mirror of internal/mcpserver)", len(serverDef.Tools))
 	}
 
 	// mcp.json client config must still be present.

@@ -33,14 +33,16 @@ const (
 // O_CREATE|O_EXCL, como na zona de quarentena — chamadas concorrentes nunca
 // colidem.
 type ArtifactStore struct {
-	dir string // <projeto>/.cosca/quarantine/artifacts
+	dir string // <dataDir>/quarantine/artifacts
 }
 
-// NewArtifactStore cria a store de artefatos do projeto raiz dir. A operação
-// é preguiçosa: o diretório é criado na primeira escrita (0700).
-func NewArtifactStore(dir string) *ArtifactStore {
+// NewArtifactStore cria a store de artefatos a partir do DATA DIR (a raiz
+// .cosca do projeto — <projeto>/.cosca ou o dir global do cosca). O diretório
+// dos artefatos fica em <dataDir>/quarantine/artifacts. A operação é
+// preguiçosa: o diretório é criado na primeira escrita (0700).
+func NewArtifactStore(dataDir string) *ArtifactStore {
 	return &ArtifactStore{
-		dir: filepath.Join(dir, ".cosca", filepath.FromSlash(ArtifactsDir)),
+		dir: filepath.Join(dataDir, filepath.FromSlash(ArtifactsDir)),
 	}
 }
 

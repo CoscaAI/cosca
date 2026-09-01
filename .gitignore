@@ -45,6 +45,17 @@
 # versioned SKILL.md + git history), not the immutable core. Not versioned.
 .cosca/skill-version-ledger/
 
+# Lixo isolado da limpeza arquitetural (Etapa 1 — 2026-09-01): legado/accidental
+# state movido para fora do caminho canônico aguardando remoção autorizada.
+# NUNCA versionar — é estado derivado/lixo, não fonte de verdade.
+.cosca/_lixo_da_festa/
+
+# durable.db — ledger de crash-recovery de workflows (runtime derivado,
+# rebuildable; não é fonte imutável). Migrado do caminho bugado .cosca/.cosca/
+# na Etapa 1 (2026-09-01). Fora do git como os demais DBs de runtime.
+.cosca/durable.db
+
+
 
 # Accidental .cosca dirs in subdirectories (created by tests running cosca with CWD in subdirs)
 # NOTE: `*/**/.cosca/` (NOT `**/.cosca/`) — requires >=1 parent dir so the root
