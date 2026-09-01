@@ -274,18 +274,38 @@ func (e *Engine) Init() error {
 			dim = d
 		}
 	}
-	vecCfg := vector.SQLiteVecConfig{
+	// O vecStore é a LEITURA da busca semântica. PÓS-CORTE (D5): quando os
+	// módulos físicos existem, o vecStore vira um PartitionStore — a leitura
+	// agrega as partições vector-*.db (a verdade), e a escrita delega ao
+	// monolito (que o db build sincroniza). Sem módulos, usa o monolito
+	// (comportamento histórico).
+	baseVecCfg := vector.SQLiteVecConfig{
 		DB:        db.Conn(),
 		Dimension: dim,
 	}
-	vecStore, err := vector.NewSQLiteVec(vecCfg)
-	if err != nil {
+	baseStore, baseErr := vector.NewSQLiteVec(baseVecCfg)
+	if baseErr != nil {
 		if closeErr := db.Close(); closeErr != nil {
 			log.Error().Err(closeErr).Msg("failed to close database after vector store init failure")
 		}
-		return fmt.Errorf("create vector store: %w", err)
+		return fmt.Errorf("create vector store: %w", baseErr)
 	}
-	e.vecStore = vecStore
+
+	// Partições vector-*.db no data dir (glob) — a leitura modular.
+	partsPattern := filepath.Join(filepath.Dir(e.cfg.DBPath), "vector-*.db")
+	ps, psErr := vector.NewPartitionStore(vector.PartitionStoreConfig{
+		Base:           baseStore,
+		PartitionPaths: []string{partsPattern},
+		Dimension:      dim,
+	})
+	if psErr != nil {
+		e.vecStore = baseStore // fallback: monolito (sem partições)
+	} else {
+		e.vecStore = ps // leitura agrega os módulos; escrita no monolito
+	}
+	if ps != nil && psErr == nil {
+		log.Info().Str("pattern", partsPattern).Msg("vector store: PartitionStore ativo (leitura dos módulos)")
+	}
 
 	// 6. Create graph
 	e.graph = graph.New()
