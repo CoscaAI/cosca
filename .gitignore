@@ -140,3 +140,5 @@ knowledge.db
 
 # Chave privada do certificado (NUNCA versionar)
 /security-backup/
+
+tmp/
