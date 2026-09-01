@@ -55,3 +55,9 @@
 - `go build ./...` âœ… Â· `go vet` âœ… Â· `go test ./internal/cli/` âœ… (81,8s)
 - `cosca embed audit` roda Ã­ntegro no Windows âœ…
 - BinÃ¡rio `bin/cosca.exe` rebuilt: `v1.5.0-345-g61a24af` âœ…
+
+## 7. Atualização — Chain re-assinada com autoridade do Don (2026-09-01)
+
+A ingestão dos 692 arquivos disparou a Family Chain (fail-closed funcionando). Os blocks 61/62 foram git-anchored (testemunho de imutabilidade — fallback), mas o DON re-assinou pessoalmente: **Block 63 Ed25519, autoridade real** (fator máquina DPAPI + TTY + consentimento-ao-conteúdo). Chain validada: 63 blocks, 2.005 arquivos.
+
+**Regra operacional (aprovada pelo Don):** mudou o embed ? commit ? DON assina com `cosca-check --sign`. O `--sign-auto` é apenas fallback emergencial, sempre seguido do `--sign`. O `--sign` não quebra com commits (não depende do git HEAD); o git-anchor quebra (lição: os blocks 61/62 quebraram após commits de docs/gitignore).
