@@ -1,7 +1,7 @@
 # ADR-032: Kernel-First Deliberation — o Kernel pensa primeiro; a LLM é especialista quando o Kernel reconhece os próprios limites
 
-> **Status:** Proposed (aguardando cosca-cto + cosca-architecture + Don) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-08-31
-> **Revisão:** decisão de DESIGN — NÃO implementada. Define o norte e o plano; a implementação é incremental em fases, cada uma com gate de testes.
+> **Status:** IMPLEMENTED (2026-09-01 — verificado em código) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-09-01
+> **Revisão:** implementado no `Deliberator` (`internal/orchestration/deliberation.go`), ativo no serve (config `shadow_mode`/deliberation). O header anterior "NÃO implementada" estava STALE — o ADR-033 §0.1 já confirmava a implementação. A deliberação é fail-closed por default (Enabled=false preserva o caminho legado); o shadow mode registra contrafactual.
 > **Fonte (ordem do Don, 2026-08-31):** **"o Kernel pensa primeiro; a LLM é chamada como especialista quando o Kernel reconhece os próprios limites."** O professor: `INPUT → PERCEPÇÃO/EMBED → EVIDÊNCIAS → 🧠 DELIBERAÇÃO (determinística) → confiança suficiente? RESPONDE SEM LLM | incerto? chama LLM com contexto LIMPO`.
 > **Relação:** CONECTA o **ADR-011** (deliberação determinística zero-LLM, `internal/deliberate`, hoje ISOLADO) ao **`Engine.Execute`** (`internal/orchestration`). É a ponte que o ADR-011 previu (`DecisionDeliberator` port + `DeliberateConfig`) mas **nunca foi implementada**. Também eleva o caminho determinístico já existente no Executor (`deterministicResponse`, executor.go:1229) de uma heurística de snippet para uma **decisão aritmética evidência-gated**.
 

@@ -1,7 +1,7 @@
 # ADR-033: Cognitive Shadow Mode — o cérebro observa o próprio processo antes de ganhar autoridade
 
-> **Status:** Proposed (aguardando cosca-cto + cosca-architecture + Don) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-08-31
-> **Revisão:** decisão de DESIGN — NÃO implementada. Define o norte e o plano; a implementação é incremental em fases, cada uma com gate de testes.
+> **Status:** IMPLEMENTED (2026-09-01 — verificado em código) | **Owner:** cosca-architecture (Architecture Chief) | **Last Updated:** 2026-09-01
+> **Revisão:** implementado em `internal/shadow` (JSONL append-only em `.cosca/shadow/records.jsonl`), ativo na config local (`shadow_mode: true`), REST `/v1/shadow/*`, CLI `cosca shadow`. O header anterior "NÃO implementada" estava STALE — o shadow registra deliberação contrafactual sem interferir no caminho principal.
 > **Fonte (ordem do Don + professor, 2026-08-31):** Fase 1 da evolução COSCA-centric — o COSCA **pensa, mede e registra**, mas **NÃO interfere na resposta atual**. O request continua para a LLM normalmente. O COSCA apenas observa o próprio processo e registra o que encontrou (percepção), que evidências recuperou (knowledge/memory), qual seria a confiança (deliberação) e se **teria** chamado uma LLM (escalada no Shadow). É a **disciplina da ponte**: o cérebro observa o próprio processo antes de ganhar autoridade sobre ele. **Por quê:** é ouro para descobrir quanto o COSCA já consegue pensar sozinho, SEM risco de responder errado.
 > **Relação:** DECORA a deliberação do **ADR-032** (Kernel-First Deliberation, `internal/deliberate` + `Deliberator`). Não cria um sistema paralelo de deliberação — reusa o `Deliberator.Deliberate` e apenas **muda o que se faz com o verdict** (o Shadow NÃO aplica a autoridade; o modo ativo aplica). Também conecta às peças órfãs da porta cognitiva: percepção vision e MCP cognitivo (fase futura).
 
