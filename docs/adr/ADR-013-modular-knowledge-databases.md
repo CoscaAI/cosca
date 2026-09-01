@@ -420,6 +420,30 @@ Cada módulo tem seu **próprio schema versionado** e seu **próprio `migration_
 
 ---
 
+## 6.1 PLANO D — O CORTE (indexação nos módulos físicos) — 2026-09-01
+
+**Decisão do Don:** o split aditivo (Fase C) entrega valor, mas a indexação
+AINDA escreve no knowledge.db (o monolito de 585 MB) — os módulos são espelho.
+O corte (D) inverte o fluxo: o indexer escreve NOS módulos.
+
+**Fases (cada uma com teste + commit + parada segura):**
+- **D1 ✅ (9857233):** `internal/knowledge/datasources.go` — DataSources provider
+  abre os 5 módulos (core/graph/projects/vector-*/fts); corte progressivo
+  (módulo ausente = fatia no knowledge.db); NUNCA cria módulo; falha fechada
+  em corrompido. Testado.
+- **D2:** migração física offline (VACUUM INTO por módulo + checksum) — os
+  módulos viram a fonte real.
+- **D3:** indexer escreve nos módulos (trocar db único por datasources +
+  vector.SQLiteVec por módulo + FTS no fts.db). 🔴 coração do corte (~1 dia).
+- **D4:** ORC (restcycle.go:504) deixa de reconstruir indexer com knowledge.db
+  — usa o Engine oficial (elimina o 2º ponto de escrita, origem do bug do
+  índice de 2026-09-01).
+- **D5:** retirada — knowledge.db vira histórico; serve/mcp/recovery operam
+  nos módulos; gate verde; chain re-sign pelo Don.
+
+**Estado hoje:** a indexação vai para knowledge.db (via Engine); os módulos são
+espelho reconstruído por `cosca db build`. O corte é o que muda esse fluxo.
+
 ## 6. Fronteira do incremento — Fatia 1 recomendada (valor isolado primeiro)
 
 **Escopo bounded:**
