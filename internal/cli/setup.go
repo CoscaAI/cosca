@@ -128,5 +128,21 @@ func provisionPhases() []installer.Phase {
 			},
 			NextState: installer.StateAIReady,
 		},
+		{
+			ID:   "knowledge",
+			Name: "Knowledge / Database",
+			Checks: []installer.Check{
+				&knowledgeCheck{},
+			},
+			NextState: installer.StateKnowledgeReady,
+		},
+		{
+			ID:   "index",
+			Name: "Index build",
+			Checks: []installer.Check{
+				&indexBuildCheck{},
+			},
+			NextState: installer.StateIndexReady,
+		},
 	}
 }

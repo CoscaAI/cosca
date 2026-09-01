@@ -19,6 +19,7 @@
 package cli
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -288,13 +289,14 @@ nenhum migrate, nenhum drop.`,
 				return fmt.Errorf("resolve data directory: %w", dirErr)
 			}
 			kb := filepath.Join(dir, "knowledge.db")
-			if _, statErr := os.Stat(kb); statErr != nil {
-				return fmt.Errorf("knowledge.db não encontrado em %s: %w", kb, statErr)
-			}
 
-			agg, openErr := vectoragg.Open(vectoragg.MirrorCatalog(kb))
-			if openErr != nil {
-				return fmt.Errorf("abrir espelho: %w", openErr)
+			// PÓS-CORTE (Plano D): se os módulos físicos existem, o espelho
+			// lê DELES (a verdade). O monolito é usado só quando o corte não
+			// está ativo (legado) — verificar contra a fonte drenada seria
+			// comparar contra um alvo esvaziado.
+			agg, err := openModuleAggregator(dir, kb)
+			if err != nil {
+				return err
 			}
 			defer agg.Close()
 
@@ -333,11 +335,69 @@ nenhum migrate, nenhum drop.`,
 			f.KeyValue("chunks_fts", fmt.Sprintf("%d", counts.ChunksFTS))
 			f.KeyValue("entities_fts", fmt.Sprintf("%d", counts.EntitiesFTS))
 			f.Println("")
-			f.Print("O espelho lê os módulos lógicos sem escrever (mode=ro). Split físico pendente (Fase C).")
+			f.Print("O espelho lê os módulos lógicos sem escrever (mode=ro).")
 			return nil
 		},
 	}
 	return cmd
+}
+
+// sumPartitionVectors soma os vetores de todas as partições vector-*.db —
+// o agregador lê por nome de módulo (uma partição); a contagem real do
+// conhecimento é a SOMA (o corte particionou por domínio).
+func sumPartitionVectors(dir string) int {
+	parts, err := filepath.Glob(filepath.Join(dir, "vector-*.db"))
+	if err != nil {
+		return 0
+	}
+	total := 0
+	for _, p := range parts {
+		db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(p)+"?mode=ro")
+		if err != nil {
+			continue
+		}
+		var n int
+		if err := db.QueryRow("SELECT COUNT(*) FROM vectors").Scan(&n); err == nil {
+			total += n
+		}
+		_ = db.Close()
+	}
+	return total
+}
+
+// openModuleAggregator abre o agregador read-only sobre os MÓDULOS físicos
+// (Plano D, pós-corte): o catálogo aponta para core/graph/projects/vector-*.
+// Fallback ao monolito (MirrorCatalog) apenas quando os módulos não existem
+// (legado / corte não ativo).
+func openModuleAggregator(dir, kb string) (*vectoragg.Aggregator, error) {
+	// 1. Tenta os módulos físicos (corte ativo).
+	catalog := make(vectoragg.ModuleCatalog)
+	// O vector é particionado: o agregador lê a soma via um catálogo que
+	// aponta para CADA partição como um módulo "vector-<domínio>" — mas o
+	// vectoragg agrega por nome de módulo. Solução: o catálogo mapeia a
+	// primeira partição para "vector" (a leitura de todas usa o glob real).
+	parts, err := filepath.Glob(filepath.Join(dir, "vector-*.db"))
+	if err == nil && len(parts) > 0 {
+		catalog[vectoragg.ModuleVector] = parts[0]
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "graph.db")); statErr == nil {
+		catalog[vectoragg.ModuleGraph] = filepath.Join(dir, "graph.db")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "projects.db")); statErr == nil {
+		catalog[vectoragg.ModuleProjects] = filepath.Join(dir, "projects.db")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "fts.db")); statErr == nil {
+		catalog[vectoragg.ModuleFTS] = filepath.Join(dir, "fts.db")
+	}
+	if len(catalog) > 0 {
+		return vectoragg.Open(catalog)
+	}
+
+	// 2. Fallback: monolito (legado).
+	if _, statErr := os.Stat(kb); statErr == nil {
+		return vectoragg.Open(vectoragg.MirrorCatalog(kb))
+	}
+	return nil, fmt.Errorf("nem módulos físicos nem knowledge.db encontrados em %s", dir)
 }
 
 // guarda de compilação: o comando db segue o padrão cobra.

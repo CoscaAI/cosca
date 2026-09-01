@@ -27,7 +27,6 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/dbhealth"
 	"github.com/CoscaAI/cosca/internal/integrity"
-	"github.com/CoscaAI/cosca/internal/vectoragg"
 )
 
 // goldPointMarker é a âncora que identifica o commit de recuperação na
@@ -119,27 +118,39 @@ func runRecoveryCheck(cmd *cobra.Command, dir string) error {
 		}
 	}
 
-	// 4. Módulos físicos (split ADR-013 Fase C).
-	f.Header("4. Módulos físicos (split)")
+	// 4. Módulos físicos (split ADR-013 Fase C + corte D3/D4).
+	// PÓS-CORTE: a verdade vive nos módulos, não no knowledge.db. O
+	// openModuleAggregator lê os módulos físicos (fallback ao monolito).
+	f.Header("4. Módulos físicos (split + corte)")
 	kb := filepath.Join(dir, "knowledge.db")
-	if _, statErr := os.Stat(kb); statErr == nil {
-		agg, openErr := vectoragg.Open(vectoragg.MirrorCatalog(kb))
-		if openErr != nil {
-			f.Printf("  ❌ espelho: %v\n", openErr)
+	agg, aggErr := openModuleAggregator(dir, kb)
+	if aggErr != nil {
+		f.Printf("  ❌ agregador: %v\n", aggErr)
+		allOK = false
+	} else {
+		counts, cErr := agg.CatalogCounts()
+		mods := agg.Modules()
+		_ = agg.Close()
+		if cErr != nil {
+			f.Printf("  ❌ agregador: %v\n", cErr)
 			allOK = false
 		} else {
-			counts, cErr := agg.CatalogCounts()
-			agg.Close()
-			if cErr != nil {
-				f.Printf("  ❌ espelho: %v\n", cErr)
-				allOK = false
+			// Determina se está lendo módulos (corte) ou monolito (legado).
+			hasModules := len(mods) > 0 && mods[0] != "vector" || len(mods) > 1
+			if hasModules {
+				// A contagem REAL de vetores é a soma das partições (o
+				// agregador lê uma partição por nome de módulo).
+				vecTotal := int64(sumPartitionVectors(dir))
+				if vecTotal > counts.Vectors {
+					counts.Vectors = vecTotal
+				}
+				f.Printf("  ✅ módulos ativos (%v): %d vetores, %d entities, %d relationships\n",
+					mods, counts.Vectors, counts.Entities, counts.Relationships)
 			} else {
-				f.Printf("  ✅ fonte legível: %d vetores, %d entities, %d relationships\n",
+				f.Printf("  ⚠️ monolito (corte não ativo): %d vetores, %d entities, %d relationships\n",
 					counts.Vectors, counts.Entities, counts.Relationships)
 			}
 		}
-	} else {
-		f.Printf("  ⚠️ knowledge.db ausente: %s\n", kb)
 	}
 
 	// 5. GOLD POINT disponível.
