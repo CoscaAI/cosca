@@ -488,6 +488,22 @@ func serveComposeEngines(dir string, logger zerolog.Logger, provider *string, ap
 		WorkspaceDir:        workspaceDir(),
 		DeliberateConfig:    deliberateCfg,
 		HaltChecker:         emergencyMgr,
+		// Context Compiler (ADR-035 F6): o "menor contexto suficiente para
+		// cada decisão". Habilita por padrão com teto de 2048 tokens por
+		// contexto compilado; desliga com COSCA_CONTEXT_COMPILER=false.
+		ContextCompiler: bootstrap.ContextCompilerConfig{
+			Enabled:   os.Getenv("COSCA_CONTEXT_COMPILER") != "false",
+			MaxTokens: 2048,
+		},
+		// Pending Resolution (Don + professor, 2026-09-01): quando o loop de
+		// tool-calls termina por limite com trabalho pendente, o executor
+		// inspeciona o ESTADO e resolve a continuação mínima implicada —
+		// "termina o que estava quase terminado, sem inventar". Habilita por
+		// padrão; desliga com COSCA_PENDING_RESOLUTION=false.
+		PendingResolution: bootstrap.PendingResolutionConfig{
+			Enabled:       os.Getenv("COSCA_PENDING_RESOLUTION") != "false",
+			RecoverySteps: 2,
+		},
 		Pipeline: bootstrap.PipelineConfig{
 			Enabled: *pipelineEnable,
 		},

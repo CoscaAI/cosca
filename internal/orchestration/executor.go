@@ -17,6 +17,7 @@ import (
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
+	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/middleware"
 	"github.com/CoscaAI/cosca/internal/stallwatch"
 )
@@ -75,6 +76,32 @@ type ExecutorConfig struct {
 	// antes da chamada LLM, e decodifica a resposta como instruction packet.
 	// Nil = comportamento atual (sem compilação de contexto).
 	ContextPipeline ContextPipeline
+
+	// PendingResolver é a Pending Resolution (decisão do Don + professor,
+	// 2026-09-01): quando o loop de tool-calls termina por limite com trabalho
+	// ainda pendente, o executor inspeciona o ESTADO e, se a pendência é
+	// resolvível (ação já implicada), executa a continuação mínima em vez de
+	// abandonar na reta final. Nil = comportamento atual (para sem inspecionar).
+	PendingResolver PendingResolver
+}
+
+// PendingResolver é a interface mínima da Pending Resolution que o Executor
+// usa. Implementada por *pending.Resolver (internal/pending).
+type PendingResolver interface {
+	// Inspect decide se há pendência resolvível a partir do estado.
+	Inspect(state pending.State) pending.Result
+	// RecoveryRemaining reporta quantas recuperações ainda restam.
+	RecoveryRemaining() int
+}
+
+// pendingStateOf projeta o estado de execução para a inspeção de pendências.
+func pendingStateOf(pc PipelineData, maxSteps int) pending.State {
+	return pending.State{
+		PendingActions: nil, // preenchido pelo chamador (tool calls atuais)
+		Observations:   pc.ObservationsForPending(),
+		CurrentStep:    maxSteps,
+		MaxSteps:       maxSteps,
+	}
 }
 
 // ContextPipeline é a interface mínima que o Executor usa do Context Compiler.
@@ -450,6 +477,37 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 						content = formatToolResultsFallback(toolResults)
 					}
 					pc = pc.WithLLMResponse(content)
+				}
+			}
+
+			// ── PENDING RESOLUTION (Don + professor, 2026-09-01) ──
+			// O loop terminou por limite de tool-rounds (round >= MaxToolRounds)
+			// mas AINDA há tool calls pendentes — o "abandona na reta final".
+			// Em vez de largar, inspeciona o ESTADO: se a pendência é
+			// resolvível (ação já implicada pelo estado), registra a
+			// continuação mínima; senão, finaliza com registro honesto. Nunca
+			// inventa próximo passo.
+			//
+			// REGRA ARQUITETURAL (professor): a Pending Resolution NUNCA
+			// executa ferramentas diretamente — ela produz uma CONTINUAÇÃO
+			// PROPOSTA (sinal na resposta). O caminho de execução volta pelo
+			// fluxo normal: LLM → Action Decoder → Policy Guard → Tool
+			// Executor. Não existe "atalho secreto" que contorne as proteções.
+			if len(toolCalls) > 0 && e.config.PendingResolver != nil {
+				st := pendingStateOf(pc.Data, e.config.MaxToolRounds)
+				st.PendingActions = toolCallNames(toolCalls)
+				pres := e.config.PendingResolver.Inspect(st)
+				if pres.Verdict == pending.Resolve {
+					logger.Info().
+						Strs("pending_tools", toolCallNames(toolCalls)).
+						Msg("executor: pendência resolvível detectada — continuação mínima implicada")
+					pc = pc.WithLLMResponse(fmt.Sprintf(
+						"[pending-resolved] %d tool call(s) pendentes implicados pelo estado; continuação mínima registrada.",
+						len(toolCalls)))
+				} else {
+					logger.Warn().
+						Strs("pending_tools", toolCallNames(toolCalls)).
+						Msg("executor: tool calls pendentes não resolvíveis — finalizando sem inventar próximo passo")
 				}
 			}
 		}

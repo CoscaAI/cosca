@@ -90,6 +90,17 @@ type OrchestratorConfig struct {
 	// executor bloqueia chamadas LLM se o kernel foi haltado.
 	HaltChecker HaltChecker
 
+	// ContextPipeline é o Context Compiler (ADR-035 F6). Quando não-nil, o
+	// executor compila o contexto (TASK/STATE/FACTS...) com budget por seção
+	// antes da chamada LLM. Nil = comportamento atual (sem compilação).
+	ContextPipeline ContextPipeline
+
+	// PendingResolver é a Pending Resolution (Don + professor, 2026-09-01).
+	// Quando não-nil, o executor inspeciona o ESTADO quando o loop de tools
+	// termina por limite com trabalho pendente — resolve a continuação mínima
+	// implicada em vez de abandonar na reta final. Nil = comportamento atual.
+	PendingResolver PendingResolver
+
 	// DeliberateConfig configures the Kernel-First Deliberation stage
 	// (ADR-032). When Enabled is false (the default, fail-closed / LEI DO
 	// COFRE), the stage is a no-op and the flow is EXACTLY the current one.
@@ -188,6 +199,13 @@ func NewEngine(
 		// Kill-switch do kernel (Etapa 3b): o executor bloqueia chamadas LLM
 		// se o kernel foi haltado.
 		executorCfg.HaltChecker = config.HaltChecker
+		// Context Compiler (ADR-035 F6): quando configurado, o executor
+		// compila o contexto antes da chamada LLM.
+		executorCfg.ContextPipeline = config.ContextPipeline
+		// Pending Resolution (Don + professor, 2026-09-01): o executor
+		// inspeciona o estado quando o loop de tools termina por limite com
+		// trabalho pendente — resolve a continuação mínima em vez de largar.
+		executorCfg.PendingResolver = config.PendingResolver
 		// O executor de ferramentas é INJETADO (ToolRunner sobre o executor
 		// canônico chat/executor com sandbox+policy+permission+level). Quando
 		// nil, o Executor roda sem execução de tools (o caminho de conhecimento/

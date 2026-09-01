@@ -21,6 +21,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/adapter"
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/compute"
+	"github.com/CoscaAI/cosca/internal/contextpipeline"
 	"github.com/CoscaAI/cosca/internal/di"
 	"github.com/CoscaAI/cosca/internal/diagnostics"
 	"github.com/CoscaAI/cosca/internal/embed"
@@ -29,6 +30,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/modlink"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/pipeline"
 	rt "github.com/CoscaAI/cosca/internal/runtime"
 	"github.com/CoscaAI/cosca/internal/toolrun"
@@ -120,6 +122,35 @@ type Config struct {
 	// orchestration (via serve/run) bloqueia chamadas LLM se o kernel foi
 	// haltado — o botão de emergência cobre o caminho do servidor.
 	HaltChecker orchestration.HaltChecker
+
+	// ContextCompiler habilita o Context Compiler (ADR-035 F6) no
+	// orchestration: o contexto entregue ao LLM vira o estado operacional
+	// compilado (TASK/STATE/FACTS...) com budget por seção. Opt-in; vazio =
+	// comportamento atual (sem compilação).
+	ContextCompiler ContextCompilerConfig
+
+	// PendingResolution habilita a Pending Resolution (Don + professor,
+	// 2026-09-01) no orchestration: quando o loop de tool-calls termina por
+	// limite com trabalho pendente, o executor inspeciona o ESTADO e resolve a
+	// continuação mínima implicada em vez de abandonar na reta final.
+	PendingResolution PendingResolutionConfig
+}
+
+// ContextCompilerConfig configura o Context Compiler (ADR-035 F6) no serve.
+type ContextCompilerConfig struct {
+	// Enabled liga o pipeline no orchestration.
+	Enabled bool
+	// MaxTokens é o teto do contexto compilado (0 = sem teto).
+	MaxTokens int
+}
+
+// PendingResolutionConfig configura a Pending Resolution no orchestration.
+type PendingResolutionConfig struct {
+	// Enabled liga a inspeção de pendências no Executor.
+	Enabled bool
+	// RecoverySteps é o teto próprio de recuperações (default 2 — nunca vira
+	// loop).
+	RecoverySteps int
 }
 
 // NewDefaultConfig returns a Config with safe defaults suitable for
@@ -442,6 +473,30 @@ func Compose(cfg Config) (*Result, error) {
 		// todos os caminhos.
 		if cfg.WorkspaceDir != "" {
 			orchConfig.ToolRunner = toolrun.Build(toolrun.Config{Workspace: cfg.WorkspaceDir})
+		}
+
+		// Context Compiler (ADR-035 F6, opt-in): quando habilitado, o
+		// orchestration compila o contexto (TASK/STATE/FACTS...) com budget
+		// por seção antes da chamada LLM — o "menor contexto suficiente para
+		// cada decisão" do professor.
+		if cfg.ContextCompiler.Enabled {
+			orchConfig.ContextPipeline = contextpipeline.New(contextpipeline.Config{
+				MaxTokens: cfg.ContextCompiler.MaxTokens,
+			})
+			cfg.Logger.Info().Msg("context compiler enabled (ADR-035 F6)")
+		}
+
+		// Pending Resolution (Don + professor, 2026-09-01, opt-in): quando o
+		// loop de tool-calls termina por limite com trabalho pendente, o
+		// executor inspeciona o ESTADO e resolve a continuação mínima
+		// implicada — "termina o que estava quase terminado, sem inventar".
+		if cfg.PendingResolution.Enabled {
+			steps := cfg.PendingResolution.RecoverySteps
+			if steps <= 0 {
+				steps = 2
+			}
+			orchConfig.PendingResolver = pending.New(steps)
+			cfg.Logger.Info().Int("recovery_steps", steps).Msg("pending resolution enabled (Don + professor)")
 		}
 
 		orchEngine := orchestration.NewFactory(orchestration.FactoryConfig{

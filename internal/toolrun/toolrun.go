@@ -19,6 +19,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/chat/tool"
 	"github.com/CoscaAI/cosca/internal/chat/tools/filesystem"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/policy"
 	"github.com/rs/zerolog/log"
 )
 
@@ -67,6 +68,13 @@ func Build(cfg Config) orchestration.ToolRunner {
 	// 3. Executor canônico com permission ruleset (allow/ask/deny).
 	ex := executor.New(toolRegistry, sbGate, cfg.Workspace)
 	ex.SetPermission(chatCfg.PermissionRuleset())
+
+	// 4. Guard de política determinístico (L366 / GOVERNANCE_PROTOCOL §1):
+	// as regras padrão da casa (anti-exfiltração, argument-aware deny) são
+	// ANEXADAS ao executor canônico. Antes (R3, relatório 08-17) o SetPolicy
+	// existia mas NENHUM caminho de produção o chamava — o guard ficava
+	// desligado. Agora TODO executor montado pelo toolrun o tem.
+	ex.SetPolicy(policy.New())
 
 	_ = cfg.CoscaDir // reservado para tools que dependam do data dir
 

@@ -580,3 +580,19 @@ func copyStringMap(src map[string]interface{}) map[string]interface{} {
 	}
 	return dst
 }
+
+// ObservationsForPending projeta as observacoes do PipelineData para a
+// inspecao de pendencias (Pending Resolution - Don + professor, 2026-09-01).
+// As observacoes disponiveis sao a resposta LLM e o contexto de memoria;
+// o executor as usa como evidencia do estado para decidir se a pendencia e
+// resolvivel.
+func (d PipelineData) ObservationsForPending() []string {
+	var out []string
+	if d.LLMResponse != "" {
+		out = append(out, "llm_response: "+d.LLMResponse)
+	}
+	if d.MemoryContext != "" {
+		out = append(out, "memory_context: "+d.MemoryContext)
+	}
+	return out
+}
