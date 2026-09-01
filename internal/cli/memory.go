@@ -58,6 +58,7 @@ Subcommands:
 		NewMemorySearchCommand(),
 		NewMemorySnapshotCommand(),
 		NewMemoryPruneCommand(),
+		NewMemorySemanticCommand(),
 		NewMemoryPromoteCommand(),
 		NewMemoryReindexCommand(),
 		NewMemoryStatsCommand(),
