@@ -1,3 +1,9 @@
+---
+name: api
+description: Owns the complete API lifecycle - design, contracts, gateways, versioning, and quality standards.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: API Chief | **Last Updated**: 2026-07-23
 
 # API CHIEF — API Lifecycle & Contract Management

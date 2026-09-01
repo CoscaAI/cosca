@@ -35,7 +35,7 @@
 > - Connection pool usage
 > 
 > ### Frontend Performance
-> - Core Web Vitals (LCP, INP, CLS)
+> - Core Web Vitals (LCP, FID, CLS)
 > - Bundle size analysis
 > - First meaningful paint
 > - Time to interactive
@@ -58,7 +58,6 @@
 > - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.4 Performance
 > - [workflows/performance-audit.md](../../workflows/performance-audit.md)
 > - [Load Testing](./LOAD_TESTING.md)
-> - [PERFORMANCE_AUDIT_MODEL.md](../../knowledge/performance/PERFORMANCE_AUDIT_MODEL.md) — modelo de scoring (log-normal 2 pontos, pesos FCP 10/LCP 25/TBT 30/CLS 25/SI 10, thresholds mobile LCP ≤2500ms · FCP ≤1800ms · TBT ≤200ms · CLS ≤0.1 · INP ≤200ms, median-run em CI)
 
 ## Process
 1. **Baseline Collection**: Run existing benchmarks (`make benchmark`) and record current performance metrics.

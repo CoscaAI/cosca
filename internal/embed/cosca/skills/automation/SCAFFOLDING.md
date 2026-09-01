@@ -6,7 +6,7 @@
 Generate project structures from Cosca templates with proper conventions.
 
 ## Process
-1. Select template from internal/embed/cosca/templates/ matching project type.
+1. Select template from .opencode/cosca/templates/ matching project type.
 2. Customize: project name, module path, Go version, features to enable.
 3. Generate directory structure following Cosca conventions (cmd/, internal/, pkg/, api/, web/).
 4. Initialize: go.mod, Makefile, .gitignore, opencode.json, README.md.

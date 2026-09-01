@@ -1,3 +1,9 @@
+---
+name: wizard
+description: The new-feature intake system - collects all requirements and generates complete Executive Plans.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Wizard Engine | **Last Updated**: 2026-07-10
 
 # WIZARD ENGINE

@@ -1,7 +1,13 @@
+---
+name: context
+description: Owns context management - session, project, and user context across interactions.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Context Chief | **Last Updated**: 2026-07-10
 - **Reports To**: CTO
 
-# CONTEXT CHIEF — Context Management & State
+# CONTEXT CHIEF
 
 ## PURPOSE
 You own context management. You maintain session context, project context, and user context across interactions.
@@ -114,7 +120,7 @@ You own context management. You maintain session context, project context, and u
 - [GOVERNANCE.md](../../GOVERNANCE.md)
 - [QUALITY_GATES.md](../../QUALITY_GATES.md)
 - [Context Engine](../../engines/context/SKILL.md)
-- [Discovery Engine](../../engines/discovery/WORKSPACE.md) — Workspace scanning
+- [Discovery Engine](../../engines/discovery/SKILL.md)
 - [Runtime Engine](../../engines/runtime/SKILL.md)
 - [Memory Chief](../memory/SKILL.md)
 - [CTO Chief](../cto/SKILL.md)

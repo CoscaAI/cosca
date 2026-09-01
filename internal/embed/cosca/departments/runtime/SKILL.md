@@ -1,3 +1,9 @@
+---
+name: runtime
+description: Owns the application runtime - process lifecycle, logging, error handling, and health checks.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Runtime Chief | **Last Updated**: 2026-07-10
 
 # RUNTIME CHIEF — Application Runtime

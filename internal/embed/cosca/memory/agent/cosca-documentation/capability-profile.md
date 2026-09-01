@@ -2,28 +2,25 @@
 
 > **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
-## Current Level: 4
+## Current Level: 3
 
 ## Per-Domain Confidence
 
 | Domain | Confidence | Successful Tasks | Last Outcome | Trend |
 |--------|-----------|-----------------|-------------|-------|
-| Cognitive Architecture Design | 0.92 | 1 | success | ↑ |
 | GRAND_SCALE Doc Audit (800+ assets) | 0.95 | 1 | success | ↑ |
-| Cross-Source Synthesis (10+ docs) | 0.90 | 1 | success | ↑ |
 | README/CHANGELOG Accuracy | 0.90 | 1 | success | ↑ |
 | API Documentation | 0.85 | 1 | success | ↑ |
 | Architecture Documentation | 0.85 | 1 | success | ↑ |
 | Middleware Documentation | 0.80 | 1 | success | → |
 | Frontend Architecture Docs | 0.80 | 1 | success | ↑ |
 | Runtime Documentation | 0.75 | 1 | success | → |
-| Diagram Creation (ASCII) | 0.70 | 1 | success | ↑ |
+| Diagram Creation (Mermaid) | 0.50 | 0 | — | → |
 | CI Automation for Doc Health | 0.15 | 0 | — | → |
 | Contribution Guides | 0.10 | 0 | — | → |
 
 ## Strengths
-- **Fundational architecture design**: Designed COGNITIVE_MATURITY.md (1,193 linhas, 12 seções, 14 conceitos inéditos) — documento que redefine o Cosca Runtime como Judgment Engine e estabelece o CMI como métrica primária de maturidade. Cross-source synthesis: integrou 10+ documentos existentes em uma arquitetura cognitiva coerente. Primeiro agente de documentação a atingir Nível 4.
-- **Enterprise-scale multi-source documentation audit**: Audited 887 documentation assets against ground-truth codebase scan (357 Go files, 240+ TSX files), caught 3 critically stale files, verified memory health (309 files, zero broken links, 95% YAML frontmatter coverage).
+- **Enterprise-scale multi-source documentation audit**: Audited 887 documentation assets against ground-truth codebase scan (357 Go files, 240+ TSX files), caught 3 critically stale files, verified memory health (309 files, zero broken links, 95% YAML frontmatter coverage) — this is the highest-complexity task any Cosca agent has performed.
 - **Automated number verification**: Pattern of cross-referencing README badges and stats tables against actual code counts — caught drift in agent count (52→51), CLI commands (34→39), Go files (336→357), workflows (25→26).
 - **Delegate-to-specialists pipeline**: Recognizes that effective documentation requires input from specialized agents (Discovery for codebase scans, Memory Chief for memory health) — never tries to do it all alone.
 - **Honest limitation documentation**: Documents gaps transparently (Restart() broke due to state machine bug, EventStartupComplete fires too early, hot reload not implemented) rather than papering over issues.
@@ -43,8 +40,5 @@
 - None recorded — both learning entries show successful outcomes.
 
 ## Evolution Goal
-
-**Level 4 ALCANÇADO** (2026-07-30): Cognitive architecture design — COGNITIVE_MATURITY.md como documento fundacional.
-
-**Next — Consolidar Nível 4**:
-- *"Implementar a Fase 0 do Cognitive Maturity: atualizar capability profiles de agentes seed-only, popular failures.md e patterns.md nos agentes com histórico, completar stages 7-8 do metacognition pipeline. Alvo: CMI +0.38."*
+Reach Level 4:
+*"Create a fully automated doc-health CI check that validates README numbers, version consistency across all files, SDK doc accuracy against go.mod imports, and cross-reference link integrity on every commit — graduating from manual audit excellence to continuous documentation quality enforcement."*

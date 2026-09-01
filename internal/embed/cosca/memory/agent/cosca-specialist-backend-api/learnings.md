@@ -1,10 +1,31 @@
-# cosca-specialist-backend-api — Semantic Learnings (Índice de Gatilhos)
+# cosca-specialist-backend-api — Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
-> **Formato**: cada linha é um GATILHO. O conteúdo completo vive no block
-> assinado em `blocks/<hash>.md`. Para ler o detalhe: abra o block pelo hash.
-> **Lei**: P15 — MEMÓRIA ESTRUTURADA EM GATILHOS (índice → block → chain).
 
-### 2026-07-27 | Baseline | #backend-api #baseline #initialization | 3a85ee0a63300692
-### 2026-07-28 | gRPC Auth Interceptor (P0) | #backend-api #grpc #auth #interceptor #jwt | e8fe15de2effaa40
-### 2026-08-04 | Backend blocker fixes | #backend-api #sdk #indexer #transactions #embeddings #validation | d05dae9c7bbc056b
+## Seed Knowledge
+
+### 2026-07-27 — Baseline
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-backend-api |
+| **Task** | Initial capability establishment |
+| **Technique** | Standard backend-api patterns — project conventions |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #backend-api #baseline #initialization |
+| **Related** | .opencode/cosca/memory/codebase/overview.md |
+| **Learned** | Project established. Core backend-api patterns documented. Ready for Level 2 techniques. |
+| **Next** | Level 2: Identify first advanced technique to master |
+
+### 2026-07-28 — gRPC Auth Interceptor (P0)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-backend-api |
+| **Task** | Implement gRPC Auth Interceptor |
+| **Technique** | gRPC unary interceptor pattern with JWT validation |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #backend-api #grpc #auth #interceptor #jwt |
+| **Related** | api/grpcserver/interceptors.go, api/grpcserver/server.go, api/auth/oidc.go, internal/auth/jwt.go |
+| **Learned** | 1. `New()` interceptor chain order: Recovery → Auth → Logging → extras. 2. `Config.JWTSecret []byte` drives auth enabling/disabling (nil/empty = dev mode passthrough). 3. `auth.ContextKeyClaims` (type `contextKey`) stores parsed `*internalauth.Claims` in gRPC context — compatible with `auth.ClaimsFromContext()` for downstream handlers. 4. gRPC metadata key is lowercased "authorization" automatically by the framework. 5. Tests use `metadata.NewIncomingContext` and `metadata.AppendToOutgoingContext` for auth header injection; `grpc.UnaryServerInfo` provides the method name to the interceptor. 6. Integration test pattern: bufconn server with full interceptor chain, status call with/without auth header proves end-to-end auth enforcement. |
+| **Next** | Extend with rate-limiting or per-method RBAC gRPC interceptor |

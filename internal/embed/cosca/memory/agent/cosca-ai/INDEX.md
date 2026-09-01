@@ -1,14 +1,12 @@
 # cosca-ai — Memory Index
 
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
-
 > Cross-reference for fast semantic retrieval. DNA v3.0.
 
 ## Memory Files
 
 | File | Purpose | Entries |
 |------|---------|---------|
-| [learnings.md](learnings.md) | Semantic learning journal | 6 entries (1 seed + 5 active) |
+| [learnings.md](learnings.md) | Semantic learning journal | 5 entries (1 seed + 4 active) |
 | [failures.md](failures.md) | Negative memory — failed approaches | 0 failures |
 | [patterns.md](patterns.md) | Reusable solution patterns | 2 patterns |
 | [evolution.md](evolution.md) | Capability evolution timeline | Level 2 |

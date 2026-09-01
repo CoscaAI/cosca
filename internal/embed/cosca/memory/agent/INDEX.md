@@ -1,8 +1,8 @@
 # Agent Memory — Cosca Project
 
-> **Version**: 3.0.0 | **Status**: active | **Last Updated**: 2026-07-31
+> **Version**: 3.0.0 | **Status**: active | **Last Updated**: 2026-07-28
 >
-> **v3.0.0**: cosca-critic e cosca-paradigm adicionados (54 agentes).
+> **v3.0.0**: cosca-critic e cosca-paradigm adicionados (53 agentes).
 
 ## Active Agent Records
 | Key | Agent | Department | Status |

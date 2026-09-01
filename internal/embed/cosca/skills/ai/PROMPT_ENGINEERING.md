@@ -1,4 +1,4 @@
-> **Version**: 1.0.1 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-08-01
+> **Version**: 1.0.0 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-07-23
 > 
 > # PROMPT ENGINEERING SKILL
 > 
@@ -45,17 +45,8 @@
 > - [ ] Prompt tested with multiple inputs
 > - [ ] Version documented in prompt registry
 > 
-> ## Convenções de Fala do Kernel
-> Rules for responses that will be synthesized by TTS (Voice Engine):
-> - Professional tone, courteous, concise
-> - PT-BR as the default language
-> - Natural pauses between clauses for comfortable listening
-> - Short sentences (< 20 words) for smooth TTS synthesis
-> - No markdown/emoji/symbols that would be read aloud literally
-> 
 > ## Related
 > - [AI Chief](../../departments/ai/SKILL.md)
 > - [Provider Chief](../../departments/provider/SKILL.md)
 > - [Provider Discovery](./PROVIDER_DISCOVERY.md)
 > - [Embedding Pipeline](./EMBEDDING_PIPELINE.md)
-> - [Voice Engine](../../engines/voice/SKILL.md)

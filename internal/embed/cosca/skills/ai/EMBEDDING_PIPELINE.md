@@ -1,4 +1,4 @@
-> **Version**: 1.0.1 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-08-01
+> **Version**: 1.0.0 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-07-23
 
 # EMBEDDING PIPELINE SKILL
 
@@ -30,8 +30,6 @@ Design, build, and optimize embedding pipelines for semantic search, RAG (Retrie
 - Support for PDF, HTML, Markdown, code, plaintext
 - Metadata extraction (source, date, author, tags)
 - Document deduplication by hash
-
-> **Note**: Audio assets (e.g., voice transcriptions) can be indexed as text after local STT. Run whisper.cpp to transcribe, then feed the resulting text through the standard embedding pipeline.
 
 ### Chunking Strategy
 - Fixed-size: Split by token count (simple, fast)
@@ -76,4 +74,3 @@ Design, build, and optimize embedding pipelines for semantic search, RAG (Retrie
 - [Provider Discovery](./PROVIDER_DISCOVERY.md)
 - [Database Chief](../../departments/database/SKILL.md)
 - [templates/ai-platform/TEMPLATE.md](../../templates/ai-platform/TEMPLATE.md)
-- [Voice Engine](../../engines/voice/SKILL.md)

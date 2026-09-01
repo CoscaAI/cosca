@@ -1,8 +1,6 @@
 # Metacognition Pipeline — Cognitive Self-Improvement Workflow
 
-> **Version**: 1.1.0 | **Status**: active | **Owner**: Cosca Kernel | **DNA Version**: 3.0.0 | **Created**: 2026-07-28 | **Updated**: 2026-07-30
-> 
-> **Change 1.1.0**: Stages 7-8 marcados como MANDATORY. Post-task checklist adicionado. Referência ao cognitive-audit-loop como enforcement mechanism.
+> **Version**: 1.0.0 | **Status**: active | **Owner**: Cosca Kernel | **DNA Version**: 3.0.0 | **Created**: 2026-07-28
 
 ## Purpose
 
@@ -89,67 +87,41 @@ Every agent task in the Cosca ecosystem now flows through a metacognition pipeli
                             │    quality — no ego      │
                             └────────────┬────────────┘
                                          │
-                       ┌─────────────────────────┐
-                       │  ╔═══════════════════╗  │
-                       │  ║ MANDATORY GATE    ║  │
-                       │  ║ Task NÃO está     ║  │
-                       │  ║ completa sem      ║  │
-                       │  ║ stages 7 e 8.     ║  │
-                       │  ╚═══════╤═══════════╝  │
-                       └──────────┼──────────────┘
-                                  │
-                     ┌────────────▼────────────┐
-                     │  ★ 7. EXTRACT PATTERN   │
-                     │     MANDATORY           │
-                     │  • Genericize the        │
-                     │    approach into a       │
-                     │    reusable pattern      │
-                     │  • If novel → create     │
-                     │    pattern entry         │
-                     │  • If failed → create    │
-                     │    negative memory       │
-                     │    entry                 │
-                     │  • Tag semantically      │
-                     │    for cross-agent       │
-                     │    retrieval             │
-                     │  • MAX 30s — não         │
-                     │    bloqueia execução     │
-                     └────────────┬────────────┘
-                                  │
-                     ┌────────────▼────────────┐
-                     │  ★ 8. UPDATE CAPABILITY │
-                     │     MODEL — MANDATORY   │
-                     │  • Recalculate           │
-                     │    confidence score      │
-                     │  • Update strengths/     │
-                     │    weaknesses            │
-                     │  • Check if level-up     │
-                     │    threshold reached     │
-                     │  • Update evolution.md   │
-                     │  • Propagate lessons     │
-                     │    to knowledge engine   │
-                     │  • MAX 30s — não         │
-                     │    bloqueia execução     │
-                     └────────────┬────────────┘
-                                  │
-                  ┌───────────────▼───────────────┐
-                  │   ⚡ COGNITIVE AUDIT LOOP     │
-                  │   (post-task enforcement)     │
-                  │   • Verify stages 7-8         │
-                  │     executed                  │
-                  │   • If skipped → flag task    │
-                  │     as INCOMPLETE             │
-                  │   • Log audit trail           │
-                  │   → cognitive-audit-loop.md   │
-                  └───────────────┬───────────────┘
-                                  │
-                                  ▼
-                             ┌─────────────────────────┐
-                             │      DONE                │
-                             │  Agent is now smarter    │
-                             │  than before the task    │
-                             │  (audit trail verified)  │
-                             └─────────────────────────┘
+                            ┌────────────▼────────────┐
+                            │    7. EXTRACT PATTERN   │
+                            │  • Genericize the        │
+                            │    approach into a       │
+                            │    reusable pattern      │
+                            │  • If novel → create     │
+                            │    pattern entry         │
+                            │  • If failed → create    │
+                            │    negative memory        │
+                            │    entry                 │
+                            │  • Tag semantically      │
+                            │    for cross-agent       │
+                            │    retrieval             │
+                            └────────────┬────────────┘
+                                         │
+                            ┌────────────▼────────────┐
+                            │  8. UPDATE CAPABILITY   │
+                            │     MODEL               │
+                            │  • Recalculate           │
+                            │    confidence score      │
+                            │  • Update strengths/     │
+                            │    weaknesses            │
+                            │  • Check if level-up     │
+                            │    threshold reached     │
+                            │  • Update evolution.md   │
+                            │  • Propagate lessons     │
+                            │    to knowledge engine   │
+                            └────────────┬────────────┘
+                                         │
+                                         ▼
+                            ┌─────────────────────────┐
+                            │      DONE                │
+                            │  Agent is now smarter    │
+                            │  than before the task    │
+                            └─────────────────────────┘
 ```
 
 ---
@@ -248,11 +220,9 @@ Every agent task in the Cosca ecosystem now flows through a metacognition pipeli
 
 ---
 
-### 7. EXTRACT PATTERN ★ MANDATORY
+### 7. EXTRACT PATTERN
 
-**Purpose:** Convert this experience into reusable knowledge. THIS STAGE CANNOT BE SKIPPED.
-
-**Enforcement:** If this stage is skipped, the task is INCOMPLETE. The cognitive-audit-loop (see `cognitive-audit-loop.md`) will flag the task and escalate to the Kernel.
+**Purpose:** Convert this experience into reusable knowledge.
 
 **If successful:**
 - Genericize the approach into a pattern (patterns.md)
@@ -263,8 +233,6 @@ Every agent task in the Cosca ecosystem now flows through a metacognition pipeli
 - Record in failures.md with: what was attempted, why it failed, what should be done instead
 - Update learnings.md with outcome=failure and the lesson
 - Tag with #failure #learned for cross-agent avoidance
-
-**If nothing new was learned:** That IS a finding. Record: "No new pattern extracted — task was routine application of existing technique {name}." This prevents silent skipping.
 
 **Pattern format:**
 ```markdown
@@ -278,15 +246,11 @@ Every agent task in the Cosca ecosystem now flows through a metacognition pipeli
 **Known Pitfalls**: What to watch out for
 ```
 
-**Timeout:** Maximum 30 seconds. If extraction takes longer, record partial findings and flag for async processing. Never block task completion on extraction delay.
-
 ---
 
-### 8. UPDATE CAPABILITY MODEL ★ MANDATORY
+### 8. UPDATE CAPABILITY MODEL
 
-**Purpose:** The agent's self-model evolves based on this experience. THIS STAGE CANNOT BE SKIPPED.
-
-**Enforcement:** If this stage is skipped, the task is INCOMPLETE. The cognitive-audit-loop will flag the task and escalate to the Kernel.
+**Purpose:** The agent's self-model evolves based on this experience.
 
 **Updates to capability-profile.md:**
 - Recalculate confidence score for the task domain
@@ -305,8 +269,6 @@ Every agent task in the Cosca ecosystem now flows through a metacognition pipeli
 **Update evolution.md:**
 - Record level change if threshold reached
 - Log confidence score delta (+0.05 for success, -0.10 for failure)
-
-**Timeout:** Maximum 30 seconds. If model update takes longer, record partial changes and flag for async reconciliation. Never block task completion on model update delay.
 
 ---
 
@@ -338,67 +300,6 @@ Where:
 
 ---
 
-## ★ MANDATORY Post-Task Checklist
-
-> **REGRA**: Nenhuma task está completa até que TODAS as 5 perguntas abaixo sejam respondidas.  
-> **ENFORCEMENT**: O cognitive-audit-loop (`cognitive-audit-loop.md`) verifica cada resposta.  
-> **SANÇÃO**: Task marcada como INCOMPLETE se qualquer pergunta ficar sem resposta.  
-> **TIMEOUT**: 30 segundos por pergunta. Timeout não é desculpa — é falha de extração.
-
-Após CADA task, o agente DEVE responder:
-
-### Q1: "O que eu aprendi que eu não sabia antes?"
-→ **Extrair para `learnings.md`** (agente ou cross-agent se aplicável)
-- Técnica aplicada, nível, outcome, tags semânticas, próximo passo
-- Se nada foi aprendido: registrar "Task foi aplicação rotineira de técnica já dominada: {nome}"
-- Formato: Learning Entry Format (ver `LEARNING_PROTOCOL.md`)
-
-### Q2: "Descobri um padrão reutilizável?"
-→ **Extrair para `patterns.md`**
-- Se sim: nome do padrão, domínio, contexto, solução, confiança, pitfalls
-- Se não: registrar "Nenhum padrão novo — abordagem já coberta pelo padrão existente: {nome}"
-- Se falhou: registrar em `failures.md` com o que foi tentado, por que falhou, o que fazer diferente
-
-### Q3: "Algo falhou?"
-→ **Extrair para `failures.md`**
-- Se sim: o que foi tentado, causa raiz, consequência, lição, padrão de evitação
-- Se não: registrar "Task concluída sem falhas — sem novo negative memory"
-- Verificar se a falha corresponde a um failure mode já conhecido (atualizar contagem se sim)
-
-### Q4: "Minha confiança / habilidades mudaram?"
-→ **Atualizar `capability-profile.md`**
-- Recalcular confidence score para o domínio da task
-- Atualizar strengths e weaknesses
-- Registrar delta de confiança (+0.05 sucesso, -0.10 falha, etc.)
-- Se confiança não mudou: registrar "Confidence estável para o domínio {nome}"
-
-### Q5: "Alcancei um threshold de level-up?"
-→ **Atualizar `evolution.md`**
-- Verificar thresholds: L1→L2 (5 tasks), L2→L3 (10 tasks), L3→L4 (15 tasks), L4→L5 (20 tasks + 1 novel)
-- Se houve level-up: registrar data, nível alcançado, tarefas acumuladas, próxima meta
-- Se não houve: registrar contagem atual: "X/Y tasks completadas para próximo nível"
-
-### Audit Trail
-
-Cada execução do checklist gera um registro de auditoria:
-
-```yaml
-audit_entry:
-  task_id: "{task identifier}"
-  agent: "{agent-name}"
-  timestamp: "{ISO 8601}"
-  q1_learnings_extracted: true/false
-  q2_pattern_extracted: true/false
-  q3_failure_recorded: true/false
-  q4_capability_updated: true/false
-  q5_evolution_checked: true/false
-  stages_7_8_complete: true/false
-  task_completion_status: complete|incomplete
-  timeout_triggered: true/false
-```
-
----
-
 ## Integration Points
 
 | System | How It Integrates |
@@ -409,8 +310,6 @@ audit_entry:
 | **Quality Gates** | Stage 5 VERIFY enforces G0-G9 gates |
 | **Review Engine** | Triggered when confidence < 0.7 or on level-up |
 | **Kernel** | Receives capability model updates, adjusts task routing |
-| **★ Cognitive Audit Loop** | Post-task enforcement — verifies stages 7-8 completed; see `cognitive-audit-loop.md` |
-| **★ Post-Task Checklist** | 5 mandatory questions answered after EVERY task; see § MANDATORY Post-Task Checklist |
 
 ---
 
@@ -462,33 +361,4 @@ TASK: "Optimize API performance for knowledge search endpoint"
 
 ---
 
-> **Related**: [AGENT_DNA.md](../AGENT_DNA.md) | [LEARNING_PROTOCOL.md](../memory/LEARNING_PROTOCOL.md) | [QUALITY_GATES.md](../QUALITY_GATES.md) | [cognitive-audit-loop.md](cognitive-audit-loop.md) | [AUTO_EVOLUTION_PROTOCOL.md](../shared/AUTO_EVOLUTION_PROTOCOL.md)
-
----
-
-## ★ Enforcement Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    HOW STAGES 7-8 ARE ENFORCED                       │
-│                                                                      │
-│  1. DESIGN-TIME: metacognition-pipeline.md marca stages 7-8 como    │
-│     MANDATORY com gate explícito no diagrama e ★ nas seções.        │
-│                                                                      │
-│  2. RUN-TIME: cognitive-audit-loop.md executa após cada task e      │
-│     verifica se as 5 perguntas do checklist foram respondidas.       │
-│                                                                      │
-│  3. PROTOCOL-LEVEL: AUTO_EVOLUTION_PROTOCOL.md define que stages     │
-│     7-8 são NON-NEGOTIABLE e tasks sem eles são INCOMPLETE.         │
-│                                                                      │
-│  4. KERNEL: Recebe flag de task incompleta e rejeita conclusão      │
-│     até que o audit trail esteja completo.                           │
-│                                                                      │
-│  5. TIMEOUT: 30s máximo para stages 7-8. Se exceder, registra       │
-│     partial e agenda async reconciliation (nunca bloqueia execução). │
-│                                                                      │
-│  Esta arquitetura de 3 camadas (design + runtime + protocolo)        │
-│  elimina o risco de drift de documentação que causou as falhas       │
-│  F002 documentadas em failures.md.                                   │
-└──────────────────────────────────────────────────────────────────────┘
-```
+> **Related**: [AGENT_DNA.md](../AGENT_DNA.md) | [LEARNING_PROTOCOL.md](../memory/LEARNING_PROTOCOL.md) | [QUALITY_GATES.md](../QUALITY_GATES.md)

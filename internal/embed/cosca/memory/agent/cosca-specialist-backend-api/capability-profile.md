@@ -1,14 +1,14 @@
 # cosca-specialist-backend-api — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-04
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
-## Current Level: 1 (1 successful task)
+## Current Level: 1 (seed data — no real task execution yet)
 
 ## Per-Domain Confidence
 
 | Domain | Confidence | Successful Tasks | Last Outcome | Trend |
 |--------|-----------|-----------------|-------------|-------|
-| Backend API/SDK implementation | 0.30 | 1 | success | ↑ |
+| Backend API implementation (REST/GraphQL endpoints) | 0.25 | 0 | — | → |
 
 ## Strengths
 - REST endpoint implementation following Go handler struct pattern with injected managers
@@ -16,7 +16,8 @@
 - Table-driven Go tests covering happy path, validation, auth, not found, and edge cases
 
 ## Weaknesses
-- Limited execution history; replacement transaction edge cases need more coverage
+- No execution history — capabilities unverified
+- Profile based on agent definition only, not practical experience
 
 ## Preferred Strategies
 - Follow the handler struct pattern: inject managers, use Go 1.22+ stdlib http.ServeMux (no chi)
@@ -29,4 +30,4 @@
 
 ## Evolution Goal
 Reach Level 2:
-"Complete 4 more successful tasks and establish baseline confidence in primary domain"
+"Complete first 5 real tasks and establish baseline confidence in primary domain"

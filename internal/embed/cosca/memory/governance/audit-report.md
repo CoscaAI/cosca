@@ -99,7 +99,7 @@ All 44 Chiefs have the directive. All 9 Specialists lack it. This appears system
 
 **Recommended fix**: Add the standard AUTO-EVOLUTION block to all 9 specialist PROMPT.md files:
 ```
-AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-specialist-XXX/learnings.md before tasks. Record learnings after. Goal: Level 2+.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-specialist-XXX/learnings.md before tasks. Record learnings after. Goal: Level 2+.
 ```
 
 ---
@@ -346,7 +346,7 @@ This audit was conducted by:
 
 ### A. Full Agent Inventory
 
-See [memory/agent/INDEX.md](../INDEX.md) (needs update per recommendation H2).
+See [memory/agent/INDEX.md](../agent/INDEX.md) (needs update per recommendation H2).
 
 ### B. DNA v3.0 Capability Profile Template
 

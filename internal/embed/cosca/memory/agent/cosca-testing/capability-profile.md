@@ -1,72 +1,33 @@
 # cosca-testing — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-08
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
-## Current Level: 3 → 4
-## CMI (Cognitive Maturity Index): 82%
-
-**Missão**: Testes unitários, integração, E2E, cobertura. Você garante que nada quebrou.
-
----
-
-## Fluxo de Teste
-
-```
-Recebeu feature para testar?
-  1. cosca knowledge search "test pattern: <tipo>"      ← padrões de teste
-  2. Ler docs/adr/ relevantes                            ← o que deve ser testado
-  3. Verificar cobertura atual                           ← gaps
-  4. cosca knowledge search "failure: <componente>"     ← falhas conhecidas
-  5. Escrever: unit → integration → E2E (nessa ordem)    ← pirâmide
-  6. go test -race -count=1 ./...                        ← validação
-```
-
----
+## Current Level: 1 (seed data — no real task execution yet)
 
 ## Per-Domain Confidence
 
-| Domain | Confidence | Tasks | Trend |
-|--------|-----------|-------|-------|
-| Testes Unitários (Go) | 0.92 | 20+ | ↑ |
-| Testes de Integração | 0.87 | 12+ | ↑ |
-| E2E (Playwright) | 0.84 | 8+ | → |
-| Cobertura | 0.88 | 10+ | → |
-| Testes de Regressão | 0.85 | 6+ | ↑ |
-| Mock/Stub | 0.90 | 15+ | → |
-| Cross-platform/Portabilidade (Windows) | 0.90 | 12 | ↑ |
-
----
+| Domain | Confidence | Successful Tasks | Last Outcome | Trend |
+|--------|-----------|-----------------|-------------|-------|
+| Test implementation (unit, integration, E2E, contracts) | 0.25 | 0 | — | → |
 
 ## Strengths
-
-- Pirâmide de teste: unit → integration → E2E
-- Table-driven tests em Go
-- -race flag sempre ativada
-- Mock patterns: interface + stub manual (sem framework pesado)
-- Triage cross-platform: classificar falha como skip legítimo / bug de produção / teste desatualizado, com fixes de produção primeiro
+- Test architecture design following the testing pyramid (many unit, fewer integration, very few E2E)
+- Unit test and integration test implementation with test fixtures and factories maintenance
+- Test coverage tracking and flaky test elimination for reliable test suites
 
 ## Weaknesses
+- No execution history — capabilities unverified
+- Profile based on agent definition only, not practical experience
 
-- Cobertura pode ser métrica vazia → foque em caminhos críticos, não 100%
-- Testes E2E são frágeis → use data-testid, não seletores CSS
-- Asserções de timing (> 0) e permissões POSIX ainda podem vazar em testes novos — checklist P-WIN-1 deve ser consultado
+## Preferred Strategies
+- Follow AAA pattern with descriptive names and no interdependence between tests
+- Mock external dependencies; test edges and errors; never change production code — test what exists
+- Delegate unit tests to cosca-specialist-testing-unit, integration to cosca-specialist-testing-integration, E2E to cosca-specialist-testing-e2e
+- Maintain test fixtures and manage test data; report what fails without modifying source
 
 ## Known Failure Modes
+- None recorded — agent has no execution history
 
-- **Hardcoded separador POSIX em testes** ("/a/b" vs "\\a\\b") → usar filepath.Join/FromSlash
-- **f.Sync() em handle O_RDONLY** no Windows → ERROR_ACCESS_DENIED; sempre Sync em handle de escrita
-- **path/filepath em chaves lógicas** (paths de documento) → usar pacote `path`
-- **Skip em massa** → cada skip deve ser pontual e justificado (pt-BR)
-
----
-
-## Post-task capability update — 2026-08-21
-
-- **Q4 — Confidence/skills changed?** Perfil atualizado. Novo domínio "Cross-platform/Portabilidade (Windows)" com confiança 0.90 (12 tasks). Domínio primário (Testes Unitários) mantido em 0.92.
-- **Capability status:** auto-updated by PostTaskHook (stage 8).
-
-## Post-task capability update — 2026-08-08
-
-- **Q4 — Confidence/skills changed?** Perfil atualizado. Busca no Cosca antes de testar.
-- **Capability status:** auto-updated by PostTaskHook (stage 8).
+## Evolution Goal
+Reach Level 2:
+"Complete first 5 real tasks and establish baseline confidence in primary domain"

@@ -1,3 +1,9 @@
+---
+name: recovery
+description: Manages disaster recovery, state restoration, and business continuity for the Cosca platform.
+level: 2
+---
+
 # RECOVERY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Recovery Engine | **Last Updated**: 2026-07-12

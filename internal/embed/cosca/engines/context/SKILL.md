@@ -1,3 +1,9 @@
+---
+name: context
+description: Builds, maintains, and provides comprehensive workspace, session, project, and environment context.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Context Engine | **Last Updated**: 2026-07-10
 
 # CONTEXT ENGINE
@@ -135,7 +141,7 @@ See [MEMORY_MODEL.md](../../MEMORY_MODEL.md) for memory store locations.
 
 ## RELATED
 - [MEMORY_MODEL.md](../../MEMORY_MODEL.md)
-- [Discovery Engine](../discovery/WORKSPACE.md) — Workspace scanning
+- [Discovery Engine](../discovery/SKILL.md)
 - [Context Chief](../../departments/context/SKILL.md)
 - [Kernel](../../KERNEL.md)
 

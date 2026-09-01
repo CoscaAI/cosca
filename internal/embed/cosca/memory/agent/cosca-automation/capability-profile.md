@@ -1,6 +1,6 @@
 # cosca-automation — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-04
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
 ## Current Level: 1 (seed data — no real task execution yet)
 
@@ -8,7 +8,7 @@
 
 | Domain | Confidence | Successful Tasks | Last Outcome | Trend |
 |--------|-----------|-----------------|-------------|-------|
-| Task automation (scripts, CLI tools, code generators) | 0.30 | 1 | success | ↑ |
+| Task automation (scripts, CLI tools, code generators) | 0.25 | 0 | — | → |
 
 ## Strengths
 - Automation script development for repetitive task elimination
@@ -16,7 +16,7 @@
 - Code generator creation and project scaffolding tool development
 
 ## Weaknesses
-- Limited execution history — embed synchronization validated once
+- No execution history — capabilities unverified
 - Profile based on agent definition only, not practical experience
 
 ## Preferred Strategies

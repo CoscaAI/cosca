@@ -49,10 +49,10 @@ load_priority: 1
 - ADRs: docs/adr/ADR-001 through ADR-007
 
 ## Key Files to Know
-- Constitution: internal/embed/cosca/CONSTITUTION.md
-- Confidence Model: internal/embed/cosca/engines/evidence/CONFIDENCE_MODEL.md
-- Curation Engine: internal/embed/cosca/engines/memory-curation/MEMORY_CURATION_ENGINE.md
-- Platform Dashboard: internal/embed/cosca/metrics/platform-health-dashboard.md
-- Agent DNA: internal/embed/cosca/AGENT_DNA.md (v3.0, 28 fields)
-- Memory: internal/embed/cosca/memory/ (404 files)
-- Skills: internal/embed/cosca/skills/ (71 skills)
+- Constitution: .opencode/cosca/CONSTITUTION.md
+- Confidence Model: .opencode/cosca/engines/evidence/CONFIDENCE_MODEL.md
+- Curation Engine: .opencode/cosca/engines/memory-curation/MEMORY_CURATION_ENGINE.md
+- Platform Dashboard: .opencode/cosca/metrics/platform-health-dashboard.md
+- Agent DNA: .opencode/cosca/AGENT_DNA.md (v3.0, 28 fields)
+- Memory: .opencode/cosca/memory/ (404 files)
+- Skills: .opencode/cosca/skills/ (71 skills)

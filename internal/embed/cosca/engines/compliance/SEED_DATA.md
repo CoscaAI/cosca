@@ -78,6 +78,6 @@ rules:
 | CC-008 | Vendor risk assessment | SOC2 | ❌ Overdue (60 days) | 2025-12-01 |
 
 ## Related
-- [Compliance Engine](../tools/SKILL.md)
+- [Compliance Engine](./SKILL.md)
 - [Compliance Chief](../../departments/compliance/SKILL.md)
 - [Security Chief](../../departments/security/SKILL.md)

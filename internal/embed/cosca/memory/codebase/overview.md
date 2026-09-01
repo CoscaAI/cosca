@@ -1,88 +1,92 @@
-# Cosca Codebase Overview
+---
+type: codebase
+key: codebase-overview
+tags: [structure, directories, map]
+timestamp: 2026-07-28T00:00:00Z
+status: active
+audited: 2026-07-28
+---
 
-> Auto-generated navigation map. Referenced by all 55 agents as their primary codebase orientation.
-> Last updated: 2026-08-09
+# Cosca — Codebase Structure Map
+
+## Top-Level Layout
+
+```
+cosca/
+├── cmd/cosca/           → Entry point (main.go)
+├── pkg/cosca/           → Public Go SDK (24 files)
+├── internal/            → Core implementation (41 top-level dirs, 291 Go files)
+├── api/                 → API layer (REST + MCP + Registry)
+├── web/                 → Next.js 15 Web Console (386 source files)
+├── proto/               → gRPC Protobuf definitions (aos/v1/)
+├── deploy/              → Deployment (Helm, Terraform, Prometheus)
+├── sdk/                 → TypeScript SDK (@cosca/sdk v1.1.0)
+├── docs/                → Documentation (ADRs, guides, roadmap, 48 files)
+├── test/                → Integration & E2E tests
+├── build/               → CI/CD build artifacts
+├── examples/            → Example configs
+└── .opencode/cosca/     → Cosca Framework (versioned: agents, skills, workflows, engines)
+```
+
+## Key Numbers (verified 2026-07-28)
+
+| Metric | Value |
+|--------|-------|
+| **Go files** | 357 |
+| **Internal packages** | 41 top-level, 63 Go packages total |
+| **REST endpoints** | 52 (16 domains) |
+| **Web routes** | 34 (Next.js App Router page.tsx) |
+| **TSX files** | 273 |
+| **TS files** | 125 |
+| **Total frontend files** | 398 |
+| **CLI commands** | 37 root (123 total with subcommands) |
+| **LLM providers** | 11 (OpenAI, Anthropic, Ollama, Mistral, Groq, DeepSeek, Google, Azure, Bedrock, Local, OpenAICompat) |
+| **Editor adapters** | 10 (OpenCode, Claude, VS Code, Cursor, Neovim, Zed, Windsurf, Codex, IntelliJ, Generic MCP) |
+| **Go dependencies** | 12 direct (stdlib-heavy) |
 
 ## Entry Points
 
-| File | Purpose |
-|------|---------|
-| [KERNEL.md](../../KERNEL.md) | Kernel entity definition — 24 responsibilities, state machine, capability resolver |
-| [CONSTITUTION.md](../../CONSTITUTION.md) | 8 immutable principles (v1.1.0) |
-| [AGENT_DNA.md](../../AGENT_DNA.md) | Agent identity + capability model (v3.0) |
-| [COSCA_INDEX.md](../../COSCA_INDEX.md) | Master index — all agents/skills/engines/departments |
-| [QUALITY_GATES.md](../../QUALITY_GATES.md) | Gate 0-4 quality enforcement |
-| [SECURITY_ARCHITECTURE.md](../../SECURITY_ARCHITECTURE.md) | Security model — jail, JWT, sandbox |
-| [RUNTIME_CONTRACT.md](../../RUNTIME_CONTRACT.md) | Runtime gRPC contract |
-| [MEMORY_MODEL.md](../../MEMORY_MODEL.md) | Memory architecture — MAG, EmbedCache, vector search |
-| [GOVERNANCE.md](../../GOVERNANCE.md) | Governance model — councils, auditing |
-| [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md) | LLM provider interface — 11 providers |
+| Entry | File | Purpose |
+|-------|------|---------|
+| CLI binary | `cmd/cosca/main.go` | Main CLI entry, signal handling, root command |
+| REST server | `api/rest/server.go` | HTTP server on port 14120 |
+| MCP server | `api/mcp/server.go` | MCP protocol server (stdin/stdout) |
+| Plugin registry | `api/registry/server.go` | Plugin metadata HTTP server |
+| Web Console | `web/` | Next.js 15 (pnpm dev, port 3000) |
 
-## Directory Map
+## Architecture Layers (5)
 
-```
-internal/embed/cosca/
-├── agents/          — 55 agent PROMPT.md + INDEX.md files
-├── architecture/    — COGNITIVE_MATURITY.md, COGNITIVE_ECOSYSTEM.md
-├── analytics/       — cognitive-entropy, evolution-score, cognitive-metrics
-├── departments/     — 55 department SKILL.md files
-├── engines/         — 40+ cognitive engines (semantic-memory, wisdom-decay, etc.)
-├── knowledge/       — patterns/, best-practices/, laws.json
-├── memory/          — agent learnings, failures, patterns, capability profiles
-│   ├── agent/       — per-agent semantic memory (learnings.md, failures.md, patterns.md)
-│   ├── codebase/    — this file
-│   └── governance/  — audit reports
-├── shared/          — AUTO_EVOLUTION_PROTOCOL.md, KNOWLEDGE_PROTOCOL.md, PROJECT_CONTEXT.md
-├── skills/          — 71+ skill definitions
-├── workflows/       — metacognition pipeline, cognitive-audit-loop
-├── councils/        — council definitions
-├── plugins/         — plugin contracts
-├── runtime/         — runtime specifications
-├── capabilities/    — capability definitions
-├── bootstrap/       — bootstrap configuration
-├── company/         — company/organization context
-├── prompts/         — shared prompt templates
-├── templates/       — code templates
-└── metrics/         — metric definitions
-```
+1. **CLI Layer** — `internal/cli/` (62 Go files, Cobra commands)
+2. **Runtime API Layer** — `internal/runtime/` (18 files: state machine, event bus, lifecycle)
+3. **Subsystem Layer** — Knowledge, Memory, Discovery, Plugins, Editors, Agents, Workflows, Skills
+4. **Cross-Cutting Infrastructure** — SQLite (8 files), Cache, File Watcher, Logging, Metrics, Context
+5. **Providers Layer** — 11 LLM/Embedding providers, MCP transport
 
-## Agent Architecture
+## Internal Packages (41 top-level)
 
-- **55 agents** organized in hierarchy: Kernel → CEO → CTO → Chiefs → Specialists
-- Each agent has: `PROMPT.md` (identity + instructions), `INDEX.md` (capability index)
-- Memory per agent: `memory/agent/{name}/learnings.md`, `failures.md`, `patterns.md`, `capability-profile.md`
-- Chain of command: Don → Kernel → CEO → CTO → Chiefs → Specialists
-- Delegation protocol: `cosca plan --target --type --agent` before any task
-
-## Key Protocols
-
-| Protocol | Path | Purpose |
-|----------|------|---------|
-| Auto-Evolution | [shared/AUTO_EVOLUTION_PROTOCOL.md](../../shared/AUTO_EVOLUTION_PROTOCOL.md) | Stages 7-8 mandatory, post-task checklist |
-| Knowledge | [shared/KNOWLEDGE_PROTOCOL.md](../../shared/KNOWLEDGE_PROTOCOL.md) | Anti-hallucination: verify tools before delegating |
-| Learning Entry | [memory/LEARNING_PROTOCOL.md](../LEARNING_PROTOCOL.md) | Learning entry format |
-| Metacognition | [workflows/metacognition-pipeline.md](../../workflows/metacognition-pipeline.md) | 9-stage pipeline |
-
-## Runtime Stack
-
-| Component | Technology | Location |
-|-----------|-----------|----------|
-| Backend | Go 1.25 | `cmd/cosca/`, `internal/`, `pkg/` |
-| Frontend | Next.js 15 | `web/` |
-| Database | SQLite (WAL, FTS5, vector) | `.cosca/knowledge.db` |
-| API | REST :14120, gRPC :14123 | `api/rest/`, `proto/` |
-| CLI | Cobra (39 commands) | `cmd/cosca/` |
-| Auth | JWT HS256, RBAC | `internal/auth/` |
-| Sandbox | bubblewrap | `/usr/bin/bwrap` |
-| LLM | 11 providers | `internal/providers/` |
-| Embedding | Ollama (nomic-embed-text 768d) | `internal/providers/ollama/` |
-
-## Build & Install
-
-```bash
-make install          # Build + install to ~/.cosca/bin/
-make test             # Run all tests
-cosca serve           # Start API server
-cosca runtime start   # Start runtime daemon
-cosca-chat exec "..." # Direct chat
-```
+| Package | Files | Purpose |
+|---------|-------|---------|
+| `cli` | 62 | Cobra CLI commands (root, serve, run, agent, knowledge, memory, skill, plugin, provider, workflow, index, graph, config, init, health, search, pipeline, chat, metrics) |
+| `orchestration` | 22 | AI orchestration engine: chain execution, semantic router, pipeline, tool execution |
+| `runtime` | 18 | Runtime daemon, lifecycle, event bus, metrics, state machine |
+| `memory` | 15 | Memory engine: store, search, promote, delete, snapshots |
+| `plugins` | 12 | Plugin system: manager, loader, lifecycle, hooks, WASM sandbox |
+| `discovery` | 10 | Project discovery: editor detection, environment scanning |
+| `sqlite` | 8 | SQLite database layer (modernc.org/sqlite) |
+| `config` | 7 | Configuration loading/validation (Viper-based) |
+| `context` | 6 | Context building, intent detection, optimization |
+| `providers` | 5 + 11 subdirs | Provider manager + 11 LLM sub-providers |
+| `chat` | 5 | Chat types, hot-reload registry |
+| `telemetry` | 5 | Event recording, reporting |
+| `search` | 4 | Hybrid search engine (FTS + vector + graph) |
+| `vector` | 4 | Vector embeddings storage |
+| `editors` | 4 | Editor adapter interfaces |
+| `auth` | 4 | JWT auth, user store, API keys |
+| `knowledge` | 3 | Knowledge engine (graph RAG, hybrid search) |
+| `graph` | 3 | Knowledge graph engine |
+| `filesystem` | 3 | Filesystem operations |
+| `diagnostics` | 3 | System diagnostics |
+| `watcher` | 3 | File system watcher |
+| `updater` | 3 | Self-update mechanism |
+| `registry` | 3 | Plugin registry |
+| Other (≤2 files) | 18 pkgs | agents, skills, workflows, templates, parser, markdown, embeddings, indexer, chunker, cache, audit, ranking, prompts, secrets, safe, embed, adapter, installers |

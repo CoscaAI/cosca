@@ -23,7 +23,7 @@
       "title": "SLO Documentation",
       "tooltip": "Open SLO definitions and runbooks",
       "type": "link",
-      "url": "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md"
+      "url": "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md"
     },
     {
       "asDropdown": false,
@@ -31,7 +31,7 @@
       "title": "Performance Baseline Report",
       "tooltip": "Open performance baseline report",
       "type": "link",
-      "url": "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/performance/baseline-report.md"
+      "url": "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/performance/baseline-report.md"
     }
   ],
   "liveNow": false,

@@ -1,3 +1,9 @@
+---
+name: performance
+description: Owns system performance - benchmarks, bottleneck identification, and optimization.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-23
 
 # PERFORMANCE CHIEF — System Performance & Optimization

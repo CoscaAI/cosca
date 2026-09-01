@@ -1,7 +1,5 @@
 # cosca-provider — Memory Index
 
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
-
 > Cross-reference for fast semantic retrieval. DNA v3.0.
 
 ## Memory Files
@@ -42,7 +40,7 @@ See: [workflows/metacognition-pipeline.md](../../../workflows/metacognition-pipe
 ## Cross-References
 
 - [PROVIDER_INTERFACE.md](../../../PROVIDER_INTERFACE.md) — Architecture specification for provider system
-- [agents/cosca-provider/PROMPT.md](../../../agents/cosca-qa/PROMPT.md) — Agent system prompt
+- [agents/cosca-provider/PROMPT.md](../../../agents/cosca-provider/PROMPT.md) — Agent system prompt
 - [memory/agent/cosca-cto/](../../agent/cosca-cto/) — CTO memory (provider strategy oversight)
 - [memory/agent/cosca-ai/](../../agent/cosca-ai/) — AI Chief memory (model selection)
 - [memory/agent/cosca-monitoring/](../../agent/cosca-monitoring/) — Monitoring Chief (health checks)

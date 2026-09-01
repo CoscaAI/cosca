@@ -1,14 +1,6 @@
 # cosca-messaging — Memory Index
 
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
-
 > Cross-reference for fast semantic retrieval. Updated: 2026-07-28
-
-## Memory Files
-
-| File | Purpose | Entries |
-|------|---------|---------|
-| [learnings.md](learnings.md) | Semantic learning journal | 3 entries |
 
 ## Learnings
 

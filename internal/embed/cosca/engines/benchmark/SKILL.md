@@ -1,3 +1,9 @@
+---
+name: benchmark
+description: Provides standardized, reproducible measurement of agent performance across all task types.
+level: 2
+---
+
 # AGENT BENCHMARK ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Benchmark Engine | **Last Updated**: 2026-07-12

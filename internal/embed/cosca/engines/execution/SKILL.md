@@ -1,3 +1,9 @@
+---
+name: execution
+description: Runs workflows and tasks - coordinates agents, parallel execution, failures, and deliverables.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Execution Engine | **Last Updated**: 2026-07-10
 
 # EXECUTION ENGINE

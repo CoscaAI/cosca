@@ -1,3 +1,9 @@
+---
+name: migration
+description: Owns all migration initiatives - data, schema, system, and cloud migrations; safe and reversible.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Migration Chief | **Last Updated**: 2026-07-23
 
 # MIGRATION CHIEF — System Migration & Data Transformation

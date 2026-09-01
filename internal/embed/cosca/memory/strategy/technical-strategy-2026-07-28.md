@@ -385,7 +385,7 @@ Total: ~80h | Parallel tracks: 8 | Expected maturity gain: +0.5
 All significant technical decisions MUST have an ADR before implementation begins. The current ADR directory has 16 entries, mostly organizational (creating Chief roles). Technical ADRs are needed for the pending decisions in §4.2.
 
 **Process**:
-1. **Propose**: Any Chief may propose an ADR. Submit as PR to `internal/embed/cosca/memory/architecture/adr/`.
+1. **Propose**: Any Chief may propose an ADR. Submit as PR to `.opencode/cosca/memory/architecture/adr/`.
 2. **Review**: cosca-architecture + cosca-cto review within 48h. cosca-critic applies 5-Question Challenge to P0/P1 decisions.
 3. **Decide**: cosca-cto approves/rejects. cosca-ceo escalates if resource/budget impact >10% sprint capacity.
 4. **Record**: Accepted ADRs stored in adr/ directory. Rejected ADRs documented with rationale.
@@ -464,22 +464,22 @@ Target: 55/55 activated by end of Sprint 2.
 
 | Document | Path |
 |----------|------|
-| Cognitive State (current) | `internal/embed/cosca/memory/context/cognitive-state.md` |
-| Risk Registry | `internal/embed/cosca/memory/risk/RISK_REGISTRY.md` |
-| Technical Debt Scorecard | `internal/embed/cosca/memory/technical-debt/scorecard.md` |
-| AI Capability Profile (Wave 5) | `internal/embed/cosca/memory/agent/cosca-ai/capability-profile.md` |
-| Provider Learnings (Wave 5) | `internal/embed/cosca/memory/agent/cosca-provider/learnings.md` |
-| Infrastructure Audit (Wave 5) | `internal/embed/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
-| Platform Audit (Wave 5) | `internal/embed/cosca/memory/agent/cosca-platform/audit-report-2026-07-28.md` |
-| Analytics & Observability Audit | `internal/embed/cosca/memory/architecture/adr/analytics-observability-audit-2026-07-28.md` |
-| AI Architecture (ADR-0001) | `internal/embed/cosca/memory/architecture/adr/adr-0001-ai-architecture.md` |
-| ADR Directory (16 files) | `internal/embed/cosca/memory/architecture/adr/` |
-| Roadmap Index | `internal/embed/cosca/memory/roadmap/INDEX.md` |
-| Milestones | `internal/embed/cosca/memory/roadmap/milestones.md` |
-| Platform Evolution v1.4.0 | `internal/embed/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
-| Wave 2 Plan | `internal/embed/cosca/memory/roadmap/onda-2-plan.md` |
-| Quality Gates | `internal/embed/cosca/QUALITY_GATES.md` |
-| Cosca Kernel (bootstrap) | `internal/embed/cosca/agents/cosca-kernel/` |
+| Cognitive State (current) | `.opencode/cosca/memory/context/cognitive-state.md` |
+| Risk Registry | `.opencode/cosca/memory/risk/RISK_REGISTRY.md` |
+| Technical Debt Scorecard | `.opencode/cosca/memory/technical-debt/scorecard.md` |
+| AI Capability Profile (Wave 5) | `.opencode/cosca/memory/agent/cosca-ai/capability-profile.md` |
+| Provider Learnings (Wave 5) | `.opencode/cosca/memory/agent/cosca-provider/learnings.md` |
+| Infrastructure Audit (Wave 5) | `.opencode/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
+| Platform Audit (Wave 5) | `.opencode/cosca/memory/agent/cosca-platform/audit-report-2026-07-28.md` |
+| Analytics & Observability Audit | `.opencode/cosca/memory/architecture/adr/analytics-observability-audit-2026-07-28.md` |
+| AI Architecture (ADR-0001) | `.opencode/cosca/memory/architecture/adr/adr-0001-ai-architecture.md` |
+| ADR Directory (16 files) | `.opencode/cosca/memory/architecture/adr/` |
+| Roadmap Index | `.opencode/cosca/memory/roadmap/INDEX.md` |
+| Milestones | `.opencode/cosca/memory/roadmap/milestones.md` |
+| Platform Evolution v1.4.0 | `.opencode/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
+| Wave 2 Plan | `.opencode/cosca/memory/roadmap/onda-2-plan.md` |
+| Quality Gates | `.opencode/cosca/QUALITY_GATES.md` |
+| Cosca Kernel (bootstrap) | `.opencode/cosca/agents/cosca-kernel/` |
 
 ---
 

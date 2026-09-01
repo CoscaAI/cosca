@@ -1,3 +1,9 @@
+---
+name: memory
+description: Manages all persistent knowledge across sessions - stores, retrieves, and organizes memories.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Memory Engine | **Last Updated**: 2026-07-10
 
 # MEMORY ENGINE

@@ -1,10 +1,18 @@
-# cosca-specialist-database-sql — Semantic Learnings (Índice de Gatilhos)
+# cosca-specialist-database-sql — Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
-> **Formato**: cada linha é um GATILHO. O conteúdo completo vive no block
-> assinado em `blocks/<hash>.md`. Para ler o detalhe: abra o block pelo hash.
-> **Lei**: P15 — MEMÓRIA ESTRUTURADA EM GATILHOS (índice → block → chain).
 
-### 2026-07-27 | Baseline | #database-sql #baseline #initialization | 19ee18fa413eb8ab
-### 2026-08-04 | Durable run ledger | #database-sql #sqlite #durability #fencing #idempotency | 6d6f0a3be1834e51
-### 2026-08-04 | Durable review hardening | #sqlite #concurrency #migrations #idempotency #foreign-keys #fencing | 5bd7e3d0f6ab617b
+## Seed Knowledge
+
+### 2026-07-27 — Baseline
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-specialist-database-sql |
+| **Task** | Initial capability establishment |
+| **Technique** | Standard database-sql patterns — project conventions |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #database-sql #baseline #initialization |
+| **Related** | .opencode/cosca/memory/codebase/overview.md |
+| **Learned** | Project established. Core database-sql patterns documented. Ready for Level 2 techniques. |
+| **Next** | Level 2: Identify first advanced technique to master |

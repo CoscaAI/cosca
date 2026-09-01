@@ -89,6 +89,9 @@ func newEmbedAuditCommand() *cobra.Command {
 					return nil
 				}
 				rel, _ := filepath.Rel(root, path)
+				// filepath.Rel usa o separador do SO (\" no Windows), mas
+				// classifyEmbedPath e o manifest da chain usam \"/\" canônico.
+				rel = filepath.ToSlash(rel)
 				cls := classifyEmbedPath(rel)
 				counts[cls]++
 				totalBytes += info.Size()
@@ -158,6 +161,8 @@ func provenanceCount(root string) (inChain, outChain int) {
 			return nil
 		}
 		rel, _ := filepath.Rel(root, path)
+		// Mesmo fix do audit: ToSlash para casar com o manifest (\" canônico).
+		rel = filepath.ToSlash(rel)
 		if _, ok := manifest["internal/embed/cosca/"+rel]; ok {
 			inChain++
 		} else {

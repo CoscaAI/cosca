@@ -1,6 +1,12 @@
+---
+name: documentation
+description: Owns all documentation - README, ADRs, API docs, architecture docs, changelogs, and diagrams.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Documentation Chief | **Last Updated**: 2026-07-10
 
-# DOCUMENTATION CHIEF — Technical Documentation
+# DOCUMENTATION CHIEF — Documentation
 
 ## METADATA
 - **Version**: 1.0.0

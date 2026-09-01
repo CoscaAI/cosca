@@ -1,4 +1,4 @@
-# WORKFLOW: chaos-testing
+# WORKFLOW: chcosca-testing
 
 > **Version**: 1.0.0 | **Category**: testing | **Estimated Duration**: 2-5 days | **Status**: active | **Owner**: Infrastructure Chief | **Last Updated**: 2026-07-23
 

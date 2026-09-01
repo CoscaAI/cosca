@@ -1,3 +1,9 @@
+---
+name: templates
+description: Provides project scaffolding templates for different application types.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Template Engine | **Last Updated**: 2026-07-10
 
 # TEMPLATE ENGINE

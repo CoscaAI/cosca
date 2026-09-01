@@ -1,3 +1,9 @@
+---
+name: audit
+description: Records every action, decision, and change - a complete, tamper-evident audit trail for compliance and debugging.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Audit Engine | **Last Updated**: 2026-07-10
 
 # AUDIT ENGINE

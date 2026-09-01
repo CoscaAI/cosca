@@ -37,7 +37,7 @@ Each section has a hard limit of 5 items. If there are more than 5 decisions, on
 
 ---
 
-## Compressed Format: `internal/embed/cosca/memory/context/cognitive-state.md`
+## Compressed Format: `.opencode/cosca/memory/context/cognitive-state.md`
 
 ```yaml
 # COGNITIVE STATE — Cosca v1.4.0-dev
@@ -101,7 +101,7 @@ NEXT → exact 3. Priority + action + effort. Executable, not aspirational.
 ### Rule 2 — Implicit Knowledge is NOT Stored
 ```
 ❌ "The project uses Go modules" — implicit from stack
-✅ Agents now live in internal/embed/cosca/agents/{name}/PROMPT.md — explicit, not implicit
+✅ Agents now live in .opencode/cosca/agents/{name}/PROMPT.md — explicit, not implicit
 ❌ "Kernel routes tasks" — implicit from framework
 ✅ Only store what CHANGED or what's UNUSUAL
 ```
@@ -184,7 +184,7 @@ COMPRESSION CYCLE (triggered at session end or on demand):
    └── Check RECENT_COMMITS against git log
 
 6. WRITE
-   └── Overwrite internal/embed/cosca/memory/context/cognitive-state.md
+   └── Overwrite .opencode/cosca/memory/context/cognitive-state.md
 
 7. REPORT
    └── Log compression ratio: {before_tokens} → {after_tokens} = {ratio}% reduction
@@ -211,7 +211,7 @@ ARCHITECTURE:
   skills: 71 (28 categories)
   engines: 32 (incl. Memory Decay, Evidence, Curation)
   workflows: 27 (incl. Metacognition Pipeline)
-  key_files: [internal/embed/cosca/CONSTITUTION.md, internal/embed/cosca/AGENT_DNA.md, docs/adr/]
+  key_files: [.opencode/cosca/CONSTITUTION.md, .opencode/cosca/AGENT_DNA.md, docs/adr/]
 
 STATE:
   git: main, 13 ahead, clean

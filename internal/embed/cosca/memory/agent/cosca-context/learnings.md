@@ -1,8 +1,18 @@
-# cosca-context — Semantic Learnings (Índice de Gatilhos)
+# cosca-context — Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
-> **Formato**: cada linha é um GATILHO. O conteúdo completo vive no block
-> assinado em `blocks/<hash>.md`. Para ler o detalhe: abra o block pelo hash.
-> **Lei**: P15 — MEMÓRIA ESTRUTURADA EM GATILHOS (índice → block → chain).
 
-### 2026-07-27 | Baseline | #context #baseline #initialization | 5b80f1364d0c6524
+## Seed Knowledge
+
+### 2026-07-27 — Baseline
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-context |
+| **Task** | Initial capability establishment |
+| **Technique** | Standard context patterns — project conventions |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #context #baseline #initialization |
+| **Related** | .opencode/cosca/memory/codebase/overview.md |
+| **Learned** | Project established. Core context patterns documented. Ready for Level 2 techniques. |
+| **Next** | Level 2: Identify first advanced technique to master |

@@ -1,57 +1,44 @@
 # cosca-architecture — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-08
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-29
 
-## Current Level: 4
-## CMI (Cognitive Maturity Index): 90%
+## Current Level: 3
 
-**Missão**: Design de sistemas, ADRs, padrões arquiteturais, modularidade. Você define COMO as coisas são construídas.
-
----
-
-## Fluxo de Design
-
-```
-Recebeu desafio de design?
-  1. cosca knowledge search "pattern: <domínio>"       ← padrões reutilizáveis
-  2. cosca knowledge search "adr: <tema>"              ← decisões anteriores
-  3. Ler docs/adr/ e internal/embed/cosca/knowledge/   ← base de padrões
-  4. Modelar: contexto → alternativas → decisão → consequências
-  5. Escrever ADR (se decisão arquitetural)
-  6. Validar com cosca-review e cosca-security
-```
-
----
+Achieved via: ADR series (011–015, 027), multiple deep code-mining campaigns (code not README under ADR-017), and the Qdrant decision ADR.
 
 ## Per-Domain Confidence
 
-| Domain | Confidence | Tasks | Trend |
-|--------|-----------|-------|-------|
-| Design de APIs | 0.94 | 12+ | ↑ |
-| Modularidade | 0.92 | 15+ | ↑ |
-| Padrões Arquiteturais | 0.91 | 20+ | → |
-| ADRs | 0.89 | 8+ | ↑ |
-| Database Design | 0.85 | 10+ | → |
-| Integração de Sistemas | 0.87 | 6+ | ↑ |
-
----
+| Domain | Confidence | Successful Tasks | Last Outcome | Trend |
+|--------|-----------|-----------------|-------------|-------|
+| System architecture design (boundaries, patterns, ADRs) | 0.85 | 6 ADRs | success | ↑ |
+| ADR formalization (evidence-gated, reuso-first, honest gap map) | 0.88 | ADR-011/012/013/015/027 | success | ↑ |
+| Code-mining / capability-borrowing (ADR-017: código não README, invariantes I1–I8) | 0.86 | 6 minerações deep | success | ↑ |
+| Hybrid-search & vector-db trade-offs (Qdrant vs SQLite document-first) | 0.82 | mineração Qdrant + ADR-027 | success | ↑ |
+| Reuso / over-engineering discipline (P8, "os bancos reais", stdlib-only) | 0.80 | ADR-015 | success | ↑ |
 
 ## Strengths
-
-- ADR template com contexto + alternativas + consequências
-- Biblioteca de patterns (internal/embed/cosca/knowledge/patterns/)
-- Topological sort para dependências entre módulos
-- Diagramas de contexto C4
+- **Honest gap-map before design**: reads real source (internal/*) to confirm what exists vs what's invented before proposing an ADR — avoids duplicating infrastructure and avoids over-engineering.
+- **Reuse-first / P8 discipline**: anchors every ADR on existing packages (internal/gate, internal/workflow, internal/deliberate) instead of creating new systems.
+- **Evidence-gated ADR series**: ADR-011 (deliberação), ADR-012 (2-zonas/Cofre), ADR-013 (bancos modulares), ADR-015 (primitivas neutras stdlib-only), ADR-017 (capability borrowing), ADR-027 (NÃO adotar Qdrant) — all decision-first, no implementation.
+- **Code mining (not README)**: extracts real, transferable patterns (query planner, RRF/DBSF, payload index, control loop, byte-offset, temporal model) under an explicit invariants lens (I1–I8) and a borrow-not-assume protocol.
+- **Honest rejection**: explicitly lists what NOT to adopt (Qdrant standalone/Edge, Rust→Go port, CSI/RF, Cesium/WebGL stack) with reasoning — the "no" is as valuable as the "yes".
 
 ## Weaknesses
+- **ADRs only, no implementation**: architecture decisions are produced and delegated; the actual coding/backfill (colunas materializadas, estimador de cardinalidade) is not executed by this agent.
+- **No performance measurement of its own designs**: relies on data from others (recall 0.99, ~10ms p50, joelho ~1M) rather than running benchmarks itself.
+- **Breadth over depth in mining**: produces many cross-domain patterns but synthesizes fit-to-Cosca rather than going deep on one contributor.
 
-- Pode produzir design excessivamente abstrato → sempre proveja exemplos concretos
-- Documentação pode divergir do código → sempre verifique com `cosca index status`
+## Preferred Strategies
+- **Map the gap before writing**: confirm what exists (grep/read internal/*) → identify real gap → anchor the design on reuse → separate bounded slice from over-engineering.
+- **A/B honesty: keep vs reject**: explicitly adjudicate "adopt / adapt / reject" with reasons (invariants I1 = deterministic/no-LLM, I7 = isolamento, single-binary, zero-infra).
+- **Document-only, delegate implementation**: ADRs are decision artifacts; implementation is fatiada and delegated to the respective Chiefs.
+- **Always reference prior ADRs**: number sequence, existing ADR-002/013/017 as anchors, so the decision chain is traceable.
 
----
+## Known Failure Modes
+- **Numbering collisions in the ADR index**: two ADR-011 existed — mitigated by verifying the next available number from prior ADRs before writing.
+- **Over-engineering pull**: the adversarial blocks (multi-archétipe, HHEM local ~400MB, batalha completa) tend to expand scope — mitigated by an explicit "gate de custo / fatia bounded" rule.
+- **Reading files as ground truth**: when generalized reports (sub-agent mining) conflict with the actual code path, code is the tiebreaker — validated before touching the brain.
 
-## Post-task capability update — 2026-08-08
-
-- **Q4 — Confidence/skills changed?** Perfil turbinado com fluxo Cosca-first.
-- **Capability status:** auto-updated by PostTaskHook (stage 8).
+## Evolution Goal
+Reach Level 4:
+*"Drive the ADR-027 slices to implementation (payload index materializado + B-tree, estimador de cardinalidade filter→vector, facets via SQL, RRF/DBSF) with measured before/after on the real corpus — graduating from decision-making to measured architecture-to-code delivery."*

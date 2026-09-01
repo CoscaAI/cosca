@@ -1,3 +1,9 @@
+---
+name: resource-resolver
+description: Eliminates hardcoded paths by resolving Virtual Paths at runtime based on the environment.
+level: 2
+---
+
 # RESOURCE RESOLVER ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Resource Resolver Engine | **Last Updated**: 2026-07-11

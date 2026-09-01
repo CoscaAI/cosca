@@ -253,15 +253,15 @@ This creates the M2 modifier data that unblocks the Confidence Model and enables
 
 | Document | Path |
 |----------|------|
-| Cognitive State | `internal/embed/cosca/memory/context/cognitive-state.md` |
-| Risk Registry | `internal/embed/cosca/memory/risk/RISK_REGISTRY.md` |
-| CTO Technical Strategy | `internal/embed/cosca/memory/strategy/technical-strategy-2026-07-28.md` |
-| Platform Evolution v1.4.0 | `internal/embed/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
-| Onda 2 Activation Plan | `internal/embed/cosca/memory/roadmap/onda-2-plan.md` |
-| Milestones | `internal/embed/cosca/memory/roadmap/milestones.md` |
+| Cognitive State | `.opencode/cosca/memory/context/cognitive-state.md` |
+| Risk Registry | `.opencode/cosca/memory/risk/RISK_REGISTRY.md` |
+| CTO Technical Strategy | `.opencode/cosca/memory/strategy/technical-strategy-2026-07-28.md` |
+| Platform Evolution v1.4.0 | `.opencode/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
+| Onda 2 Activation Plan | `.opencode/cosca/memory/roadmap/onda-2-plan.md` |
+| Milestones | `.opencode/cosca/memory/roadmap/milestones.md` |
 | CHANGELOG (project root) | `CHANGELOG.md` |
-| CEO Learnings | `internal/embed/cosca/memory/agent/cosca-ceo/learnings.md` |
-| CEO Evolution | `internal/embed/cosca/memory/agent/cosca-ceo/evolution.md` |
+| CEO Learnings | `.opencode/cosca/memory/agent/cosca-ceo/learnings.md` |
+| CEO Evolution | `.opencode/cosca/memory/agent/cosca-ceo/evolution.md` |
 
 ---
 

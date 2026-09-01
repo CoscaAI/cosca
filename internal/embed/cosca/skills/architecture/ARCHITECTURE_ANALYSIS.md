@@ -31,7 +31,7 @@
 > 8. Prioritize violations by severity
 > 
 > ## Success Criteria
-> - [ ] All architecture patterns identified (verified against internal/embed/cosca/memory/pattern/). At least 90% pattern coverage — fewer than 10% of modules unclassified.
+> - [ ] All architecture patterns identified (verified against .opencode/cosca/memory/pattern/). At least 90% pattern coverage — fewer than 10% of modules unclassified.
 > - [ ] Module boundaries mapped accurately
 > - [ ] Circular dependencies detected
 > - [ ] Dependency direction validated

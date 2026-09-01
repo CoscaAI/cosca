@@ -1,3 +1,9 @@
+---
+name: uiux
+description: Owns design - design systems, user experiences, prototypes, usability, and accessibility.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: UI/UX Chief | **Last Updated**: 2026-07-10
 
 # UI/UX CHIEF — Design & User Experience

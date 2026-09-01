@@ -1,3 +1,9 @@
+---
+name: workflow
+description: Models all work as structured workflows - defines, executes, monitors, and validates them.
+level: 3
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Workflow Engine | **Last Updated**: 2026-07-10
 
 # WORKFLOW ENGINE

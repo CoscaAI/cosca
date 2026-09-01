@@ -1,3 +1,9 @@
+---
+name: skills
+description: Manages the Cosca skill registry - discovers, loads, validates, and routes to skills.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Skills Engine | **Last Updated**: 2026-07-10
 
 # SKILLS ENGINE

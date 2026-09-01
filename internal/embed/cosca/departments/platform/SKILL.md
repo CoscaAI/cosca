@@ -1,3 +1,9 @@
+---
+name: platform
+description: Owns the internal developer platform - golden paths, self-service, and standardized tooling.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Platform Chief | **Last Updated**: 2026-07-23
 
 # PLATFORM CHIEF — Internal Developer Platform & Engineering

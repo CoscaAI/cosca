@@ -1,3 +1,9 @@
+---
+name: learning
+description: Enables the Cosca to improve over time - analyzes past performance and evolves agent behavior.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Learning Engine | **Last Updated**: 2026-07-10
 
 # LEARNING ENGINE

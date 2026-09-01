@@ -1,3 +1,9 @@
+---
+name: testing
+description: Owns testing - test suites, coverage, and correctness validation.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Testing Chief | **Last Updated**: 2026-07-10
 
 # TESTING CHIEF — Test Implementation

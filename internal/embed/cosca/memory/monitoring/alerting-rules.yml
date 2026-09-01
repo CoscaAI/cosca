@@ -34,7 +34,7 @@ groups:
             Agent task routing latency is {{ $value | humanizeDuration }} (p95),
             exceeding the SLO target of 500ms.
             Check runtime status at GET /v1/status and agent availability at GET /v1/agents.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation"
 
       - alert: TaskRoutingLatencyCritical
         expr: |
@@ -52,7 +52,7 @@ groups:
           description: >
             Agent task routing latency is {{ $value | humanizeDuration }} (p95),
             exceeding 2x the SLO target. Immediate investigation required.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation"
 
       # -----------------------------------------------------------------------
       # SLO #2 — Knowledge Search Latency
@@ -71,7 +71,7 @@ groups:
             Search latency p95 is {{ $value | humanizeDuration }},
             exceeding the SLO target of 200ms.
             Check vector count (cosca_knowledge_vectors_total), cache hit rate, and embedding provider.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-1"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-1"
 
       - alert: SearchLatencyCritical
         expr: |
@@ -86,7 +86,7 @@ groups:
           description: >
             Search latency is critically high at {{ $value | humanizeDuration }} (p95).
             Possible vector store degradation — check for brute-force scan at high vector counts.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-1"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-1"
 
       # -----------------------------------------------------------------------
       # SLO #3 — Session Bootstrap Latency
@@ -105,7 +105,7 @@ groups:
             Session bootstrap is taking {{ $value | humanizeDuration }} (p95),
             exceeding the SLO target of 5 seconds.
             Check provider connectivity (Phase 2) and SQLite WAL size.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-2"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-2"
 
       - alert: SessionBootstrapCritical
         expr: |
@@ -120,7 +120,7 @@ groups:
           description: >
             Session bootstrap is critically slow at {{ $value | humanizeDuration }} (p95).
             Likely provider timeout or filesystem issue. Check COSCA_PROVIDER config.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-2"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-2"
 
       # -----------------------------------------------------------------------
       # SLO #4 — API Response Latency
@@ -147,7 +147,7 @@ groups:
             Endpoint {{ $labels.path }} is averaging {{ $value | humanizeDuration }},
             exceeding the SLO target of 100ms.
             Check middleware chain (auth, CSRF), GC pauses, and request volume.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-3"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-3"
 
       - alert: APILatencyCritical
         expr: |
@@ -170,7 +170,7 @@ groups:
           description: >
             Endpoint {{ $labels.path }} is critically slow at {{ $value | humanizeDuration }}.
             Investigate immediately — check for GC storms, memory leaks, or middleware failures.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-3"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-3"
 
       # -----------------------------------------------------------------------
       # SLO #5 — Memory Retrieval Latency
@@ -189,7 +189,7 @@ groups:
             Memory retrieval p95 latency is {{ $value | humanizeDuration }},
             exceeding the SLO target of 50ms.
             Check memory records volume, per-layer sizes, and filesystem I/O.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-4"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-4"
 
       - alert: MemoryRetrievalLatencyCritical
         expr: |
@@ -204,7 +204,7 @@ groups:
           description: >
             Memory retrieval is critically slow at {{ $value | humanizeDuration }} (p95).
             Possible filesystem issue or excessive record count in a single layer.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md#runbook--slo-violation-4"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md#runbook--slo-violation-4"
 
   # ===========================================================================
   # GROUP 2: Error Rate Alerts
@@ -232,7 +232,7 @@ groups:
             HTTP error rate is {{ $value | humanizePercentage }},
             exceeding the 5% threshold.
             Check runtime health (cosca_runtime_health) and component health status.
-          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/internal/embed/cosca/memory/monitoring/slos.md"
+          runbook_url: "https://github.com/CoscaAI/cosca/blob/main/.opencode/cosca/memory/monitoring/slos.md"
 
       - alert: HTTPErrorRateCritical
         expr: |

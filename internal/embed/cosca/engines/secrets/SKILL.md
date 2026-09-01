@@ -1,3 +1,9 @@
+---
+name: secrets
+description: Provides centralized, secure credential management - encryption, rotation, audit, and least privilege.
+level: 3
+---
+
 # SECRETS MANAGER ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Secrets Engine | **Last Updated**: 2026-07-12

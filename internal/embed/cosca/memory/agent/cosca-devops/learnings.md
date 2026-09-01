@@ -1,46 +1,57 @@
-# cosca-devops — Semantic Learnings (Índice de Gatilhos)
+# cosca-devops — Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
-> **Formato**: cada linha é um GATILHO. O conteúdo completo vive no block
-> assinado em `blocks/<hash>.md`. Para ler o detalhe: abra o block pelo hash.
-> **Lei**: P15 — MEMÓRIA ESTRUTURADA EM GATILHOS (índice → block → chain).
 
-### 2026-07-27 | Baseline | #devops #baseline #initialization | a6cbe09523a28cad
-### 2026-07-27 | Multi-Resource Helm Chart Productionization | #helm #kubernetes #productionization #probes #security #autoscaling #ingress | 6d9710001f77138a
-### 2026-07-29 | Branch Coverage Gate in CI (G5b) | #ci #coverage #branch-coverage #go #quality-gates #github-actions | 2e3ebb10908a981a
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | f505079492117d2f
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | c0c68fcd826ec0b5
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | f3dab16c168ec580
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | a3692a2f1b818079
-### 2026-07-30 | F7.4 Impact Report Automation — Fixes & Validation | #devops #git-hooks #impact-report #automation #f7-4 #bugfix | b1660d2f2158ed7e
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | d6bb2b98f1ff6bab
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 81ddd25710f0f667
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | a95f3acf2fb81623
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 2bdd525a47b00272
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 7657b2c558d39273
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | e7ba7fcb924c20c6
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 165c66fdc6f80a73
-### 2026-07-30 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 8de6c94ec643dbc6
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 9e501e1b5813ab2c
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | dccfa1c504e0ddd0
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 59754e574c3b9980
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | d78c30aa92bbdc5c
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #f7-4 | 4b9446dc75be83e4
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 6641b2b23ff4e88c
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | aed8311f22c8c588
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 55da413404efa15f
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 22f989dccf8de2b7
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 7d3c18b5affda099
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | c58926e628195576
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 9d93a72d5fc9cc60
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | ae2ea071a02b2304
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 7d87141804de0916
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 6b37b7a3ceb7181e
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | e7fe7664b531c678
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 4f6bbdac3bafccf1
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 5c748d65e48080a6
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 069f787c0dd9659b
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 504081faa3785717
-### 2026-07-31 | Post-Commit Hook Execution | #devops #git-hooks #impact-report #automation #F7.4 | 397413d230e42320
-### 2026-08-04 | Make E2E Target and CODEOWNERS Baseline | #devops #e2e #playwright #make #codeowners | 6f32a130fd813020
-### 2026-08-04 | Conditional Dual-Runner E2E and Ownership Coverage | #devops #e2e #go #playwright #make #codeowners | 6205829c301bc342
+## Seed Knowledge
+
+### 2026-07-27 — Baseline
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-devops |
+| **Task** | Initial capability establishment |
+| **Technique** | Standard devops patterns — project conventions |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #devops #baseline #initialization |
+| **Related** | See .opencode/cosca/memory/codebase/overview.md, .opencode/cosca/memory/pattern/ |
+| **Learned** | Project established. Core devops patterns documented. Ready for level 2 techniques. |
+| **Next** | Level 2: Identify first advanced technique to master |
+
+### 2026-07-27 — Multi-Resource Helm Chart Productionization
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-devops |
+| **Task** | Production-grade Helm chart for Cosca Enterprise Platform (v1.3.0) |
+| **Technique** | Helm chart best practices — named templates, ConfigMap/Secret separation, layered probes, autoscaling, network policies, security contexts |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #helm #kubernetes #productionization #probes #security #autoscaling #ingress |
+| **Related** | deploy/helm/cosca/, _helpers.tpl, Kubernetes Pod Lifecycle, HPA v2, NetworkPolicy, PodSecurityContext |
+| **Learned** | Key patterns: (1) ConfigMap for non-sensitive env, Secret for sensitive — never mix. (2) startupProbe with high failureThreshold (30) gives WASM/plugin runtime enough warm-up before liveness kicks in. (3) Helm named templates (_helpers.tpl) prevent label drift between Deployment selector, Service selector, and NetworkPolicy podSelector. (4) HPA v2 supports both CPU and memory metrics in a single resource. (5) ingress.hosts[].paths[] pattern with template-determined backend service name avoids hardcoding service names in values. (6) `helm.sh/chart` label auto-derived via `cosca.chart` helper ensures traceability. |
+| **Next** | Level 3: Add Helm test pods (helm test), integrate cert-manager annotations, add PodDisruptionBudget, KEDA-based scaling for WASM queue depth, implement schema validation with values.schema.json, Sealed Secrets integration. |
+
+### 2026-08-24 — Windows Jail/Sandbox Platform Analysis
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-devops |
+| **Task** | Analyze Windows isolation for Cosca jail/sandbox (bwrap is Linux-only). Advisory only — no implementation. |
+| **Technique** | Cross-platform threat-model mapping; Windows native isolation primitives (Job Objects, AppContainer, Integrity Level/Low-IL, ACL, Windows Sandbox, Windows Containers) vs. bwrap namespaces |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #windows #sandbox #jail #security #isolation #job-object #appcontainer #integrity-level #devops |
+| **Related** | pkg/cosca/jail_windows.go, jail_linux.go, jail.go; cmd/cosca/main.go (isAdminCommand); internal/chat/sandbox/gate_other.go, gate_linux.go; internal/chat/tool/shell.go; cosca-serve.bat; cosca-service.ps1; Dockerfile |
+| **Learned** | (1) NO client bwrap exists on Windows; jail_windows.go just falls back to fail-closed + COSCA_ALLOW_NO_ROOT=1, which is BAKED INTO both start scripts (bat + ps1) — making the explicit opt-in the DEFAULT posture, effectively zero isolation. (2) Real risk is NOT the `serve` daemon (doesn't run agent code); it's the PER-COMMAND agent execution via `shell` tool → `gate_other.go` findBwrap()="" → execWithoutSandbox/execDirect → `cmd /c` UNCONFINED as the interactive user (Scheduled Task principal is `$env:USERNAME` LogonType Interactive, NOT SYSTEM). (3) No single Windows primitive = bwrap; the faithful per-process equivalent is AppContainer, but it's HIGH effort + cmd.exe/powershell.exe PATH/compat edges. (4) Job Objects give process + memory/CPU containment (JOB_OBJECT_LIMIT_ACTIVE_PROCESS, KILL_ON_JOB_CLOSE, PROCESS_MEMORY/JOB_MEMORY) = best ROI; Low-IL token + restrictive ACL prevents WRITE to user profile/system but NOT read/exfil; AppContainer = closest to namespace (FS+network capability); Windows Sandbox = VM, infeasible per-command; Windows Containers (Hyper-V) = high cost but reuses "container=jail" shortcut in IsRunningInContainer(). (5) hardening_other.go is a no-op on Windows (no RLIMIT_CORE/PR_SET_DUMPABLE/PR_SET_NO_NEW_PRIVS) — gap vs Linux. (6) golang.org/x/sys/windows is ALREADY a direct dep (go.mod v0.47.0) so no new dep needed for Job Object/AppContainer/Low-IL. (7) Recommendation: Fase 1 = compose Job Object + Low-IL token + workspace ACL + SetProcessMitigationPolicy on the per-command gate; Fase 2 (only if Don wants true FS/read/network parity) = AppContainer or Windows Container — requires Don/Core approval before code. Also: env allowlist (safeEnv) already prevents credential inheritance into agent subprocesses — keep it. |
+| **Next** | If approved: implement Windows Job Object + Low-IL spawner in internal/chat/sandbox/gate_other.go; remove forced COSCA_ALLOW_NO_ROOT=1 from start scripts; add Windows-only tests. Await Don/Core gate decision on Fase 2 (AppContainer vs Windows Container) and on removing the default opt-in. |
+
+### 2026-08-29 — Git debt: untrack SQLite sidecars + ignore activity log
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-devops |
+| **Task** | Clean git debt in `.cosca/`: de-track 3 tracked `-shm` sidecars and gitignore the transient activity log. Audit context from Database Chief. |
+| **Technique** | `git rm --cached` (index-only removal, keep file on disk) + targeted `.gitignore` patterns for transient runtime artifacts |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #git #gitignore #git-debt #sidecars #sqlite #activity-log #transient |
+| **Related** | .gitignore; `.cosca/{audit,department,trace}.db-shm`; `.cosca/activity.jsonl` |
+| **Learned** | KEY GOTCHA: a `.gitignore` pattern does NOT untrack an already-committed file — you MUST `git rm --cached` it separately. `git rm --cached` removes from the index only while leaving the working file intact (confirm with `git ls-files` = no longer listed; `Get-ChildItem` = still on disk). Verification recipe that worked: (1) `git ls-files "*.db-shm"` before → 3 hits, after → empty; (2) `git check-ignore .cosca/activity.jsonl` before → exit 1 (not ignored), after → exit 0. Place new transient patterns adjacent to the existing `.cosca/` block for coherence. Ready-only/COW runtime files are binary-changing and forever dirty the tree if tracked — keep them out. Minor: editing the gitignore on Windows delivered LF into a CRLF repo; `core.autocrlf=true` normalizes at commit, harmless. |
+| **Next** | Ongoing: keep a watch for `*.db-wal`/`*.db-shm`/activity log re-tracking on future commits (git status pre-commit check). |

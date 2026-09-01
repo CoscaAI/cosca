@@ -1,3 +1,9 @@
+---
+name: governance
+description: Owns framework governance - standards, quality, duplication elimination, and controlled evolution.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Governance Chief | **Last Updated**: 2026-07-23
 
 # GOVERNANCE CHIEF — Framework Governance & Standards

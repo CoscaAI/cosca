@@ -1,3 +1,9 @@
+---
+name: scheduler
+description: Provides time-based and event-based scheduling for all Cosca operations.
+level: 3
+---
+
 # SCHEDULER ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Scheduler Engine | **Last Updated**: 2026-07-12

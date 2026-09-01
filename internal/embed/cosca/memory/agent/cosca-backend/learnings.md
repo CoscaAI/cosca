@@ -1,17 +1,271 @@
-# cosca-backend — Semantic Learnings (Índice de Gatilhos)
+# cosca-backend — Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
-> **Formato**: cada linha é um GATILHO. O conteúdo completo vive no block
-> assinado em `blocks/<hash>.md`. Para ler o detalhe: abra o block pelo hash.
-> **Lei**: P15 — MEMÓRIA ESTRUTURADA EM GATILHOS (índice → block → chain).
 
-### 2026-07-31 | Nil-deref fix: error path de Store dereferenciava saved… | #bugfix #nil-deref #panic #memory #handler #rest #audit | c81a2d37c209f2b5
-### 2026-07-31 | ChatStream failover wrapper in internal/chat/failover_s… | #chat #streaming #failover #resilience #registry #internal-chat | 3cf12f767a7ff643
-### 2026-07-30 | Replaced hardcoded 5min timeout in RunHandler with conf… | #rest #handlers #timeout #run #configurability #g8 | 4445ace080abe1eb
-### 2026-07-28 | Complete API Surface Mapping | #api #rest #handlers #middleware #documentation #auth | e634d84320c4242f
-### 2026-07-28 | Endpoint Coverage Audit | #api #rest #endpoints #coverage | ee8e1cf1854a7bbf
-### 2026-07-28 | MemoryService gRPC implementation (6 RPCs) | #grpc #memory #service #fase3 | 1b22727e872516e1
-### 2026-07-28 | Shared SSE package extraction (api/stream/) | #streaming #sse #refactoring #fase0 #api | 07280412aff352f4
-### 2026-07-28 | MCP Server Architecture Discovery | #mcp #tools #discovery #planning #agents #skills #workflows #providers | 9849cf78743c6927
-### 2026-07-30 | Created directory tree for cosca-chat CLI | #next-gen-cli #fase0 #directory-structure #chat | 87a53acb7c5ccfef
-### 2026-07-31 | resolveRegistry no RunHandler elimina Select mutante no… | #g1 #singleton #registry #per-request #dependency-injection #no-leak #handler #rest | bd343dc5026a9dd2
+## Session: 2026-07-28 — API Architecture Audit
+
+### 2026-07-28 — Complete API Surface Mapping
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Map entire REST API surface: endpoints, handlers, middleware chain, auth flow |
+| **Technique** | Level 2 — API audit: traced all handler files (19 handlers in api/rest/handler/), middleware chain order (SecurityHeaders → Auth → CSRF → RateLimit → CORS → Logging), auth flow (3 methods: API Key → Cookie → Bearer), RBAC enforcement points |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #api #rest #handlers #middleware #documentation #auth |
+| **Related** | api/rest/handler/, api/rest/server.go, docs/api-reference/auth.md |
+| **Learned** | 36 registered REST endpoints across 10 domains: knowledge, memory, agents, skills, providers, workflows, run, executions, analytics, plugins. Auth endpoints: login/refresh/logout/me. Admin-only routes (RequireRole): /v1/users, /v1/api-keys, /v1/audit/logs, /v1/secrets, /v1/skills/{name}/install. Middleware chain built in buildHandler(): innermost is mux, outermost is SecurityHeaders. RBAC: admin bypasses all checks (rank 3), editor(2) and viewer(1) checked by integer comparison. Context claims stored via typed contextKey (not string). Auth middleware in api/auth/oidc.go — misnamed (no OIDC implementation). API key auth builds synthetic JWT claims from API key metadata. |
+| **Next** | Level 3: Audit handler error consistency, check for missing input validation patterns, propose handler response envelope standardization |
+
+### 2026-07-28 — Endpoint Coverage Audit
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Audit which domains have complete CRUD coverage and which have gaps |
+| **Technique** | Level 1 — Endpoint inventory by domain: counted methods per resource, identified missing operations |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #api #rest #endpoints #coverage |
+| **Related** | api/rest/handler/, docs/api-reference/overview.md |
+| **Learned** | Complete coverage: agents, skills, providers, workflows, api-keys, users (full CRUD). Partial: knowledge (search/index/rebuild — no single-document get/delete), memory (search/store/get/delete/promote — full), plugins (install/list/get/remove/enable/disable — full), executions (list/get — no delete/export), runtime (GET only — no config update endpoint). Missing: agent invocation logging endpoint, bulk operations, export endpoints. |
+| **Next** | Level 2: Design consistent error response format, add missing GET single document endpoint for knowledge |
+
+## Session: 2026-07-28 — FASE 3 gRPC MemoryService
+
+### 2026-07-28 — MemoryService gRPC implementation (6 RPCs)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Implement MemoryServiceServer gRPC: Store, Search, Get, Delete, Promote, Stats |
+| **Technique** | Level 3 — Full gRPC service implementation following the RuntimeService template pattern. Created mapping layer (pb↔domain), service layer (RPC handlers), and wired into GRPCServer |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #grpc #memory #service #fase3 |
+| **Related** | api/grpcserver/mapping_memory.go, api/grpcserver/memory_service.go, api/grpcserver/server.go |
+| **Learned** | 1) MemoryEngine.Delete (via FileStore.Delete) returns nil for non-existent records — MUST Retrieve before Delete to get proper NotFound gRPC status. 2) The gRPC MemoryServiceServer struct MUST embed `aospb.UnimplementedMemoryServiceServer` by value (not pointer) to satisfy forward compatibility. 3) TTL proto field is string parsed with `time.ParseDuration()` — invalid strings produce zero TTL, which the engine replaces with its configured DefaultTTL. 4) `GetLayerStats` returns `map[MemoryLayer]LayerStats` where LayerStats.Count maps to RecordCount and LayerStats.TotalSize maps to SizeBytes. 5) The server registration pattern: only register MemoryServiceServer if `mem != nil` (unlike Runtime which always registers with nil handling). 6) All CreatedAt timestamps use `time.RFC3339` format for consistency across gRPC services. |
+| **Next** | FASE 4: Server + Interceptors integration testing. FASE 5: Integration tests with bufconn.
+
+## Session: 2026-07-28 — FASE 0 — Streaming Plan: Extract SSE Infrastructure
+
+### 2026-07-28 — Shared SSE package extraction (api/stream/)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Extract sendSSE() from handler/run.go into shared api/stream/ package per streaming plan |
+| **Technique** | Level 3 — Refactoring: created SSEWriter abstraction with full test coverage (19 tests), migrated Stream() handler to use it, ensured zero behavior change |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #streaming #sse #refactoring #fase0 #api |
+| **Related** | api/stream/sse.go, api/stream/types.go, api/stream/test_writer.go, api/stream/sse_test.go, api/rest/handler/run.go |
+| **Learned** | 1) Legacy sendSSE() format: `data: {"type":"<type>","content":<JSON-escaped string>}\n\n` — strictly maintained via formatSSEEvent(). 2) Done event had inline format at line 328 of run.go with `duration_ms` field — extracted to WriteDoneWithDuration(). 3) Variable name collision: local `stream` (chat.ChatStream) shadowed package `stream` import — renamed to `chatStream`. 4) SSETestWriter implements both http.ResponseWriter AND http.Flusher for handler test compatibility. 5) SSEWriter is NOT thread-safe (documented) — all writes from single goroutine. 6) Close() uses sync.Mutex only for the `closed` flag — not for write serialization. 7) formatSSEEvent handles strings (legacy "content" wrapper) and structured data (field merge at top level) via type switch. 8) Headers set by NewSSEWriter: Content-Type text/event-stream, Cache-Control no-cache, Connection keep-alive, X-Accel-Buffering no. 9) WriteError(nil) is a no-op — safe to call with nil errors. 10) All 33 existing handler tests pass unchanged — confirmed zero regression. |
+| **Next** | Phase 1: Knowledge sync streaming (add SyncProgressFn callback, create POST /v1/knowledge/sync/stream, instrument Sync() phases) | |
+
+## Session: 2026-07-28 — MCP Tools Discovery & Planning
+
+### 2026-07-28 — MCP Server Architecture Discovery
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Discovery phase: map existing MCP tools, identify implementation pattern, plan 14 new tools across 4 domains |
+| **Technique** | Level 2 — Full codebase discovery: grep for MCP patterns, read all manager APIs, trace server wiring, document architecture |
+| **Level** | 2 |
+| **Outcome** | success |
+| **Tags** | #mcp #tools #discovery #planning #agents #skills #workflows #providers |
+| **Related** | api/mcp/server.go, internal/agents/agents.go, internal/skills/skills.go, internal/workflows/workflows.go, internal/providers/providers.go |
+| **Learned** | 1) Single MCP server lives at api/mcp/server.go — JSON-RPC 2.0 over stdin/stdout. Currently 3 tools: cosca_knowledge_search, cosca_memory_store, cosca_runtime_status. 2) A separate schema-only definition exists at internal/editors/generic_mcp/generic_mcp.go — generates static MCP config files, NOT the runtime server. These two sets are out of sync (5 tools in generic_mcp vs 3 in runtime). 3) Implementation pattern: (a) json.RawMessage for InputSchema, (b) register in global listToolsResponse, (c) add case in handleToolCall switch, (d) dedicated handler method on *Server struct. 4) Server struct takes nil-safe manager dependencies — each handler checks for nil and returns -32000 "not available". 5) All 4 managers expose List/Get/Search APIs — agents lacks mutex but is read-only after startup; skills and workflows have sync.RWMutex; providers mutates active/model fields. 6) Workflow execution (Run) needs context.WithTimeout protection — long-running operations could hang MCP connection. 7) The orchestrator ToolExecutor (internal/orchestration/tool_exec.go) is a separate system for LLM agent tool loops, NOT MCP. 8) MCP server is NOT yet wired into runtime entrypoint — static reference in generic_mcp adapter only. |
+| **Next** | Begin Phase 1 implementation: cosca_agent_list, cosca_agent_inspect, cosca_agent_search (3 tools ~150 lines in api/mcp/server.go) |
+
+## Session: 2026-08-24 — ADR-013 Fatia 2/3: search ↔ vectoragg Fase B bridge (retrieval confinado)
+
+### 2026-08-24 — Fase B wired: routed scope confines candidate vector IDs (TDD RED→GREEN)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Implement Fase B (IMPLEMENTAR) of ADR-013 §3.2: make `TestSearchWithRoute_DoesNotMaterializeFullVectorIndex` go RED→GREEN without breaking the search suite |
+| **Technique** | Bounded candidate-confinement bridge in the vector phase: `SearchWithRoute`/`Search` passes a routed `Scope`; `searchVector` forwards the permitted candidate IDs (vectoragg vocabulary) to the vector store's restricted scan; full-scan stays the legitimate baseline only when NO routed scope |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #search #vectoragg #adr-013 #faseb #tdd-red-green #candidate-confinement #modlink |
+| **Related** | internal/search/search.go (resolveRouteCandidates/isFTSResultID/mergeCandidateIDs), internal/search/scope.go (scopeRouted/SearchWithRoute doc), docs/reports/vectoragg-faseB-integration-map-2026-08-24.md, docs/reports/vectoragg-audit-2026-08-24.md |
+| **Learned** | 1) `parseFTSID` accepts ANY `<x>_<int>` as an FTS id (e.g. `vec-0001` → table "vec", rowid 1) — so it canNOT be the discriminator to split FTS vs direct vector IDs. The correct guard is a whitelist of the 5 known FTS tables (`isFTSResultID`): documents_fts/chunks_fts/entities_fts/code_blocks_fts/knowledge_fts. Without this, the test IDs "vec-0001"/"vec-0002" would be silently dropped (mapped to unknown table "vec") and fall into full-scan → test stays RED. 2) vectoragg `SearchRequest.CandidateIDs` vocabulary = DIRECT vector IDs (the vector table `id` column), identical to what `vector.SQLiteVec.scanCandidates` / `SearchWithMetrics` / `SearchWithCandidates` expect (`WHERE id IN (...)`). So the bridge is: routed scope → forward `params.CandidateIDs` verbatim to the vector store candidate path. 3) The confinement MUST be gated on a ROUTED scope (`scope != nil && !NoRoute && len(Modules)>0`): `TestSearchWithRoute_FallsBackToFullScan_WhenNoScope` requires full-scan (scannedVectors == totalVectors) when NoRoute/empty modules, even though it also passes CandidateIDs. Gating only on "candidateIDs present" would break it. 4) `searchVector` + `confineToScope` are two independent layers: candidates confine the VECTOR PHASE (physical, pre-decode); `confineToScope` filters the FINAL results by path/module (logical, post-fetch). Tests exercise each separately — don't conflate them. 5) The test uses a mock `metricsVectorStore` (implements `vector.MetricsSearcher` only, not `CandidateSearcher`), so the bounded path must hit `MetricsSearcher.SearchWithMetrics`. The existing `mockVectorStore` (no MetricsSearcher) drives the full-scan path via `Search` — two mocks, two paths. 6) `go build ./...`, `go vet ./internal/search/... ./internal/vectoragg/...`, full `go test ./internal/search/...` (161 tests) and `go test ./internal/vectoragg/...` all PASS; only internal/search/{scope.go,search.go} changed. vectoragg/modlink/oracle/migrations/embed untouched. 7) `vectoragg.selectModules` maps the router's DOMAIN modules ("memory") against vectoragg's RESPONSIBILITY modules ("vector"/"graph"/"fts"/"projects") — these NEVER intersect, so directly calling `vectoragg.RetrieveCandidates(scope)` would return zero candidates. The real instance-injection + domain→vector-ID mapping is Fatia 3 (the audit P1 "2nd dimension"); Fase B only wires the CONFINEMENT INVARIANT at the engine/vector-store boundary. |
+| **Next** | Fatia 3: construct/inject the vectoragg read-model into the search path and produce the domain-module → permitted vector-ID mapping (the "2nd dimension" of P1) so `RetrieveCandidates` actually receives the candidate source. |
+
+## Session: 2026-08-24 — ADR-013 Fatia 1: Deterministic Route Resolver (internal/modlink)
+
+### 2026-08-24 — Deterministic Route Resolver (query → trigger → capability → module → SearchScope)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Implement Fatia 1 of ADR-013 (§3.2): the deterministic Route Resolver `internal/modlink` — materialize/prove the routing mechanism (ROUTER decides the space; SEMANTIC SEARCH searches inside it) |
+| **Technique** | Closed-form deterministic router: canonical whole-word token containment, order-independent canonical aggregation, canonical SHA-256 fingerprint, explicit NO_ROUTE state (never silent fallback to universe) |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #modlink #deterministic-router #adr-013 #token-match #fingerprint #no-route #isolation |
+| **Related** | docs/adr/ADR-013-modular-knowledge-databases.md §3.0/§3.2; internal/modlink/{modlink,normalize,modlink_test}.go; internal/router/ (style reference for pure Go pkg) |
+| **Learned** | 1) The router MUST be deterministic and NEVER call embedding/LLM/vector to choose a module — that would destroy the isolation property. 2) Match strategy chosen: whole-word token containment — a route matches iff EVERY canonical token of its trigger appears as a whole word in the query. Done via lowercase → Unicode NFD (golang.org/x/text/unicode/norm) → strip combining diacritics (unicode.Mn) → map non-letter/digit to space → strings.Fields. This is case/accent-insensitive (recall within a domain) but always precision-safe (no substring/fuzzy/semantic match → domains stay isolated; "como implementar uma função Go" never opens vegetation/gis/unreal/materials). 3) ORDER-INDEPENDENCE: sort + dedup modules/capabilities/conditions and sort unique triggers for RouteID → identical canonical scope regardless of registration order. 4) NO-ROUTE is explicit: ResolveRoute returns (nil, ErrNoRoute); Resolve returns a *SearchScope with NoRoute=true + empty Modules/Capabilities — never fall through to "search everything". 5) Fingerprint is canonical SHA-256 over the deterministic serialization (includes NoRoute flag to distinguish NO_ROUTE from an empty scope). 6) Maximum Priority is taken when aggregating matched routes. 7) NewResolver skips routes whose trigger canonicalizes to zero tokens (empty/whitespace) so they can't match everything. 8) Confirmed `golang.org/x/text` was already a direct dep — no go.mod/go.sum changes needed. |
+| **Next** | Fatia 2+ (future slices): the aggregator read-model (`internal/vectoragg`), the mirror read split (ATTACH read-only), the `cosca index rebuild --verify` + `cosca db check --gate` gates, and the phased destructive migration of `knowledge.db`. For Fatia 2, wire the router as Phase 0 of the search endpoint so semantic search refines the already-routed space. |
+
+## Session: 2026-08-25 — cosca-desktop FASE B: agent execution materialized by real daemon SSE
+
+### 2026-08-25 — AgentRunStream + event enrichment + PlanDetails (separate module, no internal/ imports)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | In `C:\Users\Henrique\Documents\projects\cosca-desktop` (module `cosca-desktop`, a Wails/Go Desktop, MUST NOT import `internal/...` from cosca): (1) connect the agent's PRINCIPAL execution path to the daemon's official SSE (`/v1/run/stream`) instead of request→response blocking `cosca exec`; (2) enrich RuntimeEvent/type mapping for tool-actions; (3) make Approval Center consume real plan JSON via PlanDetails. |
+| **Technique** | Level 3 — Consume the official runtime mechanism (client SSE via http + bufio scanner), never reimplement. Honest-parse of `cosca plan --json` (ExecutionPlan has NO json tags → PascalCase keys). Normalized event-type map for agent states. Fail-closed gate preserved. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cosca-desktop #sse #streaming #agent-run #plan-details #approval-center #fail-closed #isolation |
+| **Related** | `C:\Users\Henrique\Documents\projects\cosca-desktop\app.go`, `app_test.go`; cosca `internal/cli/approve.go` (approvalAuditDetails), `internal/estimator/estimator.go` (ExecutionPlan), `internal/cli/cli_plan_test.go` (approvalTestPlanJSON canonical shape) |
+| **Learned** | 1) `cosca plan --json` emits the `estimator.ExecutionPlan` struct DIRECTLY with PascalCase keys because the struct has NO json tags: `FilesAffected`, `Files`, `TestsExpected`, `TestPackages`, `Migrations`, `RollbackAvailable`, `RollbackDetail`, `EstimatedMinutes`, `RiskLevel`, `ConfidencePercent`, `Method` — the canonical test shape is `approvalTestPlanJSON` in `internal/cli/cli_plan_test.go`. PlanDetails must parse these (not snake_case/camelCase) but ALSO tolerate the headless wrap `{"plan":{...}}` and file-path args (same semantic as `cosca approve --plan`). 2) The SSE frame (`data: {...}`) is a thin envelope `{type, content, error, duration_ms, session_id}` (sseEnvelope) — the RuntimeEvent.Type is the NORMALIZED agent state; keep the raw type in a separate `raw_type` field for audit honesty. 3) `streamRun` already consumes SSE — the cleanest FASE B wiring is a thin `AgentRunStream` that reuses `streamRun` (which emits via emitEvent) and only accumulates `response`/`done`/`error` content, so the UI gets real materialized states. It MUST keep the exact same fail-closed gate (`requireExecApproval`) as `AgentRun`, and on daemon-offline it returns the honest message and NEVER fabricates thinking/response/done. 4) `http.DefaultClient.Do` on a closed loopback port fails fast (connection refused) — deterministic offline test via `closedServeURL(t)` (bind port 127.0.0.1:0, close it, use `http://addr`). Double probe of `serveHealth` (once in AgentRunStream, once in streamRun) is cheap and honest. 5) The test that must STILL pass: `TestVerticalSlice_ServeHealthOffline` validates `streamRun` offline emits ONLY a `status` event. The event-name map is idempotent under `normalizeEventType` (normalizing an already-normalized type is a no-op), so normalizing in BOTH streamRun and eventNameForRuntimeType is safe. 6) `os.Symlink` is NOT available on this Windows host (gated test `TestVerticalSlice_SafeJoinSymlinkEscape` SKIP) — a pre-existing env limitation, not a regression. 7) `cosca-desktop` dir is NOT a git repo; isolation check is manual (only app.go + app_test.go edited). 8) Full `go build ./...`, `go vet ./...`, `go test -count=1 ./...` all PASS with 20 vertical-slice tests (17 pre-existing + 3 new: AgentRunStreamGate, PlanDetailsParse, AgentRunStreamOffline). |
+| **Next** | Frontend (cosca-frontend): bind the new `AgentRunStream`/`PlanDetails` methods in the Wails runtime, subscribe to `cosca:agent:writing`/`cosca:agent:executing`/`cosca:agent:completed` that FASE B emits for the agent states that were previously `NOT AVAILABLE`. |
+
+## Session: 2026-08-25 — cosca-desktop FASE C: honest Diff engine (consumes `git diff`, no fake patch)
+
+### 2026-08-25 — ProjectDiff/DiffSnapshot via real `git` (separate module, no internal/ imports)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | In `C:\Users\Henrique\Documents\projects\cosca-desktop` (module `cosca-desktop`): (1) `ProjectDiff()` consume REAL `git diff` of the active project (git:true/branch/items/summary or git:false honest); (2) `DiffSnapshot()` call `ProjectDiff()` so the UI reloads the diff after an agent run; (3) NEVER fabricate patch, NEVER import `internal/...`, filter sensitive paths, limit performance. |
+| **Technique** | Level 3 — Consume the real mechanism (`git status --porcelain --untracked-files=all`, `git diff HEAD --numstat`, `git diff HEAD -- <path>`, `git branch --show-current`, `git rev-parse --show-toplevel`) via os/exec with `cmd.Dir = a.project.Root` + context timeout. Reuse the existing `isSensitivePath` guard (ADR-0002) and add top-level escape rejection. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cosca-desktop #diff #git #honest-diff #faseC #security-filtering #project-first |
+| **Related** | `C:\Users\Henrique\Documents\projects\cosca-desktop\app.go` (FASE C section after `CapabilityState`), `app_test.go`; cosca `internal/chat/tool/git.go` (the runtime's own git diff mechanism — Desktop mirrors it, never reimplements) |
+| **Learned** | 1) `git status --porcelain` format is `XY<space><path>` (positions 0-1 = X index / Y worktree, pos 2 = space, pos 3+ = path); rename comes as `R  old -> new` (use the NEW path as the item path). 2) CRITICAL GOTCHA: git COLLAPSES an untracked directory into a single `?? .cosca/` entry by default — and `isSensitivePath(".cosca/")` is FALSE (only `.cosca/data`, `.cosca/serve.env`, `.cosca/keys`, `.env`, etc. are blocked, NOT `.cosca` as a whole). So the ONLY robust fix is `git status --porcelain --untracked-files=all`, which expands untracked files individually so `.cosca/serve.env` reaches the filter and gets blocked while `.cosca/config.yaml` legitimately stays. It must NOT be dropped, or secrets leak. 3) `git diff --numstat` uses `old => new` for renames (while porcelain uses ` -> `) — strip the part before ` => ` to key by the NEW path. 4) On Windows, `git` prints warnings like "LF will be replaced by CRLF" to STDERR — I MUST use `cmd.Output()` (stdout only), NOT `cmd.CombinedOutput()`, or the warning corrupts the porcelain/numstat parsing. 5) For a deterministic repo in tests: `git -C <dir> init -q` then local config `core.autocrlf=false`, `user.name/email`, `commit.gpgsign=false`. Repo-local config overrides the dev machine's global autocrlf, so both the test's commits and the APP's plain `git` calls in that repo behave identically. 6) Use `git diff HEAD --numstat` (one command = combined staged+unstaged vs HEAD) instead of separating `git diff` + `git diff --cached`; untracked files never appear in `git diff` so count their lines as additions via `countFileLines` (honest — it's the file's real size, not a fabricated patch). 7) `git diff HEAD -- <path>` on untracked files returns empty → patch omitted (never fabricate). 8) `os.Stat(<root>/.git)` err == nil → git repo (covers `.git` dir AND submodule `.git` file). 9) `git rev-parse --show-toplevel` + `filepath.Rel(root, ...)` rejects any item that escapes the project root (nested-repo edge) — combined with `isSensitivePath` applied to the PROJECT-relative path. 10) The JSON contract: `{git:false, reason, items:[], honesto:true}` when no project/not git; `{git:true, branch, items:[{status,path,additions,deletions,patch?}], summary:{files,insertions,deletions}, honesto:true}` for a git repo. 11) Perf/security: constants `gitDiffTimeout=20s`, `diffMaxItems=200`, `diffMaxPatchFiles=20`, `diffMaxPatchBytes=8000`; `cmd.Dir` = project root; only stdout. |
+| **Next** | Frontend (cosca-frontend): bind `ProjectDiff`/`DiffSnapshot` in the Wails runtime and call `DiffSnapshot()` (→ `ProjectDiff`) after an agent run completes, to render the real git diff for `cosca:agent:writing` (file-change) events. |
+
+## Session: 2026-08-25 — cosca-desktop FASE D: authorized/honest Terminal (separate module, no internal/ imports)
+
+### 2026-08-25 — RunCommand/RunCommandAuthorized + isDangerousCommand + isReadOnlyCommand
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | In `C:\Users\Henrique\Documents\projects\cosca-desktop` (module `cosca-desktop`): (1) `RunCommand(cmdline)` — authorized terminal that runs a command THROUGH the runtime authority, never a free shell (reject empty, run in `a.project.Root` with timeout via `cmd.Dir`, gate for write/exec ops, danger filter, return stdout+stderr or honest refusal); (2) `RunCommandAuthorized(cmdline)` — variant that REQUIRES approval for sensitive/dangerous commands (danger → exact execpolicy refusal message, never executes; write/exec → `requireExecApproval` then clear; read-only → run); (3) `isDangerousCommand` guard replicating `internal/policy/dangerous.go` WITHOUT importing it. |
+| **Technique** | Level 3 — Replicate (not import) the dangerous-command pattern detector; evaluate the command in the ACTIVE project (never outside) via `exec.CommandContext(ctx, "cmd", "/C", cmdline)` on Windows / `sh -c` on POSIX with `cmd.Dir = a.project.Root` + `cmd.Env = a.runtimeEnv()`; reuse the EXISTING fail-closed gate `requireExecApproval` (no duplicate gate); conservative read-only whitelist as the fail-closed boundary. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cosca-desktop #terminal #authorized-terminal #danger-guard #approval-gate #fail-closed #project-confinement #isolation |
+| **Related** | `C:\Users\Henrique\Documents\projects\cosca-desktop\app.go` (FASE D section after `countFileLines`), `app_test.go`; cosca `internal/policy/dangerous.go` `MatchesDangerousPattern` (the pattern replicated, NOT imported); existing `runtimeEnv()` + `requireExecApproval` + `clearApproval` reused. |
+| **Learned** | 1) The runtime exposes NO REST spawn endpoint (only `/v1/run`, pipeline, executions; `cosca terminal` is a TUI outside the jail in OpenCode mode), so the Desktop terminal CANNOT call `cosca exec`-style spawn. The HONEST approach: run the command in the ACTIVE project root (`cmd.Dir = a.project.Root`) with the SAME approval gate as the agent flow, and document it as the "authorized Desktop terminal mode". The agent's FINAL command authority stays in the runtime via `cosca exec`/Approval Center. 2) `exec.CommandContext` needs the `context` — I build the shell command in a helper `buildShellCmd(ctx, cmdline)` using `os.PathSeparator == '\\'` to pick `cmd /C` (Windows) vs `sh -c` (POSIX). The stdlib `runtime` package is ALREADY taken by `github.com/wailsapp/wails/v2/pkg/runtime` (imported as `runtime`), so do NOT use `runtime.GOOS` — use `os.PathSeparator` (a compile-time constant per platform) instead. 3) Must use `exec.CommandContext(ctx, ...)` (with the timeout), NOT `exec.Command`, or the `ctx` var is unused and `go build` fails with "declared and not used: ctx". 4) `isDangerousCommand` is case-insensitive (`strings.ToLower`) to catch `RM -RF`/`Git.EXE`; switches on substrings, ORDER matters — `curl`+`|`+`sh/bash` MUST be checked before the generic `|`, and `rm -rf`/`rm -r ` (with trailing space)/`rm -fr` before `sudo`. It does NOT catch `rm -f` (cosca contract: only `-rf`/`-r `/`-fr`). 5) Approval gating is FAIL-CLOSED via a conservative read-only whitelist: `isReadOnlyCommand` returns true ONLY for notorious read-only binaries (`echo/cat/type/ls/dir/pwd/grep/find/head/tail/wc/sort/where/which/date/time/whoami/ver/help/cls/cd`) plus read-only git subops (`status/log/diff/show/rev-parse/describe/ls-files/help/version`) and go subops (`version/env/list/doc`); ANY command not clearly read-only (default) is write/exec → requires approval. Redirection `>`/`<` forces WRITE even for a read-only binary (`echo hi > out.txt`), so it gets gated. 6) `runRuntime()`/`InitProject` use `a.runtime` (the cosca binary) but `execProjectCommand` does NOT — it uses `cmd.exe`/`sh`, so a missing/`no-such-runtime` does NOT make a benign terminal command fail; the runtime field is irrelevant to the authorized terminal. 7) On Windows `cmd /C cd` prints the current directory → proven way to assert the command ran IN the project root (compare `filepath.Clean` of both); `echo hi` returns `hi\r\n` → `strings.TrimRight(out,"\r\n")`. 8) Existing tests MUST still pass: `TestVerticalSlice_SafeJoinSymlinkEscape` is SKIPPED (os.Symlink unavailable on this Windows host — pre-existing env limitation); 26 PASS + 1 SKIP + 0 FAIL after FASE D. 9) `RuntimeEnvPolicy` test doesn't break because `runtimeEnv()` still appends `COSCA_PROJECT`/`COSCA_ALLOW_NO_ROOT`/`COSCA_ENABLE_EXEC` at the end (last-wins). |
+| **Next** | Frontend (cosca-frontend): bind `RunCommand`/`RunCommandAuthorized` in the Wails runtime, add a Terminal pane surface that calls RunCommand for benign/read-only and surfaces the approval gate (RequestApproval→ApprovePending) for write/exec commands, and display the honest refusal messages (cmdEmptyMsg/cmdNoProject/cmdDangerousRefusal/cmdDangerousAuthorizedMsg). |
+
+## Session: 2026-08-25 — cosca-desktop File Explorer: lazy `ReadDir` + metadata real (no internal/ imports)
+
+### 2026-08-25 — FileNode model + `ReadDir` (lazy/non-recursive) + `resolveLanguage`
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | In `C:\Users\Henrique\Documents\projects\cosca-desktop` (module `cosca-desktop`, Wails/Go): (1) add the semantic `FileNode` model (name/path/kind/is_dir/is_symlink/ext/language/size/modified_at/children/loaded) as the filesystem source of truth; (2) `ReadDir(rel)` — LAZY, one directory per call, non-recursive, with REAL metadata (os.ReadDir + os.Stat), not inferred from the name; (3) `resolveLanguage(rel)` deterministic resolver (composite ext + special names, never guess → "plaintext"); (4) KEEP `TreeDirs`/`tree` (recursive depth-5) for compat; (5) reuse `isSensitivePath`+`ignoreDirs`, reuse `safeJoin`, don't break isolation (project A≠B). |
+| **Technique** | Level 3 — Source of truth from the disk (os.ReadDir DirEntry + os.Stat), never CSS-masking/simulating. Reuse existing guards (`safeJoin` for escape/sensitivity, `isSensitivePath` fail-closed ADR-0002, `ignoreDirs`). Delegate the recursive tree to the frontend via lazy per-directory fetches. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cosca-desktop #file-explorer #lazy-loading #metadata #filenode #resolvelanguage #source-of-truth #fail-closed #isolation |
+| **Related** | `C:\Users\Henrique\Documents\projects\cosca-desktop\app.go` (FileNode struct after `TreeEntry`; `ReadDir`+`resolveLanguage` after `tree()`), `app_test.go` (4 new tests); reuses existing `safeJoin`, `isSensitivePath`, `ignoreDirs`, `blockedPathSuffixes`. |
+| **Learned** | 1) `os.ReadDir` returns `DirEntry` ALREADY sorted by filename, but I STILL must re-sort with my own comparator (dirs-first via `IsDir`, then name) since the lazy explorer groups directories first. 2) `DirEntry.IsDir()` reflects the directory-entry type (a symlink reads as NOT a dir), and `DirEntry.Type()&os.ModeSymlink` detects a symlink — so a symlink to a DIRECTORY reports `IsDir=false, Kind="symlink"` (I keep it literal per the spec; Kind is the discriminator, IsDir stays as the entry reports). 3) `os.Stat` FOLLOWS symlinks → size/modtime of the TARGET (real metadata); on error (broken symlink) fall back to `e.Info()` (lstat), and if both fail, omit the node honestly. `os.Stat` on a DIRECTORY gives the dir-entry size. 4) `filepath.Ext(".go")` returns `".go"` (NOT "") — Go's `Ext` finds the final dot even at index 0, so leading-dot basenames resolve to themselves; `.d.ts`/`.test.ts` splice via a SUFFIX check BEFORE the simple ext map so they map to `typescript` (not `ts`). `go.mod` → ext `.mod` → `plaintext` (honest, not "go"). 5) `resolveLanguage` uses `filepath.Base(filepath.ToSlash(rel))` so it's portable; special basenames (`.gitignore`/`.env`/`Dockerfile`/`Makefile`) checked case-insensitively before extensions. 6) `ReadDir("")` → project root (skip `safeJoin`); `ReadDir(rel)` → `a.safeJoin(rel)` (reuses escape+sensitivity guard); then `os.Stat` must exist+be dir else honest `"não é diretório: <rel>"`. 7) For directory listing I must NOT descend: each `FileNode` gets `Children=nil, Loaded=false`; the frontend calls `ReadDir(dir)` again per folder to expand. 8) path is canonical via `filepath.Rel(root, full)` + `filepath.ToSlash` (root is the project root; `full` comes from the so resolved targetDir). 9) Test scaffolding: `app.project = &Project{Name, Root: t.TempDir()}`; sensitive `.git/config` + `.env` must NOT appear; only `cmd/`+`go.mod`+`main.go` remain (3 nodes). `findFileNode` helper for flat lists. 10) `cosca-desktop` dir is NOT a git repo (isolation check manual — only app.go + app_test.go edited). 11) Full `go build ./...`, `go vet ./...`, `go test -count=1 ./...` ALL PASS (gofmt-clean); 4 new tests (ReadDir_Root, ReadDir_LazyNested, ResolveLanguage, ReadDir_Error) + all pre-existing pass. |
+| **Next** | Frontend (cosca-frontend): bind `ReadDir`(+`FileNode`) in the Wails runtime and implement the lazy tree — render a folder's direct children on expand, show type/real metadata (size, modtime, language label), and keep the existing `TreeDirs` callers until migrated. Do NOT add syntax-highlighting in the backend (that's the frontend/viewer); `Language` on FileNode is only a SEMANTIC label. |
+
+## Session: 2026-08-26 - HornFit F1.2 security: auth tokens localStorage -> httpOnly cookie (NestJS 11)
+
+### 2026-08-26 - moved JWT access/refresh to httpOnly cookies (XSS defence), kept Bearer fallback
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | In `C:\Users\Henrique\Documents\projects\hornfit\apps\api` (NestJS 11, monorepo pnpm): migrate auth tokens from localStorage to httpOnly cookies per shared contract (names `hornfit.access`/`hornfit.refresh`, httpOnly, sameSite=lax, secure when NODE_ENV=production, path=/). API sets them on register/login/refresh and clears on logout; the JWT guard reads the access token from the cookie first, falling back to the Bearer header for API/test clients. |
+| **Technique** | Level 3 - cookie-parser + `@Res({ passthrough: true })` (set/clear cookies WITHOUT taking over the response so the global TransformInterceptor still wraps the body). Guard injects the cookie token into `request.headers.authorization` so the existing `passport-jwt` strategy (`ExtractJwt.fromAuthHeaderAsBearerToken`) needs NO change. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #nestjs #cookies #httponly #jwt #auth #xss #passport-jwt #security #fase-f1.2 |
+| **Related** | `apps/api/src/main.ts` (cookieParser before guards), `apps/api/src/auth/auth.controller.ts` (setAuthCookies/clearAuthCookies + ttlToSeconds), `apps/api/src/auth/guards/jwt-auth.guard.ts` (cookie-first, header fallback), `apps/api/src/auth/dto/refresh-token.dto.ts` (refreshToken optional + cookie fallback on refresh/logout). |
+| **Learned** | 1) cookie-parser typing gotcha: with `allowSyntheticDefaultImports:true` and NO `esModuleInterop`, `import * as cookieParser` binds a NON-callable namespace - the callable export requires `import cookieParser from 'cookie-parser'`. 2) `req.cookies` is supplied by `app.use(cookieParser())` and MUST be set BEFORE the global guards (APP_GUARD) in `main.ts` or the guard sees an empty cookie map. 3) Cleanest cookie-first auth in NestJS: keep the passport-jwt strategy reading the Bearer header and have `JwtAuthGuard.canActivate` inject the cookie token into `request.headers.authorization` (cookie wins, header unchanged when no cookie) - this avoids touching the strategy and keeps API/tests working with zero change. 4) `@Res({ passthrough: true })` lets you call `res.cookie`/`res.clearCookie` while Nest still serializes the returned value through the interceptor/exceptions - do NOT use plain `@Res()` (it hijacks the response and breaks the TransformInterceptor and thrown HttpExceptions). 5) `res.clearCookie` MUST receive the SAME options (path/secure/sameSite) as the set cookie, or the cookie won't be cleared. 6) `res.cookie` maxAge is in MILLISECONDS but the contract wants the JWT TTL (e.g. '15m'/'7d'); convert the config string to seconds with a small `ttlToSeconds` (s|m|h|d|w) instead of adding a dep. 7) To fully support the cookie flow on the refresh endpoint, the RefreshTokenDto field becomes `@IsOptional()` and the handler falls back to `req.cookies?.['hornfit.refresh']`; the body is kept for compat. 8) Body tokens (`accessToken`/`refreshToken` in JSON) are retained so existing clients/tests are unaffected. 9) Gate: `corepack pnpm --filter @hornfit/api typecheck` (tsc --noEmit) exits 0 with no errors; `corepack pnpm --filter @hornfit/api test -- auth` runs only `auth.service.spec.ts` (jest regex `/auth/i`) - 6/6 PASS. Only `apps/api` changed; `apps/web` untouched. |
+| **Next** | Frontend (parallel, same contract): switch from localStorage to cookie credentials (`credentials: 'include'`), drop the manual Authorization header on browser calls. Backend follow-up (optional): add a `jwt-auth.guard.spec.ts` unit test for cookie-first vs header-fallback precedence; consider a signed-cookie/CSRF decision and `domain`/port parity across dev/prod. |
+
+## Session: 2026-08-27 — Anti-halucinação de parâmetros de tool (Context7 → Cosca)
+
+### 2026-08-27 — pre-pass Normalize de chaves alucinadas no caminho de execução (executor)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Implementar a técnica "Anti-alucinação de parâmetros de tool" no caminho real de execução de tool calls (LLMs ecoam a FRASE da descrição em vez da chave canônica do schema — ex: enviam "userQuery" quando o schema espera "query"), reescrevendo chaves alucinadas → canônicas ANTES da validação JSON Schema. |
+| **Technique** | Level 3 — pré-passo Normalize centralizado no Executor (não por-tool), com tabela `aliasMap` global + por-tool conservadora; `applyAliases` retorna CÓPIA (nunca muta o original), canônica SEMPRE ganha, apenas o PRIMEIRO alias é movido, idempotente. Injeção em `ValidateToolCall` (executor.go l.~469) E no topo de `Executor.Execute` (l.~256). |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #llm #tool-calls #anti-hallucination #normalization #json-schema #validation #executor #alias-map #copy-on-write #idempotent |
+| **Related** | internal/chat/executor/{executor.go, normalize.go, normalize_test.go}; ports.go (interface chat.Tool NÃO tocada); tool/{filesystem,search}.go (implementações NÃO tocadas); registry.go `Registry.Execute` (NÃO tocado); design do Context7 "Echo prose instead of key". |
+| **Learned** | 1) PONTO CRÍTICO de percolação: `ToolCall` é passado por valor e `Input` é um map (referência) — ATRIBUIR `toolCall.Input = applyAliases(...)` dentro do `ValidateToolCall` NÃO percola para o `Executor.Execute` porque o campo é reatribuído na cópia LOCAL do struct (o caller continua apontando para o map ORIGINAL, não-canonical). Reatribuição de campo de struct por valor NÃO percola; só mutação in-place do map percolaria. Como `applyAliases` deve retornar cópia (não mutar original), a solução CORRETA de fim-a-fim é chamar `normalizeToolCall(&toolCall)` no TOPO do `Execute` (antes do ValidateToolCall) para que BOTH a validação (l.~472 marshal) E a execução real (l.~324 marshal) vejam as chaves canônicas. Só normalizar no ValidateToolCall faria a validação passar mas o tool.Execute receberia params AINDA alucinados (ex: `path` vazio) → regressão silenciosa. 2) O design da task assumiu que a reatribuição percola — isso está ERRADO para campo de struct; como Backend Chief valeu a pena corrigir para funcionalidade real, não só passar o teste direto de ValidateToolCall. 3) `applyAliases` sempre aloca map NOVO p/ input não-nil (mesmo sem alias matching), garantindo contrato "retorna cópia"; construção do lookup reverso alias→canonical antes de iterar, e a verificação `if _, exists := out[canonical]; exists { continue }` implementa "canônica ganha" E "apenas o primeiro alias vence" (após mover o 1º, a canônica passa a existir e os demais aliases da mesma canônica são pulados). 4) Alias table é `map[string][]string` canônica→aliases; `path: {}` é entrada DOCUMENTAL de "canônica sem aliases" (no-op) para nunca reescrever path por guess (quebraria path-validation/escape). Per-tool NÃO é merge com global — usa-se a por-tool ou cai na global (evita alias de uma tool reescrever campo de outra). 5) `go build ./...`, `go vet ./internal/chat/executor/...`, `go test ./internal/chat/executor/... -race` tudo PASS (testes table-driven AAA: canônica ganha, alias movido/removido, preserva outras chaves, primeiro alias em 1 dos 2, retorna cópia via `reflect.ValueOf(map).Pointer()` — `assert.NotSame` NÃO funciona com maps pois não são ponteiros). 6) Chamar `normalizeToolCall` é idempotente; `-race` ok porque cada goroutine do ExecuteBatch reatribui sua própria cópia de struct (não muta map compartilhado). |
+| **Next** | Estender a tabela alias por-tool com base em telemetria real de "tool call rejected" (quais chaves os LLMs realmente enviam por tool). Considerar ler aliases de config em vez de hardcode. ADR/nota técnica para o trade-off "apenas o primeiro alias vence" (o 2º alias permanece como chave extra — tolerado porque Validate dos tools built-in ignora campos desconhecidos; um schema com `additionalProperties:false` exigiria limpeza de todos os aliases). |
+
+## Session: 2026-08-30 — ADR-031 Fase 0: fechar o furo do Useful Work = 0.0 (fonte de valor determinística)
+
+### 2026-08-30 — wire do cosca run → evidência de build/test/memória no vetor de custo
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Fechar o furo do ADR-031: `cosca cost` reportava `Useful Work = 0.0` para tudo porque `recordRunCost` só registrava tokens — as 5 dimensões de valor ficavam zero. Regra do professor: não inventar 5 mecanismos de pontuação; conectar UMA fonte de valor determinística que já existe ("a IA propõe, o sistema decide — o juiz é determinístico em código"). |
+| **Technique** | Level 3 — Fonte única = a evidência de execução JÁ produzida pelo `pipeline.RunResult`: build/test verificados (`BuildResult`/`TestResult`, gerados pelo `VerificationRunner` = `go build`/`go test`/`pytest`/`npm`) + persistência real de memória (`MemoryID`, do MAG). Mapeio no PONTO onde o record é montado (`recordFromRun` → `Record.ApplyValue(cost.ValueEvidence)`), não num sistema de score novo. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #adr-031 #token-efficiency #useful-work #cost #deterministic-value #build-test-evidence #honest-metric |
+| **Related** | internal/cost/cost.go (ValueEvidence + Record.ApplyValue), internal/cli/run.go (recordRunCost(cmd,*pipeline.RunResult) + recordFromRun + testsPassed), internal/cli/run_cost_test.go, internal/cost/cost_test.go; juiz: internal/pipeline/verification.go (BuildVerify/TestVerify), internal/pipeline/orch_adapter.go |
+| **Learned** | 1) O ponto de wiring correto: NO PONTO onde o Record é montado. Mudei `recordRunCost(cmd, agent, traceID string, usage pipeline.TokenUsage)` → `recordRunCost(cmd, run *pipeline.RunResult)` para o helper ver build/test/memória. Extraí `recordFromRun(run)` puro (monta o Record, aplica a evidência) para que o teste prove `UsefulWork()>0`/`Efficiency()>0` SEM tocar filesystem (store precisa de `.cosca` no cwd). 2) HONESTIDADE é o contrato: `TestsPassed` só conta se `TestResult != nil && TestResult.Success` (`testsPassed` helper); build falho → `ArtifactValue=0`; sem memória → `KnowledgeGain=0`. Nada de "opinião do LLM". 3) AVOID inflação: `verification.go:73` devolve `success=true` para projeto "unknown" ("no build command") — se eu habilitasse EnableBuild pela default no `cosca run`, TODO prompt não-código viraria `ArtifactValue=1` (inflado). Por isso NÃO habilitei build/test na default: só contabilizo a evidência que JÁ existir no RunResult. 4) Mapeio 4 dimensões da MESMA fonte (build/test/memória) — não são 5 mecanismos; é 1 fonte → vetor decomposto. Practicalo: `cosca run` default (MAG on) → `MemoryID != ""` → `KnowledgeGain=1` (não-zero); runs com verificação (review_pipeline/steprunner) chegam com build/test → `ArtifactValue`/`EvidenceGain`/`TaskProgress`. 5) NÃO quebrei `cost.Record` (campos `omitempty`/zero-default intactos; `ApplyValue` é método → não afeta round-trip JSON); `internal/brainweb` intocado. 6) `go build ./...`, `go vet ./internal/cost/... ./internal/cli/...`, `go test ./internal/cost/... ./internal/cli/...` TODOS PASS (cli suite 80s, cost 0.65s). |
+| **Next** | Se quiser artefato/evidência no `cosca run` default, o caminho honesto é primeiro corrigir `verification.go` p/ NÃO retornar `success=true` em projeto unknown (senão infla artifact_value), e só então ligar EnableBuild/EnableTest num gate de flag. Fora de escopo da minha tarefa (minimal + fonte única). |
+
+## Session: 2026-08-29 — Fix conflito de variável `start` em `readActivityLog` (api/rest)
+
+### 2026-08-29 — Rename `start` → `readStart` (offset int64) + `startIdx` (índice int)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Corrigir build quebrado em `api/rest/server.go` `readActivityLog`: refatoração tail-read (`bufio.Scanner` + `io.NewSectionReader`) + cache introduziu conflito de variável `start` e mistura `int` vs `int64`. |
+| **Technique** | Level 1 — Rename de escopo: o offset de leitura do tail-read (int64, usado em `io.NewSectionReader`) foi renomeado p/ `readStart`; o índice do slice (int, para selecionar as últimas N linhas) p/ `startIdx`. Sem listinha: `go build ./...` + `go test ./api/rest/... ./internal/brainweb/...` ambos PASS. |
+| **Level** | 1 |
+| **Outcome** | success |
+| **Tags** | #api #rest #build-fix #variable-shadowing #tail-read #go #scanner |
+| **Related** | api/rest/server.go (readActivityLog l.737-805); activityReadWindow const l.731 |
+| **Learned** | PONTO de shadowing em Go: `start := int64(0)` (offset) e depois `start := 0` (índice) no mesmo escopo de função → `no new variables on left side of :=`; mistura de `int` (len-index) vs `int64` (offset) quebra as expressões `len(all)-start` e `i >= start`. NUNCA reutilize um nome de variável com tipos diferentes num mesmo escopo. Padrão tail-read: `size := info.Size()`, `readStart := int64(0)` e `if size > activityReadWindow { readStart = size - activityReadWindow }`; a primeira linha do scan é descartada quando `readStart > 0` (fragmento parcial). Campo seguro `Action` (rótulo "COMMAND_EXECUTED") foi mantido — `Prompt`/args sensíveis nunca mapeados. |
+| **Next** | Nenhum. Correção trivial e validada. |
+
+## Session: 2026-08-31 � ADR-032 Kernel-First Deliberation tests
+
+### 2026-08-31 � Deliberation test suite (internal/orchestration/deliberation_test.go)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Write table-driven tests for the Kernel-First Deliberation (ADR-032) stage |
+| **Technique** | Level 3 � AAA table-driven tests reusing existing mocks (mockChatProvider, mockKnowledgeSearcher, mockAgentResolver) from executor_test.go/integration_test.go/router_test.go |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #deliberation #adr-032 #testing #orchestration #deterministic |
+| **Related** | internal/orchestration/deliberation.go, internal/orchestration/deliberation_test.go, internal/deliberate/ |
+| **Learned** | (1) The Deliberator only collects TWO convergence dimensions: knowledge->recommendation (0.30) and memory->premises (0.25). With default A3 weights the covered weight caps at 0.55, so EmitOK (>=0.70) is UNREACHABLE through the standard Deliberate path � tests must override Weights (e.g. Recommendation 0.70 + Premises 0.30) to exercise the EmitOK gate. (2) Zero-achismo at orchestration level: knowledge results with Score < MinScore (0.50) and memory records with empty Content are skipped in collectPositions, so they never become positions. (3) Fail-closed is enforced at the ENGINE level (deliberator stays nil when Enabled=false), not inside Deliberate. (4) BuildCleanContext renders all POSITIONS but only top-N EVID�NCIAS (MaxEvidence) � a position ID like "ev:k3" contains the substring "k3", so assert on the evidence line format ("k3 � knowledge.db") not the bare ID. (5) Integration EmitOK test: assert provider NOT called via an atomic counter (NOT t.Fatal inside chatFn, which runs in a goroutine via runChatAttempt and would Goexit the wrong goroutine). |
+| **Next** | Level 3+: consider whether the default A3 weights should be revisited so EmitOK is reachable with real knowledge+memory coverage, or document the 0.55 ceiling as an intentional fail-safe. |
+
+## Session: 2026-08-31 � cosca shadow CLI (ADR-033 Cognitive Shadow Mode surface)
+
+### 2026-08-31 � `cosca shadow` command (summary/report/list) wired into root
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Create the `cosca shadow` CLI (read-only surface for the ADR-033 Cognitive Shadow Mode once Fase 0 of `internal/shadow` was already done) following the `internal/cli/cost.go` reference pattern exactly, and wire it into `root.go`. |
+| **Technique** | Level 3 � Cobra tree (root `shadow` = alias of `summary`) + subcommands `summary`/`report`/`list`; reuse internal/shadow `ForCoscaDir(resolveCoscaDir())`, `Summary()`, `Report()`, `List()`; text render via `OutputFormatter` (Header/KeyValue/Bullet/Table/Warning) and machine output via `printJSON` gated on `IsJSONOutput`; separated run/print helpers for testability. |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #cli #cobra #shadow-mode #adr-033 #deliberation #read-only #jsonl #observability |
+| **Related** | internal/cli/shadow.go (new), internal/shadow/shadow.go (Summary/Report/List/ShadowTrace/ShadowDecision), internal/cli/cost.go (reference pattern), internal/cli/root.go (AddCommand), internal/cli/cli_test.go (expected-subcommands list) |
+| **Learned** | 1) `resolveCoscaDir()` is defined in BOTH internal/cli/circadian.go (used by cost.go) and internal/shadow/shadow.go (used by `DefaultStore()`) � no conflict because different packages; I used the cli's `resolveCoscaDir()` + `shadow.ForCoscaDir(coscaDir)` to mirror cost.go exactly (not `DefaultStore()`). 2) `shadow.Summary` embeds fields Total/Decisions/EscalationRate/SelfResolveRate/AvgConfidence/AvgConvergence; `Report` embeds `Summary` and adds `Histogram []HistogramBin`; `SelfResolveRate = 1 - EscalationRate` (already computed in package, DO NOT recompute). 3) `ShadowTrace` has `Agent` with omitempty, so empty Agent renders as "KERNEL" fallback in the list table. 4) `Table(headers, rows)` prints nothing if rows is empty � must guard with a Warning for the empty case. 5) `MarkFlagRequired("request")` on `list` makes `cosca shadow list` fail with exit 1 ("required flag(s) \"request\" not set") � matches the spec signature `list --request <id> [--agent]`. 6) CRITICAL build gate: `internal/cli/cli_test.go` `TestRootCommand_HasAllSubcommands` asserts an EXPLICIT allowlist of subcommand names AND fails on any UNEXPECTED extra � adding `NewShadowCommand()` to root.go REQUIRES also adding `"shadow"` to that `expected` slice or the CLI test suite fails (exit 1). 7) `OutputFormatter.Table` calculates column widths from header+cell lengths (no alignment issue); `KeyValue` pads 2 spaces. 8) `printJSON(cmd, v)` uses `SetIndent("", "  ")` and returns the encoder error. 9) gofmt -l on the new file returns empty (no format drift); `go build ./...`, `go vet ./internal/cli/...`, and `go test ./internal/cli/...` all green. 10) The empty-store path must still emit JSON (gated on IsJSONOutput FIRST) then text-Warning with the orientation bullet (shadow_mode: true + cosca run) mirroring cost.go's `rep.Runs==0` handling. |
+| **Next** | If/when a RuntimeEvent carries a ShadowTrace, wire `shadow.Record(t)` at the Deliberate call site so `.cosca/shadow/records.jsonl` gets populated by real `cosca run` runs, proving the report end-to-end. |
+
+### 2026-08-31 � Expose Shadow/Decision/Deliberation READ contracts on REST API
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-backend |
+| **Task** | Expose deliberation / shadow / decision trace contracts on the REST API for the "Casa Vis�vel" dashboard (foundation for the separated frontend) |
+| **Technique** | Level 3 � additive REST handlers over existing Go data: shadow metrology + decision trace |
+| **Level** | 3 |
+| **Outcome** | success |
+| **Tags** | #api #rest #shadow-mode #adr-033 #decision-trace #deliberation #dashboard #causal-graph #handlers |
+| **Related** | api/rest/handler/shadow.go (new: ShadowHandler), api/rest/handler/decision.go (new: DecisionHandler), api/rest/handler/shadow_decision_test.go (new), api/rest/server.go (registerRoutes), internal/shadow/shadow.go (Summary/Report/List/ShadowTrace/DefaultStore), internal/trace/causal.go (BuildCausalGraph) + store.go, internal/deliberate (Emit), internal/orchestration/deliberation.go (DeliberationTrace/toShadowTrace) |
+| **Learned** | 1) The Server only injects 	raceStore; there is NO shadow store on Server. Handlers fall back to shadow.DefaultStore() in the constructor (nil-safe; resolves .cosca/shadow/records.jsonl), so the routes never 503 � an empty/missing JSONL reads as empty list. 2) CRITICAL: shadow RequestID is a UUID (orchestration.GenerateRequestID) while the flight recorder TraceID is TRACE-YYYYMMDD-XXXX � they are DIFFERENT keys, so a decision trace cannot be joined on a single id. Design: accept EITHER on GET /v1/decisions/{id} and mark esolved_as = "shadow" | "trace"; shadow is authoritative for decision/confidence/convergence/evidence/positions, trace enriches with the causal chain. 3) Causal chain uses 	race.BuildCausalGraph(events) (nodes/edges) + 	race.SequenceFromEvents(events).Actions (sequence) + last event .Result (outcome). 4) emitForDecision maps ShadowDecision?deliberate.Emit: EMIT_OK?emit_ok, EMIT_WITH_RESERVATIONS?emit_with_reservations, ESCALATE/RETRIEVAL_INSUFFICIENT?escalate. conflicts derives from Reason=="conflicting evidence". 5) Route gating: /v1/decisions/{id} is editorOnly (can expose flight-recorder event details across users); /v1/shadow/*, /v1/decisions, /v1/deliberation/stats are HandleFunc (read-only, authenticated, no role gate). 6) L=limit is capped at 200; offset clamped to len; sort by At DESC (most recent first) using sort.SliceStable � no package sort helper exists in shadow.Store. 7) TEST GOTCHA: 
+ewTestTraceStore already existed in traces_test.go � naming a new helper the same causes "redeclared" build failure, and est.New(...) has a 21-arg signature (one more 
+il than I initially passed); both were the only compile errors. 8) All routes registered immediately after the /v1/traces/* block; internal/embed/** untouched. |
+| **Next** | When a dashboards loads, correlate shadow RequestID ? trace TraceID (e.g. via execution_store Execution.TraceID) so GET /v1/decisions/{id} can render BOTH the decision and its causal chain in one view. |

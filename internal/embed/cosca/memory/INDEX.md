@@ -1,6 +1,6 @@
 # Cosca Kernel — Memory System
 
-> **Version**: 3.0.2 | **Status**: active | **Last Updated**: 2026-07-30
+> **Version**: 3.0.1 | **Status**: active | **Last Updated**: 2026-07-29
 
 ## Purpose
 The Kernel's memory system. Stores everything the Kernel needs to be intelligent, efficient, and context-aware about the Cosca project.
@@ -8,8 +8,7 @@ The Kernel's memory system. Stores everything the Kernel needs to be intelligent
 ## Documentation
 | Key | Description |
 |-----|-------------|
-| [MEMORY_MODEL](MEMORY_MODEL.md) | How the memory system works, evolves, and is maintained |
-| [GAP_REGISTRY](GAP_REGISTRY.md) | Global registry of all known knowledge gaps — active, resolved, escalated |
+| [MEMORY_SYSTEM](MEMORY_SYSTEM.md) | How the memory system works, evolves, and is maintained |
 
 ## Memory Categories
 | Directory | Purpose | Files |
@@ -38,7 +37,7 @@ The Kernel's memory system. Stores everything the Kernel needs to be intelligent
 3. On-demand: all other categories
 
 ## Health
-- Files: 450+ | Directories: 80 | INDEX.md: 74
+- Files: 421 | Directories: 76 | INDEX.md: 72
 - Agent directories: 54 | Engine directories: 34 | Workflow files: 28
 - Embed files: 289 (synced via make embed-sync)
 - Broken links: 0 | Orphans: 0

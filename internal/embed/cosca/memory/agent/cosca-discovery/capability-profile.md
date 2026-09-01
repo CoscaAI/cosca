@@ -1,6 +1,6 @@
 # cosca-discovery — Capability Profile
 
-> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-04
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
 ## Current Level: 1
 
@@ -8,16 +8,16 @@
 
 | Domain | Confidence | Successful Tasks | Last Outcome | Trend |
 |--------|-----------|-----------------|-------------|-------|
-| Codebase Scanning (glob/grep/walk) | 0.85 | 3* | success | ↑ |
-| Stack Detection (Go, SQLite, Next.js) | 0.82 | 3* | success | ↑ |
-| File Count & Structure Inventory | 0.86 | 3* | success | ↑ |
+| Codebase Scanning (glob/grep/walk) | 0.80 | 2* | success | ↑ |
+| Stack Detection (Go, SQLite, Next.js) | 0.75 | 2* | success | ↑ |
+| File Count & Structure Inventory | 0.80 | 2* | success | ↑ |
 | Import/Dependency Detection | 0.70 | 2* | success | → |
-| Architecture Pattern Detection | 0.62 | 1 | success | ↑ |
+| Architecture Pattern Detection | 0.50 | 0 | — | → |
 | Dependency Graph Generation | 0.30 | 0 | — | → |
 | CI/CD Integration | 0.10 | 0 | — | → |
 | Module Boundary Detection | 0.40 | 2* | success | → |
 | Security Vulnerability Discovery | 0.15 | 0 | — | → |
-| Documentation Gap Analysis | 0.70 | 2* | success | ↑ |
+| Documentation Gap Analysis | 0.60 | 1* | success | ↑ |
 
 > *Tasks inferred from Phase 1+2 documentation sync where cosca-discovery was used for codebase scanning. Learnings.md contains only seed data; capabilities are inferred from SKILL.md scope and delegate context from other agents' learnings.
 
@@ -26,13 +26,12 @@
 - **Technology stack profiling**: Can detect the project's technology stack (Go backend, Next.js 15 frontend, SQLite database, TypeScript, Tailwind CSS) from go.mod, package.json, and directory structure — accurate enough to catch PostgreSQL fantasy in database docs.
 - **Module boundary identification**: Can distinguish internal packages (internal/runtime/, internal/sqlite/, internal/search/) from public API surface (pkg/cosca/) and third-party dependencies — enabling accurate architecture maps.
 - **Documentation gap detection**: Used by cosca-documentation to identify areas where docs were missing or stale — contributed to surfacing 3 critically stale documentation files.
-- **Evidence-tiered reality classification**: Separates executable source, test/contract evidence, live artifacts, archived content, and claims; caught current README/roadmap count drift and inactive Python voice artifacts.
 
 ## Weaknesses
 - **No automated CI integration**: All discovery has been manual/ad-hoc; has not designed a CI pipeline step that runs on every commit.
 - **No dependency graph generation**: Can list imports and modules but has not produced formal dependency graphs (no import cycle detection, no coupling metrics).
 - **No security discovery**: Has not scanned for vulnerability patterns (hardcoded secrets, vulnerable imports, misconfigurations) — this remains entirely with cosca-security.
-- **Limited runtime validation**: Full Go execution was validated, but frontend/provider/jail/browser/voice execution remains environment-dependent.
+- **No structured discovery reports**: Has not produced discovery reports with versioning, trend data, or actionable intelligence — output has been ad-hoc for specific agent consumption.
 
 ## Preferred Strategies
 - **Scanner-first architecture mapping**: Uses glob patterns, grep for imports, and directory walks to build complete file/package inventories before any analysis begins — ensures no blind spots.

@@ -1,3 +1,9 @@
+---
+name: semantic-memory
+description: Provides meaning-based search and retrieval across all Cosca memory via vector embeddings.
+level: 2
+---
+
 # SEMANTIC MEMORY ENGINE
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Semantic Memory Engine | **Last Updated**: 2026-07-28
@@ -13,7 +19,7 @@ The Semantic Memory Engine provides meaning-based search and retrieval across al
 
 ## ARCHITECTURE
 ```
-Source Files (internal/embed/cosca/memory/*.md)
+Source Files (.opencode/cosca/memory/*.md)
     │
     ▼
 [Parser] → Chunks (title + tags + content)
@@ -31,7 +37,7 @@ Source Files (internal/embed/cosca/memory/*.md)
 ## OPERATIONS
 
 ### INDEX
-Input: { path: "internal/embed/cosca/memory/", recursive: true, force: false }
+Input: { path: ".opencode/cosca/memory/", recursive: true, force: false }
 Action: Walk all .md files, parse frontmatter (tags, type, agent), chunk content, generate embeddings, store in vector index
 Output: { indexed: 421, failed: 0, duration: "2.3s" }
 

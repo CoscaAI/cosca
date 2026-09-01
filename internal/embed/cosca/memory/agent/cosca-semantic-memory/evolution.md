@@ -1,9 +1,24 @@
 # cosca-semantic-memory — Evolution Timeline
 
-## 2026-08-04 — Reindex dimension audit
+> **DNA Version**: 3.0.0 | **Last Updated**: 2026-08-22
 
-- **Task**: Define a safe 768-dimensional reindex plan for 473 files without executing it.
-- **Progress**: Vector Embeddings confidence 0.70 → 0.75; operational audit capability advanced from Level 2 to Level 3.
-- **Level-up**: No new global level-up; current Level 4 remains unchanged.
-- **Evidence**: Traced CLI/provider/vector-store code and verified existing SQLite vector BLOBs read-only.
-- **Next threshold**: Controlled isolated provider-backed validation (not performed in this task).
+## Evolution Timeline
+
+| Date | Level | Confidence | Capability | Trigger |
+|------|-------|-----------|------------|---------|
+| 2026-07-29 | 1 | 0.50 | Initial deployment — semantic memory kernel installed | Fase C activation (Don's order) |
+| 2026-08-22 | 1 | 0.55 | Audit and configuration recovery | Kernel audit — paths, models, memory consistency |
+
+## Current Level: 1
+
+## Progression to Level 2
+
+**Requirements:**
+- 5 successful tasks at Level 1
+- Confidence ≥ 0.80
+- Cross-agent knowledge discovery validated
+
+**Next Steps:**
+- Execute semantic search queries across agent memories
+- Validate cross-agent pattern discovery
+- Demonstrate meaning-based retrieval vs keyword-only

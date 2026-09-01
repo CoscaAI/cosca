@@ -1,3 +1,9 @@
+---
+name: documentation
+description: Automatically generates and updates project documentation, keeping it synchronized with code.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Documentation Engine | **Last Updated**: 2026-07-10
 
 # DOCUMENTATION ENGINE

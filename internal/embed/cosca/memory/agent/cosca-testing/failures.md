@@ -50,7 +50,7 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 | **Severity** | Blocker (production path) |
 | **Outcome** | Confirmed — not fixed (documenting as expected failure) |
 | **Tags** | #bug #runtime #restart #state-machine #production |
-| **Related** | BUG-U01 in `internal/embed/cosca/memory/technical-debt/scorecard.md` |
+| **Related** | BUG-U01 in `.opencode/cosca/memory/technical-debt/scorecard.md` |
 
 **Reproduction**: `TestBugU01_RestartBroken` in `internal/runtime/runtime_lifecycle_test.go`
 
@@ -73,7 +73,7 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 | **Severity** | Critical (cascading startup failures) |
 | **Outcome** | Confirmed — not fixed (documenting as expected failure) |
 | **Tags** | #bug #runtime #event #startup #timing |
-| **Related** | BUG-U02 in `internal/embed/cosca/memory/technical-debt/scorecard.md` |
+| **Related** | BUG-U02 in `.opencode/cosca/memory/technical-debt/scorecard.md` |
 
 **Reproduction**: `TestBugU02_EventStartupCompletePremature` + `TestBugU02_SubscribersGetNilSubsystems`
 
@@ -90,18 +90,6 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 ## Historical Failures
 
 *Execution history: 2 tasks completed (1 seed baseline, 1 integration suite). 1 test infrastructure bug self-fixed. 2 production bugs confirmed.*
-
-### 2026-08-21 — Frente B (12 pacotes) — Task completed without failures
-
-| Field | Value |
-|-------|-------|
-| **Agent** | cosca-testing |
-| **Task** | Portar 12 pacotes de filesystem/path Ubuntu→Windows (testes passando ou skip legítimo) |
-| **Outcome** | Nenhuma falha do agente — 2 bugs reais de produção corrigidos, 8 testes corrigidos, 5 skips justificados |
-| **Tags** | #failure #learned #windows #port |
-| **Related** | learnings.md L010 ba74120e |
-
-**Observação**: nenhuma abordagem falhou nesta task. O triage (produção → teste → skip) funcionou; os únicos riscos eram mudar comportamento Linux (mitigado com validação `GOOS=linux go build` + testes) e skip em massa (evitado — apenas 5 skips pontuais justificados de 31 falhas).
 
 ---
 

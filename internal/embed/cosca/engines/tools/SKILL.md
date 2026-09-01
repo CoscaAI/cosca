@@ -1,3 +1,9 @@
+---
+name: tools
+description: Manages the tool catalog available to agents - registers, discovers, validates, and routes tools.
+level: 2
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Tools Engine | **Last Updated**: 2026-07-10
 
 # TOOLS ENGINE

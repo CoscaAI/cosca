@@ -2,13 +2,13 @@
 
 > **DNA Version**: 3.0.0 | **Last Updated**: 2026-07-28
 
-## Current Level: 1 (progress toward Level 2)
+## Current Level: 1 (seed data — no real task execution yet)
 
 ## Per-Domain Confidence
 
 | Domain | Confidence | Successful Tasks | Last Outcome | Trend |
 |--------|-----------|-----------------|-------------|-------|
-| SQL database (schema design, migrations, query optimization) | 0.40 | 2 | success | ↑ |
+| SQL database (schema design, migrations, query optimization) | 0.25 | 0 | — | → |
 
 ## Strengths
 - SQLite schema design with FTS5 full-text search and sqlite-vec vector search integration
@@ -16,7 +16,7 @@
 - Query optimization using EXPLAIN QUERY PLAN and parameterized queries
 
 ## Weaknesses
-- Cross-process contention and connection-local SQLite settings require continued coverage
+- No execution history — capabilities unverified
 - Profile based on agent definition only, not practical experience
 
 ## Preferred Strategies

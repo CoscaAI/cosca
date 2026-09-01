@@ -1,3 +1,9 @@
+---
+name: review
+description: Owns the review process - code, architecture, and deliverables before QA.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Review Chief | **Last Updated**: 2026-07-10
 
 # REVIEW CHIEF — Code Review & Standards

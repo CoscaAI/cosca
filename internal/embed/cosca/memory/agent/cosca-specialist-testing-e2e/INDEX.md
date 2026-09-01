@@ -1,7 +1,5 @@
 # cosca-specialist-testing-e2e — Memory Index
 
-> **📖 Leia o [AGENT_PRIMER.md](../AGENT_PRIMER.md) antes de agir.**
-
 > Cross-reference for fast semantic retrieval. DNA v3.0.
 
 ## Memory Files

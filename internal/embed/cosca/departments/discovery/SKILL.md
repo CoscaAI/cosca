@@ -1,3 +1,9 @@
+---
+name: discovery
+description: Owns system discovery and architecture intelligence - codebase analysis and dependency mapping.
+level: 1
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Discovery Chief | **Last Updated**: 2026-07-23
 
 # DISCOVERY CHIEF — System Discovery & Architecture Intelligence
@@ -132,7 +138,7 @@ You own system discovery and architecture intelligence. You build and maintain t
 - [Technical Debt Chief](../technical-debt/SKILL.md) — Debt discovery
 - [Documentation Chief](../documentation/SKILL.md) — Doc analysis
 - [Context Engine](../../engines/context/SKILL.md) — Context integration
-- [Discovery Engine](../../engines/discovery/WORKSPACE.md) — Workspace/landscape discovery execution
+- [Discovery Engine](../../engines/discovery/SKILL.md) — Discovery execution
 
 ## HISTORY
 | Version | Date | Author | Changes |

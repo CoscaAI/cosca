@@ -1,4 +1,4 @@
-> **Version**: 1.1.0 | **Status**: active | **Owner**: Provider Chief | **Last Updated**: 2026-08-01
+> **Version**: 1.0.0 | **Status**: active | **Owner**: Provider Chief | **Last Updated**: 2026-07-23
 
 # PROVIDER DISCOVERY SKILL
 
@@ -57,17 +57,6 @@ Discover, evaluate, and compare AI providers (LLM, embedding, image, audio) for 
 - Model training data usage
 - Privacy and confidentiality guarantees
 
-## Local Voice Providers
-
-For the voice capability, the following 100% local, free providers are the recommended default. No cloud audio services.
-
-| Provider | Capability | License | Notes |
-|----------|-----------|---------|-------|
-| Kokoro | TTS (text-to-speech) | Apache-2.0 | Kokoro-82M, real-time on CPU, PT-BR native (voice code `p`) |
-| whisper.cpp | STT (speech-to-text) | MIT | CPU via OpenBLAS, faster than real-time |
-
-Zero cost per use, zero audio exfiltration. See the [Voice Engine](../../engines/voice/SKILL.md) for integration details.
-
 ## Process
 1. Define use case requirements and constraints
 2. Identify candidate providers (OpenAI, Anthropic, Google, AWS, local)
@@ -92,4 +81,3 @@ Zero cost per use, zero audio exfiltration. See the [Voice Engine](../../engines
 - [Prompt Engineering](./PROMPT_ENGINEERING.md)
 - [Embedding Pipeline](./EMBEDDING_PIPELINE.md)
 - [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md)
-- [Voice Engine](../../engines/voice/SKILL.md)

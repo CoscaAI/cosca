@@ -1,140 +1,142 @@
-# MODELO DE MEMORIA — Taxonomia Canonica de Memoria
+# MEMORY MODEL — Canonical Memory Taxonomy
 
-> **Versao**: 1.4.0-dev | **Status**: active | **Dono**: Memory Chief
+> **Version**: 4.0.0 | **Status**: active | **Owner**: Memory Chief
 
-## PROPOSITO
-Fonte unica de verdade para todos os tipos de memoria, schemas, locais de armazenamento e politicas de ciclo de vida. Referenciado por KERNEL.md, Memory Engine, Memory Chief, Context Engine e Learning Engine.
+## Purpose
+Single source of truth for all memory types, schemas, storage locations, and lifecycle policies. Referenced by KERNEL.md, Memory Engine, Memory Chief, Context Engine, and Learning Engine.
 
 ---
 
-## Arquitetura de Memoria
+## Memory Architecture
 
 ```
-Camada 1: Sessao    (Transiente)      - .cosca/memory/short/
-Camada 2: Projeto   (Escopo projeto)  - .cosca/memory/project/, .cosca/memory/long/
-Camada 3: Sistema   (Escopo sistema)  - .cosca/memory/architecture/, .cosca/memory/decision/
-Camada 4: Sabedoria (Cross-project)   - ${MEMORY_GLOBAL}/pattern/, ${MEMORY_GLOBAL}/bug/
-Camada 5: Agente    (Cross-project)   - ${MEMORY_GLOBAL}/agent/
+Layer 1: Session    (Transient)      → .cosca/memory/short/
+Layer 2: Project    (Project-scoped) → .cosca/memory/project/, .cosca/memory/long/
+Layer 3: System     (System-scoped)  → .cosca/memory/architecture/, .cosca/memory/decision/
+Layer 4: Wisdom     (Cross-project)  → ${MEMORY_GLOBAL}/pattern/, ${MEMORY_GLOBAL}/bug/
+Layer 5: Agent      (Cross-project)  → ${MEMORY_GLOBAL}/agent/
 ```
 
----
-
-## Tipos de Memoria
-
-### 1. Memoria Curta — Sessao Transiente
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Contexto de tarefa ativa, decisoes pendentes |
-| Escopo | Apenas sessao atual |
-| Duracao | Duracao da sessao |
-| Local | `.cosca/memory/short/` |
-| Limpeza | Limpada no fim da sessao; entradas importantes promovidas para memoria longa |
-| Padrao de Acesso | Leitura/Escrita pesada durante sessao |
-| Indice | `memory/short/INDEX.md` |
-
-### 2. Memoria Longa — Conhecimento entre Sessoes
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Informacao que persiste entre sessoes |
-| Escopo | Duracao do projeto |
-| Duracao | Permanente (duracao do projeto) |
-| Local | `.cosca/memory/long/` |
-| Limpeza | Manual ou via Evolution Engine |
-| Padrao de Acesso | Escrita no fim da sessao, leitura no inicio |
-| Indice | `memory/long/INDEX.md` |
-
-### 3. Memoria de Projeto — Conhecimento Especifico
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Features, modulos, releases, metricas, issues |
-| Escopo | Duracao do projeto |
-| Duracao | Duracao do projeto |
-| Local | `.cosca/memory/project/` |
-| Sub-armazenamentos | `features/`, `modules/`, `releases/`, `metrics/`, `issues/` |
-| Padrao de Acesso | Leitura/Escrita continua |
-| Indice | `memory/project/INDEX.md` |
-
-### 4. Memoria de Arquitetura — Arquitetura do Sistema
-| Atributo | Valor |
-|----------|-------|
-| Proposito | ADRs, padroes de design, contratos de modulo, pontos de integracao |
-| Escopo | Duracao do sistema |
-| Duracao | Permanente (duracao do sistema) |
-| Local | `.cosca/memory/architecture/` |
-| Sub-armazenamentos | `adr/`, `patterns/`, `contracts/`, `integrations/`, `decisions/` |
-| Padrao de Acesso | Escrita em decisoes, leitura em planejamento |
-| Indice | `memory/architecture/INDEX.md` |
-
-### 5. Memoria de Decisao — Registro de Decisoes
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Todas as decisoes significativas e seu raciocinio |
-| Escopo | Permanente |
-| Duracao | Para sempre |
-| Local | `.cosca/memory/decision/` |
-| Padrao de Acesso | Escrita apos cada decisao, leitura no carregamento de contexto |
-| Indice | `memory/decision/INDEX.md` |
-
-### 6. Memoria de Padroes — Sabedoria Cross-Project
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Padroes que funcionam, anti-padroes a evitar |
-| Escopo | Global (cross-project) |
-| Duracao | Permanente |
-| Local | `${MEMORY_GLOBAL}/pattern/` |
-| Sub-armazenamentos | `architecture/`, `design/`, `code/`, `testing/`, `performance/`, `security/`, `anti-patterns/`, `frameworks/` |
-| Padrao de Acesso | Escrito por Evolution/Learning engines, lido globalmente |
-| Indice | `memory/pattern/INDEX.md` |
-
-### 7. Memoria de Bug — Catalogo de Bugs
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Bugs encontrados e suas correcoes |
-| Escopo | Global (cross-project) |
-| Duracao | Permanente |
-| Local | `${MEMORY_GLOBAL}/bug/` |
-| Padrao de Acesso | Escrito apos correcoes de bugs, lido durante diagnostico |
-| Indice | `memory/bug/INDEX.md` |
-
-### 8. Memoria de Agente — Performance do Agente
-| Atributo | Valor |
-|----------|-------|
-| Proposito | Metricas de performance, preferencias, historico de aprendizado |
-| Escopo | Global (cross-project) |
-| Duracao | Permanente |
-| Local | `${MEMORY_GLOBAL}/agent/` |
-| Padrao de Acesso | Escrito por Learning Engine, lido por Kernel |
-| Indice | `memory/agent/INDEX.md` |
+> **PRINCÍPIO DO CÉREBRO LEVE (ordem do Don, 2026-08-27):** a memória é **armazenada em bulk** (indexada), mas **nunca carregada em bulk** no contexto do agente. O load padrão entrega **índices/referências** (caminho, tipo, tags, resumo). O **conteúdo completo** é recuperado **sob demanda**, via busca semântica por significado (`cosca knowledge search`), apenas quando o domínio da tarefa exige. Isso mantém o cérebro enxuto e saudável, evita poluição de tokens e impede ação baseada em informação irrelevante ou obsoleta.
 
 ---
 
-## Schema do Registro de Memoria
+## Memory Types
 
-Todos os registros de memoria seguem este schema YAML frontmatter:
+### 1. Short Memory — Session Transient
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Active task context, current decisions, pending actions |
+| Scope | Current session only |
+| Lifetime | Session duration |
+| Location | `.cosca/memory/short/` |
+| Cleanup | Cleared at session end; important entries promoted to long memory |
+| Access Pattern | Read/write heavy during session |
+| Index | `memory/short/INDEX.md` |
+
+### 2. Long Memory — Cross-Session Project Knowledge
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Information persisting across sessions |
+| Scope | Project lifetime |
+| Lifetime | Permanent (project duration) |
+| Location | `.cosca/memory/long/` |
+| Cleanup | Manual or via Evolution Engine pruning |
+| Access Pattern | Write on session end, read on session start |
+| Index | `memory/long/INDEX.md` |
+
+### 3. Project Memory — Project-Specific Knowledge
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Features, modules, releases, metrics, issues |
+| Scope | Project lifetime |
+| Lifetime | Project duration |
+| Location | `.cosca/memory/project/` |
+| Sub-stores | `features/`, `modules/`, `releases/`, `metrics/`, `issues/` |
+| Access Pattern | Continuous read/write |
+| Index | `memory/project/INDEX.md` |
+
+### 4. Architecture Memory — System Architecture
+| Attribute | Value |
+|-----------|-------|
+| Purpose | ADRs, design patterns, module contracts, integration points |
+| Scope | System lifetime |
+| Lifetime | Permanent (system duration) |
+| Location | `.cosca/memory/architecture/` |
+| Sub-stores | `adr/`, `patterns/`, `contracts/`, `integrations/`, `decisions/` |
+| Access Pattern | Write on decisions, read on planning |
+| Index | `memory/architecture/INDEX.md` |
+
+### 5. Decision Memory — Decision Record
+| Attribute | Value |
+|-----------|-------|
+| Purpose | All significant decisions and their rationale |
+| Scope | Permanent |
+| Lifetime | Forever |
+| Location | `.cosca/memory/decision/` |
+| Access Pattern | Write after every decision, read on context loading |
+| Index | `memory/decision/INDEX.md` |
+
+### 6. Pattern Memory — Cross-Project Wisdom
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Patterns that work, anti-patterns to avoid |
+| Scope | Global (cross-project) |
+| Lifetime | Permanent |
+| Location | `${MEMORY_GLOBAL}/pattern/` |
+| Sub-stores | `architecture/`, `design/`, `code/`, `testing/`, `performance/`, `security/`, `anti-patterns/`, `frameworks/` |
+| Access Pattern | Write by Evolution/Learning engines, read globally |
+| Index | `memory/pattern/INDEX.md` |
+
+### 7. Bug Memory — Bug Catalog
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Bugs encountered and their fixes |
+| Scope | Global (cross-project) |
+| Lifetime | Permanent |
+| Location | `${MEMORY_GLOBAL}/bug/` |
+| Access Pattern | Write after bug fixes, read during diagnosis |
+| Index | `memory/bug/INDEX.md` |
+
+### 8. Agent Memory — Agent Performance
+| Attribute | Value |
+|-----------|-------|
+| Purpose | Agent performance metrics, preferences, learning history |
+| Scope | Global (cross-project) |
+| Lifetime | Permanent |
+| Location | `${MEMORY_GLOBAL}/agent/` |
+| Access Pattern | Write by Learning Engine, read by Kernel |
+| Index | `memory/agent/INDEX.md` |
+
+---
+
+## Memory Record Schema
+
+All memory records follow this YAML frontmatter schema:
 
 ```yaml
 ---
 type: short | long | project | architecture | decision | pattern | bug | agent
-key: identificador-unico
+key: unique-identifier
 tags: [tag1, tag2]
 timestamp: ISO8601
 status: active | archived | superseded
-related: [chave1, chave2]
-agent: nome-do-agente
-session: id-da-sessao
+related: [key1, key2]
+agent: agent-name
+session: session-id
 ---
 ```
 
-### Extensoes por Tipo
+### Type-Specific Extensions
 
-#### Registros de Decisao
+#### Decision Records
 ```yaml
-decided_by: nome-do-agente
+decided_by: agent-name
 confidence: 0.0-1.0
 alternatives_considered: [alt1, alt2]
 ```
 
-#### Registros de Padrao
+#### Pattern Records
 ```yaml
 category: architecture | design | code | testing | performance | security | anti-pattern
 confidence: 0.0-1.0
@@ -142,160 +144,126 @@ times_used: N
 times_succeeded: N
 ```
 
-#### Registros de Bug
+#### Bug Records
 ```yaml
 severity: critical | high | medium | low
 fix_commit: hash
-related_patterns: [padrao-chaves]
+related_patterns: [pattern-keys]
 ```
 
-#### Registros de Agente
+#### Agent Records
 ```yaml
 agent_type: chief | specialist | engine
-department: nome-do-departamento
+department: department-name
 metric_type: performance | preference | learning
 ```
 
 ---
 
-## Operacoes de Memoria
+## Memory Operations
 
-| Operacao | Descricao | Gatilho |
-|----------|-----------|---------|
-| **Armazenar** | Escrever registro no armazenamento apropriado | Automatico (decisoes, bugs, padroes) ou manual (agentes) |
-| **Recuperar** | Ler registros por chave, tags ou periodo | Inicio de sessao, carregamento de contexto |
-| **Buscar** | Busca full-text nos armazenamentos | Consultas de agente, correspondencia de padroes |
-| **Indexar** | Reconstruir metadados de busca | Apos escritas em lote |
-| **Podar** | Arquivar registros antigos/irrelevantes | Periodico (Evolution Engine) |
-| **Promover** | Mover registro de memoria curta para longa | Fim da sessao |
-
----
-
-## Ciclo de Vida da Memoria — 4 Niveis (decisao do Don, 2026-08-17)
-
-A regra de ouro: **"coloca tudo em medio, o longo a gente vai ver o que coloca"** — nada nasce longo. O que sobrevive a janela de 7 dias so sobrevive por promocao manual.
-
-### Os 4 Niveis
-
-| Nivel | Janela | Onde vive | Como entra |
-|-------|--------|-----------|------------|
-| **Permanente** | pra sempre | blockchain (`chain.dat` + `blocks/` + `merkle/`) | fluxo de registro L (MEMORY_ACCESS_PROTOCOL sec 3) |
-| **Longo** | 1 ano | `knowledge.db` — `tier = long` | **promocao EXPLICITA** (`cosca knowledge promote` / `cosca memory promote`) |
-| **Medio** | 7 dias | `knowledge.db` — `tier = medium` | **DEFAULT de tudo** (acquire, compile, index, note) |
-| **Curto** | sessao / 24h | `session.db` + `LayerSession` (24h) + `LayerTemp` (1h) | gravacao de sessao |
-
-### Ciclo de Vida
-
-```
-escrita ──► medium (7d) ──► GC automatico apaga
-                │
-                └── promote (explicito) ──► long (1y) ──► GC apaga em 1 ano
-```
-
-### Fases
-
-| Fase | Acao |
-|------|------|
-| Criar | Escrever registro com `status: active` |
-| Ativo | Disponivel para recuperacao e busca |
-| Promover | Mover de curto para longo no fim da sessao |
-| Arquivar | Marcar `status: archived`, mover para subdiretorio de arquivo |
-| Podar | Deletar registros mais antigos que o periodo de retencao |
-
-### Comandos
-
-```bash
-cosca knowledge gc                          # roda o ciclo de vida (expiracao)
-cosca knowledge gc --json
-cosca knowledge promote <doc-id> --tier long    # promove p/ 1 ano
-cosca knowledge promote --all --tier long       # promove todos do medio
-cosca memory promote <id> --tier long           # record do MemoryEngine
-cosca memory prune --dry-run                    # preview do prune
-cosca knowledge verify --fix                    # re-embed + limpa dangling
-```
-
-### Integridade e Vetores
-
-- A migracao V7 (`memory_tiers_medium_default`) adicionou `tier` + `expires_at` em `documents` e backfillou tudo para `medium` (7 dias).
-- **Vetores de entidade (`entity_id != ''`) NUNCA sao dangling** — o `CleanupDanglingVectors` preserva `entity_id` (L338); o `verify` conta so vetores de chunk no match.
-- `verify --fix` re-embedda chunks sem vetor; `index-entities` vetoriza os nos do grafo.
-
-### Politicas de Retencao por Tipo
-
-| Tipo de Memoria | Retencao |
-|-----------------|----------|
-| Curto | Apenas sessao atual |
-| Longo | Duracao do projeto |
-| Projeto | Duracao do projeto |
-| Arquitetura | Para sempre (duracao do projeto) |
-| Decisao | Para sempre |
-| Padrao | Para sempre (revisao periodica) |
-| Bug | Para sempre (revisao periodica) |
-| Agente | Ultimos 12 meses (janela rolling) |
+| Operation | Description | Trigger |
+|-----------|-------------|---------|
+| **Store** | Write record to appropriate store | Auto (decisions, bugs, patterns) or manual (agents) |
+| **Retrieve** | Read **index/reference** (path, type, tags, summary) of records by key, tags, or time range — NOT bulk content | Session start, context loading |
+| **Search** | **Content on-demand** — semantic (meaning-first) or full-text search across stores, pulled only when the task domain requires it | Agent queries, pattern matching |
+| **Index** | Rebuild search metadata | After batch writes |
+| **Prune** | Archive old/irrelevant records | Periodic (Evolution Engine) |
+| **Promote** | Move record from short to long memory | Session end |
 
 ---
 
-## RELACIONADOS
+## Memory Lifecycle
 
-- [Memory Engine](engines/memory/SKILL.md) — Operacoes de memoria e regras de auto-captura
-- [Memory Chief](departments/memory/SKILL.md) — Gerenciamento de memoria
-- [Context Engine](engines/context/SKILL.md) — Construcao de contexto a partir da memoria
-- [Learning Engine](engines/learning/SKILL.md) — Atualizacoes de memoria de agentes
-- [Evolution Engine](engines/evolution/SKILL.md) — Atualizacoes de memoria de padroes e bugs
-- [KERNEL.md](KERNEL.md) — Carregamento de memoria no inicio da sessao
-
----
-
-## HISTORICO
-
-| Versao | Data | Autor | Mudancas |
-|--------|------|-------|----------|
-| 1.0.0 | 2026-07-10 | Memory Chief | Taxonomia canonica inicial de memoria |
-
----
-
-> **Executado por**: Memory Engine | **Ultima revisao**: 2026-07-10
-
----
-
-## Memoria Auto-Evolucao Semantica (v4.0.0 — 2026-07-27)
-
-### Conceito
-Cada agente mantem uma memoria semantica auto-evolutiva que cresce com a experiencia. Agentes progridem por 5 niveis de capacidade aprendendo com cada tarefa e aplicando tecnicas cada vez mais avancadas.
-
-### Arquitetura
 ```
-internal/embed/cosca/memory/agent/{nome-do-agente}/
-├── learnings.md    ← Diario semantico (indexado FTS5, buscavel por vetor)
-├── evolution.md    ← Rastreamento de nivel de capacidade
-├── patterns.md     ← Padroes de solucao reutilizaveis
-└── INDEX.md        ← Referencia cruzada para recuperacao rapida
+CREATE → ACTIVE → ARCHIVE/PRUNE
+  ↑                  ↓
+  └── PROMOTE ←──────┘ (important memories)
 ```
 
-### O Loop de Evolucao
-1. **RECUPERAR**: Agente busca em learnings.md por #tags correspondentes a tarefa atual
-2. **APLICAR**: Agente usa a tecnica de nivel mais alto encontrada (nunca regredir)
-3. **EXECUTAR**: Agente realiza a tarefa com a tecnica selecionada
-4. **APRENDER**: Agente registra resultado, tecnica, nivel e direcao de melhoria
-5. **EVOLUIR**: Com o tempo, agente progride Nivel 1-2-3-4-5
+| Phase | Action |
+|-------|--------|
+| Create | Write record with `status: active` |
+| Active | Available for retrieval and search |
+| Promote | Move from short → long memory at session end |
+| Archive | Mark `status: archived`, move to archive subdirectory |
+| Prune | Delete records older than retention period |
 
-### Progressao de Nivel
-| Nivel | Nome | Gatilho | Exemplo (Security Chief) |
+### Retention Policies
+| Memory Type | Retention |
+|-------------|-----------|
+| Short | Current session only |
+| Long | Project lifetime |
+| Project | Project lifetime |
+| Architecture | Forever (project lifetime) |
+| Decision | Forever |
+| Pattern | Forever (periodic review) |
+| Bug | Forever (periodic review) |
+| Agent | Last 12 months rolling window |
+
+---
+
+## Related
+
+- [Memory Engine](engines/memory/SKILL.md) — Memory operations and auto-capture rules
+- [Memory Chief](departments/memory/SKILL.md) — Memory management
+- [Context Engine](engines/context/SKILL.md) — Context building from memory
+- [Learning Engine](engines/learning/SKILL.md) — Agent memory updates
+- [Evolution Engine](engines/evolution/SKILL.md) — Pattern and bug memory updates
+- [KERNEL.md](KERNEL.md) — Memory loading at session start
+
+---
+
+## HISTORY
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0.0 | 2026-07-10 | Memory Chief | Initial canonical memory taxonomy |
+
+---
+
+> **Enforced by**: Memory Engine | **Last reviewed**: 2026-07-10
+
+---
+
+## Semantic Auto-Evolution Memory (v4.0.0 — 2026-07-27)
+
+### Concept
+Each agent maintains a self-evolving semantic memory that grows with experience. Agents progress through 5 capability levels by learning from each task and applying increasingly advanced techniques.
+
+### Architecture
+```
+.opencode/cosca/memory/agent/{agent-name}/
+├── learnings.md    ← Semantic journal (FTS5-indexed, vector-searchable)
+├── evolution.md    ← Capability level tracking
+├── patterns.md     ← Reusable solution patterns
+└── INDEX.md        ← Fast retrieval cross-reference
+```
+
+### The Evolution Loop
+1. **RETRIEVE**: Agent searches learnings.md for #tags matching current task
+2. **APPLY**: Agent uses highest-level technique found (never regress)
+3. **EXECUTE**: Agent performs the task with the selected technique
+4. **LEARN**: Agent records outcome, technique, level, and improvement direction
+5. **EVOLVE**: Over time, agent progresses Level 1→2→3→4→5
+
+### Level Progression
+| Level | Name | Trigger | Example (Security Chief) |
 |-------|------|---------|--------------------------|
-| 1 | Basico | Inicializacao | Checklist OWASP Top 10 |
-| 2 | Intermediario | 5 tarefas L1 bem-sucedidas | govulncheck automatizado + revisao manual |
-| 3 | Avancado | 10 tarefas L2 bem-sucedidas | Modelagem de ameacas STRIDE por subsistema |
-| 4 | Especialista | 15 tarefas L3 bem-sucedidas | Descoberta de vetores de ataque novos, padroes zero-day |
-| 5 | Mestre | 20 tarefas L4 bem-sucedidas | Contribuicao de novas tecnicas OWASP, treinamento de outros agentes |
+| 1 | Basic | Initialization | OWASP Top 10 checklist |
+| 2 | Intermediate | 5 successful L1 tasks | Automated govulncheck + manual review |
+| 3 | Advanced | 10 successful L2 tasks | STRIDE threat modeling per subsystem |
+| 4 | Expert | 15 successful L3 tasks | Novel attack vector discovery, zero-day patterns |
+| 5 | Master | 20 successful L4 tasks | Contributing new OWASP techniques, training other agents |
 
-### Aprendizado Cross-Agent
-Todos os learnings sao indexados no knowledge engine (SQLite FTS5 + embeddings vetoriais). O Knowledge Engine indexa internal/embed/cosca/memory/agent/ recursivamente. O padrao de seguranca do Agente A pode ser recuperado semanticamente pelo Agente B quando enfrenta uma tarefa relacionada.
+### Cross-Agent Learning
+All learnings are indexed in the knowledge engine (SQLite FTS5 + vector embeddings). The Knowledge Engine indexes .opencode/cosca/memory/agent/ recursively. Agent A's security pattern can be semantically retrieved by Agent B when facing a related task.
 
-### Busca Semantica
-Antes de qualquer tarefa, agentes executam: `cosca knowledge search "#security #xss"` para encontrar learnings relevantes. Resultados ordenados por: nivel (maior = melhor), recencia (mais recente = mais relevante), resultado (sucesso > parcial > falha).
+### Semantic Search
+Before any task, agents execute: `cosca knowledge search "#security #xss"` to find relevant learnings. Results ranked by: level (higher = better), recency (fresher = more relevant), outcome (success > partial > failure).
 
-### Saude da Memoria
-- Maximo de learnings por agente: ilimitado (diario append-only)
-- Indexacao: automatica via FTS5 a cada escrita
-- Integridade de referencia cruzada: validada pelo Memory Chief semanalmente
-- Expiracao: learnings nunca expiram (conhecimento acumulativo)
+### Memory Health
+- Maximum learnings per agent: unlimited (append-only journal)
+- Indexing: automatic via FTS5 on every write
+- Cross-reference integrity: validated by Memory Chief weekly
+- Expiration: learnings never expire (cumulative knowledge)

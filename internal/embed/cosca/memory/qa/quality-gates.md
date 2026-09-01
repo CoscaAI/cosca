@@ -502,7 +502,7 @@ Cada task dos outros 9 agentes da Onda 2 foi avaliada quanto à clareza e verifi
 | Top 10 prioridades com ROI | ✅ Sim | ✅ Sim (lista ranqueada) | ✅ APROVADO |
 | Learning com confiança ≥ 0.40 | ✅ Sim | ✅ Sim | ✅ APROVADO |
 
-**Parecer QA**: Critérios sólidos. A métrica de Debt Score composto é bem definida. Recomendo que o Debt Score seja armazenado em local consultável por outros agentes (ex: `internal/embed/cosca/metrics/tech-debt-score.json`).
+**Parecer QA**: Critérios sólidos. A métrica de Debt Score composto é bem definida. Recomendo que o Debt Score seja armazenado em local consultável por outros agentes (ex: `.opencode/cosca/metrics/tech-debt-score.json`).
 
 #### cosca-critic — 5-Question Challenge (Fase 1, Onda A)
 
@@ -633,7 +633,7 @@ Cada task dos outros 9 agentes da Onda 2 foi avaliada quanto à clareza e verifi
 | [CONSTITUTION.md](../../CONSTITUTION.md) | Princípios P1, P2, P6; Ciclo de Decisão passo 7 |
 | [QUALITY_GATES.md](../../QUALITY_GATES.md) | Gates de ciclo de vida G0–G4 (fases de projeto) |
 | [onda-2-plan.md](../roadmap/onda-2-plan.md) | Plano de ativação dos 10 agentes da Onda 2 |
-| [INDEX.md](../INDEX.md) | Bug registry — auditoria e classificação |
+| [INDEX.md](../bug/INDEX.md) | Bug registry — auditoria e classificação |
 | [LEARNING_PROTOCOL.md](../../memory/LEARNING_PROTOCOL.md) | Formato de registro de aprendizados |
 
 ---
@@ -643,7 +643,6 @@ Cada task dos outros 9 agentes da Onda 2 foi avaliada quanto à clareza e verifi
 | Versão | Data | Autor | Alterações |
 |--------|------|-------|-----------|
 | 1.0.0 | 2026-07-28 | cosca-qa | Criação inicial: auditoria de 8 bugs, definição G0–G9, acceptance criteria por tipo, sign-off Onda 2 |
-| 1.0.1 | 2026-07-29 | cosca-qa | **Threshold unification**: resolvida a crise dos 4 valores conflitantes de coverage (Makefile 40%, CI 70%, quality-gates.md G5 70%, QUALITY_GATES.md embed 80%). Valor canônico operacional: **70% global** (CI + Makefile), com ratchet para 80% global no longo prazo (v1.5.0). O embed QUALITY_GATES.md mantém 80% como meta de longo prazo com nota operacional. `docs/developer-guide/testing.md` CI example corrigido de 80% → 70%. [Ver resolução completa](https://github.com/CoscaAI/cosca/issues/coverage-threshold-unification) |
 
 ---
 
