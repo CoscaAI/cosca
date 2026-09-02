@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLARO — Verifique antes de confiar | Esboço visual</title>
+<style>
+  :root{
+    --azul:#0B1E33; --azul2:#122C4B; --azul3:#1A3A63;
+    --ciano:#00D4FF; --verde:#16C784; --ambar:#F5A623; --vermelho:#FF4757;
+    --branco:#F4F7FB; --cinza:#8FA3B8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--azul);color:var(--branco);line-height:1.6}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px}
+
+  /* ===== HERO ===== */
+  .hero{position:relative;text-align:center;padding:70px 20px 50px;overflow:hidden;
+    background:radial-gradient(ellipse at 50% -20%,#123a63 0%,var(--azul) 60%)}
+  .lighthouse{position:relative;width:130px;height:130px;margin:0 auto 18px}
+  .tower{position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:26px;height:70px;background:linear-gradient(#dfe8f2,#93a7bd);
+    border-radius:4px 4px 0 0}
+  .lantern{position:absolute;top:28px;left:50%;transform:translateX(-50%);
+    width:22px;height:26px;background:var(--ciano);border-radius:6px;
+    box-shadow:0 0 30px 10px rgba(0,212,255,.65)}
+  .beam{position:absolute;top:34px;left:50%;width:60px;height:6px;
+    background:linear-gradient(90deg,rgba(0,212,255,.9),rgba(0,212,255,0));
+    border-radius:4px;transform-origin:left center;animation:sweep 3.5s ease-in-out infinite}
+  @keyframes sweep{0%,100%{transform:translateX(-50%) rotate(-32deg);opacity:.85}
+    50%{transform:translateX(-50%) rotate(32deg);opacity:.4}}
+  .tag{display:inline-block;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.4);
+    color:var(--ciano);border-radius:20px;padding:4px 14px;font-size:13px;letter-spacing:.5px;margin-bottom:14px}
+  h1{font-size:56px;font-weight:800;letter-spacing:6px}
+  h1 .dot{color:var(--ciano)}
+  .slogan{font-size:20px;color:var(--cinza);margin-top:6px}
+  .pain{max-width:640px;margin:26px auto 0;background:rgba(255,71,87,.08);
+    border:1px solid rgba(255,71,87,.35);border-radius:12px;padding:14px 20px;font-size:15px}
+  .pain b{color:var(--vermelho);font-size:26px}
+  .pain .lbl{color:var(--cinza);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+
+  /* ===== PILARES ===== */
+  .section{padding:46px 20px}
+  .section h2{text-align:center;font-size:26px;margin-bottom:6px}
+  .section .sub{text-align:center;color:var(--cinza);margin-bottom:30px;font-size:15px}
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .pillar{background:var(--azul2);border-radius:14px;padding:22px;border:1px solid rgba(255,255,255,.06)}
+  .pillar.core{background:var(--azul3);border:2px solid var(--ciano);position:relative}
+  .pillar.core .badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+    background:var(--ciano);color:var(--azul);font-size:11px;font-weight:700;padding:2px 12px;border-radius:12px}
+  .pillar .ico{font-size:34px}
+  .pillar h3{font-size:19px;margin:8px 0 6px}
+  .pillar p{font-size:13px;color:var(--cinza)}
+  .verdict{margin-top:10px;font-size:13px}
+  .g{color:var(--verde)} .a{color:var(--ambar)} .r{color:var(--vermelho)}
+
+  /* ===== PALETA ===== */
+  .palette{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .swatch{border-radius:10px;padding:16px 10px;text-align:center;color:var(--azul);font-weight:700;font-size:13px}
+  .swatch span{display:block;font-size:11px;font-weight:400;opacity:.8}
+
+  /* ===== ESBOÇO APP ===== */
+  .mock{max-width:420px;margin:0 auto;background:var(--azul2);border:1px solid rgba(255,255,255,.1);
+    border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+  .mockbar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--azul3);font-size:14px}
+  .mockbar .logo{font-weight:800;letter-spacing:2px;color:var(--ciano)}
+  .mockbar .spacer{flex:1}
+  .dotico{color:var(--cinza);font-size:13px}
+  .mockbody{padding:18px}
+  .card{background:var(--azul);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;margin-bottom:14px}
+  .card h4{font-size:13px;color:var(--cinza);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+  .verif-box{background:var(--azul);border:2px dashed var(--ciano);border-radius:10px;
+    padding:14px;font-size:13px;color:var(--cinza);margin-bottom:10px}
+  .verif-box .u{color:var(--ciano);text-decoration:underline}
+  .btn{display:block;width:100%;background:var(--ciano);color:var(--azul);border:none;border-radius:8px;
+    padding:11px;font-size:15px;font-weight:800;cursor:pointer}
+  .btn.small{width:auto;display:inline-block;padding:6px 12px;font-size:12px;font-weight:600;margin-right:6px}
+  .result{border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;border:1px solid}
+  .result.red{background:rgba(255,71,87,.12);border-color:rgba(255,71,87,.5);color:#ff9aa5}
+  .result .big{font-size:18px;font-weight:800;color:var(--vermelho)}
+  .result .why{color:#ffc2c9;margin-top:4px;font-size:12px}
+  .list-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .list-item:last-child{border-bottom:none}
+  .chip{background:var(--azul3);border-radius:8px;padding:8px 12px;font-size:12px;display:flex;justify-content:space-between;margin-bottom:8px}
+  .chip b{color:var(--ciano)}
+  .tabrow{display:flex;gap:6px;margin-bottom:14px}
+  .tab{flex:1;text-align:center;font-size:12px;padding:8px;border-radius:8px;background:var(--azul3);color:var(--cinza)}
+  .tab.on{background:var(--ciano);color:var(--azul);font-weight:800}
+  .steps{font-size:12px;color:var(--cinza);margin-top:10px;display:flex;justify-content:space-between;gap:6px}
+  .steps div{flex:1;text-align:center;padding:8px;border-radius:8px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2)}
+
+  /* ===== MODELO DE NEGÓCIO ===== */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .plan{background:var(--azul2);border-radius:12px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,.07)}
+  .plan.hot{border-color:var(--ciano);background:var(--azul3)}
+  .plan h4{font-size:15px;color:var(--ciano)}
+  .plan .price{font-size:22px;font-weight:800;margin:6px 0}
+  .plan p{font-size:12px;color:var(--cinza)}
+  .plan .badge2{display:inline-block;background:var(--ciano);color:var(--azul);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px}
+
+  footer{text-align:center;color:var(--cinza);font-size:12px;padding:30px 20px;border-top:1px solid rgba(255,255,255,.06)}
+  @media(max-width:760px){.pillars,.plans{grid-template-columns:1fr}.palette{grid-template-columns:repeat(2,1fr)}h1{font-size:40px}}
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="lighthouse">
+    <div class="beam"></div><div class="lantern"></div><div class="tower"></div>
+  </div>
+  <div class="tag">IDENTIDADE VISUAL · ESBOÇO DA APLICAÇÃO</div>
+  <h1>CLARO<span class="dot">.</span></h1>
+  <div class="slogan">Verifique antes de confiar.</div>
+  <div class="pain">
+    <span class="lbl">A principal dor (pesquisa + GitHub)</span><br>
+    <b>346.681</b> relatos de golpes, phishing e fraude nas issues do GitHub —
+    <b>73× mais</b> que a sobrecarga de notificações.<br>
+    <span style="color:var(--vermelho)">🔴 O mundo digital está cheio de golpes. O CLARO é o farol que ilumina o seguro.</span>
+  </div>
+</div>
+
+<!-- ============ PILARES ============ -->
+<div class="section">
+  <h2>Os 3 Pilares</h2>
+  <div class="sub">O VERIFICA é o coração — ataca a dor principal</div>
+  <div class="pillars">
+    <div class="pillar core">
+      <span class="badge">NÚCLEO</span>
+      <div class="ico">🛡️</div>
+      <h3>VERIFICA</h3>
+      <p>Cole um link, número ou mensagem → receba o veredito: seguro, desconfiado ou golpe — com explicação simples.</p>
+      <div class="verdict"><span class="g">🟢 Seguro</span> · <span class="a">🟡 Desconfiado</span> · <span class="r">🔴 Golpe</span></div>
+    </div>
+    <div class="pillar">
+      <div class="ico">📩</div>
+      <h3>FILTRA</h3>
+      <p>Resume e prioriza notificações e mensagens do dia. Só o que importa chega até você.</p>
+      <div class="verdict">12 msgs → 3 importantes</div>
+    </div>
+    <div class="pillar">
+      <div class="ico">⚡</div>
+      <h3>AUTOMATIZA</h3>
+      <p>Executa tarefas repetitivas simples: respostas padrão, confirmações, agendamentos.</p>
+      <div class="verdict">⚡ Tarefas no piloto automático</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PALETA ============ -->
+<div class="section" style="background:var(--azul2)">
+  <h2>Paleta</h2>
+  <div class="sub">Azul Profundo (confiança) + Ciano (o farol) + os 3 vereditos</div>
+  <div class="palette">
+    <div class="swatch" style="background:#0B1E33;color:#fff">Azul Profundo<span>#0B1E33 · mar/confiança</span></div>
+    <div class="swatch" style="background:#00D4FF">Ciano<span>#00D4FF · farol/clareza</span></div>
+    <div class="swatch" style="background:#16C784;color:#062">Verde<span>#16C784 · seguro</span></div>
+    <div class="swatch" style="background:#F5A623">Âmbar<span>#F5A623 · atenção</span></div>
+    <div class="swatch" style="background:#FF4757;color:#fff">Vermelho<span>#FF4757 · golpe</span></div>
+  </div>
+</div>
+
+<!-- ============ ESBOÇO DO APP ============ -->
+<div class="section">
+  <h2>Esboço da Aplicação — CLARO</h2>
+  <div class="sub">Protótipo navegável (mockup estático): a tela principal é o VERIFICA</div>
+  <div class="mock">
+    <div class="mockbar">
+      <span class="logo">◯ CLARO</span><span class="spacer"></span>
+      <span class="dotico">👤</span><span class="dotico">⚙</span>
+    </div>
+    <div class="mockbody">
+      <div class="tabrow"><div class="tab on">🛡️ Verificar</div><div class="tab">📩 Dia</div><div class="tab">⚡ Automações</div></div>
+
+      <div class="card">
+        <h4>Verificar agora</h4>
+        <div class="verif-box">
+          Você recebeu isso no WhatsApp:<br>
+          <span class="u">"claro-pagamentos.com.br/boleto-2026 — seu boleto venceu, pague hoje!"</span>
+        </div>
+        <button class="btn">Verificar 🔍</button>
+        <div class="result red">
+          <div class="big">🔴 GOLPE — não clique</div>
+          <div class="why">• Domínio registrado <b>ontem</b> (imita "claro-pagamentos.com").<br>
+          • Padrão de urgência ("pague hoje") usado em 12.400 golpes.<br>
+          • 340 usuários da comunidade marcaram como fraude.<br>
+          <b>O que fazer:</b> apague a mensagem e bloqueie o número.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Resumo do dia (FILTRA)</h4>
+        <div class="chip"><span>📩 12 mensagens</span><b>3 importantes</b></div>
+        <div class="chip"><span>🛡️ 4 verificações</span><b>1 golpe evitado</b></div>
+        <div class="chip"><span>⚡ 2 automações</span><b>rodaram ok</b></div>
+      </div>
+
+      <div class="card">
+        <h4>Automações ativas (AUTOMATIZA)</h4>
+        <div class="list-item"><span>⚡</span><div><b>Confirmar agendamentos</b><br><span style="color:var(--cinza)">toda 2ª às 9h · domingo a domingo</span></div></div>
+        <div class="list-item"><span>⚡</span><div><b>Responder "recebi, obrigado"</b><br><span style="color:var(--cinza)">e-mails de confirmação</span></div></div>
+        <div class="list-item"><span>⚡</span><div><b>Arquivar notificações de marketing</b><br><span style="color:var(--cinza)">diário · 14 notificações silenciadas</span></div></div>
+      </div>
+
+      <div class="steps">
+        <div>1. Cole o link</div>
+        <div>2. Receba o veredito</div>
+        <div>3. Aja com clareza</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODELO DE NEGÓCIO ============ -->
+<div class="section" style="background:var(--azul2)">
+  <h2>Modelo de Negócio</h2>
+  <div class="sub">Freemium + Premium + API B2B</div>
+  <div class="plans">
+    <div class="plan">
+      <h4>Gratuito</h4>
+      <div class="price">R$ 0</div>
+      <p>10 verificações/dia<br>veredito básico<br>lista de golpes conhecidos</p>
+    </div>
+    <div class="plan hot">
+      <span class="badge2">MAIS ESCOLHIDO</span>
+      <h4>Premium</h4>
+      <div class="price">R$ 14,90/mês</div>
+      <p>Verificações ilimitadas<br>explicação completa<br>bloqueio automático<br>pacote família (5 pessoas)<br>modo idoso</p>
+    </div>
+    <div class="plan">
+      <h4>API B2B</h4>
+      <div class="price">Sob consulta</div>
+      <p>Para bancos, fintechs e e-commerce<br>validarem links e remetentes<br>em suas plataformas</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  CLARO — Identidade visual e esboço da aplicação · Projeto Cosca (NOME DESIGN)<br>
+  Fase 3: Plano de negócio + Identidade visual · 2026-09-02 · Aprovado pelo Don
+</footer>
+
+</body>
+</html>
