@@ -1,8 +1,13 @@
 # PROJECT SANDBOX PROTOCOL — Isolamento de Projeto (ordem do Don)
 
-> **Versão**: 1.0.0 | **Status**: ativo | **Autoridade**: DON (ROOT) → KERNEL → AGENTS
+> **Versão**: 1.1.0 | **Status**: ativo | **Autoridade**: DON (ROOT) → KERNEL → AGENTS
 > **Criado por ordem do Don**: quando um projeto é criado/ativado, o Cosca root
 > é isolado e todo o trabalho (kernel + agents) fica confinado ao projeto.
+> **Workspace padrão (ordem do Don, 2026-09-02)**: todo novo projeto nasce e
+> vive SEMPRE em `<WORKSPACE_PROJETOS>/<nome>` onde `WORKSPACE_PROJETOS` =
+> `C:\Users\Henrique\Documents\projects` (no Windows do Don). NUNCA na raiz do
+> cosca, nunca em `docs/`, nunca em outro lugar. Cada projeto tem repo git
+> próprio. Ex.: RIZOMAI → `Documents\projects\rizomai`.
 
 ---
 
@@ -26,6 +31,12 @@ O projeto referenciado torna-se o **WORKSPACE ATIVO**.
 INVARIANTE 1 — WORKSPACE ATIVO:
 O diretório de trabalho para TODO comando (build, test, terminal, agents)
 é o PROJETO ativo (ex: ~/Documents/projects/bruno), NUNCA o cosca root.
+
+INVARIANTE 1.1 — NASCEDOURO PADRÃO (ordem do Don):
+TODO projeto novo é criado em `<WORKSPACE_PROJETOS>/<nome>` (Windows:
+C:\Users\Henrique\Documents\projects\<nome>), com repo git próprio, e o
+estado do projeto em `<projeto>/.cosca/`. Proibido criar projeto na raiz
+do cosca, em docs/, ou fora do workspace de projetos.
 
 INVARIANTE 2 — ESTADO DO PROJETO FICA NO PROJETO:
 Memória, knowledge, learnings, audit, provenance e estado gravados durante o
