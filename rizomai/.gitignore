@@ -1,0 +1,20 @@
+# Go
+bin/
+*.exe
+*.test
+*.out
+coverage.out
+
+# Env / segredos (nunca commitar)
+.env
+.env.*
+!.env.example
+
+# SDKs gerados — artefato de CI, nunca editado à mão (ADR-004 §3)
+sdk/gen/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

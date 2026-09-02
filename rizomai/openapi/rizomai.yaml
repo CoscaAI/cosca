@@ -1,0 +1,1416 @@
+# =============================================================================
+# RIZOMAI API — OpenAPI 3.1 (spec-first, ADR-005)
+#
+# ESTA SPEC É A FONTE ÚNICA DA VERDADE DO CONTRATO.
+# Tudo o mais deriva dela: handlers validados, SDKs gerados, docs e testes de
+# contrato (ADR-004 regra de ouro #1). Nunca edite código "na frente" da spec.
+#
+# Convenções (ADR-005):
+#   - Versionamento no path: /v1 (imutável; breaking changes só em /v2)
+#   - Envelope de sucesso:    { "data": ... }
+#   - Paginação:              { "data": [...], "page", "limit", "total" }
+#   - Envelope de erro:       { "code", "error", "details" } (code = UPPER_SNAKE)
+#   - Idempotência:           header `Idempotency-Key` (UUID) nas mutações
+#                             + content-hash dedup (409 + existingPostId)
+#   - IDs próprios com prefixo estável: profile_, account_, post_, wh_, media_
+#   - Autenticação:           API key `sk_...` via `Authorization: Bearer`
+#
+# Gate anti-endpoint-sprawl (ADR-005 §1.7): quando a superfície crescer, fatiar
+# esta spec em openapi/parts/ (1 recurso = 1 fragmento) montado por script.
+# =============================================================================
+openapi: 3.1.0
+
+info:
+  title: RIZOMAI API
+  version: 0.1.0
+  description: |
+    Plataforma API-first de gestão de redes sociais — "um post → todas as redes".
+
+    Contrato v0.1 (scaffold). Cobre os recursos centrais: Profiles, Social
+    Accounts (OAuth broker), Posts (fan-out por plataforma), Media (upload
+    direto ≤25MB / presign até 5GB) e Webhooks (HMAC-SHA256).
+
+    Autenticação: toda chamada usa `Authorization: Bearer sk_...` (API key).
+    Mutações (`POST`/`PUT`) aceitam o header `Idempotency-Key` (UUID): a mesma
+    chave dentro da janela de 24h retorna a mesma resposta.
+
+    Erros: envelope `{ "code", "error", "details" }` em todo 4xx/5xx.
+    `code` é machine-readable em UPPER_SNAKE (ex.: RATE_LIMITED).
+
+    Documentação dos ADRs: docs/projetos/rizomai/adr/ no workspace do Cosca.
+
+  contact:
+    name: RIZOMAI
+    url: https://rizomai.app
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: https://api.rizomai.app
+    description: Produção
+
+tags:
+  - name: Profiles
+    description: Perfis (tenants lógicos) que agrupam contas conectadas.
+  - name: SocialAccounts
+    description: Contas de redes sociais conectadas via OAuth broker server-side (ADR-006).
+  - name: Posts
+    description: Publicações com fan-out por plataforma e status por target (ADR-007).
+  - name: Media
+    description: Upload direto (≤25 MB) e presign (até 5 GB) em storage S3-compatível (ADR-008).
+  - name: Webhooks
+    description: Entrega de eventos assinada com HMAC-SHA256, retry com mesmo event id (ADR-009).
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ---------------------------------------------------------------------------
+  # Profiles
+  # ---------------------------------------------------------------------------
+  /v1/profiles:
+    get:
+      operationId: listProfiles
+      tags: [Profiles]
+      summary: Lista perfis do tenant (paginado)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Lista de perfis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createProfile
+      tags: [Profiles]
+      summary: Cria um perfil
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+            example:
+              name: Minha Agência
+      responses:
+        '201':
+          description: Perfil criado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/profiles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      operationId: getProfile
+      tags: [Profiles]
+      summary: Obtém um perfil
+      responses:
+        '200':
+          description: Perfil encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: updateProfile
+      tags: [Profiles]
+      summary: Atualiza um perfil
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: deleteProfile
+      tags: [Profiles]
+      summary: Remove um perfil
+      responses:
+        '204':
+          description: Perfil removido
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------------------------------------------------------------------------
+  # Social Accounts (OAuth broker — ADR-006)
+  # ---------------------------------------------------------------------------
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      tags: [SocialAccounts]
+      summary: Lista contas conectadas (paginado)
+      description: Filtra por profileId e/ou platform. NUNCA expõe tokens — apenas tokenStatus.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdQuery'
+        - $ref: '#/components/parameters/PlatformQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Lista de contas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/accounts/health:
+    get:
+      operationId: getAccountsHealth
+      tags: [SocialAccounts]
+      summary: Health check de contas conectadas
+      description: Alarme precoce de tokens/permissões (ADR-006 §1.3). Base para billing account-day (ADR-010).
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdQuery'
+      responses:
+        '200':
+          description: Status de saúde das contas do perfil
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountHealth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/accounts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      operationId: getAccount
+      tags: [SocialAccounts]
+      summary: Obtém uma conta conectada
+      description: Só acessível a partir do profile dono da conta (403 para contas de outro tenant/profile).
+      responses:
+        '200':
+          description: Conta encontrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/connect/{platform}:
+    get:
+      operationId: startConnect
+      tags: [SocialAccounts]
+      summary: Inicia o fluxo OAuth de conexão com uma plataforma
+      description: |
+        Redireciona o usuário para o OAuth da plataforma (ADR-006 §1.1).
+        O code_verifier (PKCE) vai embutido no `state` devolvido.
+      parameters:
+        - $ref: '#/components/parameters/Platform'
+        - $ref: '#/components/parameters/ProfileIdQuery'
+      responses:
+        '200':
+          description: URL de autorização gerada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ConnectStart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/connect/{platform}/callback:
+    get:
+      operationId: connectCallback
+      tags: [SocialAccounts]
+      summary: Callback server-side do OAuth (público — navegador)
+      description: |
+        Endpoint chamado pela plataforma após o consentimento do usuário.
+        Sem autenticação (é o redirect do navegador). Fluxos com seleção
+        (página/org) devolvem um pendingDataToken de uso único (10 min).
+      parameters:
+        - $ref: '#/components/parameters/Platform'
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+            description: state devolvido em startConnect (embute code_verifier para PKCE)
+      security: []
+      responses:
+        '200':
+          description: Resultado da conexão
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ConnectResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ---------------------------------------------------------------------------
+  # Posts (fan-out — ADR-007)
+  # ---------------------------------------------------------------------------
+  /v1/posts:
+    get:
+      operationId: listPosts
+      tags: [Posts]
+      summary: Lista posts (paginado)
+      description: Filtra por profileId e/ou status agregado.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdQuery'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PostStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Lista de posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createPost
+      tags: [Posts]
+      summary: Cria um post com fan-out para N plataformas
+      description: |
+        Cria o Post + N PostTargets atomicamente (transação — ADR-002/003).
+        Idempotência em 2 camadas (ADR-005 §1.3): header `Idempotency-Key` E
+        content-hash dedup ((team, content+media+targets) em 24h → 409 com
+        existingPostId).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreate'
+            example:
+              content: Olá mundo
+              platforms:
+                - platform: x
+                  accountId: account_123
+                - platform: linkedin
+                  accountId: account_456
+                  platformSpecificData:
+                    firstComment: Saiba mais no link
+                    visibility: PUBLIC
+              mediaUrls:
+                - https://cdn.rizomai.app/media_abc
+              scheduledFor: 2026-09-14T13:00:00Z
+              timezone: America/Sao_Paulo
+      responses:
+        '201':
+          description: Post criado (status agregado scheduled)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Post'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/posts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/PostId'
+    get:
+      operationId: getPost
+      tags: [Posts]
+      summary: Obtém um post com o status de cada target
+      responses:
+        '200':
+          description: Post encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Post'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: deletePost
+      tags: [Posts]
+      summary: Cancela/remove um post
+      description: |
+        Só permite cancelar posts em status scheduled/publishing. Post já
+        publicado total ou parcialmente exige unpublish por target (Fase 2).
+      responses:
+        '204':
+          description: Post removido
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------------------------------------------------------------------------
+  # Media (ADR-008)
+  # ---------------------------------------------------------------------------
+  /v1/media/upload:
+    post:
+      operationId: uploadMedia
+      tags: [Media]
+      summary: Upload direto de mídia (multipart, ≤ 25 MB)
+      description: |
+        Para arquivos pequenos. Retenção de 7 dias (auto-delete por job).
+        Arquivos maiores usam presign (POST /v1/media/presign).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Mídia armazenada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MediaUploadResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/media/presign:
+    post:
+      operationId: presignMedia
+      tags: [Media]
+      summary: Gera URL assinada para upload direto (até 5 GB)
+      description: |
+        Fluxo presign (ADR-008 §1): 1) POST /v1/media/presign →
+        {uploadUrl, publicUrl}; 2) PUT direto no storage (streaming, sem passar
+        pelo gateway); 3) usar publicUrl em mediaUrls[] do createPost.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaPresignRequest'
+            example:
+              filename: video-lancamento.mp4
+              contentType: video/mp4
+              sizeBytes: 2500000000
+      responses:
+        '201':
+          description: URLs geradas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MediaPresignResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------------------------------------------------------------------------
+  # Webhooks (ADR-009)
+  # ---------------------------------------------------------------------------
+  /v1/webhooks:
+    get:
+      operationId: listWebhooks
+      tags: [Webhooks]
+      summary: Lista webhooks do tenant (paginado)
+      responses:
+        '200':
+          description: Lista de webhooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createWebhook
+      tags: [Webhooks]
+      summary: Registra um webhook
+      description: |
+        O secret é gerado server-side e devolvido UMA ÚNICA VEZ (nunca em GET).
+        URL deve ser HTTPS. Eventos default: post.published, post.failed.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+            example:
+              name: Notificações
+              url: https://app.exemplo.com.br/hooks/rizomai
+              events:
+                - post.partial
+                - post.failed
+      responses:
+        '201':
+          description: Webhook criado (secret devolvido nesta resposta)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Webhook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/webhooks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WebhookId'
+    get:
+      operationId: getWebhook
+      tags: [Webhooks]
+      summary: Obtém um webhook (secret sempre mascarado)
+      responses:
+        '200':
+          description: Webhook encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Webhook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: deleteWebhook
+      tags: [Webhooks]
+      summary: Remove um webhook
+      responses:
+        '204':
+          description: Webhook removido
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/webhooks/test:
+    post:
+      operationId: testWebhook
+      tags: [Webhooks]
+      summary: Envia um evento webhook.test real
+      description: |
+        Dispara o evento `webhook.test` com o fluxo completo de assinatura/retry
+        para o cliente validar a integração (ADR-009 §1.6).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [webhookId]
+              properties:
+                webhookId:
+                  type: string
+                  pattern: '^wh_[a-zA-Z0-9]+$'
+                  example: wh_abc123
+      responses:
+        '200':
+          description: Tentativa de teste executada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/WebhookTestResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+# =============================================================================
+# Components
+# =============================================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+      description: |
+        API key do tenant no formato `sk_...`. Enviar no header:
+        `Authorization: Bearer sk_...` (ADR-006 — o cliente nunca vê tokens de
+        rede social, apenas a API key).
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        UUID do cliente para idempotência (ADR-005 §1.3). A mesma chave dentro
+        da janela de 24h devolve a mesma resposta (armazenada com o request hash).
+      schema:
+        type: string
+        format: uuid
+        example: 3f9b8c2a-1c4e-4f7a-9d5b-0e2a1c3d4e5f
+
+    ProfileId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^profile_[a-zA-Z0-9]+$'
+        example: profile_abc123
+
+    ProfileIdQuery:
+      name: profileId
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: '^profile_[a-zA-Z0-9]+$'
+        example: profile_abc123
+
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^account_[a-zA-Z0-9]+$'
+        example: account_abc123
+
+    PostId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^post_[a-zA-Z0-9]+$'
+        example: post_abc123
+
+    WebhookId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^wh_[a-zA-Z0-9]+$'
+        example: wh_abc123
+
+    Platform:
+      name: platform
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Platform'
+
+    PlatformQuery:
+      name: platform
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/Platform'
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Página (1-indexada)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Itens por página (máx. 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Requisição malformada (JSON inválido, campos ausentes)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: BAD_REQUEST
+            error: Corpo da requisição inválido
+            details: {}
+    Unauthorized:
+      description: API key ausente, inválida ou expirada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: UNAUTHORIZED
+            error: API key inválida
+            details: {}
+    Forbidden:
+      description: Sem permissão para o recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: FORBIDDEN
+            error: Sem permissão para esta operação
+            details: {}
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            error: Recurso não encontrado
+            details: { resource: profile, id: profile_abc123 }
+    Conflict:
+      description: "Conflito de estado (ex.: dedup de post duplicado)"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: CONFLICT
+            error: Post duplicado nos últimos 24h
+            details: { existingPostId: post_xyz789 }
+    ValidationError:
+      description: Falha de validação (campo/valor fora do contrato)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: VALIDATION_ERROR
+            error: Dados inválidos
+            details:
+              fields:
+                platforms[0].platform: Plataforma não suportada
+    PayloadTooLarge:
+      description: Upload excede o limite (25 MB no upload direto)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: BAD_REQUEST
+            error: Arquivo excede o limite de 25 MB — use POST /v1/media/presign
+            details: { maxBytes: 26214400 }
+    RateLimited:
+      description: Rate limit excedido (por API key/tenant)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: RATE_LIMITED
+            error: Rate limit excedido — tente novamente mais tarde
+            details: { retryAfterSeconds: 60 }
+    InternalError:
+      description: Erro interno do servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            error: Erro interno — tente novamente
+            details: {}
+
+  schemas:
+    # --- Erro padrão (ADR-005 §1.2) ---
+    Error:
+      type: object
+      required: [code, error]
+      properties:
+        code:
+          type: string
+          description: Código machine-readable em UPPER_SNAKE.
+          enum:
+            - BAD_REQUEST
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_FOUND
+            - VALIDATION_ERROR
+            - CONFLICT
+            - RATE_LIMITED
+            - PAYMENT_REQUIRED
+            - INTERNAL_ERROR
+          example: RATE_LIMITED
+        error:
+          type: string
+          description: Mensagem legível por humanos (PT-BR).
+          example: Rate limit excedido
+        details:
+          type: object
+          description: "Contexto estruturado (ex.: { fields: {...} }, { existingPostId })."
+          additionalProperties: true
+
+    # --- Plataformas (ADR-006: MVP = x, linkedin, telegram; Fase 2+ amplia) ---
+    Platform:
+      type: string
+      description: |
+        Rede social alvo. MVP (ADR-006 §1): x, linkedin, telegram.
+        Fase 2+: instagram, tiktok, youtube, bluesky, reddit, whatsapp, googlebusiness.
+      enum: [x, linkedin, telegram]
+      example: x
+
+    # --- Profiles ---
+    Profile:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          pattern: '^profile_[a-zA-Z0-9]+$'
+          example: profile_abc123
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfileCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    ProfileList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    # --- Social Accounts (ADR-006) ---
+    TokenStatus:
+      type: string
+      description: Estado do token exposto na API (o token em si nunca é exposto).
+      enum: [ok, expired, revoked, needs_attention]
+      example: ok
+
+    Account:
+      type: object
+      required: [id, profileId, platform, tokenStatus, connectedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          pattern: '^account_[a-zA-Z0-9]+$'
+          example: account_abc123
+        profileId:
+          type: string
+          pattern: '^profile_[a-zA-Z0-9]+$'
+        platform:
+          $ref: '#/components/schemas/Platform'
+        displayName:
+          type: string
+          description: Nome público da conta na rede.
+        platformUserId:
+          type: string
+          description: "Handle/id público na plataforma (ex.: @fulano)."
+        tokenStatus:
+          $ref: '#/components/schemas/TokenStatus'
+        settings:
+          type: object
+          additionalProperties: true
+          description: |
+            Configurações por plataforma (JSONB — ADR-002). Validado contra a
+            spec na camada de API (ADR-005 §1.5); nunca JSONB "bag".
+        connectedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AccountList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    AccountHealth:
+      type: object
+      required: [accountId, healthy, tokenStatus, lastCheckedAt]
+      properties:
+        accountId:
+          type: string
+          pattern: '^account_[a-zA-Z0-9]+$'
+        healthy:
+          type: boolean
+        tokenStatus:
+          $ref: '#/components/schemas/TokenStatus'
+        lastError:
+          type: string
+          description: Mensagem do último problema detectado (se houver).
+        lastCheckedAt:
+          type: string
+          format: date-time
+
+    ConnectStart:
+      type: object
+      required: [authUrl, state]
+      properties:
+        authUrl:
+          type: string
+          format: uri
+          description: URL de autorização da plataforma (redirect do usuário).
+        state:
+          type: string
+          description: Estado OAuth — embute o code_verifier para PKCE (ADR-006 §1.1).
+
+    ConnectResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending_selection, connected, error]
+          description: |
+            pending_selection = precisa selecionar página/org (fluxo de UI
+            server-side com pendingDataToken); connected = conta pronta.
+        pendingDataToken:
+          type: string
+          description: |
+            Uso único, expira em 10 min. Fluxos com seleção quando chamados via
+            API key (header X-Connect-Token).
+        accountId:
+          type: string
+          pattern: '^account_[a-zA-Z0-9]+$'
+        error:
+          type: string
+
+    # --- Posts (ADR-007) ---
+    PostStatus:
+      type: string
+      description: |
+        Status agregado DERIVADO dos targets (ADR-007 §1). Nunca editado à mão.
+      enum: [scheduled, publishing, published, partial, failed, cancelled]
+      example: partial
+
+    TargetStatus:
+      type: string
+      enum: [pending, scheduled, publishing, published, failed, skipped]
+
+    TargetError:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: "Código tipado do erro (ex.: invalid_grant, duplicate)."
+        error:
+          type: string
+          description: Mensagem legível.
+
+    PostTarget:
+      type: object
+      required: [platform, accountId, status]
+      properties:
+        platform:
+          $ref: '#/components/schemas/Platform'
+        accountId:
+          type: string
+          pattern: '^account_[a-zA-Z0-9]+$'
+        status:
+          $ref: '#/components/schemas/TargetStatus'
+        platformSpecificData:
+          type: object
+          additionalProperties: true
+          description: |
+            Dados específicos da plataforma (union tipada por plataforma na
+            spec — ADR-005 §1.5). JSONB no banco (ADR-002), validado na API.
+        publishedUrl:
+          type: [string, 'null']
+          format: uri
+          description: URL pública do post publicado na rede (quando aplicável).
+        externalPostId:
+          type: [string, 'null']
+          description: Id externo do post na plataforma.
+        lastError:
+          $ref: '#/components/schemas/TargetError'
+
+    PostTargetCreate:
+      type: object
+      required: [platform, accountId]
+      properties:
+        platform:
+          $ref: '#/components/schemas/Platform'
+        accountId:
+          type: string
+          pattern: '^account_[a-zA-Z0-9]+$'
+        platformSpecificData:
+          type: object
+          additionalProperties: true
+
+    Post:
+      type: object
+      required: [id, profileId, content, platforms, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          pattern: '^post_[a-zA-Z0-9]+$'
+          example: post_abc123
+        profileId:
+          type: string
+          pattern: '^profile_[a-zA-Z0-9]+$'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        mediaUrls:
+          type: array
+          description: URLs públicas da mídia (de upload direto ou presign — ADR-008).
+          items:
+            type: string
+            format: uri
+        platforms:
+          type: array
+          description: Targets do fan-out (1 por conta/plataforma).
+          items:
+            $ref: '#/components/schemas/PostTarget'
+        scheduledFor:
+          type: [string, 'null']
+          format: date-time
+          description: Momento de publicação (null = publicar já).
+        timezone:
+          type: string
+          default: UTC
+          example: America/Sao_Paulo
+        status:
+          $ref: '#/components/schemas/PostStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PostCreate:
+      type: object
+      required: [content, platforms]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        platforms:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PostTargetCreate'
+        mediaUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+        scheduledFor:
+          type: [string, 'null']
+          format: date-time
+          description: Momento de publicação (null/omiti do = publicar já).
+        timezone:
+          type: string
+          default: UTC
+          description: "IANA (ex.: America/Sao_Paulo) — usado com scheduledFor."
+
+    PostList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    # --- Media (ADR-008) ---
+    MediaPresignRequest:
+      type: object
+      required: [filename, contentType]
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+          example: video-lancamento.mp4
+        contentType:
+          type: string
+          description: MIME type do arquivo.
+          example: video/mp4
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 5368709120
+          description: Tamanho em bytes (até 5 GB — ADR-008).
+
+    MediaPresignResult:
+      type: object
+      required: [mediaId, uploadUrl, publicUrl, expiresAt]
+      properties:
+        mediaId:
+          type: string
+          pattern: '^media_[a-zA-Z0-9]+$'
+          example: media_abc123
+        uploadUrl:
+          type: string
+          format: uri
+          description: URL assinada para PUT direto (streaming, sem passar pelo gateway).
+        publicUrl:
+          type: string
+          format: uri
+          description: URL pública a ser usada em mediaUrls[] do createPost.
+        expiresAt:
+          type: string
+          format: date-time
+
+    MediaUploadResult:
+      type: object
+      required: [mediaId, publicUrl, retentionDays]
+      properties:
+        mediaId:
+          type: string
+          pattern: '^media_[a-zA-Z0-9]+$'
+        publicUrl:
+          type: string
+          format: uri
+        retentionDays:
+          type: integer
+          const: 7
+          description: Upload direto é transitório — auto-delete em 7 dias (ADR-008 §1).
+
+    # --- Webhooks (ADR-009) ---
+    WebhookEvent:
+      type: string
+      description: Catálogo de eventos (ADR-009 §1).
+      enum:
+        - post.scheduled
+        - post.published
+        - post.partial
+        - post.failed
+        - account.connected
+        - account.disconnected
+        - webhook.test
+
+    Webhook:
+      type: object
+      required: [id, name, url, events, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          pattern: '^wh_[a-zA-Z0-9]+$'
+          example: wh_abc123
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          description: HTTPS obrigatório (ADR-009 §1.7).
+        secret:
+          type: [string, 'null']
+          description: |
+            HMAC secret. Devolvido APENAS no create (UMA única vez); nos demais
+            endpoints retorna null/mascarado (ADR-009 §1.7).
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        isActive:
+          type: boolean
+        customHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WebhookCreate:
+      type: object
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          description: HTTPS obrigatório.
+        events:
+          type: array
+          description: "Default: [post.published, post.failed]."
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        isActive:
+          type: boolean
+          default: true
+        customHeaders:
+          type: object
+          additionalProperties:
+            type: string
+
+    WebhookList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Webhook'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    WebhookTestResult:
+      type: object
+      required: [deliveryId, ok, statusCode]
+      properties:
+        deliveryId:
+          type: string
+          description: Id do delivery de teste (consultável em GET /v1/webhooks/logs — Fase 2).
+        ok:
+          type: boolean
+          description: true se o endpoint respondeu 2xx dentro do timeout de 5 s.
+        statusCode:
+          type: integer
+          example: 200
+        error:
+          type: [string, 'null']
+          description: Motivo da falha (timeout, rede, não-2xx), se houver.

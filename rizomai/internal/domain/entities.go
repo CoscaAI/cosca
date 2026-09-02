@@ -1,0 +1,141 @@
+// Package domain contém as entidades centrais e regras do RIZOMAI (ADR-004).
+//
+// Modelo de publicação (ADR-007) — o coração do produto:
+//
+//	Post ──1:N──> PostTarget ──1:N──> PublishAttempt
+//
+// O status agregado de Post é uma FUNÇÃO DERIVADA do status dos targets
+// (materializado para leitura, atualizado transacionalmente — nunca editado
+// à mão). Retry e unpublish são SEMPRE por target, nunca do post inteiro.
+package domain
+
+import "time"
+
+// Platform é a enumeração de redes suportadas.
+// MVP (ADR-006 §1): x, linkedin, telegram. Fase 2+: instagram, tiktok,
+// youtube, bluesky, reddit, whatsapp, googlebusiness...
+type Platform string
+
+const (
+	PlatformX        Platform = "x"
+	PlatformLinkedIn Platform = "linkedin"
+	PlatformTelegram Platform = "telegram"
+)
+
+// PostStatus é o status AGREGADO de um Post (ADR-007 §1).
+type PostStatus string
+
+const (
+	PostStatusScheduled  PostStatus = "scheduled"  // agendado, ainda não due
+	PostStatusPublishing PostStatus = "publishing" // fan-out em andamento
+	PostStatusPublished  PostStatus = "published"  // TODOS os targets publicados
+	PostStatusPartial    PostStatus = "partial"    // alguns publicados, outros falharam (o caso mais comum)
+	PostStatusFailed     PostStatus = "failed"     // todos falharam
+	PostStatusCancelled  PostStatus = "cancelled"  // cancelado antes da publicação
+)
+
+// TargetStatus é o status individual de um PostTarget.
+type TargetStatus string
+
+const (
+	TargetStatusPending    TargetStatus = "pending"
+	TargetStatusScheduled  TargetStatus = "scheduled"
+	TargetStatusPublishing TargetStatus = "publishing"
+	TargetStatusPublished  TargetStatus = "published"
+	TargetStatusFailed     TargetStatus = "failed"
+	TargetStatusSkipped    TargetStatus = "skipped"
+)
+
+// PublishOutcome é o resultado de uma tentativa de publicação (PublishAttempt).
+type PublishOutcome string
+
+const (
+	OutcomeSuccess PublishOutcome = "success"
+	OutcomeFailed  PublishOutcome = "failed"
+	OutcomeTimeout PublishOutcome = "timeout"
+)
+
+// TokenStatus expõe APENAS o estado do token de rede social na API.
+// O token em si nunca é serializado (ADR-006 §1.2).
+type TokenStatus string
+
+const (
+	TokenStatusOK             TokenStatus = "ok"
+	TokenStatusExpired        TokenStatus = "expired"
+	TokenStatusRevoked        TokenStatus = "revoked"
+	TokenStatusNeedsAttention TokenStatus = "needs_attention"
+)
+
+// Profile é o tenant lógico que agrupa contas conectadas
+// (hierarquia: Team → Profile → Account — ADR-002).
+type Profile struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// SocialAccount é uma conexão OAuth ativa de um Profile (ADR-006).
+// Apenas tokenStatus e metadados de escopo são expostos via API.
+type SocialAccount struct {
+	ID             string         `json:"id"`
+	ProfileID      string         `json:"profileId"`
+	Platform       Platform       `json:"platform"`
+	DisplayName    string         `json:"displayName,omitempty"`
+	PlatformUserID string         `json:"platformUserId,omitempty"`
+	TokenStatus    TokenStatus    `json:"tokenStatus"`
+	Settings       map[string]any `json:"settings,omitempty"` // JSONB validado na API (ADR-002/005)
+	ConnectedAt    time.Time      `json:"connectedAt"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
+}
+
+// Post é a unidade de conteúdo que sofre fan-out (ADR-007).
+type Post struct {
+	ID           string        `json:"id"`
+	ProfileID    string        `json:"profileId"`
+	Content      string        `json:"content"`
+	MediaURLs    []string      `json:"mediaUrls,omitempty"`
+	Platforms    []PostTarget  `json:"platforms"`
+	ScheduledFor *time.Time    `json:"scheduledFor,omitempty"`
+	Timezone     string        `json:"timezone,omitempty"`
+	Status       PostStatus    `json:"status"`
+	ContentHash  string        `json:"contentHash,omitempty"` // idempotência content-hash (ADR-005 §1.3)
+	CreatedBy    string        `json:"createdBy,omitempty"`
+	CreatedAt    time.Time     `json:"createdAt"`
+	UpdatedAt    time.Time     `json:"updatedAt"`
+}
+
+// PostTarget é 1 linha por (post, accountId, platform) com status próprio (ADR-007).
+// platformSpecificData é a union tipada por plataforma (ADR-005 §1.5), JSONB no banco.
+type PostTarget struct {
+	ID                   string         `json:"id,omitempty"`
+	PostID               string         `json:"postId,omitempty"`
+	Platform             Platform       `json:"platform"`
+	AccountID            string         `json:"accountId"`
+	Status               TargetStatus   `json:"status"`
+	PlatformSpecificData map[string]any `json:"platformSpecificData,omitempty"`
+	PublishedURL         string         `json:"publishedUrl,omitempty"`
+	ExternalPostID       string         `json:"externalPostId,omitempty"`
+	LastError            *TargetError   `json:"lastError,omitempty"`
+}
+
+// TargetError é o erro tipado de um target (code + mensagem legível).
+type TargetError struct {
+	Code  string `json:"code"`
+	Error string `json:"error"`
+}
+
+// PublishAttempt é o log APPEND-ONLY de cada tentativa (ADR-007 §1) — fonte da
+// auditoria em GET /posts/{id}/logs.
+type PublishAttempt struct {
+	ID         string         `json:"id,omitempty"`
+	TargetID   string         `json:"targetId"`
+	Attempt    int            `json:"attempt"`
+	StartedAt  time.Time      `json:"startedAt"`
+	FinishedAt *time.Time     `json:"finishedAt,omitempty"`
+	Outcome    PublishOutcome `json:"outcome"`
+	Error      *TargetError   `json:"error,omitempty"`
+	HTTPStatus int            `json:"httpStatus,omitempty"`
+	RequestID  string         `json:"requestId,omitempty"`
+}
