@@ -247,8 +247,8 @@ var (
 			Foreground(colorGrayLight)
 
 	welcomeBox = lipgloss.NewStyle().
-			Border(lipgloss.DoubleBorder()).
-			BorderForeground(th.BorderActive).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(th.BorderSubtle).
 			Background(th.BackgroundPanel).
 			Padding(1, 2).
 			Width(72)
@@ -571,8 +571,8 @@ func applyThemeStyles(t theme.Theme) {
 	welcomeBody = lipgloss.NewStyle().Foreground(t.Text)
 	welcomeHint = lipgloss.NewStyle().Foreground(t.TextMuted)
 	welcomeBox = lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(t.BorderActive).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.BorderSubtle).
 		Background(t.BackgroundPanel).
 		Padding(1, 2).
 		Width(72)

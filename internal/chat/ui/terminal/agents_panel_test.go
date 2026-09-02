@@ -154,24 +154,24 @@ func TestTaskStagesForStatus(t *testing.T) {
 func TestAgentChainBreadcrumb(t *testing.T) {
 	m := New(nil, nil, nil, nil, nil, ModelConfig{CurrentAgent: "CTO"})
 	chain := m.agentChain()
-	if chain != "DON → KERNEL → CTO" {
-		t.Fatalf("agentChain = %q, want DON → KERNEL → CTO", chain)
+	if chain != "kernel → CTO" {
+		t.Fatalf("agentChain = %q, want kernel → CTO", chain)
 	}
 
 	m2 := New(nil, nil, nil, nil, nil, ModelConfig{})
-	if m2.agentChain() != "DON → KERNEL" {
-		t.Fatalf("agentChain with no current = %q, want DON → KERNEL", m2.agentChain())
+	if m2.agentChain() != "kernel" {
+		t.Fatalf("agentChain with no current = %q, want kernel", m2.agentChain())
 	}
 }
 
-func TestBreadcrumbsIncludeAgentChain(t *testing.T) {
+func TestAppBarIncludesAgentChain(t *testing.T) {
 	m := New(nil, nil, nil, nil, nil, ModelConfig{CurrentAgent: "CTO"})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = updated.(Model)
 
 	view := m.View()
-	if !strings.Contains(view, "DON → KERNEL → CTO") {
-		t.Fatalf("breadcrumbs should include agent chain: %q", view)
+	if !strings.Contains(view, "kernel → CTO") {
+		t.Fatalf("app bar should include agent chain: %q", view)
 	}
 }
 

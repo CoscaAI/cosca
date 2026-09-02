@@ -353,14 +353,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-		titleHeight := 2
-		tabHeight := 1
-		breadcrumbHeight := 1
+		appBarHeight := 1 // single thin app bar (R1)
 		hudHeight := 1
 		inputHeight := 3
-		layoutSeparators := 5
+		layoutSeparators := 4
 
-		viewportHeight := msg.Height - titleHeight - tabHeight - breadcrumbHeight - hudHeight - inputHeight - layoutSeparators
+		viewportHeight := msg.Height - appBarHeight - hudHeight - inputHeight - layoutSeparators
 		if viewportHeight < 5 {
 			viewportHeight = 5
 		}
@@ -777,9 +775,7 @@ func (m Model) View() string {
 		return ""
 	}
 
-	header := m.renderHeader()
-	tabBar := m.renderTabBar()
-	breadcrumbs := m.renderBreadcrumbs()
+	appBar := m.renderAppBar()
 
 	var body strings.Builder
 	if len(m.messages) == 0 && !m.busy {
@@ -828,95 +824,19 @@ func (m Model) View() string {
 	sidebarW := 30
 	railW := 14
 	const (
-		minSidebarWidth = 90  // below this the chat owns the width
+		minSidebarWidth = 100 // >= this the right context panel appears
 		wideRailWidth   = 160 // >= this the left agents rail appears
 		minChatWidth    = 24
 	)
 
-	// Right sidebar appears only when a non-chat panel is active AND there is
-	// room. Below minSidebarWidth the conversation is prioritised (responsive).
+	// Right context panel appears when a non-chat panel is active AND there is
+	// room. Left agents rail appears on very wide terminals.
 	useSide := m.activePanel != PanelChat && m.width >= minSidebarWidth
 	useRail := m.width >= wideRailWidth
 
-	// Palette is a centered overlay: the viewport shrinks while it is open so
-	// the palette never pushes the HUD below the fold.
-	paletteView := ""
+	// The viewport height is the full content area (app bar + input + hud
+	// consume the rest). Overlays float on top and do NOT shrink the viewport.
 	vpHeight := m.chatViewport.Height
-	if m.paletteOpen {
-		pv := m.palette.View()
-		ph := lipgloss.Height(pv)
-		if vpHeight > ph {
-			vpHeight -= ph
-		}
-		if vpHeight < 5 {
-			vpHeight = 5
-		}
-		padL := (m.width - lipgloss.Width(pv)) / 2
-		if padL < 0 {
-			padL = 0
-		}
-		padR := m.width - lipgloss.Width(pv) - padL
-		if padR < 0 {
-			padR = 0
-		}
-		paletteView = lipgloss.NewStyle().
-			Background(th.BackgroundPanel).
-			PaddingLeft(padL).
-			PaddingRight(padR).
-			Render(pv)
-	}
-
-	// Context Inspector overlay (P16): centered like the palette.
-	inspectorView := ""
-	if m.inspectorOpen {
-		iv := ContextInspectorView(&m)
-		ih := lipgloss.Height(iv)
-		if vpHeight > ih {
-			vpHeight -= ih
-		}
-		if vpHeight < 5 {
-			vpHeight = 5
-		}
-		padL := (m.width - lipgloss.Width(iv)) / 2
-		if padL < 0 {
-			padL = 0
-		}
-		padR := m.width - lipgloss.Width(iv) - padL
-		if padR < 0 {
-			padR = 0
-		}
-		inspectorView = lipgloss.NewStyle().
-			Background(th.BackgroundPanel).
-			PaddingLeft(padL).
-			PaddingRight(padR).
-			Render(iv)
-	}
-
-	// Verification overlay (P24): centered like the others.
-	verificationView := ""
-	if m.verificationOpen {
-		vv := VerificationView(&m)
-		vh := lipgloss.Height(vv)
-		if vpHeight > vh {
-			vpHeight -= vh
-		}
-		if vpHeight < 5 {
-			vpHeight = 5
-		}
-		padL := (m.width - lipgloss.Width(vv)) / 2
-		if padL < 0 {
-			padL = 0
-		}
-		padR := m.width - lipgloss.Width(vv) - padL
-		if padR < 0 {
-			padR = 0
-		}
-		verificationView = lipgloss.NewStyle().
-			Background(th.BackgroundPanel).
-			PaddingLeft(padL).
-			PaddingRight(padR).
-			Render(vv)
-	}
 
 	chatW := m.width
 	if useRail {
@@ -985,145 +905,60 @@ func (m Model) View() string {
 		hudLine = "\n" + HudView(m.hud, m.width, m.frame)
 	}
 
-	return appStyle.Width(m.width).Height(m.height).Render(
-		header + "\n" +
-			tabBar + "\n" +
-			breadcrumbs + "\n" +
-			mainArea + "\n" +
-			paletteView + "\n" +
-			inspectorView + "\n" +
-			verificationView + "\n" +
-			inputStyle.Render(inputView) +
-			hudLine,
-	)
+	// Base layout: app bar + content + input + hud.
+	base := appBar + "\n" +
+		mainArea + "\n" +
+		inputStyle.Render(inputView) +
+		hudLine
+
+	// R2: Overlays FLOAT on top — they replace the content area (not the
+	// input/hud) instead of being injected into the vertical flow. This keeps
+	// the layout stable and the overlay visually centered.
+	if m.paletteOpen {
+		return appStyle.Width(m.width).Height(m.height).Render(
+			appBar + "\n" +
+				m.renderCenteredOverlay(m.palette.View()) + "\n" +
+				inputStyle.Render(inputView) +
+				hudLine,
+		)
+	}
+	if m.inspectorOpen {
+		return appStyle.Width(m.width).Height(m.height).Render(
+			appBar + "\n" +
+				m.renderCenteredOverlay(ContextInspectorView(&m)) + "\n" +
+				inputStyle.Render(inputView) +
+				hudLine,
+		)
+	}
+	if m.verificationOpen {
+		return appStyle.Width(m.width).Height(m.height).Render(
+			appBar + "\n" +
+				m.renderCenteredOverlay(VerificationView(&m)) + "\n" +
+				inputStyle.Render(inputView) +
+				hudLine,
+		)
+	}
+
+	return appStyle.Width(m.width).Height(m.height).Render(base)
 }
 
-// ─── Tab Bar ───────────────────────────────────────────────────────────────────
-
-func (m Model) renderTabBar() string {
-	var tabs []string
-	for _, p := range m.panels {
-		name := panelNames[p]
-		if p == PanelDiff && m.diffDirty {
-			name = "• " + name
-		}
-		if p == m.activePanel {
-			tabs = append(tabs, tabActiveStyle.Render(" "+name+" "))
-		} else {
-			tabs = append(tabs, tabInactiveStyle.Render(" "+name+" "))
-		}
+// renderCenteredOverlay centers an overlay box horizontally within the content
+// area, with a dimmed background so it reads as floating above the content.
+func (m Model) renderCenteredOverlay(content string) string {
+	contentW := lipgloss.Width(content)
+	padL := (m.width - contentW) / 2
+	if padL < 0 {
+		padL = 0
 	}
-
-	joined := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
-	fillWidth := m.width - lipgloss.Width(joined)
-	if fillWidth < 0 {
-		fillWidth = 0
+	padR := m.width - contentW - padL
+	if padR < 0 {
+		padR = 0
 	}
-
-	fill := lipgloss.NewStyle().Background(th.BgAlt).Render(strings.Repeat(" ", fillWidth))
-	return tabBarStyle.Width(m.width).Render(joined + fill)
-}
-
-// ─── Breadcrumbs ───────────────────────────────────────────────────────────────
-
-func (m Model) renderBreadcrumbs() string {
-	if len(m.breadcrumbs) == 0 {
-		return ""
-	}
-
-	var parts []string
-	for i, crumb := range m.breadcrumbs {
-		if i == len(m.breadcrumbs)-1 {
-			parts = append(parts, breadcrumbActiveStyle.Render(crumb))
-		} else {
-			parts = append(parts, breadcrumbStyle.Render(crumb))
-		}
-		if i < len(m.breadcrumbs)-1 {
-			parts = append(parts, breadcrumbStyle.Render(" > "))
-		}
-	}
-
-	// P13: append the live agent delegation chain (DON → KERNEL → current).
-	if chain := m.agentChain(); chain != "" {
-		parts = append(parts, breadcrumbStyle.Render("  ·  "), breadcrumbActiveStyle.Render(chain))
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
-}
-
-// agentChain renders the current delegation chain as a compact breadcrumb,
-// e.g. "DON → KERNEL → CTO". It reflects the agents used in the session plus
-// the current agent, so the user always sees where control sits.
-func (m Model) agentChain() string {
-	chain := []string{"DON", "KERNEL"}
-	if m.currentAgent != "" {
-		chain = append(chain, m.currentAgent)
-	}
-	return strings.Join(chain, " → ")
-}
-
-// ─── Header ────────────────────────────────────────────────────────────────────
-
-func (m Model) renderHeader() string {
-	left := titleStyle.Render(" ◉ COSCA TERMINAL ")
-	agent := m.currentAgent
-	if agent == "" {
-		agent = "kernel"
-	}
-	right := titleSubStyle.Render(fmt.Sprintf(" %s · %s ", agent, m.currentModel))
-
-	sepW := m.width - lipgloss.Width(left) - lipgloss.Width(right) - 2
-	if sepW < 0 {
-		sepW = 0
-	}
-	sep := titleDividerStyle.Render(strings.Repeat("─", sepW))
-	line1 := lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
-
-	status := "ready"
-	statusColor := colorGreen
-	if m.busy {
-		status = "processing"
-		statusColor = colorGold
-	}
-	if m.streaming {
-		status = "generating"
-		statusColor = colorCyan
-	}
-	modeTag := "simple"
-	if m.advancedMode {
-		modeTag = "advanced"
-	}
-
-	statusTag := lipgloss.NewStyle().
-		Foreground(colorBg).
-		Background(statusColor).
-		Bold(true).
-		Padding(0, 1).
-		Render(" ● " + status + " ")
-
-	modeStyle := lipgloss.NewStyle().
-		Foreground(colorGrayLight).
-		Render(" mode:" + modeTag + " ")
-
-	modeIndicatorTag := ""
-	if m.modeIndicator == "BUILD" {
-		modeIndicatorTag = modeIndicatorBuildStyle.Render(" BUILD ")
-	} else {
-		modeIndicatorTag = modeIndicatorStyle.Render(" PLAN ")
-	}
-
-	modelTag := lipgloss.NewStyle().
-		Foreground(colorCyan).
-		Bold(true).
-		Render(" model:" + m.currentModel + " ")
-
-	keybindHint := lipgloss.NewStyle().
-		Foreground(colorGray).
-		Render(" Ctrl+P:palette · Ctrl+F:files · Ctrl+D:diff · Ctrl+T:tasks ")
-
-	line2 := lipgloss.JoinHorizontal(lipgloss.Left, statusTag, modeIndicatorTag, modeStyle, modelTag, keybindHint)
-
-	return lipgloss.JoinVertical(lipgloss.Left, line1, line2)
+	return lipgloss.NewStyle().
+		Background(th.BackgroundPanel).
+		PaddingLeft(padL).
+		PaddingRight(padR).
+		Render(content)
 }
 
 // ─── Welcome ───────────────────────────────────────────────────────────────────
