@@ -19,7 +19,7 @@ func TestWorkspaceKeysMapToPanels(t *testing.T) {
 		{"alt+4", PanelOperations},
 		{"alt+5", PanelTasks},
 		{"alt+6", PanelMemory},
-		{"alt+7", PanelGit},
+		{"alt+7", PanelPermissions},
 		{"alt+8", PanelDeploy},
 		{"alt+9", PanelGraph},
 	}
@@ -66,14 +66,14 @@ func TestPanelPhaseMapping(t *testing.T) {
 		p    PanelID
 		want string
 	}{
-		{PanelGit, "Fase 5"},
 		{PanelDeploy, "Fase 6"},
 		{PanelGraph, "Fase 7"},
 		{PanelChat, ""},
 		{PanelFiles, ""},
 		{PanelTasks, ""},
-		{PanelAgents, ""}, // Agents is real since Fase 3
-		{PanelMemory, ""}, // Memory is real since Fase 4
+		{PanelAgents, ""},       // Agents is real since Fase 3
+		{PanelMemory, ""},       // Memory is real since Fase 4
+		{PanelPermissions, ""},  // Permissions is real since Fase 5
 	}
 	for _, c := range cases {
 		if got := panelPhase(c.p); got != c.want {
@@ -103,8 +103,9 @@ func TestPaletteIncludesPhase2Commands(t *testing.T) {
 	}
 	for _, want := range []string{
 		"toggle-hud", "clear-context", "panel-agents", "panel-memory",
-		"panel-git", "panel-deploy", "panel-graph", "status",
+		"panel-permissions", "panel-deploy", "panel-graph", "status",
 		"theme-cosca", "theme-petrol", "theme-tokyonight", "theme-opencode",
+		"computer", "inspect-context",
 	} {
 		if !ids[want] {
 			t.Fatalf("palette missing command %q", want)

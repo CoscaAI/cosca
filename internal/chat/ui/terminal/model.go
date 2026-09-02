@@ -34,30 +34,30 @@ const (
 	PanelDiff
 	PanelSystem
 	PanelMemory
-	PanelGit
+	PanelPermissions
 	PanelDeploy
 	PanelGraph
 )
 
 var panelNames = map[PanelID]string{
-	PanelChat:       "Chat",
-	PanelTasks:      "Tasks",
-	PanelAgents:     "Agents",
-	PanelOperations: "Operations",
-	PanelFiles:      "Files",
-	PanelDiff:       "Diff",
-	PanelSystem:     "System",
-	PanelMemory:     "Memory",
-	PanelGit:        "Git",
-	PanelDeploy:     "Deploy",
-	PanelGraph:      "Graph",
+	PanelChat:        "Chat",
+	PanelTasks:       "Tasks",
+	PanelAgents:      "Agents",
+	PanelOperations:  "Operations",
+	PanelFiles:       "Files",
+	PanelDiff:        "Diff",
+	PanelSystem:      "System",
+	PanelMemory:      "Memory",
+	PanelPermissions: "Permissions",
+	PanelDeploy:      "Deploy",
+	PanelGraph:       "Graph",
 }
 
 // workspaceKeys maps Alt+1..9 to the workspace panels of the Mission Control
 // vision. Panels without a real implementation yet render an elegant
-// placeholder (Git → Fase 5, Deploy → Fase 6, Graph → Fase 7) so the full
-// layout is reachable from day one. Agents (Alt+3) is real since Fase 3;
-// Memory (Alt+6) is real since Fase 4.
+// placeholder (Deploy → Fase 6, Graph → Fase 7) so the full layout is
+// reachable from day one. Agents (Alt+3) is real since Fase 3; Memory (Alt+6)
+// is real since Fase 4; Permissions (Alt+7) is real since Fase 5.
 //
 // NOTE: bubbletea v1.3.10 does NOT track Ctrl for character keys (Ctrl+1
 // arrives identical to plain 1), so workspace switching uses Alt+1..9 which
@@ -69,7 +69,7 @@ var workspaceKeys = map[string]PanelID{
 	"alt+4": PanelOperations,
 	"alt+5": PanelTasks,
 	"alt+6": PanelMemory,
-	"alt+7": PanelGit,
+	"alt+7": PanelPermissions,
 	"alt+8": PanelDeploy,
 	"alt+9": PanelGraph,
 }
@@ -78,8 +78,6 @@ var workspaceKeys = map[string]PanelID{
 // placeholders; empty for implemented panels.
 func panelPhase(p PanelID) string {
 	switch p {
-	case PanelGit:
-		return "Fase 5"
 	case PanelDeploy:
 		return "Fase 6"
 	case PanelGraph:
@@ -164,6 +162,7 @@ type Model struct {
 	diffDirty     bool
 	usedAgents    []string
 	memorySelected int
+	permissionSelected int
 
 	breadcrumbs []string
 
@@ -636,6 +635,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Permissions panel navigation (P19): ↑↓ moves.
+		if m.activePanel == PanelPermissions && !m.busy {
+			permCount := len(buildPermissionRules(&m))
+			switch msg.String() {
+			case "up", "k":
+				if m.permissionSelected > 0 {
+					m.permissionSelected--
+				}
+				return m, nil
+			case "down", "j":
+				if m.permissionSelected < permCount-1 {
+					m.permissionSelected++
+				}
+				return m, nil
+			}
+		}
+
 		if msg.String() == "enter" {
 			input := strings.TrimSpace(m.chatInput.Value())
 			if input == "" {
@@ -906,7 +922,9 @@ func (m Model) View() string {
 			rightPanel = AgentsPanelView(m.usedAgents, m.currentAgent, sidebarW, vpHeight)
 		case PanelMemory:
 			rightPanel = MemoryPanelView(buildMemoryEntries(&m), m.memorySelected, sidebarW, vpHeight)
-		case PanelGit, PanelDeploy, PanelGraph:
+		case PanelPermissions:
+			rightPanel = PermissionsPanelView(buildPermissionRules(&m), m.permissionSelected, sidebarW, vpHeight)
+		case PanelDeploy, PanelGraph:
 			rightPanel = PlaceholderPanelView(panelNames[m.activePanel], panelPhase(m.activePanel), sidebarW, vpHeight)
 		}
 	}
@@ -1670,9 +1688,13 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 	case "panel-memory":
 		m.switchPanel(PanelMemory)
 		return m, nil
-	case "panel-git":
-		m.switchPanel(PanelGit)
+	case "panel-permissions", "panel-git":
+		m.switchPanel(PanelPermissions)
 		return m, nil
+	case "computer":
+		m.switchPanel(PanelPermissions)
+		m.appendMessage("info", "Computer Mode — capabilities shown in Permissions panel.")
+		return m, m.viewportCmd()
 	case "panel-deploy":
 		m.switchPanel(PanelDeploy)
 		return m, nil
@@ -1735,7 +1757,7 @@ func keyboardShortcutsHelp() string {
   Alt+5     Tasks
   Alt+6     Memory (explorer)
   Alt+I     Context Inspector
-  Alt+7     Git (Fase 5)
+  Alt+7     Permissions (center)
   Alt+8     Deploy (Fase 6)
   Alt+9     Graph (Fase 7)
   Ctrl+C     Cancel/Exit (cancel stream when busy)
