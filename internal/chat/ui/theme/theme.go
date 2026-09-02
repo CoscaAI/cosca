@@ -276,72 +276,72 @@ var OpenCode = Theme{
 	Selection: "#1f6feb",
 }
 
-// Cosca is Cosca's default premium dark theme: near-black GitHub-dark-style
-// neutrals (opencode look) with the house teal/cyan accent. It is the terminal
-// default — Petrol/TokyoNight/OpenCode remain selectable.
+// Cosca is the terminal default: COSCA's "Engineering Workbench" identity from
+// the cosca-desktop design system — near-black blue-tinted neutrals with a
+// contained blue accent (no neon). Petrol/TokyoNight/OpenCode remain selectable.
 var Cosca = Theme{
-	Background:             "#0D1117",
-	Foreground:             "#E6EDF3",
-	BgAlt:                  "#161B22",
-	Surface:                "#05090A", // dark text on bright accent surfaces
-	InputBackground:        "#21262D",
-	InputFocusedBackground: "#2D333B",
-	Primary:                "#2DD4BF", // cosca ciano
-	PrimaryDim:             "#178F84",
-	Success:                "#16C784", // cosca verde
-	Error:                  "#F85149",
-	Info:                   "#58A6FF",
-	Accent:                 "#2DD4BF",
-	Accent2:                "#79C0FF",
-	Muted:                  "#484F58",
-	MutedLight:             "#8B949E",
-	Border:                 "#30363D",
+	Background:             "#070A12",
+	Foreground:             "#E9EEF7",
+	BgAlt:                  "#0D121D",
+	Surface:                "#FFFFFF", // white — text on accent/colored surfaces
+	InputBackground:        "#161E2D",
+	InputFocusedBackground: "#1D2839",
+	Primary:                "#3F79C4", // accented blue (cosca-desktop --accent)
+	PrimaryDim:             "#2C5DA0",
+	Success:                "#42B26A", // cosca-desktop --ok
+	Error:                  "#E25A5A",
+	Info:                   "#4F9FD0",
+	Accent:                 "#3F79C4",
+	Accent2:                "#6FB5E3",
+	Muted:                  "#1D2839",
+	MutedLight:             "#9AA8C0",
+	Border:                 "#1F2A3C",
 
-	Text:      "#E6EDF3",
-	TextMuted: "#8B949E",
+	Text:      "#E9EEF7",
+	TextMuted: "#75829E",
 
-	BackgroundPanel:   "#161B22",
-	BackgroundElement: "#0D1117",
+	BackgroundPanel:   "#0D121D",
+	BackgroundElement: "#161E2D",
 
-	BorderActive: "#2DD4BF",
-	BorderSubtle: "#21262D",
+	BorderActive: "#3F79C4",
+	BorderSubtle: "#1A2331",
 
-	DiffAdded:            "#3FB950",
-	DiffRemoved:          "#F85149",
-	DiffContext:          "#8B949E",
-	DiffHunkHeader:       "#79C0FF",
-	DiffHighlightAdded:   "#56D364",
-	DiffHighlightRemoved: "#FF7B72",
-	DiffAddedBg:          "#132A1F",
-	DiffRemovedBg:        "#3A1D1D",
-	DiffContextBg:        "#161B22",
-	DiffLineNumber:       "#484F58",
+	DiffAdded:            "#42B26A",
+	DiffRemoved:          "#E25A5A",
+	DiffContext:          "#9AA8C0",
+	DiffHunkHeader:       "#4F9FD0",
+	DiffHighlightAdded:   "#5FC583",
+	DiffHighlightRemoved: "#E87979",
+	DiffAddedBg:          "#13241A",
+	DiffRemovedBg:        "#2E1616",
+	DiffContextBg:        "#040709",
+	DiffLineNumber:       "#5C6F8F",
 
-	MarkdownText:           "#E6EDF3",
-	MarkdownHeading:        "#2DD4BF",
-	MarkdownLink:           "#58A6FF",
-	MarkdownCode:           "#7EE0D6",
-	MarkdownBlockQuote:     "#8B949E",
-	MarkdownEmph:           "#E6EDF3",
-	MarkdownStrong:         "#F0F6FC",
-	MarkdownHorizontalRule: "#30363D",
-	MarkdownListItem:       "#79C0FF",
-	MarkdownCodeBlock:      "#79C0FF",
+	MarkdownText:           "#E9EEF7",
+	MarkdownHeading:        "#9AB8E8",
+	MarkdownLink:           "#6FB5E3",
+	MarkdownCode:           "#7AA2F7",
+	MarkdownBlockQuote:     "#75829E",
+	MarkdownEmph:           "#E9EEF7",
+	MarkdownStrong:         "#F5F8FD",
+	MarkdownHorizontalRule: "#1F2A3C",
+	MarkdownListItem:       "#6FB5E3",
+	MarkdownCodeBlock:      "#7AA2F7",
 
-	SyntaxComment:     "#7D8590",
-	SyntaxKeyword:     "#FF7B72",
-	SyntaxFunction:    "#D2A8FF",
-	SyntaxVariable:    "#FFA657",
-	SyntaxString:      "#A5D6FF",
-	SyntaxNumber:      "#A5D6FF",
-	SyntaxType:        "#FFA657",
-	SyntaxOperator:    "#FF7B72",
-	SyntaxPunctuation: "#C9D1D9",
+	SyntaxComment:     "#5C6F8F",
+	SyntaxKeyword:     "#7AA2F7",
+	SyntaxFunction:    "#6FB5E3",
+	SyntaxVariable:    "#A9B8D1",
+	SyntaxString:      "#8FCE8F",
+	SyntaxNumber:      "#D9A066",
+	SyntaxType:        "#2AC3DE",
+	SyntaxOperator:    "#9AA8C0",
+	SyntaxPunctuation: "#7C88A3",
 
-	BackgroundMenu: "#0D1117",
+	BackgroundMenu: "#161E2D",
 
-	Warning:   "#D29922",
-	Selection: "#16524B",
+	Warning:   "#DFA03C",
+	Selection: "#1D2839",
 }
 
 // Panel returns a bordered panel style.

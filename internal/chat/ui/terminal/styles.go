@@ -43,7 +43,7 @@ func ThemeName() string {
 // ─── Theme Palette ──────────────────────────────────────────────────────────
 
 var (
-	colorBg        = th.Surface // always dark — for text on colored backgrounds
+	colorBg        = th.Surface // contrasting (white) text on colored backgrounds
 	colorBgAlt     = th.BgAlt
 	colorFg        = th.Foreground
 	colorGold      = th.Primary

@@ -21,8 +21,8 @@ func TestThemeSelection(t *testing.T) {
 	if appStyle.GetBackground() != theme.Petrol.Background {
 		t.Fatalf("app background = %v, want %v", appStyle.GetBackground(), theme.Petrol.Background)
 	}
-	if inputBoxStyle.GetBackground() != theme.Petrol.InputBackground {
-		t.Fatalf("input background = %v, want %v", inputBoxStyle.GetBackground(), theme.Petrol.InputBackground)
+	if inputBoxStyle.GetBackground() != theme.Petrol.BackgroundElement {
+		t.Fatalf("input background = %v, want %v", inputBoxStyle.GetBackground(), theme.Petrol.BackgroundElement)
 	}
 
 	SetTheme("opencode")
