@@ -232,4 +232,33 @@ ACTIVE MISSION: RIZOMAI deployment ████ 82%
 
 ---
 
-*Documento de visão — aguarda aprovação do Don para iniciar a Fase 1.*
+## 7. STATUS DE IMPLEMENTAÇÃO (2026-09-02) — ✅ COMPLETO
+
+Todas as 6 fases foram implementadas, verificadas e commitadas:
+
+| Fase | Escopo | Status |
+|------|--------|--------|
+| **1** | Polimento P1-P6 (tema dark Cosca, syntax highlight, painel diff, status bar) | ✅ |
+| **2** | Workspace Alt+1..9 + Command Palette Ctrl+P + Layout 3 colunas | ✅ |
+| **3** | Agent Orchestration + Task com progresso | ✅ |
+| **4** | Memory Explorer + Context Inspector (Alt+I) | ✅ |
+| **5** | Permission Center + Computer Mode | ✅ |
+| **6** | Mission Control + Graph Mode + Verification (Alt+V) | ✅ |
+
+**Workspace Alt+1..9 completo — nenhum painel é placeholder:**
+```
+Alt+1 Chat · 2 Files · 3 Agents · 4 Operations · 5 Tasks
+Alt+6 Memory · 7 Permissions · 8 Mission Control · 9 Graph
+Ctrl+P Command Palette · Alt+I Context Inspector · Alt+V Verification
+```
+
+**Notas técnicas importantes (lições de plataforma):**
+- bubbletea v1.3.10 NÃO rastreia Ctrl em teclas de caractere → workspace usa `Alt+1..9` (Ctrl+1..9 nunca dispararia).
+- Ctrl+I colide com Tab → Context Inspector usa `Alt+I`.
+- Linhas longas em painel com borda são re-wrapadas pelo lipgloss, estourando a altura → `clampPanelContent()` trunca por largura visual.
+
+**Próximos passos (fora da visão original):**
+- Conectar os painéis ao runtime real (substituir dados derivados por `permission.Ruleset`/`policy.Engine`, API de memória, healthz/metrics) — TODOs marcados no código.
+- Remote COSCA (serve/attach), Agent Replay, Execution Timeline interativo.
+
+*Documento de visão — implementação concluída conforme aprovado pelo Don.*
