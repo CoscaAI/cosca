@@ -31,7 +31,10 @@ func (e *ValidationError) Empty() bool { return len(e.Fields) == 0 }
 // PlatformFromString valida e normaliza o valor de plataforma (enum da spec).
 func PlatformFromString(s string) (Platform, error) {
 	switch Platform(s) {
-	case PlatformX, PlatformLinkedIn, PlatformTelegram:
+	case PlatformX, PlatformLinkedIn, PlatformTelegram,
+		PlatformInstagram, PlatformFacebook, PlatformThreads, PlatformYouTube,
+		PlatformTikTok, PlatformBluesky, PlatformReddit, PlatformPinterest,
+		PlatformSnapchat, PlatformGoogleBusiness:
 		return Platform(s), nil
 	default:
 		return "", fmt.Errorf("plataforma não suportada: %q", s)

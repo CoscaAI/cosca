@@ -27,7 +27,7 @@ func TestPostCreatePayloadValidate(t *testing.T) {
 				p.Platforms = append(p.Platforms, PostTargetCreatePayload{Platform: "x", AccountID: "account_abc"})
 			}
 		}, "platforms"},
-		{"plataforma desconhecida", func(p *PostCreatePayload) { p.Platforms[0].Platform = "instagram" }, "platforms[0].platform"},
+		{"plataforma desconhecida", func(p *PostCreatePayload) { p.Platforms[0].Platform = "whatsapp" }, "platforms[0].platform"},
 		{"accountId sem prefixo", func(p *PostCreatePayload) { p.Platforms[0].AccountID = "xyz" }, "platforms[0].accountId"},
 		{"timezone inválido", func(p *PostCreatePayload) { p.Timezone = "Mars/Olympus" }, "timezone"},
 	}

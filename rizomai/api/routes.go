@@ -56,7 +56,7 @@ func NewRouter(d Deps) http.Handler {
 	protected.HandleFunc("POST /v1/posts", h.CreatePost)
 	protected.HandleFunc("GET /v1/posts/{id}", h.GetPost)
 	protected.HandleFunc("GET /v1/connect/{platform}", h.ConnectStart)
-	protected.HandleFunc("POST /v1/connect/telegram/credentials", h.TelegramCredentials)
+	protected.HandleFunc("POST /v1/connect/{platform}/credentials", h.ConnectCredentials)
 	protected.HandleFunc("GET /v1/webhooks", h.ListWebhooks)
 	protected.HandleFunc("POST /v1/webhooks", h.CreateWebhook)
 

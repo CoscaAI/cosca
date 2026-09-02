@@ -350,28 +350,41 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # ---------------------------------------------------------------------------
-  # Telegram credentials (bot token — sem OAuth)
+  # Credenciais diretas (sem OAuth browser): telegram/bluesky/reddit
   # ---------------------------------------------------------------------------
-  /v1/connect/telegram/credentials:
+  /v1/connect/{platform}/credentials:
     post:
-      operationId: telegramCredentials
+      operationId: connectCredentials
       tags: [SocialAccounts]
-      summary: Registra as credenciais do bot do Telegram (sem OAuth)
+      summary: Registra credenciais diretas (telegram, bluesky, reddit)
       description: |
-        Recebe o bot token do Telegram, valida via getMe e salva a conta.
+        Plataformas sem OAuth browser: recebe o token/chave/usuário, valida
+        via ValidateAccount e salva a conta criptografada.
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Platform'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [botToken]
               properties:
                 botToken:
                   type: string
                   example: "123456:ABC-DEF..."
+                chatId:
+                  type: string
+                identifier:
+                  type: string
+                  example: "user.bsky.social"
+                appPassword:
+                  type: string
+                username:
+                  type: string
+                password:
+                  type: string
       responses:
         '201':
           description: Conta conectada
@@ -994,14 +1007,28 @@ components:
           description: "Contexto estruturado (ex.: { fields: {...} }, { existingPostId })."
           additionalProperties: true
 
-    # --- Plataformas (ADR-006: MVP = x, linkedin, telegram; Fase 2+ amplia) ---
+    # --- Plataformas (13 redes — ADR-006) ---
     Platform:
       type: string
       description: |
-        Rede social alvo. MVP (ADR-006 §1): x, linkedin, telegram.
-        Fase 2+: instagram, tiktok, youtube, bluesky, reddit, whatsapp, googlebusiness.
-      enum: [x, linkedin, telegram]
-      example: x
+        Rede social alvo (13 no catálogo). x/linkedin/telegram = MVP (ADR-006);
+        as demais vieram na expansão. Telegram/Bluesky/Reddit usam credentials
+        (sem browser OAuth); as outras usam connect/callback.
+      enum:
+        - x
+        - linkedin
+        - telegram
+        - instagram
+        - facebook
+        - threads
+        - youtube
+        - tiktok
+        - bluesky
+        - reddit
+        - pinterest
+        - snapchat
+        - googlebusiness
+      example: instagram
 
     # --- Profiles ---
     Profile:

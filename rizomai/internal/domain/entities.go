@@ -12,14 +12,24 @@ package domain
 import "time"
 
 // Platform é a enumeração de redes suportadas.
-// MVP (ADR-006 §1): x, linkedin, telegram. Fase 2+: instagram, tiktok,
-// youtube, bluesky, reddit, whatsapp, googlebusiness...
+// MVP (ADR-006 §1): x, linkedin, telegram. Expansão: +10 redes (13 no total).
 type Platform string
 
 const (
 	PlatformX        Platform = "x"
 	PlatformLinkedIn Platform = "linkedin"
 	PlatformTelegram Platform = "telegram"
+
+	PlatformInstagram      Platform = "instagram"
+	PlatformFacebook       Platform = "facebook"
+	PlatformThreads        Platform = "threads"
+	PlatformYouTube        Platform = "youtube"
+	PlatformTikTok         Platform = "tiktok"
+	PlatformBluesky        Platform = "bluesky"
+	PlatformReddit         Platform = "reddit"
+	PlatformPinterest      Platform = "pinterest"
+	PlatformSnapchat       Platform = "snapchat"
+	PlatformGoogleBusiness Platform = "googlebusiness"
 )
 
 // PostStatus é o status AGREGADO de um Post (ADR-007 §1).

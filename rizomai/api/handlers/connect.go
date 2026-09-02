@@ -157,34 +157,73 @@ func (h *Handlers) ConnectCallback(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, map[string]any{"status": "connected", "accountId": acct.ID})
 }
 
-// TelegramCredentials — POST /v1/connect/telegram/credentials (ADR-006 §4 /
-// insumo §6.3): recebe bot token + chat_id, valida com getMe e salva criptografado.
-func (h *Handlers) TelegramCredentials(w http.ResponseWriter, r *http.Request) {
+// ConnectCredentials — POST /v1/connect/{platform}/credentials (ADR-006 §4):
+// plataformas SEM browser OAuth (telegram: botToken+chatId; bluesky:
+// identifier+appPassword; reddit: username+password). Valida e salva
+// criptografado (AES-256-GCM).
+func (h *Handlers) ConnectCredentials(w http.ResponseWriter, r *http.Request) {
 	teamID := middleware.TeamIDFromContext(r.Context())
+	p := domain.Platform(r.PathValue("platform"))
 
 	var payload struct {
-		BotToken  string `json:"botToken"`
-		ChatID    string `json:"chatId"`
-		ProfileID string `json:"profileId"`
+		BotToken     string `json:"botToken"`
+		ChatID       string `json:"chatId"`
+		Identifier   string `json:"identifier"`
+		AppPassword  string `json:"appPassword"`
+		Username     string `json:"username"`
+		Password     string `json:"password"`
+		ProfileID    string `json:"profileId"`
 	}
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	if payload.BotToken == "" || payload.ChatID == "" {
+
+	// Monta credenciais e valida por plataforma (alarme precoce).
+	var (
+		creds    platform.Credentials
+		display  string
+		fieldErr string
+	)
+	switch p {
+	case domain.PlatformTelegram:
+		if payload.BotToken == "" || payload.ChatID == "" {
+			fieldErr = "botToken e chatId são obrigatórios"
+			break
+		}
+		creds = platform.Credentials{AccessToken: payload.BotToken, ExternalID: payload.ChatID}
+		display = "Telegram"
+	case domain.PlatformBluesky:
+		if payload.Identifier == "" || payload.AppPassword == "" {
+			fieldErr = "identifier e appPassword são obrigatórios"
+			break
+		}
+		creds = platform.Credentials{AccessToken: payload.AppPassword, ExternalID: payload.Identifier}
+		display = "Bluesky (" + payload.Identifier + ")"
+	case domain.PlatformReddit:
+		if payload.Username == "" || payload.Password == "" {
+			fieldErr = "username e password são obrigatórios (script flow)"
+			break
+		}
+		creds = platform.Credentials{ExternalID: payload.Username}
+		display = "Reddit (" + payload.Username + ")"
+	default:
+		respond.Error(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Plataforma não usa credentials",
+			map[string]any{"fields": map[string]string{"platform": "use OAuth (connect) para esta plataforma"}})
+		return
+	}
+	if fieldErr != "" {
 		respond.Error(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Dados inválidos",
-			map[string]any{"fields": map[string]string{"botToken": "obrigatório", "chatId": "obrigatório"}})
+			map[string]any{"fields": map[string]string{"credentials": fieldErr}})
 		return
 	}
 
-	tg, err := h.Registry.Publisher(domain.PlatformTelegram)
+	pub, err := h.Registry.Publisher(p)
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Erro interno — tente novamente", nil)
 		return
 	}
-
-	creds := platform.Credentials{AccessToken: payload.BotToken, ExternalID: payload.ChatID}
-	if err := tg.ValidateAccount(r.Context(), creds); err != nil {
-		respond.Error(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Bot token inválido",
+	if err := pub.ValidateAccount(r.Context(), creds); err != nil {
+		respond.Error(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Credenciais inválidas",
 			map[string]any{"error": err.Error()})
 		return
 	}
@@ -198,24 +237,27 @@ func (h *Handlers) TelegramCredentials(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	encTok, _ := oauth.Encrypt([]byte(payload.BotToken), h.TokenKey)
+	var encToken []byte
+	if creds.AccessToken != "" {
+		encToken, _ = oauth.Encrypt([]byte(creds.AccessToken), h.TokenKey)
+	}
 	acct := &domain.SocialAccount{
 		ID:                 mustID(domain.NewAccountID),
 		ProfileID:          profileID,
-		Platform:           domain.PlatformTelegram,
-		DisplayName:        "Telegram",
+		Platform:           p,
+		DisplayName:        display,
 		TokenStatus:        domain.TokenStatusOK,
-		EncryptedToken:     encTok,
-		ExternalIdentifier: payload.ChatID,
+		EncryptedToken:     encToken,
+		ExternalIdentifier: creds.ExternalID,
 		ConnectedAt:        time.Now().UTC(),
 	}
 	if err := h.Store.UpsertAccount(r.Context(), acct); err != nil {
-		log.Printf("telegram upsert: %v", err)
+		log.Printf("credentials upsert (%s): %v", p, err)
 		respond.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Erro interno — tente novamente", nil)
 		return
 	}
 
-	log.Printf("oauth: conta telegram %s conectada (profile %s)", acct.ID, profileID)
+	log.Printf("oauth: conta %s conectada via credentials (%s, profile %s)", acct.ID, p, profileID)
 	writeData(w, http.StatusOK, map[string]any{"status": "connected", "accountId": acct.ID})
 }
 
