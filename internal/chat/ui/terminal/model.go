@@ -829,9 +829,10 @@ func (m Model) View() string {
 		minChatWidth    = 24
 	)
 
-	// Right context panel appears when a non-chat panel is active AND there is
-	// room. Left agents rail appears on very wide terminals.
-	useSide := m.activePanel != PanelChat && m.width >= minSidebarWidth
+	// Right context panel appears when there is room. On the Chat panel the
+	// sidebar shows session info (OpenCode-style); on other panels it shows
+	// the panel content.
+	useSide := m.width >= minSidebarWidth
 	useRail := m.width >= wideRailWidth
 
 	// The viewport height is the full content area (app bar + input + hud
@@ -862,6 +863,8 @@ func (m Model) View() string {
 	rightPanel := ""
 	if useSide {
 		switch m.activePanel {
+		case PanelChat:
+			rightPanel = renderSessionInfoSidebar(m, sidebarW, vpHeight)
 		case PanelFiles:
 			rightPanel = FilesPanelView(m.fileEntries, sidebarW, vpHeight, m.filesSelected)
 		case PanelDiff:
@@ -1076,7 +1079,135 @@ func (m Model) renderSystemStatus() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, modelTag, agentTag, providerTag, fabricTag)
 }
 
-// statusLine returns a compact one-line session status (used by the Command
+// ─── Session Info Sidebar (OpenCode-style) ──────────────────────────────────
+
+// renderSessionInfoSidebar renders the right sidebar when the Chat panel is
+// active, showing session context: title, model, agent, tokens, branch, etc.
+func renderSessionInfoSidebar(m Model, width, height int) string {
+	panelW := width
+	if panelW < 10 {
+		panelW = 30
+	}
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(th.BorderSubtle).
+		Background(th.BackgroundPanel).
+		Foreground(th.Text).
+		Padding(0, 1)
+	styleWidth := panelW - borderStyle.GetHorizontalBorderSize()
+	contentWidth := styleWidth - borderStyle.GetHorizontalPadding()
+	if contentWidth < 8 {
+		contentWidth = 8
+	}
+	borderStyle = borderStyle.Width(styleWidth)
+	contentHeight := height - borderStyle.GetVerticalFrameSize()
+	if contentHeight < 3 {
+		contentHeight = 3
+	}
+
+	var b strings.Builder
+
+	// Title.
+	b.WriteString(sessionInfoTitle.Render("SESSION"))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(colorGray).
+		Render(strings.Repeat("─", contentWidth)))
+	b.WriteString("\n\n")
+
+	// Model.
+	model := m.currentModel
+	if model == "" {
+		model = "default"
+	}
+	b.WriteString(sessionInfoLabel.Render("Model"))
+	b.WriteString("\n")
+	b.WriteString(sessionInfoValue.Render(truncateStr(model, contentWidth)))
+	b.WriteString("\n\n")
+
+	// Agent.
+	agent := m.currentAgent
+	if agent == "" {
+		agent = "kernel"
+	}
+	b.WriteString(sessionInfoLabel.Render("Agent"))
+	b.WriteString("\n")
+	b.WriteString(sessionInfoValue.Render(truncateStr(agent, contentWidth)))
+	b.WriteString("\n\n")
+
+	// Status.
+	status := "ready"
+	if m.busy {
+		status = "busy"
+	} else if m.streaming {
+		status = "streaming"
+	}
+	b.WriteString(sessionInfoLabel.Render("Status"))
+	b.WriteString("\n")
+	statusDot := "●"
+	statusColor := th.Success
+	if m.busy {
+		statusColor = th.Warning
+		statusDot = "⠋"
+	} else if m.streaming {
+		statusColor = th.Accent2
+		statusDot = "⠁"
+	}
+	b.WriteString(lipgloss.NewStyle().Foreground(statusColor).Bold(true).Render(statusDot+" "+status))
+	b.WriteString("\n\n")
+
+	// Branch.
+	if m.branch != "" {
+		b.WriteString(sessionInfoLabel.Render("Branch"))
+		b.WriteString("\n")
+		b.WriteString(sessionInfoValue.Render(truncateStr(m.branch, contentWidth)))
+		b.WriteString("\n\n")
+	}
+
+	// Messages count.
+	b.WriteString(sessionInfoLabel.Render("Messages"))
+	b.WriteString("\n")
+	b.WriteString(sessionInfoValue.Render(fmt.Sprintf("%d", len(m.messages))))
+	b.WriteString("\n\n")
+
+	// Mode.
+	b.WriteString(sessionInfoLabel.Render("Mode"))
+	b.WriteString("\n")
+	modeLabel := "PLAN"
+	if m.advancedMode {
+		modeLabel = "BUILD"
+	}
+	b.WriteString(sessionInfoValue.Render(modeLabel))
+	b.WriteString("\n\n")
+
+	// Agents used.
+	if len(m.usedAgents) > 0 {
+		b.WriteString(sessionInfoLabel.Render("Agents Used"))
+		b.WriteString("\n")
+		for i, a := range m.usedAgents {
+			if i >= 5 {
+				b.WriteString(sessionInfoMuted.Render(fmt.Sprintf("  ... %d more", len(m.usedAgents)-5)))
+				b.WriteString("\n")
+				break
+			}
+			dot := "○"
+			dotStyle := lipgloss.NewStyle().Foreground(colorGray)
+			if a == m.currentAgent {
+				dot = "●"
+				dotStyle = lipgloss.NewStyle().Foreground(th.Accent)
+			}
+			b.WriteString(dotStyle.Render(dot) + " " + sessionInfoValue.Render(truncateStr(a, contentWidth-2)))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+
+	// Version footer (bottom-aligned via remaining space).
+	versionStr := "Cosca Terminal v2"
+	b.WriteString(sessionInfoMuted.Render(versionStr))
+
+	return borderStyle.Height(contentHeight).Render(b.String())
+}
 // Palette `status` action).
 func (m Model) statusLine() string {
 	model := m.currentModel
@@ -1119,20 +1250,33 @@ func msgHeader(label string, labelStyle lipgloss.Style, t time.Time) string {
 func (m Model) renderMessage(msg Message) string {
 	switch msg.Role {
 	case "user":
-		return userBubbleBox.Render(msgHeader("you", userBubbleLabel, msg.Time) + "\n" + msg.Content)
+		content := msgHeader("you", userBubbleLabel, msg.Time) + "\n" + msg.Content
+		return userMessageStyle.Render(content)
 	case "assistant":
 		rendered := strings.Trim(RenderMarkdown(msg.Content, m.width-8), "\n")
 		return assistantBubble.Render(msgHeader("cosca", assistantBubbleLabel, msg.Time) + "\n" + rendered)
 	case "tool":
 		risk := toolRiskLevel(msg.Content)
 		icon, style := toolRiskStyle(risk)
-		return style.Render(icon + " " + msg.Content)
+		// Parse tool name from content (first word before any space/paren).
+		toolName := msg.Content
+		if idx := strings.IndexAny(msg.Content, " ("); idx > 0 {
+			toolName = msg.Content[:idx]
+		}
+		header := toolCallNameStyle.Render(icon+" "+toolName)
+		detail := ""
+		if idx := strings.IndexAny(msg.Content, " ("); idx > 0 && idx < len(msg.Content) {
+			detail = " " + msg.Content[idx:]
+		}
+		return style.Render(header + toolCallResultStyle.Render(detail))
 	case "error":
 		return errorBubble.Render("✗ " + msg.Content)
 	case "slash":
 		return slashBubble.Render(msg.Content)
 	case "info":
 		return infoBubble.Render(msg.Content + "  " + timestampStyle.Render(msg.Time.Format("15:04")))
+	case "reasoning":
+		return reasoningStyle.Render("  thinking... " + msg.Content)
 	default:
 		return msg.Content
 	}

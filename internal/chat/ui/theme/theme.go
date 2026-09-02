@@ -72,6 +72,8 @@ type Theme struct {
 	SyntaxOperator    lipgloss.Color
 	SyntaxPunctuation lipgloss.Color
 
+	BackgroundMenu lipgloss.Color // overlay menu background (command palette, popups)
+
 	Warning   lipgloss.Color
 	Selection lipgloss.Color
 }
@@ -138,6 +140,8 @@ var Petrol = Theme{
 	SyntaxOperator:    "#72C9C6",
 	SyntaxPunctuation: "#D5DEDF",
 
+	BackgroundMenu: "#0D1919",
+
 	Warning:   "#E6C36A",
 	Selection: "#276568",
 }
@@ -201,6 +205,8 @@ var TokyoNight = Theme{
 	SyntaxOperator:    "#bb9af7",
 	SyntaxPunctuation: "#c0caf5",
 
+	BackgroundMenu: "#1a1b26",
+
 	Warning:   "#ff9e64",
 	Selection: "#565f89",
 }
@@ -263,6 +269,8 @@ var OpenCode = Theme{
 	SyntaxType:        "#ffa657",
 	SyntaxOperator:    "#ff7b72",
 	SyntaxPunctuation: "#e6edf3",
+
+	BackgroundMenu: "#0D1117",
 
 	Warning:   "#d29922",
 	Selection: "#1f6feb",
@@ -329,6 +337,8 @@ var Cosca = Theme{
 	SyntaxType:        "#FFA657",
 	SyntaxOperator:    "#FF7B72",
 	SyntaxPunctuation: "#C9D1D9",
+
+	BackgroundMenu: "#0D1117",
 
 	Warning:   "#D29922",
 	Selection: "#16524B",
@@ -429,7 +439,7 @@ func (t Theme) App() lipgloss.Style {
 // InputBox returns an un-focused input border.
 func (t Theme) InputBox() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.Border{Left: "│"}).
 		BorderForeground(t.PrimaryDim).
 		Background(t.InputBackground).
 		Foreground(t.Foreground).
@@ -439,7 +449,7 @@ func (t Theme) InputBox() lipgloss.Style {
 // InputFocused returns a focused input border.
 func (t Theme) InputFocused() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.Border{Left: "│"}).
 		BorderForeground(t.Primary).
 		Background(t.InputFocusedBackground).
 		Foreground(t.Foreground).

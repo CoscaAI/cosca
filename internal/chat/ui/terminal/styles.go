@@ -90,7 +90,7 @@ var (
 	chatViewportStyle = lipgloss.NewStyle().
 				Background(th.BackgroundPanel).
 				Foreground(th.Text).
-				Padding(0, 1)
+				Padding(0, 2)
 
 	taskPanelStyle = th.Panel().
 			Padding(0, 1).
@@ -256,6 +256,46 @@ var (
 	timestampStyle = lipgloss.NewStyle().
 			Foreground(colorGray).
 			Italic(true)
+
+	// OpenCode-style message rendering (left border user, clean assistant)
+	userMessageStyle = lipgloss.NewStyle().
+				Border(lipgloss.Border{Left: "│"}).
+				BorderForeground(th.Primary).
+				Padding(0, 0, 0, 1).
+				Background(th.BackgroundElement).
+				MaxWidth(96)
+
+	assistantMessageStyle = lipgloss.NewStyle().
+				Foreground(th.Text).
+				MaxWidth(96)
+
+	reasoningStyle = lipgloss.NewStyle().
+			Foreground(th.Muted).
+			Italic(true).
+			Padding(0, 0, 0, 2)
+
+	toolCallNameStyle = lipgloss.NewStyle().
+				Foreground(th.Accent2).
+				Bold(true)
+
+	toolCallResultStyle = lipgloss.NewStyle().
+				Foreground(th.TextMuted).
+				Padding(0, 0, 0, 2)
+
+	sessionInfoTitle = lipgloss.NewStyle().
+				Foreground(th.Primary).
+				Bold(true)
+
+	sessionInfoLabel = lipgloss.NewStyle().
+				Foreground(th.TextMuted)
+
+	sessionInfoValue = lipgloss.NewStyle().
+				Foreground(th.Text).
+				Bold(true)
+
+	sessionInfoMuted = lipgloss.NewStyle().
+				Foreground(th.Muted).
+				Italic(true)
 )
 
 // ─── Task rendering ─────────────────────────────────────────────────────────
@@ -303,7 +343,7 @@ var (
 
 var (
 	paletteOverlayStyle = lipgloss.NewStyle().
-				Background(th.BackgroundPanel).
+				Background(th.BackgroundMenu).
 				Foreground(th.Text).
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(th.BorderActive).
@@ -347,7 +387,7 @@ var (
 	permContainerStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorOrange).
-				Background(th.BackgroundPanel).
+				Background(th.BackgroundMenu).
 				Foreground(th.Text).
 				Padding(1, 2).
 				Width(60)
@@ -475,7 +515,7 @@ func applyThemeStyles(t theme.Theme) {
 	chatViewportStyle = lipgloss.NewStyle().
 		Background(t.BackgroundPanel).
 		Foreground(t.Text).
-		Padding(0, 1)
+		Padding(0, 2)
 	taskPanelStyle = t.Panel().
 		Padding(0, 1).
 		BorderLeft(true)
@@ -578,6 +618,38 @@ func applyThemeStyles(t theme.Theme) {
 		Width(72)
 	timestampStyle = lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 
+	// OpenCode-style message rendering
+	userMessageStyle = lipgloss.NewStyle().
+		Border(lipgloss.Border{Left: "│"}).
+		BorderForeground(t.Primary).
+		Padding(0, 0, 0, 1).
+		Background(t.BackgroundElement).
+		MaxWidth(96)
+	assistantMessageStyle = lipgloss.NewStyle().
+		Foreground(t.Text).
+		MaxWidth(96)
+	reasoningStyle = lipgloss.NewStyle().
+		Foreground(t.Muted).
+		Italic(true).
+		Padding(0, 0, 0, 2)
+	toolCallNameStyle = lipgloss.NewStyle().
+		Foreground(t.Accent2).
+		Bold(true)
+	toolCallResultStyle = lipgloss.NewStyle().
+		Foreground(t.TextMuted).
+		Padding(0, 0, 0, 2)
+	sessionInfoTitle = lipgloss.NewStyle().
+		Foreground(t.Primary).
+		Bold(true)
+	sessionInfoLabel = lipgloss.NewStyle().
+		Foreground(t.TextMuted)
+	sessionInfoValue = lipgloss.NewStyle().
+		Foreground(t.Text).
+		Bold(true)
+	sessionInfoMuted = lipgloss.NewStyle().
+		Foreground(t.Muted).
+		Italic(true)
+
 	taskPendingStyle = lipgloss.NewStyle().Foreground(t.MutedLight)
 	taskRunningStyle = lipgloss.NewStyle().Foreground(t.Accent2).Bold(true)
 	taskDoneStyle = lipgloss.NewStyle().Foreground(t.Success)
@@ -612,7 +684,7 @@ func applyThemeStyles(t theme.Theme) {
 	diffFileStyle = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 
 	paletteOverlayStyle = lipgloss.NewStyle().
-		Background(t.BackgroundPanel).
+		Background(t.BackgroundMenu).
 		Foreground(t.Text).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.BorderActive).
@@ -647,7 +719,7 @@ func applyThemeStyles(t theme.Theme) {
 	permContainerStyle = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.Warning).
-		Background(t.BackgroundPanel).
+		Background(t.BackgroundMenu).
 		Foreground(t.Text).
 		Padding(1, 2).
 		Width(60)
