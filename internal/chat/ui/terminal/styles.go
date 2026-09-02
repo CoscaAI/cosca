@@ -100,8 +100,19 @@ var (
 // ─── Input ──────────────────────────────────────────────────────────────────
 
 var (
-	inputBoxStyle     = th.InputBox()
-	inputFocusedStyle = th.InputFocused()
+	inputBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.Border{Left: "│"}).
+			BorderForeground(th.Muted).
+			Background(th.BackgroundElement).
+			Foreground(th.Foreground).
+			Padding(0, 1)
+
+	inputFocusedStyle = lipgloss.NewStyle().
+				Border(lipgloss.Border{Left: "│"}).
+				BorderForeground(th.Primary).
+				Background(th.BackgroundElement).
+				Foreground(th.Foreground).
+				Padding(0, 1)
 )
 
 // ─── Tab bar ────────────────────────────────────────────────────────────────
@@ -186,7 +197,7 @@ var (
 			Bold(true)
 
 	toolCallBox = lipgloss.NewStyle().
-			Foreground(colorCyan).
+			Foreground(colorGrayLight).
 			Background(th.BackgroundElement).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(th.BorderSubtle).
@@ -194,7 +205,7 @@ var (
 			MaxWidth(96)
 
 	toolReadStyle = lipgloss.NewStyle().
-			Foreground(colorCyan).
+			Foreground(colorGrayLight).
 			Background(th.BackgroundElement).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(th.BorderSubtle).
@@ -346,7 +357,7 @@ var (
 				Background(th.BackgroundMenu).
 				Foreground(th.Text).
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(th.BorderActive).
+				BorderForeground(th.BorderSubtle).
 				Width(80).
 				Padding(1, 1).
 				MaxHeight(20)
@@ -520,8 +531,18 @@ func applyThemeStyles(t theme.Theme) {
 		Padding(0, 1).
 		BorderLeft(true)
 
-	inputBoxStyle = t.InputBox()
-	inputFocusedStyle = t.InputFocused()
+	inputBoxStyle = lipgloss.NewStyle().
+		Border(lipgloss.Border{Left: "│"}).
+		BorderForeground(t.Muted).
+		Background(t.BackgroundElement).
+		Foreground(t.Foreground).
+		Padding(0, 1)
+	inputFocusedStyle = lipgloss.NewStyle().
+		Border(lipgloss.Border{Left: "│"}).
+		BorderForeground(t.Primary).
+		Background(t.BackgroundElement).
+		Foreground(t.Foreground).
+		Padding(0, 1)
 
 	tabBarStyle = t.TabBar()
 	tabActiveStyle = lipgloss.NewStyle().
@@ -570,14 +591,14 @@ func applyThemeStyles(t theme.Theme) {
 		Foreground(t.Accent2).
 		Bold(true)
 	toolCallBox = lipgloss.NewStyle().
-		Foreground(t.Accent2).
+		Foreground(t.MutedLight).
 		Background(t.BackgroundElement).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.BorderSubtle).
 		Padding(0, 1).
 		MaxWidth(96)
 	toolReadStyle = lipgloss.NewStyle().
-		Foreground(t.Accent2).
+		Foreground(t.MutedLight).
 		Background(t.BackgroundElement).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.BorderSubtle).
@@ -687,7 +708,7 @@ func applyThemeStyles(t theme.Theme) {
 		Background(t.BackgroundMenu).
 		Foreground(t.Text).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.BorderActive).
+		BorderForeground(t.BorderSubtle).
 		Width(80).
 		Padding(1, 1).
 		MaxHeight(20)

@@ -783,7 +783,7 @@ func (m Model) View() string {
 	} else {
 		for _, msg := range m.messages {
 			body.WriteString(m.renderMessage(msg))
-			body.WriteString("\n\n")
+			body.WriteString("\n")
 		}
 	}
 
@@ -1254,7 +1254,7 @@ func (m Model) renderMessage(msg Message) string {
 		return userMessageStyle.Render(content)
 	case "assistant":
 		rendered := strings.Trim(RenderMarkdown(msg.Content, m.width-8), "\n")
-		return assistantBubble.Render(msgHeader("cosca", assistantBubbleLabel, msg.Time) + "\n" + rendered)
+		return assistantMessageStyle.Render(msgHeader("cosca", assistantBubbleLabel, msg.Time) + "\n" + rendered)
 	case "tool":
 		risk := toolRiskLevel(msg.Content)
 		icon, style := toolRiskStyle(risk)
@@ -1340,7 +1340,7 @@ func renderStreamingContent(role, text string) string {
 	}
 	switch role {
 	case "assistant":
-		return assistantBubble.Render(text) + titleSubStyle.Render("▍")
+		return assistantMessageStyle.Render(text) + titleSubStyle.Render("▍")
 	case "tool":
 		risk := toolRiskLevel(text)
 		icon, style := toolRiskStyle(risk)
