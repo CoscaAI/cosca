@@ -57,6 +57,8 @@ func NewRouter(d Deps) http.Handler {
 	protected.HandleFunc("GET /v1/posts/{id}", h.GetPost)
 	protected.HandleFunc("GET /v1/connect/{platform}", h.ConnectStart)
 	protected.HandleFunc("POST /v1/connect/telegram/credentials", h.TelegramCredentials)
+	protected.HandleFunc("GET /v1/webhooks", h.ListWebhooks)
+	protected.HandleFunc("POST /v1/webhooks", h.CreateWebhook)
 
 	chain := middleware.RateLimit(rateLimiter)(middleware.Auth(d.Store, d.APIKeyPepper)(protected))
 	mux.Handle("/v1/", chain)

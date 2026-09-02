@@ -25,10 +25,12 @@ type Jobs interface {
 }
 
 // SimulatedQueue é o stub de fallback: publica "sincronamente" cada target não
-// agendado, logando como se o conector existisse, e deriva o status agregado.
+// agendado, logando como se o conector existisse, deriva o status agregado e
+// ENTREGA webhooks síncronos (demo ponta a ponta sem River).
 type SimulatedQueue struct {
-	Store *store.Store
-	Log   *log.Logger
+	Store    *store.Store
+	TokenKey []byte // p/ descriptografar secrets de webhook (ADR-009)
+	Log      *log.Logger
 }
 
 // PublishPost simula o fan-out com isolamento por target (ADR-007 §1.1).
@@ -65,7 +67,39 @@ func (q *SimulatedQueue) PublishPost(ctx context.Context, post *domain.Post) err
 	derived := domain.DerivePostStatus(statuses)
 	if post.Status != derived {
 		post.Status = derived
-		return q.Store.UpdatePostStatus(ctx, post.ID, derived)
+		if err := q.Store.UpdatePostStatus(ctx, post.ID, derived); err != nil {
+			return err
+		}
 	}
+
+	// Demo ponta a ponta: entrega webhooks post.* síncronos (ADR-009).
+	q.notifyWebhooks(ctx, post, derived, logger)
 	return nil
+}
+
+// notifyWebhooks entrega os eventos post.* para os webhooks do profile.
+func (q *SimulatedQueue) notifyWebhooks(ctx context.Context, post *domain.Post, derived domain.PostStatus, logger *log.Logger) {
+	switch derived {
+	case domain.PostStatusPublished, domain.PostStatusPartial, domain.PostStatusFailed:
+	default:
+		return
+	}
+
+	eventType := "post." + string(derived)
+	eventID, _ := domain.NewEventID()
+
+	whs, err := q.Store.ListWebhooksByProfile(ctx, post.ProfileID)
+	if err != nil {
+		logger.Printf("webhook (simulado): erro ao listar webhooks do profile: %v", err)
+		return
+	}
+	for i := range whs {
+		wh := &whs[i]
+		if !matchesEvent(wh.Events, eventType) {
+			continue
+		}
+		logger.Printf("webhook (simulado): entregando %s para %s", eventType, wh.URL)
+		_ = DeliverWebhook(ctx, q.Store, wh, eventID, eventType,
+			map[string]any{"postId": post.ID, "status": string(derived)}, q.TokenKey, logger)
+	}
 }

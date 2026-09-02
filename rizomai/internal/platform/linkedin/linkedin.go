@@ -36,13 +36,16 @@ const (
 
 // Client é o conector do LinkedIn.
 type Client struct {
-	cfg  Config
-	http *http.Client
+	cfg     Config
+	http    *http.Client
+	apiBase string // base da API (override em testes)
+	tokenURL string
+	authBase string
 }
 
 // New cria o conector.
 func New(cfg Config) *Client {
-	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
+	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}, apiBase: apiBaseURL, tokenURL: tokenURL, authBase: authBaseURL}
 }
 
 // Name implementa types.Publisher.
@@ -53,7 +56,7 @@ func (c *Client) AuthURL(state string, _ string) (string, error) {
 	if !c.cfg.Configured() {
 		return "", fmt.Errorf("conector linkedin não configurado: defina LINKEDIN_CLIENT_ID e LINKEDIN_CLIENT_SECRET")
 	}
-	return authBaseURL +
+	return c.authBase +
 		"?response_type=code" +
 		"&client_id=" + c.cfg.ClientID +
 		"&redirect_uri=" + c.cfg.RedirectURI +
@@ -68,7 +71,7 @@ func (c *Client) ExchangeCode(ctx context.Context, code, _, redirectURI string) 
 		"&client_id=" + c.cfg.ClientID +
 		"&client_secret=" + c.cfg.ClientSecret
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, bytes.NewBufferString(form))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, bytes.NewBufferString(form))
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +105,7 @@ func (c *Client) ExchangeCode(ctx context.Context, code, _, redirectURI string) 
 
 // fetchAuthorURN busca a URN da pessoa autenticada (GET /v2/userinfo).
 func (c *Client) fetchAuthorURN(ctx context.Context, accessToken string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/v2/userinfo", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBase+"/v2/userinfo", nil)
 	if err != nil {
 		return "", err
 	}
@@ -150,7 +153,7 @@ func (c *Client) Publish(ctx context.Context, content string, _ *domain.PostTarg
 	}
 	payload, _ := json.Marshal(body)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/v2/ugcPosts", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.apiBase+"/v2/ugcPosts", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}

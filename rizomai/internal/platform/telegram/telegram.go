@@ -28,8 +28,9 @@ const apiBaseURL = "https://api.telegram.org"
 
 // Client é o conector do Telegram.
 type Client struct {
-	cfg  Config
-	http *http.Client
+	cfg     Config
+	http    *http.Client
+	apiBase string // base da API (override em testes)
 }
 
 // New cria o conector.
@@ -37,7 +38,7 @@ func New(cfg Config) *Client {
 	if cfg.ParseMode == "" {
 		cfg.ParseMode = "HTML"
 	}
-	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
+	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}, apiBase: apiBaseURL}
 }
 
 // Name implementa types.Publisher.
@@ -61,7 +62,7 @@ func (c *Client) Publish(ctx context.Context, content string, _ *domain.PostTarg
 	})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		apiBaseURL+"/bot"+token+"/sendMessage", bytes.NewReader(body))
+		c.apiBase+"/bot"+token+"/sendMessage", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (c *Client) ValidateAccount(ctx context.Context, creds types.Credentials) e
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		apiBaseURL+"/bot"+token+"/getMe", nil)
+		c.apiBase+"/bot"+token+"/getMe", nil)
 	if err != nil {
 		return err
 	}

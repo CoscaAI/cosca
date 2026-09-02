@@ -7,16 +7,10 @@
 package queue
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -228,15 +222,20 @@ func (w *PublishTargetWorker) Work(ctx context.Context, job *river.Job[PublishTa
 
 		logger.Printf("publish.target %s (%s): falhou [%s] %v (retryable=%v)", pc.Target.ID, pc.Target.Platform, attempt.Outcome, perr, retryable(perr))
 
-	if err := w.Store.MarkTargetFailed(ctx, pc.Target.ID, pc.PostID, platformCode(perr), perr.Error()); err != nil {
-		logger.Printf("publish.target %s: erro ao marcar failed: %v", pc.Target.ID, err)
-	}
+		if err := w.Store.MarkTargetFailed(ctx, pc.Target.ID, pc.PostID, platformCode(perr), perr.Error()); err != nil {
+			logger.Printf("publish.target %s: erro ao marcar failed: %v", pc.Target.ID, err)
+		}
 
 		if retryable(perr) {
 			// Transitórios (429/5xx): devolve erro → River faz retry com backoff
 			// (ADR-003: 5 tentativas configuradas no insert). Definitivos:
 			// já marcados failed — retorna nil (sem retry).
 			return perr
+		}
+
+		// Falha definitiva: deriva o agregado e notifica post.failed/partial.
+		if err := w.deriveAndNotify(ctx, pc.PostID, pc.Account.ProfileID, logger); err != nil {
+			logger.Printf("publish.target %s: derive/notify: %v", pc.Target.ID, err)
 		}
 		return nil
 	}
@@ -251,11 +250,12 @@ func (w *PublishTargetWorker) Work(ctx context.Context, job *river.Job[PublishTa
 	}
 	logger.Printf("publish.target %s (%s): publicado → %s", pc.Target.ID, pc.Target.Platform, result.PublishedURL)
 
-	return w.deriveAndNotify(ctx, pc.PostID, job.Args.PostID, logger)
+	return w.deriveAndNotify(ctx, pc.PostID, pc.Account.ProfileID, logger)
 }
 
-// deriveAndNotify recomputa o status agregado e enfileira webhooks post.*.
-func (w *PublishTargetWorker) deriveAndNotify(ctx context.Context, postID string, _ string, logger *log.Logger) error {
+// deriveAndNotify recomputa o status agregado e enfileira webhooks post.*
+// (ADR-009) via ClientFromContext (o client é injetado pelo River no Work).
+func (w *PublishTargetWorker) deriveAndNotify(ctx context.Context, postID, profileID string, logger *log.Logger) error {
 	statuses, err := w.Store.ListTargetStatuses(ctx, postID)
 	if err != nil {
 		return err
@@ -265,7 +265,63 @@ func (w *PublishTargetWorker) deriveAndNotify(ctx context.Context, postID string
 		return err
 	}
 	logger.Printf("publish.target: post %s → status agregado %s", postID, derived)
+
+	switch derived {
+	case domain.PostStatusPublished, domain.PostStatusPartial, domain.PostStatusFailed:
+		eventType := "post." + string(derived)
+		return w.enqueueWebhooks(ctx, profileID, eventType, map[string]any{
+			"postId": postID,
+			"status": string(derived),
+		})
+	}
 	return nil
+}
+
+// enqueueWebhooks enfileira a entrega dos eventos post.* para os webhooks do
+// profile que assinam o evento (ADR-009 §1.7 — default: post.published/failed).
+func (w *PublishTargetWorker) enqueueWebhooks(ctx context.Context, profileID, eventType string, data map[string]any) error {
+	client := river.ClientFromContext[pgx.Tx](ctx) // nil fora de um Work
+	if client == nil {
+		return nil
+	}
+	whs, err := w.Store.ListWebhooksByProfile(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	for _, wh := range whs {
+		if !matchesEvent(wh.Events, eventType) {
+			continue
+		}
+		eventID, _ := domain.NewEventID()
+		deliveryID, _ := domain.NewDeliveryID()
+		if _, err := client.Insert(ctx, &DeliverWebhookJob{
+			WebhookID:  wh.ID,
+			EventID:    eventID,
+			EventType:  eventType,
+			Data:       data,
+			DeliveryID: deliveryID,
+		}, &river.InsertOpts{Queue: "webhook", MaxAttempts: 12}); err != nil {
+			return err
+		}
+		logger := w.Log
+		if logger != nil {
+			logger.Printf("publish.target: webhook enfileirado %s → %s", wh.ID, eventType)
+		}
+	}
+	return nil
+}
+
+// matchesEvent verifica se o webhook assina o evento (lista vazia = todos).
+func matchesEvent(events []string, eventType string) bool {
+	if len(events) == 0 {
+		return true
+	}
+	for _, e := range events {
+		if e == eventType {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *PublishTargetWorker) recordFailed(ctx context.Context, pc *store.PublishContext, perr error) {
@@ -309,68 +365,11 @@ func (w *DeliverWebhookWorker) Work(ctx context.Context, job *river.Job[DeliverW
 		return nil
 	}
 
-	secret, err := oauth.Decrypt(wh.SecretEncrypted, w.TokenKey)
-	if err != nil {
-		return fmt.Errorf("decrypt secret: %w", err)
+	// Entrega com HMAC-SHA256, timeout 5s e delivery log (ADR-009).
+	if err := DeliverWebhook(ctx, w.Store, wh, job.Args.EventID, job.Args.EventType, job.Args.Data, w.TokenKey, logger); err != nil {
+		return err // River retry — MESMO event id (dedup do consumidor)
 	}
-
-	payload := map[string]any{
-		"id":        job.Args.EventID,
-		"event":     job.Args.EventType,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"data":      job.Args.Data,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	sig := hmacSHA256(secret, body)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, wh.URL, bytesReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Rizomai-Signature", "sha256="+sig)
-	for k, v := range wh.CustomHeaders {
-		req.Header.Set(k, v)
-	}
-
-	client := &http.Client{Timeout: 5 * time.Second} // ADR-009 §1.3: timeout 5s
-	resp, err := client.Do(req)
-
-	delivery := &domain.WebhookDelivery{
-		ID:        job.Args.DeliveryID,
-		WebhookID: wh.ID,
-		EventID:   job.Args.EventID,
-		EventType: job.Args.EventType,
-		Payload:   body,
-		Attempts:  int(job.Attempt),
-	}
-
-	if err != nil {
-		delivery.Status = "failed"
-		delivery.Error = err.Error()
-		_ = w.Store.RecordDelivery(ctx, delivery)
-		logger.Printf("webhook.deliver %s: erro de rede: %v", wh.ID, err)
-		return err // River retry (mesmo event id)
-	}
-	defer resp.Body.Close()
-
-	delivery.HTTPStatus = resp.StatusCode
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		delivery.Status = "success"
-		_ = w.Store.RecordDelivery(ctx, delivery)
-		logger.Printf("webhook.deliver %s: entregue %s (%d)", wh.ID, job.Args.EventType, resp.StatusCode)
-		return nil
-	}
-
-	delivery.Status = "failed"
-	delivery.Error = "HTTP " + resp.Status
-	_ = w.Store.RecordDelivery(ctx, delivery)
-	logger.Printf("webhook.deliver %s: não-2xx %d", wh.ID, resp.StatusCode)
-	return fmt.Errorf("webhook deliver: HTTP %d", resp.StatusCode) // retry com mesmo event id
+	return nil
 }
 
 // --- helpers -----------------------------------------------------------------
@@ -388,12 +387,6 @@ func platformCode(err error) string {
 	return "unknown"
 }
 
-func hmacSHA256(secret, body []byte) string {
-	mac := hmac.New(sha256.New, secret)
-	_, _ = mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
 func mustDecrypt(ct, key []byte, logger *log.Logger) []byte {
 	if len(ct) == 0 {
 		return nil
@@ -407,8 +400,6 @@ func mustDecrypt(ct, key []byte, logger *log.Logger) []byte {
 }
 
 func timePtr(t time.Time) *time.Time { return &t }
-
-func bytesReader(b []byte) *bytes.Reader { return bytes.NewReader(b) }
 
 func newAttemptID() string {
 	id, _ := domain.NewAttemptID()

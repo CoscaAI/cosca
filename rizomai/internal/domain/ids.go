@@ -50,3 +50,6 @@ func NewDeliveryID() (string, error) { return newID("dlv_") }
 
 // NewOAuthStateID gera um ID de state OAuth (prefixo oast_).
 func NewOAuthStateID() (string, error) { return newID("oast_") }
+
+// NewWebhookID gera um ID de webhook (prefixo wh_).
+func NewWebhookID() (string, error) { return newID("wh_") }

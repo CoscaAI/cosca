@@ -121,7 +121,7 @@ func main() {
 		jobs = riverJobs
 		log.Print("fila: RIVER (durável)")
 	default: // simulated
-		jobs = &queue.SimulatedQueue{Store: st, Log: log.Default()}
+		jobs = &queue.SimulatedQueue{Store: st, TokenKey: tokenKey, Log: log.Default()}
 		log.Print("fila: SIMULADA (RIZOMAI_QUEUE=simulated — demo sem conectores)")
 	}
 

@@ -63,7 +63,7 @@ func (c *Client) AuthURL(state string, codeVerifier string) (string, error) {
 	}
 	challenge := pkceChallenge(codeVerifier)
 
-	u := authBaseURL +
+	u := c.authBase +
 		"?response_type=code" +
 		"&client_id=" + c.cfg.ClientID +
 		"&redirect_uri=" + c.cfg.RedirectURI +
@@ -83,7 +83,7 @@ func (c *Client) ExchangeCode(ctx context.Context, code, codeVerifier, redirectU
 	form := "grant_type=authorization_code&code=" + code +
 		"&redirect_uri=" + redirectURI + "&code_verifier=" + codeVerifier
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, bytes.NewBufferString(form))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, bytes.NewBufferString(form))
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (c *Client) Publish(ctx context.Context, content string, target *domain.Pos
 	}
 
 	body, _ := json.Marshal(map[string]any{"text": content})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/2/tweets", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.apiBase+"/2/tweets", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *Client) ValidateAccount(ctx context.Context, creds types.Credentials) e
 	if creds.AccessToken == "" {
 		return &types.Error{Platform: "x", Code: "no_credentials", Message: "token ausente"}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/2/users/me", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBase+"/2/users/me", nil)
 	if err != nil {
 		return err
 	}
@@ -166,6 +166,11 @@ func (c *Client) ValidateAccount(ctx context.Context, creds types.Credentials) e
 		Detail string `json:"detail"`
 	}
 	if err := c.doJSON(req, &out); err != nil {
+		// 401/403 = token revogado/insuficiente → reconectar (alarme precoce — ADR-006 §1.3)
+		if pe, ok := err.(*types.Error); ok &&
+			(pe.HTTPStatus == http.StatusUnauthorized || pe.HTTPStatus == http.StatusForbidden) {
+			return &types.Error{Platform: "x", Code: "invalid_token", Message: pe.Message, HTTPStatus: pe.HTTPStatus}
+		}
 		return err
 	}
 	if out.Data.ID == "" {

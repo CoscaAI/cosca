@@ -350,6 +350,44 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # ---------------------------------------------------------------------------
+  # Telegram credentials (bot token — sem OAuth)
+  # ---------------------------------------------------------------------------
+  /v1/connect/telegram/credentials:
+    post:
+      operationId: telegramCredentials
+      tags: [SocialAccounts]
+      summary: Registra as credenciais do bot do Telegram (sem OAuth)
+      description: |
+        Recebe o bot token do Telegram, valida via getMe e salva a conta.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [botToken]
+              properties:
+                botToken:
+                  type: string
+                  example: "123456:ABC-DEF..."
+      responses:
+        '201':
+          description: Conta conectada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ---------------------------------------------------------------------------
   # Posts (fan-out — ADR-007)
   # ---------------------------------------------------------------------------
   /v1/posts:
