@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>RIZOMAI — Plataforma Multi-Rede Social via API</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a2e35; font-size: 13px; line-height: 1.55; }
+  .page { page-break-after: always; padding: 46px 52px; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-size: 30px; color: #0e6b4f; letter-spacing: 1px; }
+  h2 { font-size: 19px; color: #0e6b4f; border-bottom: 2px solid #1ab183; padding-bottom: 6px; margin: 26px 0 14px; }
+  h3 { font-size: 14px; color: #145c46; margin: 14px 0 6px; }
+  p { margin-bottom: 9px; text-align: justify; }
+  ul, ol { margin: 6px 0 12px 22px; }
+  li { margin-bottom: 5px; text-align: justify; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 11.5px; }
+  th { background: #0e6b4f; color: #fff; text-align: left; padding: 7px 9px; }
+  td { border: 1px solid #cfe3dc; padding: 6px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f2faf7; }
+  .tag { display: inline-block; background: #1ab183; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 12px; letter-spacing: .6px; }
+  .tag.dark { background: #145c46; }
+  .muted { color: #5b727c; font-size: 11px; }
+  .mono { font-family: Consolas, monospace; background: #eef5f2; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  /* Capa */
+  .cover { height: 100vh; background: linear-gradient(160deg, #0a2e24 0%, #0e6b4f 70%, #1ab183 100%); color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 60px; }
+  .cover .brand { font-size: 13px; letter-spacing: 4px; text-transform: uppercase; opacity: .8; margin-bottom: 20px; }
+  .cover h1 { font-size: 64px; color: #fff; letter-spacing: 2px; line-height: 1.05; }
+  .cover .sub { font-size: 21px; color: #d9f5ea; margin: 14px 0 40px; font-weight: 300; }
+  .cover .meta { font-size: 12px; opacity: .85; line-height: 1.9; }
+  .cover .pill { display: inline-block; border: 1px solid rgba(255,255,255,.5); border-radius: 20px; padding: 6px 16px; margin: 4px 6px 0 0; font-size: 11.5px; }
+  .badge { display: inline-block; background: #1ab183; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
+  .card { background: #f2faf7; border-left: 4px solid #1ab183; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .box { border: 1px solid #cfe3dc; border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+  .grid2 { display: flex; gap: 16px; }
+  .grid2 > div { flex: 1; }
+  .small { font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<!-- ============ CAPA ============ -->
+<div class="cover">
+  <div class="brand">Proposta de Plataforma · Documento Executivo</div>
+  <h1>RIZOMAI</h1>
+  <div class="sub">Um post. Todas as redes. Uma API.</div>
+  <div>
+    <span class="pill">Multi-plataforma social</span>
+    <span class="pill">API-first para desenvolvedores</span>
+    <span class="pill">Preparado para agentes de IA</span>
+    <span class="pill">Feito para a América Latina</span>
+  </div>
+  <div style="margin-top:46px" class="meta">
+    Documento para apresentação ao sócio<br>
+    Setembro de 2026 · Confidencial<br>
+    Versão 1.0 · Elaborado pelo Cosca (Kernel + Architecture + Integrations + Product)
+  </div>
+</div>
+
+<!-- ============ 1. RESUMO EXECUTIVO ============ -->
+<div class="page">
+  <h1 style="margin-bottom:6px">1. Resumo Executivo</h1>
+  <p class="muted">O que é o RIZOMAI em 30 segundos</p>
+
+  <div class="card">
+    <b>RIZOMAI</b> é uma plataforma <b>API-first</b> que permite publicar, agendar e gerenciar
+    conteúdo em <b>diversas redes sociais simultaneamente</b> — com um único post enviado uma
+    única vez. O nome vem de "rizoma": uma estrutura onde <b>cada ponto conecta com todos os
+    outros</b>, sem centro — exatamente o que fazemos com as redes sociais.
+  </div>
+
+  <p>O público-alvo são <b>desenvolvedores, agências e agentes de IA</b> que precisam de acesso
+  programático a múltiplas plataformas (Twitter/X, Instagram, LinkedIn, YouTube, TikTok,
+  Facebook, Telegram, Bluesky, Pinterest, Reddit, Snapchat, Google Business e mais) sem ter que
+  integrar a API de cada rede individualmente — o que hoje exige 16 integrações separadas,
+  manutenção constante e conhecimento profundo de cada ecossistema.</p>
+
+  <h2>Por que agora</h2>
+  <ul>
+    <li><b>O mercado global de gestão de mídia social cresce a dois dígitos ao ano</b> e as ferramentas dominantes (Sprout, Buffer, Hootsuite, Zernio) são caras, em inglês e voltadas ao eixo EUA/Europa.</li>
+    <li><b>O canal de agentes de IA está nascendo agora</b> — plataformas que oferecem API + MCP (Model Context Protocol) capturam este canal emergente antes dos concorrentes clássicos.</li>
+    <li><b>América Latina é o oceano azul:</b> nenhuma concorrente relevante fala português, cobra em R$ ou oferece suporte humano local.</li>
+  </ul>
+
+  <h2>A tese em uma frase</h2>
+  <div class="box" style="text-align:center; font-size:15px; color:#0e6b4f; font-weight:600">
+    "Vendemos infraestrutura de marketing: uma API única para todas as redes sociais,<br>
+    com preço justo para a América Latina."
+  </div>
+
+  <h2>Números de referência do mercado (benchmark)</h2>
+  <table>
+    <tr><th>Referência</th><th>Dado</th><th>O que significa para nós</th></tr>
+    <tr><td>Zernio (benchmark direto)</td><td>Org GitHub verificada, 27 repos, 717 followers em ~7 meses, API usada por AI agents via MCP (496 tools)</td><td>O modelo de negócio está validado; o mercado aceita API-first para redes sociais</td></tr>
+    <tr><td>Issues de golpes no GitHub (pesquisa Cosca)</td><td>346.681 issues de spam/phishing</td><td>Confirmação da importância do canal social/segurança — contexto de confiança digital</td></tr>
+    <tr><td>Concorrentes tradicionais</td><td>Planos de US$ 49–99/mês por conta com cotas de posts</td><td>Nosso pricing usage-based por conta (mais barato e transparente) é diferencial direto</td></tr>
+  </table>
+</div>
+
+<!-- ============ 2. O PROBLEMA ============ -->
+<div class="page">
+  <h1>2. O Problema</h1>
+  <p class="muted">A dor real de quem vive de conteúdo digital</p>
+
+  <h2>2.1 O custo de integrar redes sociais hoje</h2>
+  <p>Para publicar em 5 redes diferentes, um desenvolvedor precisa integrar <b>5 APIs distintas</b>,
+  cada uma com: OAuth próprio, regras de rate limit diferentes, formatos de mídia distintos,
+  requisitos de aprovação (review de app), documentação inconsistente e manutenção constante
+  (APIs mudam com frequência). Na prática:</p>
+  <ul>
+    <li><b>6–12 meses</b> de trabalho de engenharia para uma integração sólida multi-rede;</li>
+    <li><b>Centenas de horas/ano</b> de manutenção quando alguma plataforma altera a API;</li>
+    <li><b>Risco de ban</b> para quem usa soluções de automação não-oficiais (scraping);</li>
+    <li><b>Agências</b> perdem horas gerenciais publicando manualmente rede por rede.</li>
+  </ul>
+
+  <h2>2.2 O que a pesquisa de mercado revelou (Cosca, set/2026)</h2>
+  <table>
+    <tr><th>Dor</th><th>Evidência</th><th>Relevância para o RIZOMAI</th></tr>
+    <tr><td>Sobrecarga de notificações</td><td>4.743 issues no GitHub</td><td>Automação de conteúdo reduz o ruído de publicar rede por rede</td></tr>
+    <tr><td>Golpes/fraudes digitais</td><td>346.681 issues de spam/phishing</td><td>Contas de marca precisam de canais oficiais e automação confiável (nunca scraping)</td></tr>
+    <tr><td>Tarefas repetitivas</td><td>Relatórios de produtividade (Stack Overflow etc.)</td><td>Agendar/publicar em lote é a tarefa repetitiva nº 1 do marketing</td></tr>
+  </table>
+
+  <h2>2.3 O gap do mercado</h2>
+  <div class="grid2">
+    <div class="box">
+      <b style="color:#145c46">O que existe (EUA/Europa)</b>
+      <ul class="small" style="margin-top:6px">
+        <li>Planos caros (US$ 49–99+/mês)</li>
+        <li>Foco em dashboard, não em API</li>
+        <li>Sem suporte em PT-BR</li>
+        <li>Cotas de posts limitantes</li>
+        <li>1 conta por plataforma por profile (dor de agência)</li>
+      </ul>
+    </div>
+    <div class="box">
+      <b style="color:#0e6b4f">O que o RIZOMAI entrega</b>
+      <ul class="small" style="margin-top:6px">
+        <li>Pricing usage-based acessível (1–3 contas grátis)</li>
+        <li>API-first + SDKs gerados + MCP para agentes</li>
+        <li>Docs e suporte em PT-BR, preço em R$</li>
+        <li>Posts ilimitados (sem cotas)</li>
+        <li>Múltiplas contas por plataforma por profile</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3. A SOLUÇÃO ============ -->
+<div class="page">
+  <h1>3. A Solução</h1>
+  <p class="muted">Como o RIZOMAI funciona</p>
+
+  <h2>3.1 Conceito central: o fan-out</h2>
+  <p>O cliente envia <b>um único post</b> com uma lista de plataformas. O RIZOMAI se encarrega de
+  publicar em cada uma, com <b>status individual por plataforma</b>:</p>
+  <div class="box" style="text-align:center; font-family:Consolas,monospace; font-size:11.5px; background:#0a2e24; color:#9fe8cf">
+    POST /v1/posts  { content: "Olá, mundo! #rizomai", platforms: [twitter, linkedin, telegram] }
+    <br>↓<br>
+    twitter: ✅ publicado &nbsp;|&nbsp; linkedin: ✅ publicado &nbsp;|&nbsp; telegram: ⏳ falhou → retry
+    <br>↓<br>
+    Post agregado: "parcial" (publicou 2 de 3) + webhook post.partial
+  </div>
+  <p>Se uma plataforma falhar, o retry é <b>por plataforma</b> — sem republicar as que já deram certo.
+  Tudo com <b>idempotência</b>: o mesmo post enviado duas vezes não duplica conteúdo.</p>
+
+  <h2>3.2 Módulos do produto</h2>
+  <table>
+    <tr><th>Módulo</th><th>O que faz</th><th>Status</th></tr>
+    <tr><td><b>Profiles</b></td><td>Organiza contas por marca, cliente ou propósito (multi-tenancy)</td><td>Planejado</td></tr>
+    <tr><td><b>Social Accounts</b></td><td>Conecta cada rede via OAuth centralizado (cliente nunca toca token)</td><td>Planejado</td></tr>
+    <tr><td><b>Posts</b></td><td>Cria, agenda, publica e gerencia posts multi-plataforma com status por rede</td><td>Planejado</td></tr>
+    <tr><td><b>Media</b></td><td>Upload de imagens/vídeos (até 5GB via presign) com streaming</td><td>Planejado</td></tr>
+    <tr><td><b>Queue</b></td><td>Fila de publicação com horários inteligentes</td><td>Planejado</td></tr>
+    <tr><td><b>Webhooks</b></td><td>Eventos em tempo real assinados (post.published, post.failed, post.partial)</td><td>Planejado</td></tr>
+    <tr><td><b>Analytics</b></td><td>Views, seguidores, engajamento por plataforma</td><td>Fase 2</td></tr>
+    <tr><td><b>Inbox</b></td><td>Caixa unificada de DMs e comentários</td><td>Fase 2</td></tr>
+  </table>
+
+  <h2>3.3 Redes sociais suportadas (plano)</h2>
+  <p><span class="badge">MVP</span> Twitter/X · LinkedIn · Telegram &nbsp;&nbsp;
+  <span class="badge">Fase 2</span> Instagram (Business) · YouTube · TikTok · Facebook
+  &nbsp;&nbsp;<span class="badge">Fase 3</span> Bluesky · Reddit · Pinterest · Snapchat · Google Business · Threads</p>
+  <p class="muted">Cada plataforma tem requisitos próprios (conta Business no Instagram, revisão de app em
+  alguns casos) — o roadmap respeita a dificuldade de aprovação de cada uma.</p>
+</div>
+
+<!-- ============ 4. ARQUITETURA ============ -->
+<div class="page">
+  <h1>4. Arquitetura e Stack Técnico</h1>
+  <p class="muted">Decisões registradas em 10 ADRs (Architecture Decision Records)</p>
+
+  <div class="box" style="text-align:center; background:#0a2e24; color:#9fe8cf; font-family:Consolas,monospace; font-size:11px">
+    [ Cliente: Dashboard Web · SDKs (Go/Python/Node) · AI Agents (MCP) ]
+    <br>↓
+    <br>[ API Gateway: Go — REST /v1, OpenAPI 3.1, Idempotency-Key ]
+    <br>↓
+    <br>[ Workers: Go — fila River (PostgreSQL) → fan-out de publicação ]
+    <br>↓
+    <br>[ PostgreSQL único — domínio + JSONB ] · [ Cloudflare R2 — mídia (presign 5GB) ]
+    <br>↓
+    <br>[ Conectores: Twitter/X · LinkedIn · Telegram · ... (OAuth broker server-side) ]
+    <br>↓
+    <br>[ Webhooks HMAC-SHA256 · Billing Stripe (cartão + PIX) · Analytics ]
+  </div>
+
+  <h2>4.1 Stack escolhido (resumo dos ADRs)</h2>
+  <table>
+    <tr><th>Componente</th><th>Decisão</th><th>Justificativa</th></tr>
+    <tr><td>Backend</td><td><b>Go</b></td><td>Concorrência nativa para fan-out, runtime leve, custo de infra baixo</td></tr>
+    <tr><td>Banco de dados</td><td><b>PostgreSQL</b> (relacional + JSONB)</td><td>Domínio hierárquico com transações; flexibilidade onde precisa</td></tr>
+    <tr><td>Fila de jobs</td><td><b>River sobre Postgres</b></td><td>Zero infra extra no MVP; agendamento transacional (post nunca se perde)</td></tr>
+    <tr><td>Spec/contrato</td><td><b>OpenAPI 3.1 spec-first</b></td><td>SDKs gerados em CI; contrato é o produto para devs e agentes</td></tr>
+    <tr><td>Auth</td><td><b>OAuth broker server-side</b></td><td>Cliente usa só API key; tokens criptografados (AES-256-GCM)</td></tr>
+    <tr><td>Storage</td><td><b>Cloudflare R2</b> (S3-compatível)</td><td>Zero egress fee — ideal para LATAM; presign até 5GB</td></tr>
+    <tr><td>Pagamentos</td><td><b>Stripe</b> (cartão + PIX)</td><td>PIX cobre o mercado brasileiro</td></tr>
+    <tr><td>Monorepo</td><td>Estrutura única Go</td><td>Versionamento atômico, SDKs sem drift</td></tr>
+  </table>
+
+  <h2>4.2 Princípios de engenharia (não negociáveis)</h2>
+  <ul>
+    <li><b>Idempotência em 2 camadas:</b> Idempotency-Key do cliente + content-hash com dedup de 24h — sem posts duplicados.</li>
+    <li><b>Webhooks confiáveis:</b> evento com id, assinatura HMAC-SHA256, timeout curto, retry com mesmo id, log de entregas, endpoint de teste.</li>
+    <li><b>Status por plataforma:</b> cada destino tem seu próprio estado e histórico de tentativas (auditável).</li>
+    <li><b>Health check de contas:</b> detecção proativa de token expirado/permissão revogada — nunca falha silenciosa.</li>
+    <li><b>Erros machine-readable:</b> envelope <span class="mono">{code, error, details}</span> + rate limits com headers <span class="mono">X-RateLimit-*</span>.</li>
+  </ul>
+</div>
+
+<!-- ============ 5. MODELO DE NEGÓCIO ============ -->
+<div class="page">
+  <h1>5. Modelo de Negócio</h1>
+  <p class="muted">Como o RIZOMAI gera receita</p>
+
+  <h2>5.1 Estratégia de preço (proposta)</h2>
+  <p>Modelo <b>usage-based por conta conectada</b> (validado pelo benchmark Zernio, que abandonou
+  cotas de posts): o cliente paga pelo número de contas sociais conectadas, com preço que cai
+  conforme escala. <b>Tudo incluso</b>: posts ilimitados, analytics, webhooks.</p>
+  <table>
+    <tr><th>Faixa</th><th>Contas conectadas</th><th>Preço/contas excedentes</th></tr>
+    <tr><td>Grátis</td><td>1–3 contas</td><td>R$ 0 — para sempre, sem cartão</td></tr>
+    <tr><td>Growth</td><td>4–10 contas</td><td>~R$ 4–8 / conta/mês</td></tr>
+    <tr><td>Escala</td><td>11–100 contas</td><td>~R$ 2 / conta/mês (preço decrescente)</td></tr>
+    <tr><td>Agência</td><td>10+ contas + equipe + white-label básico</td><td>R$ 49–99 /mês fixo</td></tr>
+  </table>
+  <p class="muted">Valores finais sujeitos a validação com o Don (decisão de rate card pendente).</p>
+
+  <h2>5.2 Go-to-market (como chegamos ao cliente)</h2>
+  <ol>
+    <li><b>Conteúdo e SEO por plataforma:</b> páginas "/twitter", "/instagram", "/whatsapp" capturam busca por automação social.</li>
+    <li><b>GitHub e ecossistema open source:</b> SDKs, exemplos MIT, org verificada — o mesmo caminho que deu 717 followers à Zernio em meses.</li>
+    <li><b>Canal de AI agents:</b> servidor MCP + arquivo llms.txt + página "instruction set" — agentes descobrem a API sozinhos (canal emergente, custo baixo).</li>
+    <li><b>Comunidade n8n:</b> node de integração para automação low-code.</li>
+    <li><b>LATAM como foco:</b> docs PT-BR, suporte humano, preço em R$ com PIX — ninguém no mercado faz isso.</li>
+  </ol>
+
+  <h2>5.3 Estimativas financeiras (ano 1, conservador)</h2>
+  <table>
+    <tr><th>Métrica</th><th>Meta</th></tr>
+    <tr><td>Contas conectadas (fim do ano 1)</td><td>2.000–5.000</td></tr>
+    <tr><td>Clientes pagantes</td><td>150–400</td></tr>
+    <tr><td>MRR (receita recorrente mensal)</td><td>R$ 8.000–25.000</td></tr>
+    <tr><td>Custo de infra (mensal)</td><td>~R$ 1.000 (startup enxuta)</td></tr>
+    <tr><td>Margem bruta</td><td>&gt; 85%</td></tr>
+  </table>
+
+  <h2>5.4 Riscos e mitigação</h2>
+  <table>
+    <tr><th>Risco</th><th>Mitigação</th></tr>
+    <tr><td>Mudanças nas APIs das redes</td><td>Arquitetura de conectores isolados; health check; monitoramento ativo</td></tr>
+    <tr><td>Revisão de app demorada (IG/TikTok)</td><td>MVP com plataformas de aprovação rápida; demais na Fase 2+</td></tr>
+    <tr><td>Concorrência de gigantes</td><td>Foco LATAM + pricing acessível + API-first + agentes de IA</td></tr>
+    <tr><td>Segurança de tokens</td><td>OAuth broker centralizado, criptografia AES-256-GCM, auditoria LGPD</td></tr>
+  </table>
+</div>
+
+<!-- ============ 6. ROADMAP ============ -->
+<div class="page">
+  <h1>6. Roadmap</h1>
+  <p class="muted">Da fundação ao produto completo</p>
+
+  <table>
+    <tr><th>Fase</th><th>Escopo</th><th>Entregável</th><th>Prazo (est.)</th></tr>
+    <tr>
+      <td><b>0 — Fundação</b></td>
+      <td>Batismo, estrutura, ADRs</td>
+      <td>Docs, decisões de stack, identidade</td>
+      <td>✅ Concluída (set/2026)</td>
+    </tr>
+    <tr>
+      <td><b>1 — Scaffold</b></td>
+      <td>Monorepo, OpenAPI inicial, CI</td>
+      <td>Repositório rodando, contrato v0.1</td>
+      <td>2 semanas</td>
+    </tr>
+    <tr>
+      <td><b>2 — Core API</b></td>
+      <td>Profiles, Accounts, Posts, Queue, Media, Webhooks</td>
+      <td>API /v1 funcional + fila River</td>
+      <td>6–8 semanas</td>
+    </tr>
+    <tr>
+      <td><b>3 — Conectores MVP</b></td>
+      <td>Twitter/X, LinkedIn, Telegram</td>
+      <td>Publicação real multi-rede</td>
+      <td>4–6 semanas</td>
+    </tr>
+    <tr>
+      <td><b>4 — Dashboard + SDKs</b></td>
+      <td>Web admin, SDKs gerados, docs PT-BR</td>
+      <td>Produto utilizável de ponta a ponta</td>
+      <td>4 semanas</td>
+    </tr>
+    <tr>
+      <td><b>5 — Monetização</b></td>
+      <td>Stripe + PIX, metering, planos</td>
+      <td>Primeiros clientes pagantes</td>
+      <td>2–3 semanas</td>
+    </tr>
+    <tr>
+      <td><b>6 — Expansão</b></td>
+      <td>Instagram, YouTube, TikTok, Facebook</td>
+      <td>6+ redes ativas</td>
+      <td>Fase seguinte</td>
+    </tr>
+    <tr>
+      <td><b>7 — AI Agents + Inbox</b></td>
+      <td>MCP server, analytics, inbox unificado</td>
+      <td>Ecosistema completo</td>
+      <td>Fase seguinte</td>
+    </tr>
+  </table>
+
+  <h2>Custo estimado até o MVP (Fases 1–4)</h2>
+  <ul>
+    <li>Infra (VPS/Cloudflare/Postgres): R$ 300–500/mês</li>
+    <li>APIs de reputação / plataformas: R$ 0 (APIs oficiais das redes, tiers gratuitos)</li>
+    <li>Ferramentas: R$ 200/mês</li>
+    <li><b>Total até MVP: ~R$ 500–700/mês</b> — estrutura de startup enxuta</li>
+  </ul>
+
+  <h2>Métricas de sucesso (KPIs)</h2>
+  <table>
+    <tr><th>KPI</th><th>Meta (ano 1)</th></tr>
+    <tr><td>Contas conectadas</td><td>2.000–5.000</td></tr>
+    <tr><td>Posts publicados via API</td><td>50.000+</td></tr>
+    <tr><td>Conversão free → pago</td><td>3–5%</td></tr>
+    <tr><td>Churn mensal</td><td>&lt; 3%</td></tr>
+    <tr><td>Tempo de primeiro post (time-to-value)</td><td>&lt; 5 minutos</td></tr>
+  </table>
+</div>
+
+<!-- ============ 7. CONCLUSÃO ============ -->
+<div class="page">
+  <h1>7. Por que investir no RIZOMAI</h1>
+  <div class="grid2">
+    <div class="box">
+      <b style="color:#0e6b4f">Mercado</b>
+      <ul class="small" style="margin-top:6px">
+        <li>Gestão de redes sociais: mercado global em crescimento</li>
+        <li>LATAM sem concorrente relevante em PT-BR/R$</li>
+        <li>Canal de AI agents nascendo agora</li>
+      </ul>
+    </div>
+    <div class="box">
+      <b style="color:#0e6b4f">Produto</b>
+      <ul class="small" style="margin-top:6px">
+        <li>API-first com SDKs gerados + MCP</li>
+        <li>Pricing transparente, sem cotas</li>
+        <li>Blueprint validado pelo benchmark Zernio</li>
+      </ul>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="box">
+      <b style="color:#0e6b4f">Execução</b>
+      <ul class="small" style="margin-top:6px">
+        <li>Stack enxuto e barato (Go + Postgres + River)</li>
+        <li>Infra ~R$ 500–700/mês até o MVP</li>
+        <li>10 ADRs documentando todas as decisões</li>
+      </ul>
+    </div>
+    <div class="box">
+      <b style="color:#0e6b4f">Timing</b>
+      <ul class="small" style="margin-top:6px">
+        <li>MVP em ~4–5 meses</li>
+        <li>Primeiros clientes pagantes na Fase 5</li>
+        <li>Janela aberta: concorrentes ignoram LATAM</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Resumo em 3 pontos para o sócio</h2>
+  <ol>
+    <li><b>Problema real:</b> publicar em várias redes exige 16 integrações — nós entregamos 1 API.</li>
+    <li><b>Modelo validado:</b> a Zernio prova que API-first para redes sociais cresce rápido; atacamos onde ela não joga (LATAM, preço, suporte).</li>
+    <li><b>Execução barata e documentada:</b> 10 ADRs prontos, stack de baixo custo, roadmap de 4–5 meses até o MVP.</li>
+  </ol>
+
+  <div class="card" style="margin-top:26px; text-align:center">
+    <b>RIZOMAI — "Um post. Todas as redes. Uma API."</b><br>
+    <span class="muted">Documento executivo · Set/2026 · Elaborado pelo Cosca · Confidencial</span>
+  </div>
+</div>
+
+</body>
+</html>
