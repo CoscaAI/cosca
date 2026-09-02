@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLARO — Identidade Visual & Wireframe</title>
+<style>
+  :root {
+    --azul: #1A2A4A;
+    --ciano: #38BDF8;
+    --verde: #34D399;
+    --ambar: #FBBF24;
+    --branco: #F8FAFC;
+    --texto: #0F172A;
+    --cinza: #64748B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--branco);
+    color: var(--texto);
+    line-height: 1.6;
+  }
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, var(--azul) 0%, #0F2447 100%);
+    color: white;
+    padding: 60px 20px 80px;
+    text-align: center;
+  }
+  .logo-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+  .logo {
+    width: 120px; height: 120px;
+    background: radial-gradient(circle at 50% 40%, #2A4A7A, var(--azul));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 40px rgba(56, 189, 248, 0.4);
+    position: relative;
+  }
+  .logo .luz {
+    width: 28px; height: 28px; background: var(--ciano);
+    border-radius: 50%;
+    box-shadow: 0 0 30px var(--ciano);
+    animation: pulso 2s infinite;
+  }
+  .logo .feixe {
+    position: absolute; width: 6px; height: 50px;
+    background: linear-gradient(to bottom, var(--ciano), transparent);
+    transform-origin: top; opacity: 0.6;
+  }
+  .feixe.l { transform: rotate(35deg); top: 55px; }
+  .feixe.r { transform: rotate(-35deg); top: 55px; }
+  .feixe.c { transform: rotate(0deg); top: 55px; }
+  @keyframes pulso {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.85; }
+  }
+  .brand { font-size: 48px; font-weight: 800; letter-spacing: 8px; }
+  .brand span { color: var(--ciano); }
+  .slogan { font-size: 18px; opacity: 0.9; margin-top: 8px; font-style: italic; }
+  .section { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+  .section h2 {
+    font-size: 24px; margin-bottom: 24px;
+    color: var(--azul);
+    border-left: 5px solid var(--ciano); padding-left: 12px;
+  }
+  /* Pilares */
+  .pilares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .pilar {
+    background: white; border-radius: 16px; padding: 28px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    text-align: center; border-top: 5px solid var(--ciano);
+  }
+  .pilar.verifica { border-top-color: var(--verde); }
+  .pilar.automatiza { border-top-color: var(--ambar); }
+  .pilar .icone { font-size: 40px; margin-bottom: 12px; }
+  .pilar h3 { color: var(--azul); margin-bottom: 8px; }
+  .pilar p { color: var(--cinza); font-size: 14px; }
+  /* Paleta */
+  .paleta { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .cor { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+  .cor .swatch { height: 90px; }
+  .cor .label { padding: 10px; font-size: 12px; background: white; }
+  .cor .label strong { display: block; color: var(--azul); }
+  .cor .label span { color: var(--cinza); font-family: monospace; }
+  /* Wireframe */
+  .wireframe {
+    background: var(--azul);
+    border-radius: 20px;
+    padding: 30px;
+    color: white;
+    box-shadow: 0 8px 40px rgba(26, 42, 74, 0.3);
+  }
+  .wf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .wf-top .logo-mini { font-weight: 800; letter-spacing: 3px; color: var(--ciano); }
+  .wf-top .icons { color: var(--branco); opacity: 0.7; font-size: 14px; }
+  .wf-hello { font-size: 20px; margin-bottom: 20px; }
+  .wf-hello span { color: var(--ciano); }
+  .wf-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .wf-card { background: rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; }
+  .wf-card .num { font-size: 32px; font-weight: 800; }
+  .wf-card .desc { font-size: 13px; opacity: 0.8; }
+  .wf-card .tags { margin-top: 8px; font-size: 11px; }
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 20px; margin-right: 6px; font-size: 11px; }
+  .tag.ciano { background: rgba(56,189,248,0.2); color: var(--ciano); }
+  .tag.verde { background: rgba(52,211,153,0.2); color: var(--verde); }
+  .tag.ambar { background: rgba(251,191,36,0.2); color: var(--ambar); }
+  .wf-actions { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; }
+  .btn.primary { background: var(--ciano); color: var(--azul); }
+  .btn.success { background: var(--verde); color: var(--azul); }
+  .btn.warn { background: var(--ambar); color: var(--azul); }
+  .wf-list { background: rgba(255,255,255,0.06); border-radius: 14px; padding: 18px; }
+  .wf-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .wf-item:last-child { border-bottom: none; }
+  .wf-item .status { font-size: 18px; }
+  .wf-item .text { font-size: 14px; }
+  .wf-item .text small { display: block; opacity: 0.6; font-size: 12px; }
+  .wf-item .link { margin-left: auto; font-size: 12px; color: var(--ciano); text-decoration: underline; }
+  .footer {
+    text-align: center; padding: 40px 20px;
+    color: var(--cinza); font-size: 13px;
+  }
+  @media (max-width: 700px) {
+    .pilares, .paleta { grid-template-columns: 1fr; }
+    .wf-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO: Logo + identidade -->
+<div class="hero">
+  <div class="logo-wrap">
+    <div class="logo">
+      <div class="luz"></div>
+      <div class="feixe l"></div>
+      <div class="feixe c"></div>
+      <div class="feixe r"></div>
+    </div>
+  </div>
+  <div class="brand">C<span>LARO</span></div>
+  <div class="slogan">clareza em um mundo ruidoso</div>
+</div>
+
+<!-- PILARES -->
+<div class="section">
+  <h2>Os 3 Pilares</h2>
+  <div class="pilares">
+    <div class="pilar">
+      <div class="icone">📩</div>
+      <h3>Filtra</h3>
+      <p>Resumo inteligente — só o que importa chega até você.</p>
+    </div>
+    <div class="pilar verifica">
+      <div class="icone">🛡️</div>
+      <h3>Verifica</h3>
+      <p>Checagem de autenticidade antes de você cair em golpes.</p>
+    </div>
+    <div class="pilar automatiza">
+      <div class="icone">⚡</div>
+      <h3>Automatiza</h3>
+      <p>Tarefas repetitivas viram um único clique.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PALETA -->
+<div class="section">
+  <h2>Paleta de Cores</h2>
+  <div class="paleta">
+    <div class="cor">
+      <div class="swatch" style="background:#1A2A4A"></div>
+      <div class="label"><strong>Azul Profundo</strong><span>#1A2A4A</span></div>
+    </div>
+    <div class="cor">
+      <div class="swatch" style="background:#38BDF8"></div>
+      <div class="label"><strong>Ciano Claro</strong><span>#38BDF8</span></div>
+    </div>
+    <div class="cor">
+      <div class="swatch" style="background:#34D399"></div>
+      <div class="label"><strong>Verde Calma</strong><span>#34D399</span></div>
+    </div>
+    <div class="cor">
+      <div class="swatch" style="background:#FBBF24"></div>
+      <div class="label"><strong>Âmbar Atenção</strong><span>#FBBF24</span></div>
+    </div>
+    <div class="cor">
+      <div class="swatch" style="background:#F8FAFC"></div>
+      <div class="label"><strong>Branco Nuvem</strong><span>#F8FAFC</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- WIREFRAME -->
+<div class="section">
+  <h2>Wireframe — Interface Principal</h2>
+  <div class="wireframe">
+    <div class="wf-top">
+      <div class="logo-mini">◯ CLARO</div>
+      <div class="icons">⚙ Ajustes &nbsp; 👤 Perfil</div>
+    </div>
+    <div class="wf-hello">Bom dia! Aqui está o seu <span>resumo claro</span> de hoje:</div>
+    <div class="wf-cards">
+      <div class="wf-card">
+        <div class="num">📩 12</div>
+        <div class="desc">mensagens recebidas</div>
+        <div class="tags">
+          <span class="tag ciano">3 importantes</span>
+          <span class="tag verde">9 silenciadas</span>
+        </div>
+      </div>
+      <div class="wf-card">
+        <div class="num">🛡 3</div>
+        <div class="desc">mensagens verificadas</div>
+        <div class="tags">
+          <span class="tag verde">2 seguras</span>
+          <span class="tag ambar">1 cuidado</span>
+        </div>
+      </div>
+    </div>
+    <div class="wf-actions">
+      <button class="btn primary">✦ Resumo do dia</button>
+      <button class="btn success">Verificar mensagem</button>
+      <button class="btn warn">⚡ Automatizar tarefa</button>
+    </div>
+    <div class="wf-list">
+      <div class="wf-item">
+        <div class="status">✓</div>
+        <div class="text">Banco Central — comprovante novo disponível
+          <small>verificado · seguro</small>
+        </div>
+        <div class="link">abrir</div>
+      </div>
+      <div class="wf-item">
+        <div class="status">⚠</div>
+        <div class="text">Número desconhecido — "você ganhou um prêmio!"
+          <small>possível golpe · não responda ainda</small>
+        </div>
+        <div class="link">verificar antes de responder</div>
+      </div>
+      <div class="wf-item">
+        <div class="status">⚡</div>
+        <div class="text">Agendamento semanal — pronto para rodar
+          <small>automação configurada</small>
+        </div>
+        <div class="link">executar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  NOME DESIGN — esboço da identidade visual e interface · aguardando aprovação do Don
+</div>
+
+</body>
+</html>
