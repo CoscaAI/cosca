@@ -318,9 +318,12 @@ func cmdMemory(_ *CommandContext, arg string) CommandResult {
 			IsError: true,
 		}
 	}
+	// TODO(runtime): connect to the runtime memory API when available. Until
+	// then, point the user to the Memory Explorer (Alt+6) which shows the
+	// session's epistemologically-typed memory derived from live state.
 	return CommandResult{
 		Text: fmt.Sprintf("Memory search: \"%s\"\n%s",
-			arg, infoBubble.Render("Memory retrieval module not integrated yet.")),
+			arg, infoBubble.Render("Runtime memory API not connected yet. Use Alt+6 (Memory Explorer) to browse this session's memory.")),
 		Role: "slash",
 	}
 }

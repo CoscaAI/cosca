@@ -55,9 +55,9 @@ var panelNames = map[PanelID]string{
 
 // workspaceKeys maps Alt+1..9 to the workspace panels of the Mission Control
 // vision. Panels without a real implementation yet render an elegant
-// placeholder (Memory → Fase 4, Git → Fase 5, Deploy → Fase 6, Graph →
-// Fase 7) so the full layout is reachable from day one. Agents (Alt+3) is
-// real since Fase 3.
+// placeholder (Git → Fase 5, Deploy → Fase 6, Graph → Fase 7) so the full
+// layout is reachable from day one. Agents (Alt+3) is real since Fase 3;
+// Memory (Alt+6) is real since Fase 4.
 //
 // NOTE: bubbletea v1.3.10 does NOT track Ctrl for character keys (Ctrl+1
 // arrives identical to plain 1), so workspace switching uses Alt+1..9 which
@@ -78,8 +78,6 @@ var workspaceKeys = map[string]PanelID{
 // placeholders; empty for implemented panels.
 func panelPhase(p PanelID) string {
 	switch p {
-	case PanelMemory:
-		return "Fase 4"
 	case PanelGit:
 		return "Fase 5"
 	case PanelDeploy:
@@ -165,6 +163,7 @@ type Model struct {
 	diffSelected  int
 	diffDirty     bool
 	usedAgents    []string
+	memorySelected int
 
 	breadcrumbs []string
 
@@ -181,6 +180,7 @@ type Model struct {
 	multiLineMode        bool
 	fileSuggestions      []string
 	showHUD              bool
+	inspectorOpen        bool
 }
 
 // ─── Constructor ───────────────────────────────────────────────────────────────
@@ -417,6 +417,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Context Inspector (P16): Alt+I toggles the centered overlay.
+		if msg.String() == "alt+i" {
+			m.inspectorOpen = !m.inspectorOpen
+			return m, nil
+		}
+
+		if msg.String() == "esc" && m.inspectorOpen {
+			m.inspectorOpen = false
+			return m, nil
+		}
+
 		if msg.String() == "ctrl+k" {
 			if m.modeIndicator == "PLAN" {
 				m.modeIndicator = "BUILD"
@@ -603,6 +614,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else if m.filesSelected < len(m.fileEntries)-1 {
 						m.filesSelected++
 					}
+				}
+				return m, nil
+			}
+		}
+
+		// Memory panel navigation (P15): ↑↓ moves, Enter toggles detail.
+		if m.activePanel == PanelMemory && !m.busy {
+			memCount := len(buildMemoryEntries(&m))
+			switch msg.String() {
+			case "up", "k":
+				if m.memorySelected > 0 {
+					m.memorySelected--
+				}
+				return m, nil
+			case "down", "j":
+				if m.memorySelected < memCount-1 {
+					m.memorySelected++
 				}
 				return m, nil
 			}
@@ -816,6 +844,32 @@ func (m Model) View() string {
 			Render(pv)
 	}
 
+	// Context Inspector overlay (P16): centered like the palette.
+	inspectorView := ""
+	if m.inspectorOpen {
+		iv := ContextInspectorView(&m)
+		ih := lipgloss.Height(iv)
+		if vpHeight > ih {
+			vpHeight -= ih
+		}
+		if vpHeight < 5 {
+			vpHeight = 5
+		}
+		padL := (m.width - lipgloss.Width(iv)) / 2
+		if padL < 0 {
+			padL = 0
+		}
+		padR := m.width - lipgloss.Width(iv) - padL
+		if padR < 0 {
+			padR = 0
+		}
+		inspectorView = lipgloss.NewStyle().
+			Background(th.BackgroundPanel).
+			PaddingLeft(padL).
+			PaddingRight(padR).
+			Render(iv)
+	}
+
 	chatW := m.width
 	if useRail {
 		chatW -= railW
@@ -850,7 +904,9 @@ func (m Model) View() string {
 			rightPanel = m.operations.Render(sidebarW, vpHeight)
 		case PanelAgents:
 			rightPanel = AgentsPanelView(m.usedAgents, m.currentAgent, sidebarW, vpHeight)
-		case PanelMemory, PanelGit, PanelDeploy, PanelGraph:
+		case PanelMemory:
+			rightPanel = MemoryPanelView(buildMemoryEntries(&m), m.memorySelected, sidebarW, vpHeight)
+		case PanelGit, PanelDeploy, PanelGraph:
 			rightPanel = PlaceholderPanelView(panelNames[m.activePanel], panelPhase(m.activePanel), sidebarW, vpHeight)
 		}
 	}
@@ -883,6 +939,7 @@ func (m Model) View() string {
 			breadcrumbs + "\n" +
 			mainArea + "\n" +
 			paletteView + "\n" +
+			inspectorView + "\n" +
 			inputStyle.Render(inputView) +
 			hudLine,
 	)
@@ -1561,6 +1618,9 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 		}
 		m.appendMessage("info", "Status bar " + state + ".")
 		return m, m.viewportCmd()
+	case "inspect-context", "context":
+		m.inspectorOpen = true
+		return m, nil
 	case "session-info":
 		if m.sessionCtx != nil {
 			m.appendMessage("info", m.sessionCtx.ContextSummary())
@@ -1673,7 +1733,8 @@ func keyboardShortcutsHelp() string {
   Alt+3     Agents (hierarchy)
   Alt+4     Operations
   Alt+5     Tasks
-  Alt+6     Memory (Fase 4)
+  Alt+6     Memory (explorer)
+  Alt+I     Context Inspector
   Alt+7     Git (Fase 5)
   Alt+8     Deploy (Fase 6)
   Alt+9     Graph (Fase 7)
