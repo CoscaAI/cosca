@@ -36,15 +36,54 @@ func (fp *FilesPanel) Update(msg tea.KeyMsg) {
 	}
 }
 
+// ─── Panel header helpers ─────────────────────────────────────────────────────
+
+// sidePanelBadge renders the tab-style header badge for a side panel, with an
+// optional meta summary (counts/deltas) and a live "dirty" dot.
+func sidePanelBadge(title, meta string, dirty bool) string {
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(colorGold).
+		Bold(true).
+		Render(" " + title + " "))
+	if meta != "" {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(colorGrayLight).
+			Render(meta))
+	}
+	if dirty {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(colorCyan).
+			Bold(true).
+			Render(" ●"))
+	}
+	return b.String()
+}
+
+func fileSummary(files []FileEntry) string {
+	adds, dels, created := 0, 0, 0
+	for _, f := range files {
+		adds += f.LinesAdd
+		dels += f.LinesDel
+		if f.Action == "created" {
+			created++
+		}
+	}
+	parts := []string{fmt.Sprintf("%d", len(files))}
+	if created > 0 {
+		parts = append(parts, fmt.Sprintf("+%d new", created))
+	}
+	if adds > 0 || dels > 0 {
+		parts = append(parts, fmt.Sprintf("%+d/−%d", adds, dels))
+	}
+	return strings.Join(parts, " · ")
+}
+
 func FilesPanelView(files []FileEntry, width, height int, selected int) string {
 	panelW := width
 	if panelW < 20 {
 		panelW = 40
 	}
-	headerStyle := lipgloss.NewStyle().
-		Foreground(colorGold).
-		Bold(true).
-		Padding(0, 1)
 
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -67,12 +106,12 @@ func FilesPanelView(files []FileEntry, width, height int, selected int) string {
 			Render("No files tracked yet")
 
 		return borderStyle.Height(contentHeight).Render(
-			headerStyle.Render("FILES") + "\n" + empty,
+			sidePanelBadge("FILES", "", false) + "\n" + empty,
 		)
 	}
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("FILES"))
+	b.WriteString(sidePanelBadge("FILES", fileSummary(files), false))
 	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colorGray).

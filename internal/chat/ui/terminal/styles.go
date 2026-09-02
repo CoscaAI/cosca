@@ -9,13 +9,16 @@ import (
 )
 
 var (
-	th               = theme.Petrol
-	currentThemeName = "petrol"
+	th               = theme.Cosca
+	currentThemeName = "cosca"
 )
 
 // SetTheme switches between available themes at runtime.
 func SetTheme(name string) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "cosca", "default", "dark", "theme-cosca":
+		th = theme.Cosca
+		currentThemeName = "cosca"
 	case "tokyonight", "tokyo", "theme-tokyonight":
 		th = theme.TokyoNight
 		currentThemeName = "tokyonight"
@@ -26,8 +29,8 @@ func SetTheme(name string) {
 		th = theme.Petrol
 		currentThemeName = "petrol"
 	default:
-		th = theme.Petrol
-		currentThemeName = "petrol"
+		th = theme.Cosca
+		currentThemeName = "cosca"
 	}
 	applyThemeStyles(th)
 }
@@ -63,8 +66,20 @@ var (
 var (
 	appStyle = th.App()
 
-	titleStyle    = th.Header()
-	titleSubStyle = th.HeaderSub()
+	// Title uses the theme accent on the panel background instead of a full
+	// primary band — a quiet, opencode-style app bar.
+	titleStyle = lipgloss.NewStyle().
+			Foreground(th.Accent).
+			Bold(true).
+			Padding(0, 1).
+			Background(th.BgAlt)
+	titleSubStyle = lipgloss.NewStyle().
+			Foreground(th.TextMuted).
+			Background(th.BgAlt).
+			Padding(0, 1)
+	titleDividerStyle = lipgloss.NewStyle().
+				Foreground(th.Muted).
+				Background(th.BgAlt)
 )
 
 // ─── Panel layout ───────────────────────────────────────────────────────────
@@ -155,11 +170,20 @@ var (
 			MaxWidth(96)
 
 	userBubbleBox = lipgloss.NewStyle().
-			Foreground(colorFg).
-			Background(th.InputBackground).
-			Bold(true).
+			Foreground(th.Text).
+			Background(th.BackgroundPanel).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(th.Primary).
 			Padding(0, 1).
 			MaxWidth(96)
+
+	userBubbleLabel = lipgloss.NewStyle().
+			Foreground(th.Primary).
+			Bold(true)
+
+	assistantBubbleLabel = lipgloss.NewStyle().
+			Foreground(th.Accent2).
+			Bold(true)
 
 	toolCallBox = lipgloss.NewStyle().
 			Foreground(colorCyan).
@@ -407,7 +431,7 @@ var (
 )
 
 func init() {
-	applyThemeStyles(theme.Petrol)
+	applyThemeStyles(theme.Cosca)
 }
 
 // applyThemeStyles keeps the package-level styles in sync with the selected
@@ -434,8 +458,18 @@ func applyThemeStyles(t theme.Theme) {
 	colorSelection = t.Selection
 
 	appStyle = t.App()
-	titleStyle = t.Header()
-	titleSubStyle = t.HeaderSub()
+	titleStyle = lipgloss.NewStyle().
+		Foreground(t.Accent).
+		Bold(true).
+		Padding(0, 1).
+		Background(t.BgAlt)
+	titleSubStyle = lipgloss.NewStyle().
+		Foreground(t.TextMuted).
+		Background(t.BgAlt).
+		Padding(0, 1)
+	titleDividerStyle = lipgloss.NewStyle().
+		Foreground(t.Muted).
+		Background(t.BgAlt)
 
 	panelStyle = t.Panel()
 	chatViewportStyle = lipgloss.NewStyle().
@@ -450,8 +484,15 @@ func applyThemeStyles(t theme.Theme) {
 	inputFocusedStyle = t.InputFocused()
 
 	tabBarStyle = t.TabBar()
-	tabActiveStyle = t.TabActive()
-	tabInactiveStyle = t.TabInactive()
+	tabActiveStyle = lipgloss.NewStyle().
+		Foreground(t.Accent).
+		Bold(true).
+		Background(t.BgAlt).
+		Padding(0, 1)
+	tabInactiveStyle = lipgloss.NewStyle().
+		Foreground(t.MutedLight).
+		Background(t.BgAlt).
+		Padding(0, 1)
 
 	breadcrumbStyle = t.Breadcrumb()
 	breadcrumbActiveStyle = t.BreadcrumbActive()
@@ -476,11 +517,18 @@ func applyThemeStyles(t theme.Theme) {
 		Padding(0, 1).
 		MaxWidth(96)
 	userBubbleBox = lipgloss.NewStyle().
-		Foreground(t.Foreground).
-		Background(t.InputBackground).
-		Bold(true).
+		Foreground(t.Text).
+		Background(t.BackgroundPanel).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
 		Padding(0, 1).
 		MaxWidth(96)
+	userBubbleLabel = lipgloss.NewStyle().
+		Foreground(t.Primary).
+		Bold(true)
+	assistantBubbleLabel = lipgloss.NewStyle().
+		Foreground(t.Accent2).
+		Bold(true)
 	toolCallBox = lipgloss.NewStyle().
 		Foreground(t.Accent2).
 		Background(t.BackgroundElement).

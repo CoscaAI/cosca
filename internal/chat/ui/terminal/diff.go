@@ -196,15 +196,20 @@ func parseGitDiff(raw string) []DiffEntry {
 	return diffs
 }
 
+func diffSummary(diffs []DiffEntry) string {
+	adds, dels := 0, 0
+	for _, d := range diffs {
+		adds += d.Additions
+		dels += d.Deletions
+	}
+	return fmt.Sprintf("%d · +%d −%d", len(diffs), adds, dels)
+}
+
 func DiffPanelView(diffs []DiffEntry, width, height, selected int) string {
 	panelW := width
 	if panelW < 20 {
 		panelW = 40
 	}
-	headerStyle := lipgloss.NewStyle().
-		Foreground(colorGold).
-		Bold(true).
-		Padding(0, 1)
 
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -227,12 +232,12 @@ func DiffPanelView(diffs []DiffEntry, width, height, selected int) string {
 			Render("No diffs available")
 
 		return borderStyle.Height(contentHeight).Render(
-			headerStyle.Render("DIFF") + "\n" + empty,
+			sidePanelBadge("DIFF", "", false) + "\n" + empty,
 		)
 	}
 
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("DIFF"))
+	b.WriteString(sidePanelBadge("DIFF", diffSummary(diffs), false))
 	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colorGray).

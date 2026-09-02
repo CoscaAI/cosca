@@ -1,11 +1,14 @@
 package theme
 
 import (
+	"strings"
+
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 // Theme is a shared colour palette used by all Cosca TUIs.
@@ -265,6 +268,72 @@ var OpenCode = Theme{
 	Selection: "#1f6feb",
 }
 
+// Cosca is Cosca's default premium dark theme: near-black GitHub-dark-style
+// neutrals (opencode look) with the house teal/cyan accent. It is the terminal
+// default — Petrol/TokyoNight/OpenCode remain selectable.
+var Cosca = Theme{
+	Background:             "#0D1117",
+	Foreground:             "#E6EDF3",
+	BgAlt:                  "#161B22",
+	Surface:                "#05090A", // dark text on bright accent surfaces
+	InputBackground:        "#21262D",
+	InputFocusedBackground: "#2D333B",
+	Primary:                "#2DD4BF", // cosca ciano
+	PrimaryDim:             "#178F84",
+	Success:                "#16C784", // cosca verde
+	Error:                  "#F85149",
+	Info:                   "#58A6FF",
+	Accent:                 "#2DD4BF",
+	Accent2:                "#79C0FF",
+	Muted:                  "#484F58",
+	MutedLight:             "#8B949E",
+	Border:                 "#30363D",
+
+	Text:      "#E6EDF3",
+	TextMuted: "#8B949E",
+
+	BackgroundPanel:   "#161B22",
+	BackgroundElement: "#0D1117",
+
+	BorderActive: "#2DD4BF",
+	BorderSubtle: "#21262D",
+
+	DiffAdded:            "#3FB950",
+	DiffRemoved:          "#F85149",
+	DiffContext:          "#8B949E",
+	DiffHunkHeader:       "#79C0FF",
+	DiffHighlightAdded:   "#56D364",
+	DiffHighlightRemoved: "#FF7B72",
+	DiffAddedBg:          "#132A1F",
+	DiffRemovedBg:        "#3A1D1D",
+	DiffContextBg:        "#161B22",
+	DiffLineNumber:       "#484F58",
+
+	MarkdownText:           "#E6EDF3",
+	MarkdownHeading:        "#2DD4BF",
+	MarkdownLink:           "#58A6FF",
+	MarkdownCode:           "#7EE0D6",
+	MarkdownBlockQuote:     "#8B949E",
+	MarkdownEmph:           "#E6EDF3",
+	MarkdownStrong:         "#F0F6FC",
+	MarkdownHorizontalRule: "#30363D",
+	MarkdownListItem:       "#79C0FF",
+	MarkdownCodeBlock:      "#79C0FF",
+
+	SyntaxComment:     "#7D8590",
+	SyntaxKeyword:     "#FF7B72",
+	SyntaxFunction:    "#D2A8FF",
+	SyntaxVariable:    "#FFA657",
+	SyntaxString:      "#A5D6FF",
+	SyntaxNumber:      "#A5D6FF",
+	SyntaxType:        "#FFA657",
+	SyntaxOperator:    "#FF7B72",
+	SyntaxPunctuation: "#C9D1D9",
+
+	Warning:   "#D29922",
+	Selection: "#16524B",
+}
+
 // Panel returns a bordered panel style.
 func (t Theme) Panel() lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -462,6 +531,10 @@ func (t Theme) MarkdownStyle() ansi.StyleConfig {
 					Color: stringPtr(string(t.MarkdownCodeBlock)),
 				},
 			},
+			// Reference the per-theme registered chroma style instead of
+			// CodeBlock.Chroma: glamour registers a Chroma-based style once
+			// under a fixed name, which would freeze the first palette seen.
+			Theme: t.SyntaxChromaName(),
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
@@ -511,11 +584,29 @@ func (t Theme) MarkdownStyle() ansi.StyleConfig {
 	}
 }
 
+// chromaFormatterName returns a chroma formatter matching the active colour
+// profile so code blocks never output more colour depth than the terminal
+// supports (and render plain when colours are disabled).
+func (t Theme) chromaFormatterName() string {
+	switch lipgloss.ColorProfile() {
+	case termenv.TrueColor:
+		return "terminal16m"
+	case termenv.ANSI256:
+		return "terminal256"
+	case termenv.ANSI:
+		return "terminal"
+	default:
+		return "noop"
+	}
+}
+
 // MarkdownRenderer returns a glamour TermRenderer configured with the theme.
 func (t Theme) MarkdownRenderer(width int) (*glamour.TermRenderer, error) {
 	return glamour.NewTermRenderer(
 		glamour.WithStyles(t.MarkdownStyle()),
 		glamour.WithWordWrap(width),
+		glamour.WithColorProfile(lipgloss.ColorProfile()),
+		glamour.WithChromaFormatter(t.chromaFormatterName()),
 	)
 }
 
@@ -557,8 +648,33 @@ func (t Theme) DiffLineNumberStyle() lipgloss.Style {
 		Width(4)
 }
 
-// SyntaxBlock returns a chroma style formatter for code blocks.
+// SyntaxChromaName returns a stable, theme-unique chroma style name used by
+// glamour code blocks. It is derived from the theme background and primary
+// colour so every selectable palette resolves its own syntax highlight style
+// (glamour registers a code-block theme only once, keyed by name — a shared
+// name would freeze the first palette forever).
+func (t Theme) SyntaxChromaName() string {
+	bg := strings.TrimPrefix(string(t.Background), "#")
+	if bg == "" {
+		bg = "default"
+	}
+	accent := strings.TrimPrefix(string(t.Primary), "#")
+	if accent == "" {
+		accent = "base"
+	}
+	return "cosca-" + bg + "-" + accent
+}
+
+// SyntaxBlock returns a chroma style built from the theme's syntax tokens.
+// The returned style is named SyntaxChromaName so it can be registered once
+// per palette and referenced by glamour's CodeBlock.Theme.
 func (t Theme) SyntaxBlock() *chroma.Style {
+	return t.syntaxBlockNamed(t.SyntaxChromaName())
+}
+
+// syntaxBlockNamed builds a github-dark derived chroma style, overriding the
+// token categories that carry the theme's syntax palette.
+func (t Theme) syntaxBlockNamed(name string) *chroma.Style {
 	cs := styles.Get("github-dark")
 	if cs == nil {
 		cs = styles.Fallback
@@ -587,7 +703,23 @@ func (t Theme) SyntaxBlock() *chroma.Style {
 	if err != nil {
 		return cs
 	}
+	formatted.Name = name
 	return formatted
+}
+
+// registerSyntaxStyles registers one chroma style per selectable palette under
+// its SyntaxChromaName. Registration happens once at init so glamour's code
+// block rendering never races a runtime registration.
+func registerSyntaxStyles() {
+	for _, t := range []Theme{Cosca, Petrol, TokyoNight, OpenCode} {
+		if cs := t.syntaxBlockNamed(t.SyntaxChromaName()); cs.Name == t.SyntaxChromaName() {
+			styles.Register(cs)
+		}
+	}
+}
+
+func init() {
+	registerSyntaxStyles()
 }
 
 // ─── Helper functions ──────────────────────────────────────────────────────

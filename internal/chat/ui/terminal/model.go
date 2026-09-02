@@ -31,6 +31,7 @@ const (
 	PanelAgents
 	PanelOperations
 	PanelFiles
+	PanelDiff
 	PanelSystem
 )
 
@@ -40,6 +41,7 @@ var panelNames = map[PanelID]string{
 	PanelAgents:     "Agents",
 	PanelOperations: "Operations",
 	PanelFiles:      "Files",
+	PanelDiff:       "Diff",
 	PanelSystem:     "System",
 }
 
@@ -124,11 +126,13 @@ type Model struct {
 	panels        []PanelID
 	filesSelected int
 	diffSelected  int
+	diffDirty     bool
 
 	breadcrumbs []string
 
 	sessionStart time.Time
 	totalCost    float64
+	branch       string
 
 	palette              PaletteModel
 	paletteOpen          bool
@@ -268,14 +272,19 @@ func New(
 		sessionStart: time.Now(),
 
 		activePanel: PanelChat,
-		panels:      []PanelID{PanelChat, PanelTasks, PanelOperations, PanelFiles},
+		panels:      []PanelID{PanelChat, PanelTasks, PanelOperations, PanelFiles, PanelDiff},
 		breadcrumbs: []string{"Chat"},
+		branch:      "",
 
 		palette:       NewPalette(),
 		paletteOpen:   false,
-		themeName:     "petrol",
+		themeName:     "cosca",
 		modeIndicator: "PLAN",
 		multiLineMode: false,
+	}
+
+	if termCtx != nil {
+		m.branch = gitBranch(termCtx.ProjectPath)
 	}
 
 	m.chatInput.Focus()
@@ -436,20 +445,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.String() == "ctrl+d" && !m.busy {
-			m.activePanel = PanelFiles
-			m.breadcrumbs = []string{"Files"}
-			if len(m.diffEntries) == 0 {
+			m.activePanel = PanelDiff
+			m.breadcrumbs = []string{"Diff"}
+			if m.sessionCtx != nil && len(m.diffEntries) == 0 {
 				m.diffEntries = GetGitDiffs(m.sessionCtx.ProjectPath)
 			}
+			m.diffDirty = false
 			return m, nil
 		}
 
 		if msg.String() == "ctrl+f" {
 			m.activePanel = PanelFiles
 			m.breadcrumbs = []string{"Files"}
-			if len(m.fileEntries) == 0 {
+			if m.sessionCtx != nil && len(m.fileEntries) == 0 {
 				m.fileEntries = ScanModifiedFiles(m.sessionCtx.ProjectPath)
 			}
+			m.diffDirty = false
 			return m, nil
 		}
 
@@ -531,15 +542,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		if m.activePanel == PanelFiles && !m.busy {
+		if (m.activePanel == PanelFiles || m.activePanel == PanelDiff) && !m.busy {
 			switch msg.String() {
 			case "up", "k", "down", "j":
-				if msg.String() == "up" || msg.String() == "k" {
-					if m.filesSelected > 0 {
-						m.filesSelected--
+				if m.activePanel == PanelDiff {
+					if msg.String() == "up" || msg.String() == "k" {
+						if m.diffSelected > 0 {
+							m.diffSelected--
+						}
+					} else if m.diffSelected < len(m.diffEntries)-1 {
+						m.diffSelected++
 					}
 				} else {
-					if m.filesSelected < len(m.fileEntries)-1 {
+					if msg.String() == "up" || msg.String() == "k" {
+						if m.filesSelected > 0 {
+							m.filesSelected--
+						}
+					} else if m.filesSelected < len(m.fileEntries)-1 {
 						m.filesSelected++
 					}
 				}
@@ -712,6 +731,7 @@ func (m Model) View() string {
 	}
 	m.hud.ActiveTask = m.activeTaskName
 	m.hud.Elapsed = time.Since(m.sessionStart)
+	m.hud.Branch = m.branch
 
 	sidebarW := 30
 
@@ -752,6 +772,8 @@ func (m Model) View() string {
 	switch m.activePanel {
 	case PanelFiles:
 		rightPanel = FilesPanelView(m.fileEntries, sidebarW, vpHeight, m.filesSelected)
+	case PanelDiff:
+		rightPanel = DiffPanelView(m.diffEntries, sidebarW, vpHeight, m.diffSelected)
 	case PanelTasks:
 		rightPanel = TaskPanelView(m.tasks, sidebarW, vpHeight)
 	case PanelOperations:
@@ -779,7 +801,7 @@ func (m Model) View() string {
 			mainArea + "\n" +
 			paletteView + "\n" +
 			inputStyle.Render(inputView) + "\n" +
-			HudView(m.hud, m.width),
+			HudView(m.hud, m.width, m.frame),
 	)
 }
 
@@ -789,6 +811,9 @@ func (m Model) renderTabBar() string {
 	var tabs []string
 	for _, p := range m.panels {
 		name := panelNames[p]
+		if p == PanelDiff && m.diffDirty {
+			name = "• " + name
+		}
 		if p == m.activePanel {
 			tabs = append(tabs, tabActiveStyle.Render(" "+name+" "))
 		} else {
@@ -831,7 +856,7 @@ func (m Model) renderBreadcrumbs() string {
 // ─── Header ────────────────────────────────────────────────────────────────────
 
 func (m Model) renderHeader() string {
-	left := titleStyle.Render(" ◎ COSCA TERMINAL ")
+	left := titleStyle.Render(" ◉ COSCA TERMINAL ")
 	agent := m.currentAgent
 	if agent == "" {
 		agent = "kernel"
@@ -842,7 +867,7 @@ func (m Model) renderHeader() string {
 	if sepW < 0 {
 		sepW = 0
 	}
-	sep := strings.Repeat("─", sepW)
+	sep := titleDividerStyle.Render(strings.Repeat("─", sepW))
 	line1 := lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
 
 	status := "ready"
@@ -865,7 +890,7 @@ func (m Model) renderHeader() string {
 		Background(statusColor).
 		Bold(true).
 		Padding(0, 1).
-		Render(" " + status + " ")
+		Render(" ● " + status + " ")
 
 	modeStyle := lipgloss.NewStyle().
 		Foreground(colorGrayLight).
@@ -885,7 +910,7 @@ func (m Model) renderHeader() string {
 
 	keybindHint := lipgloss.NewStyle().
 		Foreground(colorGray).
-		Render(" Tab:cycle · 1-3:panel · Ctrl+P:palette ")
+		Render(" Ctrl+P:palette · Ctrl+F:files · Ctrl+D:diff · Ctrl+T:tasks ")
 
 	line2 := lipgloss.JoinHorizontal(lipgloss.Left, statusTag, modeIndicatorTag, modeStyle, modelTag, keybindHint)
 
@@ -898,7 +923,13 @@ func (m Model) renderWelcome() string {
 	var b strings.Builder
 	b.WriteString(renderCoscaASCII())
 	b.WriteString("\n\n")
-	b.WriteString(welcomeBody.Render("AI Orchestration Terminal"))
+
+	subtitle := lipgloss.JoinHorizontal(lipgloss.Top,
+		welcomeBody.Render("AI Orchestration Terminal "),
+		lipgloss.NewStyle().Foreground(colorCyan).Bold(true).Render("v2"),
+		welcomeHint.Render("  ·  theme: "+m.themeName),
+	)
+	b.WriteString(subtitle)
 	b.WriteString("\n\n")
 
 	b.WriteString(renderShortcutGrid([][2]string{
@@ -906,10 +937,12 @@ func (m Model) renderWelcome() string {
 		{"/", "slash commands"},
 		{":", "palette"},
 		{"Ctrl+T", "tasks panel"},
-		{"Ctrl+O", "operations"},
 		{"Ctrl+F", "files panel"},
+		{"Ctrl+D", "diff panel"},
+		{"Ctrl+O", "operations"},
 		{"Tab", "cycle panels"},
-		{"Ctrl+C", "cancel/quit"},
+		{"Ctrl+K", "plan / build"},
+		{"Ctrl+C", "cancel / quit"},
 	}))
 	b.WriteString("\n")
 
@@ -917,6 +950,8 @@ func (m Model) renderWelcome() string {
 	b.WriteString("\n\n")
 
 	b.WriteString(welcomeHint.Render("Type a task to execute — input stays live while work runs in the background."))
+	b.WriteString("\n")
+	b.WriteString(welcomeHint.Render("Type /help for commands or : for the palette."))
 	b.WriteString("\n")
 
 	welcome := welcomeBox.Render(b.String())
@@ -997,13 +1032,21 @@ func (m Model) renderSystemStatus() string {
 
 // ─── Message rendering ─────────────────────────────────────────────────────────
 
+// msgHeader renders a subtle per-bubble header: role label + timestamp.
+func msgHeader(label string, labelStyle lipgloss.Style, t time.Time) string {
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		labelStyle.Render(label),
+		timestampStyle.Render(" "+t.Format("15:04")+" "),
+	)
+}
+
 func (m Model) renderMessage(msg Message) string {
 	switch msg.Role {
 	case "user":
-		return userBubbleBox.Render("👤 " + msg.Content)
+		return userBubbleBox.Render(msgHeader("you", userBubbleLabel, msg.Time) + "\n" + msg.Content)
 	case "assistant":
-		rendered := RenderMarkdown(msg.Content, m.width-8)
-		return assistantBubble.Render("🤖 " + rendered)
+		rendered := strings.Trim(RenderMarkdown(msg.Content, m.width-8), "\n")
+		return assistantBubble.Render(msgHeader("cosca", assistantBubbleLabel, msg.Time) + "\n" + rendered)
 	case "tool":
 		risk := toolRiskLevel(msg.Content)
 		icon, style := toolRiskStyle(risk)
@@ -1047,6 +1090,7 @@ func toolRiskLevel(content string) string {
 	return "read"
 }
 
+// toolRiskStyle returns a distinct icon + box style per tool risk class.
 func toolRiskStyle(level string) (string, lipgloss.Style) {
 	switch level {
 	case "destructive":
@@ -1056,7 +1100,7 @@ func toolRiskStyle(level string) (string, lipgloss.Style) {
 	case "write":
 		return "✎", toolWriteStyle
 	default:
-		return "⚡", toolReadStyle
+		return "◎", toolReadStyle
 	}
 }
 
@@ -1233,6 +1277,18 @@ func (m Model) handlePipelineEvent(evt pipeline.RunEvent) (tea.Model, tea.Cmd) {
 		m.flushCurrentText()
 		if s, ok := evt.Data.(string); ok {
 			m.appendMessage("info", "   → "+s)
+			// File-touching tools (write/edit/destructive) change the working
+			// tree: refresh the side panels live and flag the Diff tab so the
+			// user notices new changes without being yanked out of the chat.
+			if m.sessionCtx != nil && (toolRiskLevel(s) == "write" || toolRiskLevel(s) == "destructive") {
+				if diffs := GetGitDiffs(m.sessionCtx.ProjectPath); diffs != nil {
+					m.diffEntries = diffs
+					m.diffDirty = true
+				}
+				if files := ScanModifiedFiles(m.sessionCtx.ProjectPath); files != nil {
+					m.fileEntries = files
+				}
+			}
 		}
 		m.streaming = false
 		m.hud.PhasePct = 0.7
@@ -1319,6 +1375,12 @@ func (m *Model) flushCurrentText() {
 
 func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 	switch id {
+	case "theme-cosca", "cosca", "theme-default":
+		SetTheme("cosca")
+		m.themeName = "cosca"
+		m.refreshThemeStyles()
+		m.appendMessage("info", "Switched to Cosca dark theme.")
+		return m, m.viewportCmd()
 	case "theme-opencode":
 		SetTheme("opencode")
 		m.themeName = "opencode"
@@ -1370,18 +1432,20 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 	case "panel-files":
 		m.activePanel = PanelFiles
 		m.breadcrumbs = []string{"Files"}
-		if len(m.fileEntries) == 0 {
+		if m.sessionCtx != nil && len(m.fileEntries) == 0 {
 			m.fileEntries = ScanModifiedFiles(m.sessionCtx.ProjectPath)
 		}
+		m.diffDirty = false
 		return m, nil
 	case "panel-diff":
-		m.activePanel = PanelFiles
-		m.breadcrumbs = []string{"Files"}
-		if len(m.diffEntries) == 0 && m.sessionCtx != nil {
+		m.activePanel = PanelDiff
+		m.breadcrumbs = []string{"Diff"}
+		if m.sessionCtx != nil && len(m.diffEntries) == 0 {
 			m.diffEntries = GetGitDiffs(m.sessionCtx.ProjectPath)
 		}
+		m.diffDirty = false
 		if len(m.diffEntries) > 0 {
-			m.appendMessage("info", "Showing git diffs in Files panel.")
+			m.appendMessage("info", "Showing git diffs in Diff panel.")
 		} else {
 			m.appendMessage("info", "No diffs available.")
 		}

@@ -8,29 +8,23 @@ import (
 
 // SpinnerByOp maps an operation class to a matching spinner animation.
 var SpinnerByOp = map[string]spinner.Spinner{
-	"agent": spinner.Globe,
-	"tool":  spinner.Pulse,
+	"agent": spinner.Line,
+	"tool":  spinner.Dot,
 	"build": spinner.Meter,
 	"test":  spinner.Moon,
 	"index": spinner.Points,
 }
 
-// runningFrames is the animated glyph cycle for running status.
-var runningFrames = []string{"⠿", "⠳", "⠺", "⠼"}
+// runningFrames is a smooth braille cycle for running status. It starts at
+// the full glyph (⠿) and sweeps through a spinner arc.
+var runningFrames = []rune("⠿⠙⠹⠸⠼⠴⠦⠧⠇⠏⠋")
 
 // StatusDot returns the status glyph for a tree status. The running glyph
 // animates across frames so a moving dot signals live work.
 func StatusDot(status string, frame int) string {
 	switch status {
 	case "running":
-		if len(runningFrames) == 0 {
-			return "⠿"
-		}
-		idx := frame % len(runningFrames)
-		if idx < 0 {
-			idx = -idx
-		}
-		return runningFrames[idx]
+		return string(frameRune(runningFrames, frame))
 	case "done":
 		return "✓"
 	case "failed":

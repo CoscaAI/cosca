@@ -46,9 +46,10 @@ func NewPalette() PaletteModel {
 
 func defaultCommands() []PaletteCommand {
 	return []PaletteCommand{
-		{ID: "theme-petrol", Name: "Theme: Petrol", Description: "Switch to Cosca's petroleum and black theme", Category: "Appearance"},
+		{ID: "theme-cosca", Name: "Theme: Cosca", Description: "Premium dark theme (default)", Category: "Appearance"},
 		{ID: "theme-opencode", Name: "Theme: OpenCode", Description: "Switch to OpenCode theme (dark, modern)", Category: "Appearance"},
 		{ID: "theme-tokyonight", Name: "Theme: TokyoNight", Description: "Switch to TokyoNight theme (legacy)", Category: "Appearance"},
+		{ID: "theme-petrol", Name: "Theme: Petrol", Description: "Switch to Cosca's petroleum and black theme", Category: "Appearance"},
 		{ID: "mode-advanced", Name: "Mode: Advanced", Description: "Enable advanced mode", Category: "Session"},
 		{ID: "mode-simple", Name: "Mode: Simple", Description: "Switch to simple mode", Category: "Session"},
 		{ID: "clear-chat", Name: "Clear Chat", Description: "Clear all chat messages", Category: "Session"},

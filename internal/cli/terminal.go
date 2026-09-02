@@ -347,6 +347,11 @@ Examples:
 				}
 			}
 
+			// Cosca dark is the terminal's default look (opencode-style near
+			// black). Explicit SetTheme here keeps a single boot-time hook for
+			// a future --theme flag.
+			terminal.SetTheme("cosca")
+
 			m := terminal.New(runner, planner, stepRunner, recoveryLoop, termCtx, terminal.ModelConfig{
 				AdvancedMode: advancedMode,
 				CurrentModel: termCtx.ActiveModel,

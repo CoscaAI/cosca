@@ -3,6 +3,8 @@ package terminal
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,22 +47,69 @@ type HUDInfo struct {
 	PhasePct   float64
 	ActiveTask string
 	Elapsed    time.Duration
+	Branch     string
+}
+
+// busyFrames and streamingFrames are smooth braille cycles used by the status
+// bar while work is running (kept in sync with the frame tick).
+var (
+	busyFrames      = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+	streamingFrames = []rune("⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈")
+)
+
+// gitBranch returns the current git branch name by reading .git/HEAD. It never
+// shells out to git: in detached HEAD it falls back to the short commit sha.
+func gitBranch(projectPath string) string {
+	if projectPath == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, ".git", "HEAD"))
+	if err != nil {
+		return ""
+	}
+	ref := strings.TrimSpace(string(data))
+	if ref == "" {
+		return ""
+	}
+	if strings.HasPrefix(ref, "ref: refs/heads/") {
+		return strings.TrimPrefix(ref, "ref: refs/heads/")
+	}
+	if len(ref) > 7 {
+		return ref[:7]
+	}
+	return ref
+}
+
+func frameRune(frames []rune, frame int) rune {
+	if len(frames) == 0 {
+		return '⠿'
+	}
+	idx := frame % len(frames)
+	if idx < 0 {
+		idx = -idx
+	}
+	return frames[idx]
 }
 
 // HudView renders the bottom status bar with phase progress,
-// active task name, and per-minute cost burn rate.
-func HudView(info HUDInfo, width int) string {
+// active task name, git branch and per-minute cost burn rate.
+// frame drives the busy/streaming spinner glyphs.
+func HudView(info HUDInfo, width int, frame int) string {
 	if width < 20 {
 		return ""
 	}
 
 	statusColor := colorGreen
+	statusGlyph := "●"
 	if info.Status == "busy" || info.Status == "planning" {
 		statusColor = colorGold
+		statusGlyph = string(frameRune(busyFrames, frame))
 	} else if info.Status == "streaming" {
 		statusColor = colorCyan
+		statusGlyph = string(frameRune(streamingFrames, frame))
 	} else if info.Status == "error" {
 		statusColor = colorRed
+		statusGlyph = "✗"
 	}
 
 	statusTag := lipgloss.NewStyle().
@@ -68,12 +117,17 @@ func HudView(info HUDInfo, width int) string {
 		Background(statusColor).
 		Bold(true).
 		Padding(0, 1).
-		Render(" " + info.Status + " ")
+		Render(" " + statusGlyph + " " + info.Status + " ")
 
 	modelTag := hudModelStyle.Render(info.Model)
 	agentTag := ""
 	if info.Agent != "" {
 		agentTag = hudAgentStyle.Render(" " + info.Agent + " ")
+	}
+
+	branchTag := ""
+	if info.Branch != "" {
+		branchTag = hudLabelStyle.Render(" ⎇") + hudValueStyle.Render(" "+info.Branch+" ")
 	}
 
 	tokensTag := ""
@@ -128,6 +182,9 @@ func HudView(info HUDInfo, width int) string {
 	}
 	if costTag != "" {
 		rightParts = append(rightParts, costTag)
+	}
+	if branchTag != "" {
+		rightParts = append(rightParts, branchTag)
 	}
 	rightParts = append(rightParts, uptimeTag)
 	right := lipgloss.JoinHorizontal(lipgloss.Center, rightParts...)
