@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat/mcp"
@@ -55,6 +57,12 @@ const (
 
 // VisionFunc é a assinatura de vision.AnalyzeVideo (injetável para teste).
 type VisionFunc func(ctx context.Context, video string, opts vision.PipelineOptions) (*vision.PipelineResult, error)
+
+// cliDirMu serializa os.Chdir durante a execução do CLI (cosca.cli). O CLI do
+// COSCA resolve o root via os.Getwd() — como o servidor MCP é in-process, um
+// chdir concorrente corromperia o cwd de outras tools/goroutines. O mutex
+// garante que NENHUM chdir aconteça enquanto outro comando do CLI roda.
+var cliDirMu sync.Mutex
 
 // Engine é o servidor como "sistema nervoso": guarda as dependências que o
 // corpo (runtime) e o cérebro (kernel) fornecem. Todos os campos são
@@ -777,9 +785,33 @@ func (e *Engine) handleCLI(ctx context.Context, raw json.RawMessage) (*CallResul
 	}
 
 	// Executa via CLIExec (que roda o NewRootCommand com os args).
+	//
+	// NOTA (fix 2026-09-02): o CLI do COSCA resolve o root/config a partir de
+	// os.Getwd() (initConfig e os comandos de knowledge usam Getwd) — NÃO existe
+	// flag global "--root" no Cobra (só em subcomandos locais validate/doctor/
+	// memory). Antes, injetávamos "--root <cwd>" e todo comando falhava com
+	// "unknown flag: --root". O correto é operar com o cwd pedido via os.Chdir
+	// serializado (rootCmdMu) e restaurar em seguida.
 	var out string
 	if args.Cwd != "" {
-		out, err = e.CLIExec(append([]string{"--root", args.Cwd}, args.Args...))
+		prev, err := os.Getwd()
+		if err != nil {
+			return &CallResult{
+				IsError: true,
+				Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: não foi possível obter o cwd atual: %v", err)}},
+			}, nil
+		}
+		cliDirMu.Lock()
+		if err := os.Chdir(args.Cwd); err != nil {
+			cliDirMu.Unlock()
+			return &CallResult{
+				IsError: true,
+				Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: cwd inválido %q: %v", args.Cwd, err)}},
+			}, nil
+		}
+		out, err = e.CLIExec(args.Args)
+		_ = os.Chdir(prev)
+		cliDirMu.Unlock()
 	} else {
 		out, err = e.CLIExec(args.Args)
 	}
