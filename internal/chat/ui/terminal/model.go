@@ -33,6 +33,10 @@ const (
 	PanelFiles
 	PanelDiff
 	PanelSystem
+	PanelMemory
+	PanelGit
+	PanelDeploy
+	PanelGraph
 )
 
 var panelNames = map[PanelID]string{
@@ -43,15 +47,49 @@ var panelNames = map[PanelID]string{
 	PanelFiles:      "Files",
 	PanelDiff:       "Diff",
 	PanelSystem:     "System",
+	PanelMemory:     "Memory",
+	PanelGit:        "Git",
+	PanelDeploy:     "Deploy",
+	PanelGraph:      "Graph",
 }
 
-var panelKeys = map[string]PanelID{
-	"1": PanelChat,
-	"2": PanelTasks,
-	"3": PanelAgents,
-	"4": PanelOperations,
-	"5": PanelFiles,
-	"6": PanelSystem,
+// workspaceKeys maps Alt+1..9 to the workspace panels of the Mission Control
+// vision. Panels without a real implementation yet render an elegant
+// placeholder (Agents → Fase 3, Memory → Fase 4, Git → Fase 5, Deploy →
+// Fase 6, Graph → Fase 7) so the full layout is reachable from day one.
+//
+// NOTE: bubbletea v1.3.10 does NOT track Ctrl for character keys (Ctrl+1
+// arrives identical to plain 1), so workspace switching uses Alt+1..9 which
+// is reliably reported on both Windows and Unix terminals.
+var workspaceKeys = map[string]PanelID{
+	"alt+1": PanelChat,
+	"alt+2": PanelFiles,
+	"alt+3": PanelAgents,
+	"alt+4": PanelOperations,
+	"alt+5": PanelTasks,
+	"alt+6": PanelMemory,
+	"alt+7": PanelGit,
+	"alt+8": PanelDeploy,
+	"alt+9": PanelGraph,
+}
+
+// panelPhase returns the roadmap phase for workspace panels that are still
+// placeholders; empty for implemented panels.
+func panelPhase(p PanelID) string {
+	switch p {
+	case PanelAgents:
+		return "Fase 3"
+	case PanelMemory:
+		return "Fase 4"
+	case PanelGit:
+		return "Fase 5"
+	case PanelDeploy:
+		return "Fase 6"
+	case PanelGraph:
+		return "Fase 7"
+	default:
+		return ""
+	}
 }
 
 // ─── Message ───────────────────────────────────────────────────────────────────
@@ -127,6 +165,7 @@ type Model struct {
 	filesSelected int
 	diffSelected  int
 	diffDirty     bool
+	usedAgents    []string
 
 	breadcrumbs []string
 
@@ -142,6 +181,7 @@ type Model struct {
 	modeIndicator        string
 	multiLineMode        bool
 	fileSuggestions      []string
+	showHUD              bool
 }
 
 // ─── Constructor ───────────────────────────────────────────────────────────────
@@ -275,16 +315,21 @@ func New(
 		panels:      []PanelID{PanelChat, PanelTasks, PanelOperations, PanelFiles, PanelDiff},
 		breadcrumbs: []string{"Chat"},
 		branch:      "",
+		usedAgents:  nil,
 
 		palette:       NewPalette(),
 		paletteOpen:   false,
 		themeName:     "cosca",
 		modeIndicator: "PLAN",
 		multiLineMode: false,
+		showHUD:       true,
 	}
 
 	if termCtx != nil {
 		m.branch = gitBranch(termCtx.ProjectPath)
+	}
+	if cfg.CurrentAgent != "" {
+		m.usedAgents = []string{cfg.CurrentAgent}
 	}
 
 	m.chatInput.Focus()
@@ -513,13 +558,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Number keys for direct panel access
-		if p, ok := panelKeys[msg.String()]; ok {
-			if containsPanel(m.panels, p) {
-				m.activePanel = p
-				m.breadcrumbs = []string{panelNames[p]}
-				return m, nil
-			}
+		// Workspace panel access: Alt+1..9 (openCode-style). Plain digits
+		// stay available for typing in the input.
+		if p, ok := workspaceKeys[msg.String()]; ok {
+			m.switchPanel(p)
+			return m, nil
 		}
 
 		// Operations tree navigation
@@ -734,6 +777,17 @@ func (m Model) View() string {
 	m.hud.Branch = m.branch
 
 	sidebarW := 30
+	railW := 14
+	const (
+		minSidebarWidth = 90  // below this the chat owns the width
+		wideRailWidth   = 160 // >= this the left agents rail appears
+		minChatWidth    = 24
+	)
+
+	// Right sidebar appears only when a non-chat panel is active AND there is
+	// room. Below minSidebarWidth the conversation is prioritised (responsive).
+	useSide := m.activePanel != PanelChat && m.width >= minSidebarWidth
+	useRail := m.width >= wideRailWidth
 
 	// Palette is a centered overlay: the viewport shrinks while it is open so
 	// the palette never pushes the HUD below the fold.
@@ -763,21 +817,41 @@ func (m Model) View() string {
 			Render(pv)
 	}
 
-	chatW := m.width - sidebarW
-	if chatW < 20 {
+	chatW := m.width
+	if useRail {
+		chatW -= railW
+	}
+	if useSide {
+		chatW -= sidebarW
+	}
+	// Narrow-terminal fallback: drop the rail first, then the sidebar, so the
+	// chat never gets crushed below a usable width.
+	if chatW < minChatWidth && useRail {
+		useRail = false
+		chatW += railW
+	}
+	if chatW < minChatWidth && useSide {
+		useSide = false
+		chatW += sidebarW
+	}
+	if chatW < 10 {
 		chatW = m.width
 	}
 
 	rightPanel := ""
-	switch m.activePanel {
-	case PanelFiles:
-		rightPanel = FilesPanelView(m.fileEntries, sidebarW, vpHeight, m.filesSelected)
-	case PanelDiff:
-		rightPanel = DiffPanelView(m.diffEntries, sidebarW, vpHeight, m.diffSelected)
-	case PanelTasks:
-		rightPanel = TaskPanelView(m.tasks, sidebarW, vpHeight)
-	case PanelOperations:
-		rightPanel = m.operations.Render(sidebarW, vpHeight)
+	if useSide {
+		switch m.activePanel {
+		case PanelFiles:
+			rightPanel = FilesPanelView(m.fileEntries, sidebarW, vpHeight, m.filesSelected)
+		case PanelDiff:
+			rightPanel = DiffPanelView(m.diffEntries, sidebarW, vpHeight, m.diffSelected)
+		case PanelTasks:
+			rightPanel = TaskPanelView(m.tasks, sidebarW, vpHeight)
+		case PanelOperations:
+			rightPanel = m.operations.Render(sidebarW, vpHeight)
+		case PanelAgents, PanelMemory, PanelGit, PanelDeploy, PanelGraph:
+			rightPanel = PlaceholderPanelView(panelNames[m.activePanel], panelPhase(m.activePanel), sidebarW, vpHeight)
+		}
 	}
 
 	vpCopy := m.chatViewport
@@ -787,11 +861,19 @@ func (m Model) View() string {
 
 	paddedVP := chatViewportStyle.Width(chatW).Render(vpCopy.View())
 
-	var mainArea string
+	cols := []string{}
+	if useRail {
+		cols = append(cols, renderAgentsRail(m.usedAgents, m.currentAgent, railW, vpHeight))
+	}
+	cols = append(cols, paddedVP)
 	if rightPanel != "" {
-		mainArea = lipgloss.JoinHorizontal(lipgloss.Top, paddedVP, rightPanel)
-	} else {
-		mainArea = paddedVP
+		cols = append(cols, rightPanel)
+	}
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+
+	hudLine := ""
+	if m.showHUD {
+		hudLine = "\n" + HudView(m.hud, m.width, m.frame)
 	}
 
 	return appStyle.Width(m.width).Height(m.height).Render(
@@ -800,8 +882,8 @@ func (m Model) View() string {
 			breadcrumbs + "\n" +
 			mainArea + "\n" +
 			paletteView + "\n" +
-			inputStyle.Render(inputView) + "\n" +
-			HudView(m.hud, m.width, m.frame),
+			inputStyle.Render(inputView) +
+			hudLine,
 	)
 }
 
@@ -935,7 +1017,8 @@ func (m Model) renderWelcome() string {
 	b.WriteString(renderShortcutGrid([][2]string{
 		{"Enter", "run task"},
 		{"/", "slash commands"},
-		{":", "palette"},
+		{"Ctrl+P", "command palette"},
+		{"Alt+1..9", "workspace panels"},
 		{"Ctrl+T", "tasks panel"},
 		{"Ctrl+F", "files panel"},
 		{"Ctrl+D", "diff panel"},
@@ -943,6 +1026,7 @@ func (m Model) renderWelcome() string {
 		{"Tab", "cycle panels"},
 		{"Ctrl+K", "plan / build"},
 		{"Ctrl+C", "cancel / quit"},
+		{":", "colon commands"},
 	}))
 	b.WriteString("\n")
 
@@ -1028,6 +1112,36 @@ func (m Model) renderSystemStatus() string {
 	fabricTag := lipgloss.NewStyle().Foreground(colorGold).Render("fabric:" + fabric + " ")
 
 	return lipgloss.JoinHorizontal(lipgloss.Left, modelTag, agentTag, providerTag, fabricTag)
+}
+
+// statusLine returns a compact one-line session status (used by the Command
+// Palette `status` action).
+func (m Model) statusLine() string {
+	model := m.currentModel
+	if model == "" {
+		model = "default"
+	}
+	agent := m.currentAgent
+	if agent == "" {
+		agent = "kernel"
+	}
+	state := "ready"
+	if m.busy {
+		state = "busy"
+	} else if m.streaming {
+		state = "streaming"
+	}
+	part := func(k, v string) string { return k + ":" + v }
+	return strings.Join([]string{
+		part("status", state),
+		part("model", model),
+		part("agent", agent),
+		part("theme", m.themeName),
+		part("mode", modeLabel(m.advancedMode)),
+		part("branch", func() string { if m.branch == "" { return "-" }; return m.branch }()),
+		part("messages", fmt.Sprintf("%d", len(m.messages))),
+		part("agents-used", fmt.Sprintf("%d", len(m.usedAgents))),
+	}, " · ")
 }
 
 // ─── Message rendering ─────────────────────────────────────────────────────────
@@ -1249,6 +1363,7 @@ func (m Model) handlePipelineEvent(evt pipeline.RunEvent) (tea.Model, tea.Cmd) {
 		tr.TraceID = m.currentTraceID
 	}
 	m.operations.AddEvent(tr)
+	m.rememberAgent(tr.Actor)
 	if m.operations.events > 0 {
 		m.hud.Progress = float64(m.operations.events-m.operations.active) / float64(m.operations.events)
 	}
@@ -1411,6 +1526,24 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 		m.messages = make([]Message, 0)
 		m.appendMessage("info", "Chat cleared.")
 		return m, m.viewportCmd()
+	case "clear-context":
+		m.messages = make([]Message, 0)
+		m.pendingPrompts = nil
+		m.usedAgents = nil
+		m.branch = ""
+		if m.sessionCtx != nil {
+			m.branch = gitBranch(m.sessionCtx.ProjectPath)
+		}
+		m.appendMessage("info", "Context cleared.")
+		return m, m.viewportCmd()
+	case "toggle-hud":
+		m.showHUD = !m.showHUD
+		state := "hidden"
+		if m.showHUD {
+			state = "visible"
+		}
+		m.appendMessage("info", "Status bar " + state + ".")
+		return m, m.viewportCmd()
 	case "session-info":
 		if m.sessionCtx != nil {
 			m.appendMessage("info", m.sessionCtx.ContextSummary())
@@ -1449,6 +1582,28 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.appendMessage("info", "No diffs available.")
 		}
+		return m, m.viewportCmd()
+	case "panel-operations":
+		m.activePanel = PanelOperations
+		m.breadcrumbs = []string{panelNames[PanelOperations]}
+		return m, nil
+	case "panel-agents":
+		m.switchPanel(PanelAgents)
+		return m, nil
+	case "panel-memory":
+		m.switchPanel(PanelMemory)
+		return m, nil
+	case "panel-git":
+		m.switchPanel(PanelGit)
+		return m, nil
+	case "panel-deploy":
+		m.switchPanel(PanelDeploy)
+		return m, nil
+	case "panel-graph":
+		m.switchPanel(PanelGraph)
+		return m, nil
+	case "status":
+		m.appendMessage("info", m.statusLine())
 		return m, m.viewportCmd()
 	case "panel-system":
 		if m.sessionCtx != nil {
@@ -1495,11 +1650,20 @@ func keyboardShortcutsHelp() string {
   Ctrl+T     Toggle Tasks panel
   Ctrl+F     Toggle Files panel
   Ctrl+D     Show diffs
+  Ctrl+O     Operations panel
+  Alt+1     Chat
+  Alt+2     Files
+  Alt+3     Agents (Fase 3)
+  Alt+4     Operations
+  Alt+5     Tasks
+  Alt+6     Memory (Fase 4)
+  Alt+7     Git (Fase 5)
+  Alt+8     Deploy (Fase 6)
+  Alt+9     Graph (Fase 7)
   Ctrl+C     Cancel/Exit (cancel stream when busy)
   Ctrl+Q     Quit
   Tab        Cycle panels
   Shift+Tab  Reverse cycle panels
-  1-3        Direct panel access
   Up/Down    Navigate history
   Enter      Submit prompt
   /          Slash commands
@@ -1574,6 +1738,7 @@ func (m Model) execColonCommand(input string) (tea.Model, tea.Cmd) {
 		}
 		if result.NewAgent != "" {
 			m.currentAgent = result.NewAgent
+			m.rememberAgent(result.NewAgent)
 		}
 		if result.NewModel != "" {
 			m.currentModel = result.NewModel
@@ -1612,6 +1777,38 @@ func containsPanel(panels []PanelID, target PanelID) bool {
 		}
 	}
 	return false
+}
+
+// switchPanel activates a workspace panel and keeps its side data warm.
+func (m *Model) switchPanel(p PanelID) {
+	m.activePanel = p
+	m.breadcrumbs = []string{panelNames[p]}
+	switch p {
+	case PanelFiles:
+		if m.sessionCtx != nil && len(m.fileEntries) == 0 {
+			m.fileEntries = ScanModifiedFiles(m.sessionCtx.ProjectPath)
+		}
+		m.diffDirty = false
+	case PanelDiff:
+		if m.sessionCtx != nil && len(m.diffEntries) == 0 {
+			m.diffEntries = GetGitDiffs(m.sessionCtx.ProjectPath)
+		}
+		m.diffDirty = false
+	}
+}
+
+// rememberAgent records an agent that worked in this session (drives the left
+// agents rail on wide terminals).
+func (m *Model) rememberAgent(agent string) {
+	if agent == "" {
+		return
+	}
+	for _, a := range m.usedAgents {
+		if a == agent {
+			return
+		}
+	}
+	m.usedAgents = append(m.usedAgents, agent)
 }
 
 // ─── Internal messages ─────────────────────────────────────────────────────────

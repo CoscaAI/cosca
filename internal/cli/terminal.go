@@ -98,9 +98,13 @@ Session resume:
   cosca terminal --force-resume    # resume last session without prompt
 
 Shortcuts:
+  Ctrl+P    Command Palette (fuzzy)
+  Alt+1     Chat · Alt+2 Files · Alt+3 Agents · Alt+4 Operations
+  Alt+5     Tasks · Alt+6 Memory · Alt+7 Git · Alt+8 Deploy · Alt+9 Graph
   Ctrl+T    Toggle task panel
   Ctrl+F    Toggle files panel  
   Ctrl+D    Toggle diff panel
+  Ctrl+O    Operations panel
   Ctrl+C    Cancel current operation / exit
   Ctrl+Q    Exit terminal
   /help     Show available commands

@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -47,23 +48,28 @@ func NewPalette() PaletteModel {
 func defaultCommands() []PaletteCommand {
 	return []PaletteCommand{
 		{ID: "theme-cosca", Name: "Theme: Cosca", Description: "Premium dark theme (default)", Category: "Appearance"},
-		{ID: "theme-opencode", Name: "Theme: OpenCode", Description: "Switch to OpenCode theme (dark, modern)", Category: "Appearance"},
-		{ID: "theme-tokyonight", Name: "Theme: TokyoNight", Description: "Switch to TokyoNight theme (legacy)", Category: "Appearance"},
-		{ID: "theme-petrol", Name: "Theme: Petrol", Description: "Switch to Cosca's petroleum and black theme", Category: "Appearance"},
+		{ID: "theme-opencode", Name: "Theme: OpenCode", Description: "OpenCode-inspired dark theme", Category: "Appearance"},
+		{ID: "theme-tokyonight", Name: "Theme: TokyoNight", Description: "TokyoNight dark theme", Category: "Appearance"},
+		{ID: "theme-petrol", Name: "Theme: Petrol", Description: "Cosca's petroleum & black theme", Category: "Appearance"},
+		{ID: "toggle-hud", Name: "Toggle: Status Bar", Description: "Show/hide the bottom status bar", Category: "Appearance"},
+		{ID: "panel-chat", Name: "Panel: Chat", Description: "Alt+1 — main conversation", Category: "Workspace"},
+		{ID: "panel-files", Name: "Panel: Files", Description: "Alt+2 — changed files", Category: "Workspace"},
+		{ID: "panel-agents", Name: "Panel: Agents", Description: "Alt+3 — agents (Fase 3)", Category: "Workspace"},
+		{ID: "panel-operations", Name: "Panel: Operations", Description: "Alt+4 — execution tree", Category: "Workspace"},
+		{ID: "panel-tasks", Name: "Panel: Tasks", Description: "Alt+5 — task list", Category: "Workspace"},
+		{ID: "panel-memory", Name: "Panel: Memory", Description: "Alt+6 — memory (Fase 4)", Category: "Workspace"},
+		{ID: "panel-git", Name: "Panel: Git", Description: "Alt+7 — git (Fase 5)", Category: "Workspace"},
+		{ID: "panel-deploy", Name: "Panel: Deploy", Description: "Alt+8 — deploy (Fase 6)", Category: "Workspace"},
+		{ID: "panel-graph", Name: "Panel: Graph", Description: "Alt+9 — graph (Fase 7)", Category: "Workspace"},
+		{ID: "panel-diff", Name: "Panel: Diff", Description: "Ctrl+D — git diff", Category: "Workspace"},
 		{ID: "mode-advanced", Name: "Mode: Advanced", Description: "Enable advanced mode", Category: "Session"},
 		{ID: "mode-simple", Name: "Mode: Simple", Description: "Switch to simple mode", Category: "Session"},
 		{ID: "clear-chat", Name: "Clear Chat", Description: "Clear all chat messages", Category: "Session"},
-		{ID: "export-session", Name: "Export Session", Description: "Export session to file", Category: "Session"},
-		{ID: "session-info", Name: "Session Info", Description: "Show session info", Category: "Session"},
-		{ID: "keyboard-shortcuts", Name: "Keyboard Shortcuts", Description: "Show keyboard shortcuts", Category: "Help"},
-		{ID: "panel-chat", Name: "Panel: Chat", Description: "Switch to Chat panel", Category: "Navigation"},
-		{ID: "panel-tasks", Name: "Panel: Tasks", Description: "Switch to Tasks panel", Category: "Navigation"},
-		{ID: "panel-files", Name: "Panel: Files", Description: "Switch to Files panel", Category: "Navigation"},
-		{ID: "panel-diff", Name: "Panel: Diff", Description: "Show Git diff panel", Category: "Navigation"},
-		{ID: "panel-system", Name: "Panel: System", Description: "Show system info panel", Category: "Navigation"},
-		{ID: "model-selector", Name: "Model Selector", Description: "Select AI model", Category: "Model"},
-		{ID: "agent-selector", Name: "Agent Selector", Description: "Select agent", Category: "Agent"},
+		{ID: "clear-context", Name: "Clear Context", Description: "Reset session context & agents", Category: "Session"},
+		{ID: "session-info", Name: "Session Info", Description: "Show session summary", Category: "Session"},
+		{ID: "status", Name: "Status", Description: "One-line session status", Category: "Session"},
 		{ID: "quit", Name: "Quit", Description: "Exit terminal", Category: "Session"},
+		{ID: "keyboard-shortcuts", Name: "Help: Keys", Description: "Show keyboard shortcuts", Category: "Help"},
 		{ID: "help-slash", Name: "Help: Slash Commands", Description: "List slash commands", Category: "Help"},
 		{ID: "help-colon", Name: "Help: Colon Commands", Description: "List colon commands", Category: "Help"},
 	}
@@ -96,21 +102,86 @@ func (p PaletteModel) filter(q string) PaletteModel {
 		return p
 	}
 
-	lower := strings.ToLower(q)
-	var filtered []PaletteCommand
-	for _, cmd := range p.commands {
-		if strings.Contains(strings.ToLower(cmd.Name), lower) ||
-			strings.Contains(strings.ToLower(cmd.Description), lower) ||
-			strings.Contains(strings.ToLower(cmd.Category), lower) {
-			filtered = append(filtered, cmd)
+	type scored struct {
+		cmd   PaletteCommand
+		idx   int
+		score int
+	}
+	ql := strings.ToLower(q)
+	var matched []scored
+	for i, cmd := range p.commands {
+		if s := fuzzyScore(ql, cmd); s > 0 {
+			matched = append(matched, scored{cmd: cmd, idx: i, score: s})
 		}
 	}
+	sort.SliceStable(matched, func(a, b int) bool {
+		if matched[a].score != matched[b].score {
+			return matched[a].score > matched[b].score
+		}
+		return matched[a].idx < matched[b].idx
+	})
 
-	p.filtered = filtered
-	if p.cursor >= len(filtered) {
+	p.filtered = make([]PaletteCommand, 0, len(matched))
+	for _, sm := range matched {
+		p.filtered = append(p.filtered, sm.cmd)
+	}
+	if p.cursor >= len(p.filtered) {
 		p.cursor = 0
 	}
 	return p
+}
+
+// fuzzyScore ranks a command against a query without external libs. Exact
+// prefix matches on the name dominate; then in-name, in-category and
+// in-description matches; finally an ordered token-subsequence bonus.
+func fuzzyScore(q string, cmd PaletteCommand) int {
+	if q == "" {
+		return 1
+	}
+	name := strings.ToLower(cmd.Name)
+	cat := strings.ToLower(cmd.Category)
+	desc := strings.ToLower(cmd.Description)
+
+	score := 0
+	if name == q {
+		score += 1000
+	}
+	if strings.HasPrefix(name, q) {
+		score += 500
+	}
+	if strings.Contains(name, q) {
+		score += 200
+	}
+	if strings.Contains(cat, q) {
+		score += 120
+	}
+	if strings.Contains(desc, q) {
+		score += 60
+	}
+	// Ordered token subsequence across "name category".
+	tokens := strings.Fields(q)
+	score += fuzzySubsequence(tokens, name+" "+cat)
+	return score
+}
+
+// fuzzySubsequence rewards tokens that appear in order in hay.
+func fuzzySubsequence(tokens []string, hay string) int {
+	bonus := 0
+	pos := 0
+	matchedAny := false
+	for _, tok := range tokens {
+		idx := strings.Index(hay[pos:], tok)
+		if idx < 0 {
+			return -1 // one missing token kills the subsequence bonus
+		}
+		pos += idx + len(tok)
+		bonus += 25
+		matchedAny = true
+	}
+	if !matchedAny {
+		return 0
+	}
+	return bonus
 }
 
 func (p PaletteModel) Update(msg tea.Msg) (PaletteModel, tea.Cmd) {
@@ -208,7 +279,15 @@ func (p PaletteModel) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(paletteHintStyle.Render("Type to filter · ↑/↓ navigate · Enter select · Esc dismiss"))
+	total := len(p.filtered)
+	allTotal := len(p.commands)
+	if p.query != "" && total != allTotal {
+		b.WriteString(paletteHintStyle.Render(fmt.Sprintf("%d/%d results", total, allTotal)))
+	} else {
+		b.WriteString(paletteHintStyle.Render(fmt.Sprintf("%d commands", total)))
+	}
+	b.WriteString(" · ")
+	b.WriteString(paletteHintStyle.Render("↑/↓ navigate · Enter select · Esc dismiss"))
 
 	return paletteOverlayStyle.Render(b.String())
 }
