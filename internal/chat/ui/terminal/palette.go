@@ -54,7 +54,7 @@ func defaultCommands() []PaletteCommand {
 		{ID: "toggle-hud", Name: "Toggle: Status Bar", Description: "Show/hide the bottom status bar", Category: "Appearance"},
 		{ID: "panel-chat", Name: "Panel: Chat", Description: "Alt+1 — main conversation", Category: "Workspace"},
 		{ID: "panel-files", Name: "Panel: Files", Description: "Alt+2 — changed files", Category: "Workspace"},
-		{ID: "panel-agents", Name: "Panel: Agents", Description: "Alt+3 — agents (Fase 3)", Category: "Workspace"},
+		{ID: "panel-agents", Name: "Panel: Agents", Description: "Alt+3 — agent hierarchy", Category: "Workspace"},
 		{ID: "panel-operations", Name: "Panel: Operations", Description: "Alt+4 — execution tree", Category: "Workspace"},
 		{ID: "panel-tasks", Name: "Panel: Tasks", Description: "Alt+5 — task list", Category: "Workspace"},
 		{ID: "panel-memory", Name: "Panel: Memory", Description: "Alt+6 — memory (Fase 4)", Category: "Workspace"},

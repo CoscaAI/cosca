@@ -66,7 +66,6 @@ func TestPanelPhaseMapping(t *testing.T) {
 		p    PanelID
 		want string
 	}{
-		{PanelAgents, "Fase 3"},
 		{PanelMemory, "Fase 4"},
 		{PanelGit, "Fase 5"},
 		{PanelDeploy, "Fase 6"},
@@ -74,6 +73,7 @@ func TestPanelPhaseMapping(t *testing.T) {
 		{PanelChat, ""},
 		{PanelFiles, ""},
 		{PanelTasks, ""},
+		{PanelAgents, ""}, // Agents is real since Fase 3
 	}
 	for _, c := range cases {
 		if got := panelPhase(c.p); got != c.want {

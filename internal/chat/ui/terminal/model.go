@@ -55,8 +55,9 @@ var panelNames = map[PanelID]string{
 
 // workspaceKeys maps Alt+1..9 to the workspace panels of the Mission Control
 // vision. Panels without a real implementation yet render an elegant
-// placeholder (Agents → Fase 3, Memory → Fase 4, Git → Fase 5, Deploy →
-// Fase 6, Graph → Fase 7) so the full layout is reachable from day one.
+// placeholder (Memory → Fase 4, Git → Fase 5, Deploy → Fase 6, Graph →
+// Fase 7) so the full layout is reachable from day one. Agents (Alt+3) is
+// real since Fase 3.
 //
 // NOTE: bubbletea v1.3.10 does NOT track Ctrl for character keys (Ctrl+1
 // arrives identical to plain 1), so workspace switching uses Alt+1..9 which
@@ -77,8 +78,6 @@ var workspaceKeys = map[string]PanelID{
 // placeholders; empty for implemented panels.
 func panelPhase(p PanelID) string {
 	switch p {
-	case PanelAgents:
-		return "Fase 3"
 	case PanelMemory:
 		return "Fase 4"
 	case PanelGit:
@@ -849,7 +848,9 @@ func (m Model) View() string {
 			rightPanel = TaskPanelView(m.tasks, sidebarW, vpHeight)
 		case PanelOperations:
 			rightPanel = m.operations.Render(sidebarW, vpHeight)
-		case PanelAgents, PanelMemory, PanelGit, PanelDeploy, PanelGraph:
+		case PanelAgents:
+			rightPanel = AgentsPanelView(m.usedAgents, m.currentAgent, sidebarW, vpHeight)
+		case PanelMemory, PanelGit, PanelDeploy, PanelGraph:
 			rightPanel = PlaceholderPanelView(panelNames[m.activePanel], panelPhase(m.activePanel), sidebarW, vpHeight)
 		}
 	}
@@ -932,7 +933,23 @@ func (m Model) renderBreadcrumbs() string {
 		}
 	}
 
+	// P13: append the live agent delegation chain (DON → KERNEL → current).
+	if chain := m.agentChain(); chain != "" {
+		parts = append(parts, breadcrumbStyle.Render("  ·  "), breadcrumbActiveStyle.Render(chain))
+	}
+
 	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
+}
+
+// agentChain renders the current delegation chain as a compact breadcrumb,
+// e.g. "DON → KERNEL → CTO". It reflects the agents used in the session plus
+// the current agent, so the user always sees where control sits.
+func (m Model) agentChain() string {
+	chain := []string{"DON", "KERNEL"}
+	if m.currentAgent != "" {
+		chain = append(chain, m.currentAgent)
+	}
+	return strings.Join(chain, " → ")
 }
 
 // ─── Header ────────────────────────────────────────────────────────────────────
@@ -1653,7 +1670,7 @@ func keyboardShortcutsHelp() string {
   Ctrl+O     Operations panel
   Alt+1     Chat
   Alt+2     Files
-  Alt+3     Agents (Fase 3)
+  Alt+3     Agents (hierarchy)
   Alt+4     Operations
   Alt+5     Tasks
   Alt+6     Memory (Fase 4)
