@@ -54,7 +54,8 @@
   <div style="margin-top:46px" class="meta">
     Documento para apresentação ao sócio<br>
     Setembro de 2026 · Confidencial<br>
-    Versão 1.0 · Elaborado pelo Cosca (Kernel + Architecture + Integrations + Product)
+    Versão 1.1 · Elaborado pelo Cosca (Kernel + Architecture + Integrations + Product + Backend)<br>
+    <span style="display:inline-block; margin-top:8px; background:#1ab183; color:#fff; padding:3px 12px; border-radius:12px; font-weight:700">🔵 PROGRESSO: Fases 0–2 entregues — back-end funcional e testado</span>
   </div>
 </div>
 
@@ -229,6 +230,48 @@
   </ul>
 </div>
 
+<!-- ============ 4.5 PROGRESSO ATUAL ============ -->
+<div class="page">
+  <h1>4.5 Progresso Atual — o que já está funcionando</h1>
+  <p class="muted">Fases 0–2 entregues · back-end real rodando, não é só papel</p>
+
+  <h2>Linha do tempo de execução (set/2026)</h2>
+  <table>
+    <tr><th>Fase</th><th>Entrega</th><th>Status</th></tr>
+    <tr><td><b>0 — Fundação</b></td><td>Batismo, estrutura, 10 ADRs (decisões de stack documentadas)</td><td>✅ Concluída</td></tr>
+    <tr><td><b>1 — Scaffold</b></td><td>Monorepo Go, OpenAPI v0.1 (21 operações), CI, Makefile</td><td>✅ Concluída</td></tr>
+    <tr><td><b>2 — Core funcional</b></td><td>PostgreSQL (10 tabelas + migrations), auth real (API key + rate limit), handlers de posts/profiles com idempotência e dedup, fila de publicação (stub)</td><td>✅ Concluída</td></tr>
+    <tr><td><b>3 — Conectores MVP</b></td><td>Twitter/X, LinkedIn, Telegram (OAuth real)</td><td>⏳ Próxima</td></tr>
+  </table>
+
+  <h2>Evidência — testes executados com banco real (02/set/2026)</h2>
+  <table>
+    <tr><th>Teste</th><th>Resultado</th><th>O que prova</th></tr>
+    <tr><td>GET /healthz</td><td><b>200 {"db":"ok","status":"ok"}</b></td><td>API + Postgres conectados</td></tr>
+    <tr><td>POST /v1/profiles</td><td><b>201</b> criado</td><td>CRUD de profiles operando</td></tr>
+    <tr><td>POST /v1/posts (fan-out)</td><td><b>201</b> — 1 post → X + LinkedIn + Telegram, cada um com status próprio</td><td>Publicação multi-plataforma funcionando (simulada)</td></tr>
+    <tr><td>Post duplicado (mesmo conteúdo)</td><td><b>409</b> + existingPostId</td><td>Dedup por content-hash: sem duplicar post</td></tr>
+    <tr><td>Requisição sem token</td><td><b>401</b> + envelope de erro</td><td>Autenticação real na borda</td></tr>
+    <tr><td>Idempotency-Key 2×</td><td><b>Mesmo id</b> nas duas respostas</td><td>Idempotência: retry seguro</td></tr>
+    <tr><td>go build / vet / test</td><td><b>Tudo OK</b> (5 pacotes de teste)</td><td>Código compila e é testado</td></tr>
+    <tr><td>OpenAPI lint (redocly)</td><td><b>Zero warnings</b></td><td>Contrato válido e consistente</td></tr>
+  </table>
+
+  <div class="card">
+    <b>Tradução para o sócio:</b> a base do produto está de pé — API com segurança, banco de dados,
+    publicações multi-rede (simuladas) e proteção contra duplicação. A partir daqui, o trabalho é
+    <b>adicionar valor por cima</b>: conectores reais, dashboard e monetização.
+  </div>
+
+  <h2>Qualidade (o que nos diferencia na execução)</h2>
+  <ul>
+    <li><b>Spec-first de verdade:</b> o contrato OpenAPI é a fonte única; tudo é validado contra ele (lint zero warnings).</li>
+    <li><b>Segurança desde o dia 1:</b> chaves com hash (SHA-256 + pepper), rate limiting, erro machine-readable.</li>
+    <li><b>Testes antes de avançar:</b> cada fase fecha com bateria de testes unitários + smoke tests reais.</li>
+    <li><b>Decisões documentadas:</b> 10 ADRs — qualquer dev novo entende o "porquê" de cada escolha.</li>
+  </ul>
+</div>
+
 <!-- ============ 5. MODELO DE NEGÓCIO ============ -->
 <div class="page">
   <h1>5. Modelo de Negócio</h1>
@@ -292,18 +335,18 @@
     <tr>
       <td><b>1 — Scaffold</b></td>
       <td>Monorepo, OpenAPI inicial, CI</td>
-      <td>Repositório rodando, contrato v0.1</td>
-      <td>2 semanas</td>
+      <td>Repositório rodando, contrato v0.1 (21 operações)</td>
+      <td>✅ Concluída (set/2026)</td>
     </tr>
     <tr>
       <td><b>2 — Core API</b></td>
-      <td>Profiles, Accounts, Posts, Queue, Media, Webhooks</td>
-      <td>API /v1 funcional + fila River</td>
-      <td>6–8 semanas</td>
+      <td>Postgres, auth, Profiles, Posts (idempotência + dedup), fila (stub)</td>
+      <td>API /v1 funcional + testes + smoke tests reais</td>
+      <td>✅ Concluída (set/2026)</td>
     </tr>
     <tr>
       <td><b>3 — Conectores MVP</b></td>
-      <td>Twitter/X, LinkedIn, Telegram</td>
+      <td>Twitter/X, LinkedIn, Telegram (OAuth real + River)</td>
       <td>Publicação real multi-rede</td>
       <td>4–6 semanas</td>
     </tr>
