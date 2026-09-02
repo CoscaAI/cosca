@@ -12,6 +12,7 @@ import (
 	"github.com/rizomai/rizomai/internal/platform"
 	"github.com/rizomai/rizomai/internal/queue"
 	"github.com/rizomai/rizomai/internal/store"
+	"github.com/rizomai/rizomai/web"
 )
 
 // Deps reúne as dependências do gateway (injetadas pelo main).
@@ -52,6 +53,7 @@ func NewRouter(d Deps) http.Handler {
 	protected.HandleFunc("GET /v1/profiles", h.ListProfiles)
 	protected.HandleFunc("POST /v1/profiles", h.CreateProfile)
 	protected.HandleFunc("GET /v1/profiles/{id}", h.GetProfile)
+	protected.HandleFunc("GET /v1/accounts", h.ListAccounts)
 	protected.HandleFunc("GET /v1/posts", h.ListPosts)
 	protected.HandleFunc("POST /v1/posts", h.CreatePost)
 	protected.HandleFunc("GET /v1/posts/{id}", h.GetPost)
@@ -62,6 +64,11 @@ func NewRouter(d Deps) http.Handler {
 
 	chain := middleware.RateLimit(rateLimiter)(middleware.Auth(d.Store, d.APIKeyPepper)(protected))
 	mux.Handle("/v1/", chain)
+
+	// Dashboard web embutido (Fase 4): assets estáticos em "/". O ServeMux
+	// roteia os padrões mais específicos (/healthz, /v1/*, callback OAuth)
+	// antes do catch-all "/" — a API continua intocada.
+	mux.Handle("/", web.Handler())
 
 	return mux
 }

@@ -56,7 +56,9 @@ func main() {
 	}
 	log.Printf("profile %s criado", profileID)
 
-	// Contas fictícias por plataforma do MVP (ADR-006).
+	// Contas fictícias por plataforma (13 no catálogo — ADR-006 + expansão).
+	// O modo demo (RIZOMAI_QUEUE=simulated) publica posts nelas sem
+	// credenciais reais — a fila simulada marca cada target como published.
 	accounts := []struct {
 		platform domain.Platform
 		handle   string
@@ -64,6 +66,16 @@ func main() {
 		{domain.PlatformX, "dev_x"},
 		{domain.PlatformLinkedIn, "dev_linkedin"},
 		{domain.PlatformTelegram, "dev_telegram"},
+		{domain.PlatformInstagram, "dev_instagram"},
+		{domain.PlatformFacebook, "dev_facebook"},
+		{domain.PlatformThreads, "dev_threads"},
+		{domain.PlatformYouTube, "dev_youtube"},
+		{domain.PlatformTikTok, "dev_tiktok"},
+		{domain.PlatformBluesky, "dev_bluesky"},
+		{domain.PlatformReddit, "dev_reddit"},
+		{domain.PlatformPinterest, "dev_pinterest"},
+		{domain.PlatformSnapchat, "dev_snapchat"},
+		{domain.PlatformGoogleBusiness, "dev_googlebusiness"},
 	}
 	for _, a := range accounts {
 		accountID, err := domain.NewAccountID()

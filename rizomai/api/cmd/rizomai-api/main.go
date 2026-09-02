@@ -143,7 +143,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("ouvindo em %s (healthz em /healthz)", srv.Addr)
+		log.Printf("ouvindo em %s (dashboard em /, healthz em /healthz)", srv.Addr)
 		errCh <- srv.ListenAndServe()
 	}()
 

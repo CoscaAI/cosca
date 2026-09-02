@@ -4,6 +4,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rizomai/rizomai/internal/domain"
@@ -115,6 +116,71 @@ func (s *Store) accountIDByPlatform(ctx context.Context, profileID string, p dom
 		return "", nil
 	}
 	return id, err
+}
+
+// ListAccountsByTeam pagina as contas do team (GET /v1/accounts — spec), com
+// filtros opcionais por profileId e platform. Tokens NUNCA são selecionados:
+// o contrato expõe apenas tokenStatus e metadados (ADR-006 §1.2).
+func (s *Store) ListAccountsByTeam(ctx context.Context, teamID, profileID, platform string, limit, offset int) ([]domain.SocialAccount, int, error) {
+	where := `pr.team_id = $1`
+	args := []any{teamID}
+	if profileID != "" {
+		args = append(args, profileID)
+		where += fmt.Sprintf(" AND a.profile_id = $%d", len(args))
+	}
+	if platform != "" {
+		args = append(args, platform)
+		where += fmt.Sprintf(" AND a.platform = $%d", len(args))
+	}
+
+	var total int
+	if err := s.db.QueryRow(ctx,
+		`SELECT count(*) FROM social_accounts a JOIN profiles pr ON pr.id = a.profile_id WHERE `+where,
+		args...,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.db.Query(ctx,
+		`SELECT a.id, a.profile_id, a.platform, a.display_name, a.platform_user_id,
+		        a.token_status, a.settings, a.connected_at, a.created_at, a.updated_at,
+		        a.expires_at, a.external_identifier, a.token_scope
+		   FROM social_accounts a
+		   JOIN profiles pr ON pr.id = a.profile_id
+		  WHERE `+where+`
+		  ORDER BY a.connected_at DESC
+		  LIMIT $`+fmt.Sprintf("%d", len(args)+1)+` OFFSET $`+fmt.Sprintf("%d", len(args)+2),
+		append(append([]any{}, args...), limit, offset)...,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	accounts := make([]domain.SocialAccount, 0, limit)
+	for rows.Next() {
+		var a domain.SocialAccount
+		var displayName, platformUser, extIdent, tokenScope *string
+		if err := rows.Scan(&a.ID, &a.ProfileID, &a.Platform, &displayName, &platformUser,
+			&a.TokenStatus, &a.Settings, &a.ConnectedAt, &a.CreatedAt, &a.UpdatedAt,
+			&a.ExpiresAt, &extIdent, &tokenScope); err != nil {
+			return nil, 0, err
+		}
+		if displayName != nil {
+			a.DisplayName = *displayName
+		}
+		if platformUser != nil {
+			a.PlatformUserID = *platformUser
+		}
+		if extIdent != nil {
+			a.ExternalIdentifier = *extIdent
+		}
+		if tokenScope != nil {
+			a.TokenScope = *tokenScope
+		}
+		accounts = append(accounts, a)
+	}
+	return accounts, total, rows.Err()
 }
 
 // GetAccountByID busca uma conta com as credenciais criptografadas
