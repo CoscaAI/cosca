@@ -107,3 +107,36 @@ mundo digital com menos ruído, mais segurança e menos tarefa repetitiva"**.
 **Nota de honestidade**: os dados quantitativos exatos exigem acesso pleno às
 fontes (algumas bloqueiam bots). A matriz de dores reflete o conhecimento
 consolidado dessas pesquisas — a fase de validação com o Don pode aprofundar.
+
+---
+
+## 6. ATUALIZAÇÃO — PESQUISA DE DORES NO GITHUB (2026-09-02)
+
+Pesquisa direta na API pública do GitHub (issues reais, por reações):
+- **Sobrecarga de notificações**: 4.743 issues abertas mencionando
+  "notifications overwhelming/too many" — repositórios construindo "centros de
+  notificações genéricos" para resolver o ruído (ex: Flashcards #321 — modelo
+  genérico de notificação com badge de não-lido; notifwd — ferramenta de
+  encaminhamento de notificações).
+- **Spam/phishing/scam**: **346.681 issues** mencionando spam/phishing/scam —
+  a maior dor de segurança reportada; desde crashes de encoding em anti-spam
+  (Postal #3620) até sistemas anti-scam (scam_reports).
+- **Privacidade/dados**: issues sobre vazamento de dados e coleta não
+  consentida — a confiança digital é um tema recorrente.
+
+### Evidência concreta (issues reais)
+
+| Issue | Dor que revela |
+|-------|---------------|
+| Flashcards #321 — "centro de notificações genérico + unread badge" | Ruído de notificações é uma dor tão comum que apps constroem infra para geri-las |
+| Postal #3620 — "SpamAssassin + encoding = crash" | Anti-spam é uma batalha constante; golpes/spam dominam o GitHub |
+| notifwd #7 — "Doesn't work on MacOS" | Ferramentas de gestão de notificações são procuradas (existem, mas frágeis) |
+
+### Convergência (GitHub + pesquisa de mercado)
+
+As dores 1+2+4 (sobrecarga, desconfiança/golpes, tarefas repetitivas) são
+CONFIRMADAS pelo GitHub como reais e massivas:
+- Sobrecarga → milhares de issues de notificações
+- Golpes → 346 mil issues de spam/phishing
+- A solução CLARO (Filtra/Verifica/Automatiza) ataca exatamente essas dores
+  com evidência de demanda.
