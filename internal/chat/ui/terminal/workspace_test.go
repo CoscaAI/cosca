@@ -20,7 +20,7 @@ func TestWorkspaceKeysMapToPanels(t *testing.T) {
 		{"alt+5", PanelTasks},
 		{"alt+6", PanelMemory},
 		{"alt+7", PanelPermissions},
-		{"alt+8", PanelDeploy},
+		{"alt+8", PanelMissionControl},
 		{"alt+9", PanelGraph},
 	}
 	for _, c := range cases {
@@ -66,14 +66,14 @@ func TestPanelPhaseMapping(t *testing.T) {
 		p    PanelID
 		want string
 	}{
-		{PanelDeploy, "Fase 6"},
-		{PanelGraph, "Fase 7"},
 		{PanelChat, ""},
 		{PanelFiles, ""},
 		{PanelTasks, ""},
-		{PanelAgents, ""},       // Agents is real since Fase 3
-		{PanelMemory, ""},       // Memory is real since Fase 4
-		{PanelPermissions, ""},  // Permissions is real since Fase 5
+		{PanelAgents, ""},          // Agents is real since Fase 3
+		{PanelMemory, ""},          // Memory is real since Fase 4
+		{PanelPermissions, ""},     // Permissions is real since Fase 5
+		{PanelMissionControl, ""},  // Mission Control is real since Fase 6
+		{PanelGraph, ""},           // Graph is real since Fase 6
 	}
 	for _, c := range cases {
 		if got := panelPhase(c.p); got != c.want {
@@ -103,9 +103,9 @@ func TestPaletteIncludesPhase2Commands(t *testing.T) {
 	}
 	for _, want := range []string{
 		"toggle-hud", "clear-context", "panel-agents", "panel-memory",
-		"panel-permissions", "panel-deploy", "panel-graph", "status",
+		"panel-permissions", "panel-mission", "panel-graph", "status",
 		"theme-cosca", "theme-petrol", "theme-tokyonight", "theme-opencode",
-		"computer", "inspect-context",
+		"computer", "inspect-context", "verify",
 	} {
 		if !ids[want] {
 			t.Fatalf("palette missing command %q", want)

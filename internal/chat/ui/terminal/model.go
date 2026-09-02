@@ -35,29 +35,29 @@ const (
 	PanelSystem
 	PanelMemory
 	PanelPermissions
-	PanelDeploy
+	PanelMissionControl
 	PanelGraph
 )
 
 var panelNames = map[PanelID]string{
-	PanelChat:        "Chat",
-	PanelTasks:       "Tasks",
-	PanelAgents:      "Agents",
-	PanelOperations:  "Operations",
-	PanelFiles:       "Files",
-	PanelDiff:        "Diff",
-	PanelSystem:      "System",
-	PanelMemory:      "Memory",
-	PanelPermissions: "Permissions",
-	PanelDeploy:      "Deploy",
-	PanelGraph:       "Graph",
+	PanelChat:          "Chat",
+	PanelTasks:         "Tasks",
+	PanelAgents:        "Agents",
+	PanelOperations:    "Operations",
+	PanelFiles:         "Files",
+	PanelDiff:          "Diff",
+	PanelSystem:        "System",
+	PanelMemory:        "Memory",
+	PanelPermissions:   "Permissions",
+	PanelMissionControl: "Mission",
+	PanelGraph:         "Graph",
 }
 
 // workspaceKeys maps Alt+1..9 to the workspace panels of the Mission Control
-// vision. Panels without a real implementation yet render an elegant
-// placeholder (Deploy → Fase 6, Graph → Fase 7) so the full layout is
-// reachable from day one. Agents (Alt+3) is real since Fase 3; Memory (Alt+6)
-// is real since Fase 4; Permissions (Alt+7) is real since Fase 5.
+// vision. Since Fase 6 ALL panels are real — the Alt+1..9 workspace is
+// complete. Agents (Alt+3) since Fase 3; Memory (Alt+6) since Fase 4;
+// Permissions (Alt+7) since Fase 5; Mission Control (Alt+8) and Graph (Alt+9)
+// since Fase 6.
 //
 // NOTE: bubbletea v1.3.10 does NOT track Ctrl for character keys (Ctrl+1
 // arrives identical to plain 1), so workspace switching uses Alt+1..9 which
@@ -70,21 +70,15 @@ var workspaceKeys = map[string]PanelID{
 	"alt+5": PanelTasks,
 	"alt+6": PanelMemory,
 	"alt+7": PanelPermissions,
-	"alt+8": PanelDeploy,
+	"alt+8": PanelMissionControl,
 	"alt+9": PanelGraph,
 }
 
 // panelPhase returns the roadmap phase for workspace panels that are still
-// placeholders; empty for implemented panels.
+// placeholders. Since Fase 6 every panel is implemented, so it always returns
+// empty. It is retained for API compatibility.
 func panelPhase(p PanelID) string {
-	switch p {
-	case PanelDeploy:
-		return "Fase 6"
-	case PanelGraph:
-		return "Fase 7"
-	default:
-		return ""
-	}
+	return ""
 }
 
 // ─── Message ───────────────────────────────────────────────────────────────────
@@ -180,6 +174,7 @@ type Model struct {
 	fileSuggestions      []string
 	showHUD              bool
 	inspectorOpen        bool
+	verificationOpen     bool
 }
 
 // ─── Constructor ───────────────────────────────────────────────────────────────
@@ -424,6 +419,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if msg.String() == "esc" && m.inspectorOpen {
 			m.inspectorOpen = false
+			return m, nil
+		}
+
+		// Verification Mode (P24): Alt+V toggles the verification overlay.
+		if msg.String() == "alt+v" {
+			m.verificationOpen = !m.verificationOpen
+			return m, nil
+		}
+
+		if msg.String() == "esc" && m.verificationOpen {
+			m.verificationOpen = false
 			return m, nil
 		}
 
@@ -886,6 +892,32 @@ func (m Model) View() string {
 			Render(iv)
 	}
 
+	// Verification overlay (P24): centered like the others.
+	verificationView := ""
+	if m.verificationOpen {
+		vv := VerificationView(&m)
+		vh := lipgloss.Height(vv)
+		if vpHeight > vh {
+			vpHeight -= vh
+		}
+		if vpHeight < 5 {
+			vpHeight = 5
+		}
+		padL := (m.width - lipgloss.Width(vv)) / 2
+		if padL < 0 {
+			padL = 0
+		}
+		padR := m.width - lipgloss.Width(vv) - padL
+		if padR < 0 {
+			padR = 0
+		}
+		verificationView = lipgloss.NewStyle().
+			Background(th.BackgroundPanel).
+			PaddingLeft(padL).
+			PaddingRight(padR).
+			Render(vv)
+	}
+
 	chatW := m.width
 	if useRail {
 		chatW -= railW
@@ -924,8 +956,10 @@ func (m Model) View() string {
 			rightPanel = MemoryPanelView(buildMemoryEntries(&m), m.memorySelected, sidebarW, vpHeight)
 		case PanelPermissions:
 			rightPanel = PermissionsPanelView(buildPermissionRules(&m), m.permissionSelected, sidebarW, vpHeight)
-		case PanelDeploy, PanelGraph:
-			rightPanel = PlaceholderPanelView(panelNames[m.activePanel], panelPhase(m.activePanel), sidebarW, vpHeight)
+		case PanelMissionControl:
+			rightPanel = MissionControlView(&m, sidebarW, vpHeight)
+		case PanelGraph:
+			rightPanel = GraphPanelView(&m, sidebarW, vpHeight)
 		}
 	}
 
@@ -958,6 +992,7 @@ func (m Model) View() string {
 			mainArea + "\n" +
 			paletteView + "\n" +
 			inspectorView + "\n" +
+			verificationView + "\n" +
 			inputStyle.Render(inputView) +
 			hudLine,
 	)
@@ -1695,10 +1730,13 @@ func (m Model) handlePaletteAction(id string) (tea.Model, tea.Cmd) {
 		m.switchPanel(PanelPermissions)
 		m.appendMessage("info", "Computer Mode — capabilities shown in Permissions panel.")
 		return m, m.viewportCmd()
-	case "panel-deploy":
-		m.switchPanel(PanelDeploy)
+	case "verify", "verification":
+		m.verificationOpen = true
 		return m, nil
-	case "panel-graph":
+	case "panel-mission", "mission-control", "overview", "panel-deploy":
+		m.switchPanel(PanelMissionControl)
+		return m, nil
+	case "panel-graph", "graph":
 		m.switchPanel(PanelGraph)
 		return m, nil
 	case "status":
@@ -1758,8 +1796,9 @@ func keyboardShortcutsHelp() string {
   Alt+6     Memory (explorer)
   Alt+I     Context Inspector
   Alt+7     Permissions (center)
-  Alt+8     Deploy (Fase 6)
-  Alt+9     Graph (Fase 7)
+  Alt+8     Mission Control (cockpit)
+  Alt+9     Graph (relations)
+  Alt+V     Verification
   Ctrl+C     Cancel/Exit (cancel stream when busy)
   Ctrl+Q     Quit
   Tab        Cycle panels
