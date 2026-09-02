@@ -47,12 +47,16 @@ const (
 )
 
 // PublishOutcome é o resultado de uma tentativa de publicação (PublishAttempt).
+// Base ADR-007 (success|failed|timeout) + rate_limited (429 é retryable —
+// ADR-003) e skipped (target não processado, ex.: bloqueio por regra).
 type PublishOutcome string
 
 const (
-	OutcomeSuccess PublishOutcome = "success"
-	OutcomeFailed  PublishOutcome = "failed"
-	OutcomeTimeout PublishOutcome = "timeout"
+	OutcomeSuccess     PublishOutcome = "success"
+	OutcomeFailed      PublishOutcome = "failed"
+	OutcomeTimeout     PublishOutcome = "timeout"
+	OutcomeRateLimited PublishOutcome = "rate_limited"
+	OutcomeSkipped     PublishOutcome = "skipped"
 )
 
 // TokenStatus expõe APENAS o estado do token de rede social na API.
@@ -68,8 +72,10 @@ const (
 
 // Profile é o tenant lógico que agrupa contas conectadas
 // (hierarquia: Team → Profile → Account — ADR-002).
+// TeamID não é exposto no contrato (o team é inferido da API key).
 type Profile struct {
 	ID        string    `json:"id"`
+	TeamID    string    `json:"-"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -138,4 +144,46 @@ type PublishAttempt struct {
 	Error      *TargetError   `json:"error,omitempty"`
 	HTTPStatus int            `json:"httpStatus,omitempty"`
 	RequestID  string         `json:"requestId,omitempty"`
+}
+
+// APIKey é a credencial do cliente (ADR-006). Somente o HASH é armazenado;
+// a chave pura (sk_live_...) é retornada UMA única vez no momento da criação.
+type APIKey struct {
+	ID         string     `json:"id"`
+	TeamID     string     `json:"teamId"`
+	Name       string     `json:"name"`
+	KeyHash    string     `json:"-"`
+	KeyPrefix  string     `json:"keyPrefix"`
+	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+	RevokedAt  *time.Time `json:"revokedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+// Media é um arquivo armazenado (ADR-008): upload direto (≤25MB, retenção 7d)
+// ou presign (até 5GB, permanente). storage_path é interno (nunca exposto).
+type Media struct {
+	ID            string     `json:"id"`
+	ProfileID     string     `json:"profileId"`
+	Filename      string     `json:"filename"`
+	ContentType   string     `json:"contentType"`
+	SizeBytes     int64      `json:"sizeBytes"`
+	StoragePath   string     `json:"-"`
+	PublicURL     string     `json:"publicUrl"`
+	RetentionDays *int       `json:"retentionDays,omitempty"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
+
+// Webhook é uma configuração de entrega de eventos (ADR-009).
+type Webhook struct {
+	ID            string            `json:"id"`
+	ProfileID     string            `json:"profileId"`
+	Name          string            `json:"name"`
+	URL           string            `json:"url"`
+	SecretHash    string            `json:"-"`
+	Events        []string          `json:"events"`
+	IsActive      bool              `json:"isActive"`
+	CustomHeaders map[string]string `json:"customHeaders,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"`
+	UpdatedAt     time.Time         `json:"updatedAt"`
 }

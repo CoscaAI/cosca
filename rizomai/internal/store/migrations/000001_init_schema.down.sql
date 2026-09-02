@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS webhooks;
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS publish_attempts;
+DROP TABLE IF EXISTS post_targets;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS social_accounts;
+DROP TABLE IF EXISTS profiles;
+DROP TABLE IF EXISTS teams;
+
+DROP TYPE IF EXISTS publish_outcome;
+DROP TYPE IF EXISTS target_status;
+DROP TYPE IF EXISTS post_status;
+DROP TYPE IF EXISTS token_status;
+DROP TYPE IF EXISTS platform;

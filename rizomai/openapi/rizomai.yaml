@@ -884,7 +884,29 @@ components:
             error: Arquivo excede o limite de 25 MB — use POST /v1/media/presign
             details: { maxBytes: 26214400 }
     RateLimited:
-      description: Rate limit excedido (por API key/tenant)
+      description: |
+        Rate limit excedido (por API key/tenant). O middleware envia os headers
+        `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset`
+        (epoch) em TODAS as respostas 2xx/4xx; quando negado, também envia
+        `Retry-After` (segundos).
+      headers:
+        X-RateLimit-Limit:
+          description: "Limite de requests por janela (ex.: 60)."
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Requests restantes na janela atual.
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Epoch (segundos) em que a janela/limite reseta.
+          schema:
+            type: integer
+            format: int64
+        Retry-After:
+          description: Segundos até o próximo request ser aceito (apenas quando negado).
+          schema:
+            type: integer
       content:
         application/json:
           schema:
@@ -922,6 +944,7 @@ components:
             - CONFLICT
             - RATE_LIMITED
             - PAYMENT_REQUIRED
+            - NOT_IMPLEMENTED
             - INTERNAL_ERROR
           example: RATE_LIMITED
         error:

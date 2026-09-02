@@ -1,33 +1,53 @@
 // Package api monta o roteador HTTP do gateway (ADR-004).
 //
 // A spec openapi/rizomai.yaml é a fonte única da verdade do contrato
-// (ADR-005): os handlers registrados aqui devem espelhar a spec e serão
-// validados contra ela na Fase 2.
+// (ADR-005): as rotas registradas espelham a spec v0.1.
 package api
 
 import (
 	"net/http"
 
 	"github.com/rizomai/rizomai/api/handlers"
+	"github.com/rizomai/rizomai/api/middleware"
+	"github.com/rizomai/rizomai/internal/queue"
+	"github.com/rizomai/rizomai/internal/store"
 )
 
-// NewRouter registra todas as rotas do gateway e devolve o http.Handler final.
+// Deps reúne as dependências do gateway (injetadas pelo main).
+type Deps struct {
+	Store           *store.Store
+	Jobs            queue.Jobs
+	APIKeyPepper    string // pepper para hash das API keys (env API_KEY_PEPPER)
+	RateLimitPerMin int    // token bucket por tenant (env RATE_LIMIT_PER_MIN)
+}
+
+// NewRouter monta o roteador do gateway.
 //
-// Ordem importante para o ServeMux (Go 1.22+): rotas estáticas mais específicas
-// (ex.: /v1/accounts/health) são registradas antes das parametrizadas
-// (/v1/accounts/{id}), evitando que "health" seja capturado como {id}.
-func NewRouter() http.Handler {
+// Rotas públicas: /healthz (operacional, fora do contrato).
+// Rotas /v1/: protegidas por Auth (API key sk_... — ADR-006) + RateLimit.
+//
+// Ordem importante para o ServeMux (Go 1.22+): rotas estáticas mais
+// específicas (ex.: /v1/accounts/health) seriam registradas antes das
+// parametrizadas (/v1/accounts/{id}) — a Fase 3 adicionará accounts.
+func NewRouter(d Deps) http.Handler {
+	rateLimiter := middleware.NewRateLimiter(d.RateLimitPerMin)
+	h := &handlers.Handlers{Store: d.Store, Jobs: d.Jobs}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", handlers.Healthz(d.Store))
 
-	// Health check operacional do binário — fora do contrato /v1.
-	mux.HandleFunc("GET /healthz", handlers.Healthz)
+	// Sub-mux protegido (auth + rate-limit) para o contrato /v1.
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /v1/profiles", h.ListProfiles)
+	protected.HandleFunc("POST /v1/profiles", h.CreateProfile)
+	protected.HandleFunc("GET /v1/profiles/{id}", h.GetProfile)
+	protected.HandleFunc("GET /v1/posts", h.ListPosts)
+	protected.HandleFunc("POST /v1/posts", h.CreatePost)
+	protected.HandleFunc("GET /v1/posts/{id}", h.GetPost)
+	protected.HandleFunc("GET /v1/connect/{platform}", h.Connect) // Fase 3: OAuth
 
-	// Contrato /v1 — Fase 2:
-	//   handlers por recurso (profiles, accounts, posts, media, webhooks)
-	//   espelhando openapi/rizomai.yaml + validação de request/response
-	//   contra a spec (ADR-005).
-	// Middlewares planejados (ADR-004): auth de API key sk_... (ADR-006),
-	// rate-limit, idempotency, recovery.
+	chain := middleware.RateLimit(rateLimiter)(middleware.Auth(d.Store, d.APIKeyPepper)(protected))
+	mux.Handle("/v1/", chain)
 
 	return mux
 }
