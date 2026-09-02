@@ -1,67 +1,77 @@
-// Command publish-worker consome jobs de publicação (fan-out) via River
-// (ADR-003/007) — binário 2 do monorepo (ADR-004).
+// Command publish-worker consome os jobs de publicação (publish.target) via
+// River (ADR-003/007) — processo consumidor dedicado (ADR-004: binário 2).
 //
-// Fase 1 (scaffold): estrutura de exemplo APENAS — SEM conexão real com fila.
-// O código de inicialização do River está comentado de propósito: a dependência
-// github.com/riverqueue/river e o pool pgx (internal/store) entram na Fase 2,
-// junto com a migração do schema `river` (migrations/).
+// Compartilha a MESMA base Postgres (schema river) com a API: jobs enfileirados
+// pelo gateway são processados aqui (ou por qualquer réplica do worker).
 //
-// Próximos passos (Fase 2):
-//   1. cliente River sobre pgx (transacional com o domínio — ADR-003)
-//   2. registro do job PublishTargetJob + política de retry/backoff
-//   3. fan-out paralelo por target com goroutines, isolamento de falha
-//      (falha em X não bloqueia Y — ADR-001/007)
+// Uso: DATABASE_URL=... RIZOMAI_TOKEN_KEY=... go run ./workers/cmd/publish-worker
 package main
 
 import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/rizomai/rizomai/internal/oauth"
+	"github.com/rizomai/rizomai/internal/platform"
+	"github.com/rizomai/rizomai/internal/platform/linkedin"
+	"github.com/rizomai/rizomai/internal/platform/telegram"
+	"github.com/rizomai/rizomai/internal/platform/x"
+	"github.com/rizomai/rizomai/internal/queue"
+	"github.com/rizomai/rizomai/internal/store"
 )
 
-// PublishTargetJob é a unidade de trabalho do fan-out: publica UM target
-// (post + conta + plataforma) de forma isolada (ADR-007 §1.1).
-type PublishTargetJob struct {
-	PostID    string `json:"postId"`
-	TargetID  string `json:"targetId"`
-	AccountID string `json:"accountId"`
-	Platform  string `json:"platform"`
-}
-
-// Kind identifica o tipo do job no River.
-func (PublishTargetJob) Kind() string { return "publish.target" }
-
-// TODO(Fase 2) — política de retry/backoff por job (ADR-003/007):
-//
-//	Transitórios (429, 500, 502, 503): 5 tentativas, backoff 5s×2^n cap 5min.
-//	Definitivos (invalid_grant, duplicate, quota...): SEM retry automático —
-//	erro tipado em PublishAttempt e status do target = failed.
-
 func main() {
-	// Shape final do worker (Fase 2):
-	//
-	//   pool, err := store.NewPool(ctx, os.Getenv("DATABASE_URL")) // ADR-002
-	//   if err != nil { log.Fatal(err) }
-	//
-	//   rv, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-	//       Queues: map[string]river.QueueConfig{
-	//           river.QueueDefault: {MaxWorkers: 10}, // fan-out paralelo
-	//       },
-	//   })
-	//   if err != nil { log.Fatal(err) }
-	//   if err := rv.Start(ctx); err != nil { log.Fatal(err) }
-	//   defer rv.Stop(ctx)
-	//
-	// Por ora (Fase 1) o worker apenas verifica env e informa o estado.
+	log.SetPrefix("publish-worker: ")
+	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
 
-	ctx := context.Background()
-	_ = ctx
-
-	if os.Getenv("DATABASE_URL") == "" {
-		// Não é erro na Fase 1: banco/fila ainda não são obrigatórios.
-		log.Printf("publish-worker: scaffold ativo — fila River chega na Fase 2")
-		return
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL ausente (ex.: postgres://rizomai:rizomai@localhost:5433/rizomai?sslmode=disable)")
 	}
 
-	log.Printf("publish-worker: DATABASE_URL presente — inicialização real na Fase 2")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	st, err := store.New(ctx, databaseURL)
+	if err != nil {
+		log.Fatalf("banco: %v", err)
+	}
+
+	tokenKeyHex := os.Getenv("RIZOMAI_TOKEN_KEY")
+	if tokenKeyHex == "" {
+		tokenKeyHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+		log.Print("RIZOMAI_TOKEN_KEY ausente — chave DEV fixa (não use em produção)")
+	}
+	tokenKey, err := oauth.TokenKey(tokenKeyHex)
+	if err != nil {
+		log.Fatalf("RIZOMAI_TOKEN_KEY: %v", err)
+	}
+
+	reg := platform.NewRegistry(platform.Config{
+		X:        x.Config{ClientID: os.Getenv("X_CLIENT_ID"), ClientSecret: os.Getenv("X_CLIENT_SECRET")},
+		LinkedIn: linkedin.Config{ClientID: os.Getenv("LINKEDIN_CLIENT_ID"), ClientSecret: os.Getenv("LINKEDIN_CLIENT_SECRET")},
+		Telegram: telegram.Config{ParseMode: "HTML"},
+	})
+
+	client, err := queue.StartRiver(ctx, st.Pool(), queue.RiverOptions{
+		Store:         st,
+		Registry:      reg,
+		TokenKey:      tokenKey,
+		Logger:        log.Default(),
+		PublishWorker: true, // este processo só consome a fila de publicação
+	})
+	if err != nil {
+		log.Fatalf("river: %v", err)
+	}
+
+	log.Print("consumindo fila publish (publish.target) — Ctrl+C para encerrar")
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = client.Stop(shutdownCtx)
+	log.Print("encerrado")
 }

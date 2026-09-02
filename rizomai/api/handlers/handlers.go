@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/rizomai/rizomai/api/respond"
+	"github.com/rizomai/rizomai/internal/platform"
 	"github.com/rizomai/rizomai/internal/queue"
 	"github.com/rizomai/rizomai/internal/store"
 )
@@ -20,8 +21,11 @@ const maxBodyBytes = 1 << 20
 
 // Handlers agrupa as dependências dos handlers HTTP.
 type Handlers struct {
-	Store *store.Store
-	Jobs  queue.Jobs
+	Store    *store.Store
+	Jobs     queue.Jobs
+	Registry *platform.Registry
+	TokenKey []byte // AES-256-GCM (RIZOMAI_TOKEN_KEY) p/ tokens em repouso
+	BaseURL  string // base pública da API p/ redirect_uri (PUBLIC_BASE_URL)
 }
 
 // decodeJSON lê o corpo (limitado) e decodifica; em erro de formato responde

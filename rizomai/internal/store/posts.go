@@ -241,6 +241,117 @@ func (s *Store) ListPosts(ctx context.Context, teamID string, limit, offset int)
 	return posts, total, trows.Err()
 }
 
+// PublishContext reúne o que o worker de publicação precisa para UM target
+// (ADR-007): o target, o conteúdo do post e a conta com credenciais.
+type PublishContext struct {
+	PostID  string
+	Content string
+	Target  domain.PostTarget
+	Account domain.SocialAccount
+}
+
+// GetPublishContext busca o target + conteúdo do post + conta (com credenciais
+// criptografadas) em uma única query.
+func (s *Store) GetPublishContext(ctx context.Context, targetID string) (*PublishContext, error) {
+	var (
+		pc            PublishContext
+		spdJSON       []byte
+		lastErrJSON   []byte
+		publishedURL  *string
+		externalID    *string
+		displayName   *string
+		platformUser  *string
+		extIdent      *string
+		tokenScope    *string
+	)
+
+	err := s.db.QueryRow(ctx,
+		`SELECT t.id, t.post_id, t.account_id, t.platform, t.status,
+		        t.platform_specific_data, t.published_url, t.external_post_id, t.last_error,
+		        p.content,
+		        a.id, a.profile_id, a.platform, a.display_name, a.platform_user_id,
+		        a.token_status, a.encrypted_token, a.refresh_token_encrypted, a.expires_at,
+		        a.external_identifier, a.token_scope
+		   FROM post_targets t
+		   JOIN posts p ON p.id = t.post_id
+		   JOIN social_accounts a ON a.id = t.account_id
+		  WHERE t.id = $1`,
+		targetID,
+	).Scan(&pc.Target.ID, &pc.Target.PostID, &pc.Target.AccountID, &pc.Target.Platform, &pc.Target.Status,
+		&spdJSON, &publishedURL, &externalID, &lastErrJSON,
+		&pc.Content,
+		&pc.Account.ID, &pc.Account.ProfileID, &pc.Account.Platform, &displayName, &platformUser,
+		&pc.Account.TokenStatus, &pc.Account.EncryptedToken, &pc.Account.RefreshTokenEncrypted, &pc.Account.ExpiresAt,
+		&extIdent, &tokenScope)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	pc.PostID = pc.Target.PostID
+	_ = json.Unmarshal(spdJSON, &pc.Target.PlatformSpecificData)
+	if publishedURL != nil {
+		pc.Target.PublishedURL = *publishedURL
+	}
+	if externalID != nil {
+		pc.Target.ExternalPostID = *externalID
+	}
+	if lastErrJSON != nil {
+		var te domain.TargetError
+		if json.Unmarshal(lastErrJSON, &te) == nil {
+			pc.Target.LastError = &te
+		}
+	}
+	if displayName != nil {
+		pc.Account.DisplayName = *displayName
+	}
+	if platformUser != nil {
+		pc.Account.PlatformUserID = *platformUser
+	}
+	if extIdent != nil {
+		pc.Account.ExternalIdentifier = *extIdent
+	}
+	if tokenScope != nil {
+		pc.Account.TokenScope = *tokenScope
+	}
+	return &pc, nil
+}
+
+// MarkTargetFailed marca um target como failed com o erro tipado (ADR-007 §1).
+func (s *Store) MarkTargetFailed(ctx context.Context, targetID, postID, code, message string) error {
+	lastErr := jsonObject(map[string]string{"code": code, "error": message})
+	_, err := s.db.Exec(ctx,
+		`UPDATE post_targets
+		    SET status = 'failed', last_error = $3, updated_at = now()
+		  WHERE id = $1 AND post_id = $2`,
+		targetID, postID, lastErr,
+	)
+	return err
+}
+
+// ListTargetStatuses devolve os status dos targets de um post (para derivar o
+// status agregado — ADR-007 §1).
+func (s *Store) ListTargetStatuses(ctx context.Context, postID string) ([]domain.TargetStatus, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT status FROM post_targets WHERE post_id = $1 ORDER BY created_at`, postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.TargetStatus
+	for rows.Next() {
+		var st domain.TargetStatus
+		if err := rows.Scan(&st); err != nil {
+			return nil, err
+		}
+		out = append(out, st)
+	}
+	return out, rows.Err()
+}
+
 // MarkTargetPublished simula o sucesso de publicação de um target.
 // Fase 3: chamado pelo conector real após publicar na rede (ADR-007).
 func (s *Store) MarkTargetPublished(ctx context.Context, targetID, postID, publishedURL, externalPostID string) error {

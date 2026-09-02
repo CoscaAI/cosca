@@ -33,8 +33,13 @@ type DBTX interface {
 
 // Store agrega os repositórios do domínio sobre Postgres.
 type Store struct {
-	db DBTX
+	db   DBTX
+	pool *pgxpool.Pool
 }
+
+// Pool devolve o *pgxpool.Pool subjacente (nil em modo mock/teste) — usado
+// pelo River (riverpgxv5.New) e outros clientes que precisam do pool real.
+func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
 // New abre o pool pgx, valida a conexão (ping) e devolve o Store.
 // Falha rápido se o banco não responder.
@@ -49,7 +54,7 @@ func New(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
-	return &Store{db: pool}, nil
+	return &Store{db: pool, pool: pool}, nil
 }
 
 // Ping verifica a conectividade com o banco (usado pelo /healthz).

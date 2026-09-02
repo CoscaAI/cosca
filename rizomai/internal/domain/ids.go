@@ -41,3 +41,12 @@ func NewAttemptID() (string, error) { return newID("attempt_") }
 
 // NewAPIKeyID gera um ID de api_key (prefixo key_).
 func NewAPIKeyID() (string, error) { return newID("key_") }
+
+// NewEventID gera um ID de evento de webhook (prefixo evt_ — ADR-009 §1.1).
+func NewEventID() (string, error) { return newID("evt_") }
+
+// NewDeliveryID gera um ID de entrega de webhook (prefixo dlv_).
+func NewDeliveryID() (string, error) { return newID("dlv_") }
+
+// NewOAuthStateID gera um ID de state OAuth (prefixo oast_).
+func NewOAuthStateID() (string, error) { return newID("oast_") }

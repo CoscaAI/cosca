@@ -1,7 +1,4 @@
-// Repositório de teams e social accounts.
-// Teams não têm rota pública (a API key pertence a um team); o seed cria o
-// team inicial de dev. Social accounts nascem do OAuth (Fase 3); o seed cria
-// contas fictícias para exercitar o pipeline de posts.
+// Repositório de teams e social accounts (Fase 3: credenciais criptografadas).
 package store
 
 import (
@@ -21,18 +18,6 @@ func (s *Store) EnsureTeam(ctx context.Context, id, name string) error {
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO teams (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
 		id, name,
-	)
-	return err
-}
-
-// CreateAccount insere uma conta conectada (OAuth broker na Fase 3).
-func (s *Store) CreateAccount(ctx context.Context, a *domain.SocialAccount) error {
-	_, err := s.db.Exec(ctx,
-		`INSERT INTO social_accounts
-		     (id, profile_id, platform, display_name, platform_user_id, token_status, settings)
-		   VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		a.ID, a.ProfileID, a.Platform, a.DisplayName, a.PlatformUserID, a.TokenStatus,
-		jsonObject(a.Settings),
 	)
 	return err
 }
@@ -82,4 +67,78 @@ func (s *Store) ValidateAccountsForPost(ctx context.Context, teamID string, acco
 		return "", pgx.ErrNoRows
 	}
 	return profileID, nil
+}
+
+// CreateAccount insere uma conta conectada (OAuth broker / seed).
+func (s *Store) CreateAccount(ctx context.Context, a *domain.SocialAccount) error {
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO social_accounts
+		     (id, profile_id, platform, display_name, platform_user_id, token_status, settings,
+		      encrypted_token, refresh_token_encrypted, expires_at, external_identifier, token_scope)
+		   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		a.ID, a.ProfileID, a.Platform, nullableString(a.DisplayName), nullableString(a.PlatformUserID),
+		a.TokenStatus, jsonObject(a.Settings),
+		a.EncryptedToken, a.RefreshTokenEncrypted, a.ExpiresAt,
+		nullableString(a.ExternalIdentifier), nullableString(a.TokenScope),
+	)
+	return err
+}
+
+// UpsertAccount cria a conta OU atualiza a existente da mesma plataforma no
+// mesmo profile (multi-contas por plataforma são suportadas — ADR-006 §4).
+func (s *Store) UpsertAccount(ctx context.Context, a *domain.SocialAccount) error {
+	existingID, err := s.accountIDByPlatform(ctx, a.ProfileID, a.Platform)
+	if err == nil && existingID != "" {
+		_, err := s.db.Exec(ctx,
+			`UPDATE social_accounts
+			    SET display_name = $2, platform_user_id = $3, token_status = $4,
+			        encrypted_token = $5, refresh_token_encrypted = $6, expires_at = $7,
+			        external_identifier = $8, token_scope = $9, updated_at = now()
+			  WHERE id = $1`,
+			existingID, nullableString(a.DisplayName), nullableString(a.PlatformUserID), a.TokenStatus,
+			a.EncryptedToken, a.RefreshTokenEncrypted, a.ExpiresAt,
+			nullableString(a.ExternalIdentifier), nullableString(a.TokenScope),
+		)
+		a.ID = existingID
+		return err
+	}
+	return s.CreateAccount(ctx, a)
+}
+
+func (s *Store) accountIDByPlatform(ctx context.Context, profileID string, p domain.Platform) (string, error) {
+	var id string
+	err := s.db.QueryRow(ctx,
+		`SELECT id FROM social_accounts WHERE profile_id = $1 AND platform = $2 ORDER BY created_at LIMIT 1`,
+		profileID, p,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
+// GetAccountByID busca uma conta com as credenciais criptografadas
+// (escopo: team — usada pelo worker de publicação e health).
+func (s *Store) GetAccountByID(ctx context.Context, teamID, accountID string) (*domain.SocialAccount, error) {
+	var a domain.SocialAccount
+	err := s.db.QueryRow(ctx,
+		`SELECT a.id, a.profile_id, a.platform, a.display_name, a.platform_user_id,
+		        a.token_status, a.settings, a.connected_at, a.created_at, a.updated_at,
+		        a.encrypted_token, a.refresh_token_encrypted, a.expires_at,
+		        a.external_identifier, a.token_scope
+		   FROM social_accounts a
+		   JOIN profiles pr ON pr.id = a.profile_id
+		  WHERE a.id = $1 AND pr.team_id = $2`,
+		accountID, teamID,
+	).Scan(&a.ID, &a.ProfileID, &a.Platform, &a.DisplayName, &a.PlatformUserID,
+		&a.TokenStatus, &a.Settings, &a.ConnectedAt, &a.CreatedAt, &a.UpdatedAt,
+		&a.EncryptedToken, &a.RefreshTokenEncrypted, &a.ExpiresAt,
+		&a.ExternalIdentifier, &a.TokenScope)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
 }

@@ -1,29 +1,67 @@
-// Command webhook-worker entrega webhooks com retry e mesmo event id
-// (ADR-009) — binário 3 do monorepo (ADR-004).
+// Command webhook-worker consome os jobs de entrega de webhooks
+// (webhook.deliver) via River (ADR-003/009) — processo consumidor dedicado
+// (ADR-004: binário 3).
 //
-// Fase 1: esqueleto. Implementação na Fase 2 como worker de delivery via River:
-//   - timeout de 5s por entrega (consumidor lento = retry-storm — R6)
-//   - assinatura HMAC-SHA256 (header X-Rizomai-Signature) — verificação em
-//     tempo constante (hmac.Equal)
-//   - retry 5s×2^n, janela de 24h, MESMO event id em todas as tentativas
-//     (dedup do consumidor — ADR-009 §1.4)
-//   - delivery logs + redelivery manual (GET /v1/webhooks/logs, POST .../redeliver)
+// Entrega eventos assinados HMAC-SHA256 com retry e MESMO event id (dedup do
+// consumidor — ADR-009 §1.4).
+//
+// Uso: DATABASE_URL=... RIZOMAI_TOKEN_KEY=... go run ./workers/cmd/webhook-worker
 package main
 
-import "log"
+import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-// DeliverWebhookJob é a unidade de trabalho da entrega (ADR-009 §1.4).
-// EventID NUNCA muda entre retries: é o ponto de dedup do consumidor.
-type DeliverWebhookJob struct {
-	DeliveryID string `json:"deliveryId"`
-	WebhookID  string `json:"webhookId"`
-	EventID    string `json:"eventId"`
-	EventType  string `json:"eventType"`
-}
-
-// Kind identifica o tipo do job no River.
-func (DeliverWebhookJob) Kind() string { return "webhook.deliver" }
+	"github.com/rizomai/rizomai/internal/oauth"
+	"github.com/rizomai/rizomai/internal/queue"
+	"github.com/rizomai/rizomai/internal/store"
+)
 
 func main() {
-	log.Printf("webhook-worker: scaffold ativo — delivery chega na Fase 2")
+	log.SetPrefix("webhook-worker: ")
+	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL ausente (ex.: postgres://rizomai:rizomai@localhost:5433/rizomai?sslmode=disable)")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	st, err := store.New(ctx, databaseURL)
+	if err != nil {
+		log.Fatalf("banco: %v", err)
+	}
+
+	tokenKeyHex := os.Getenv("RIZOMAI_TOKEN_KEY")
+	if tokenKeyHex == "" {
+		tokenKeyHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+		log.Print("RIZOMAI_TOKEN_KEY ausente — chave DEV fixa (não use em produção)")
+	}
+	tokenKey, err := oauth.TokenKey(tokenKeyHex)
+	if err != nil {
+		log.Fatalf("RIZOMAI_TOKEN_KEY: %v", err)
+	}
+
+	client, err := queue.StartRiver(ctx, st.Pool(), queue.RiverOptions{
+		Store:         st,
+		TokenKey:      tokenKey,
+		Logger:        log.Default(),
+		WebhookWorker: true, // este processo só consome a fila de webhooks
+	})
+	if err != nil {
+		log.Fatalf("river: %v", err)
+	}
+
+	log.Print("consumindo fila webhook (webhook.deliver) — Ctrl+C para encerrar")
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = client.Stop(shutdownCtx)
+	log.Print("encerrado")
 }

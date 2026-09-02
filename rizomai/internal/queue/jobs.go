@@ -1,11 +1,12 @@
 // Package queue abstrai a fila de jobs do RIZOMAI (ADR-003).
 //
-// Fase 2: implementação é um STUB SIMULADO — loga o "publish" por target e
-// marca como published, derivando o status agregado do post (ADR-007).
+// Duas implementações da interface Jobs:
+//   - RiverQueue    (Fase 3): River durável sobre Postgres, transacional com o
+//     domínio, retry/backoff por job, fan-out paralelo por target.
+//   - SimulatedQueue (fallback): stub que loga e marca published (demo sem
+//     credenciais/banco de fila) — modo RIZOMAI_QUEUE=simulated.
 //
-// Fase 3: substituir por River sobre Postgres — job TRANSACIONAL com o domínio
-// (criar post agendado = mesma transação que enfileira o job), retry/backoff
-// por job e fan-out paralelo com goroutines.
+// Jobs (payloads) e workers vivem em river.go.
 package queue
 
 import (
@@ -19,19 +20,18 @@ import (
 
 // Jobs é a interface da fila usada pelos handlers.
 type Jobs interface {
-	// PublishPost enfileira/executa o fan-out de publicação de um post.
+	// PublishPost enfileira o fan-out de publicação de um post (1 job por target).
 	PublishPost(ctx context.Context, post *domain.Post) error
 }
 
-// SimulatedQueue é o stub de Fase 2. Publica "sincronamente" cada target não
+// SimulatedQueue é o stub de fallback: publica "sincronamente" cada target não
 // agendado, logando como se o conector existisse, e deriva o status agregado.
 type SimulatedQueue struct {
 	Store *store.Store
 	Log   *log.Logger
 }
 
-// PublishPost simula o fan-out com isolamento por target (ADR-007 §1.1):
-// falha em X não bloqueia Y.
+// PublishPost simula o fan-out com isolamento por target (ADR-007 §1.1).
 func (q *SimulatedQueue) PublishPost(ctx context.Context, post *domain.Post) error {
 	logger := q.Log
 	if logger == nil {
@@ -41,28 +41,23 @@ func (q *SimulatedQueue) PublishPost(ctx context.Context, post *domain.Post) err
 	for i := range post.Platforms {
 		t := &post.Platforms[i]
 
-		// Targets agendados para o futuro ficam scheduled — o job real
-		// (Fase 3/River) dispararia no due time.
 		if post.ScheduledFor != nil && post.ScheduledFor.After(time.Now()) {
-			continue
+			continue // agendado: job real dispararia no due time
 		}
 		if t.Status != domain.TargetStatusPending {
 			continue
 		}
 
-		// TODO(Fase 3): conector real em internal/platform/{x,linkedin,telegram} —
-		//   publicar na rede → RecordAttempt (append-only) → status real.
-		logger.Printf("job publish.target: publicando em %s (target %s, post %s) [Fase 3: conector real]", t.Platform, t.ID, post.ID)
+		logger.Printf("job publish.target (simulado): publicando em %s (target %s, post %s)", t.Platform, t.ID, post.ID)
 
 		simURL := "https://" + string(t.Platform) + ".social/" + t.ID
 		if err := q.Store.MarkTargetPublished(ctx, t.ID, post.ID, simURL, "sim_"+t.ID); err != nil {
-			logger.Printf("job publish.target: erro ao simular publicação de %s: %v", t.ID, err)
+			logger.Printf("job publish.target (simulado): erro ao simular publicação de %s: %v", t.ID, err)
 			continue
 		}
 		t.Status = domain.TargetStatusPublished
 	}
 
-	// Derivar o status agregado do post a partir dos targets (ADR-007 §1).
 	statuses := make([]domain.TargetStatus, 0, len(post.Platforms))
 	for _, t := range post.Platforms {
 		statuses = append(statuses, t.Status)

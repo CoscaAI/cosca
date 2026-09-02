@@ -83,6 +83,8 @@ type Profile struct {
 
 // SocialAccount é uma conexão OAuth ativa de um Profile (ADR-006).
 // Apenas tokenStatus e metadados de escopo são expostos via API.
+// Tokens ficam CRIPTOGRAFADOS (AES-256-GCM) nas colunas Encrypted* — nunca
+// serializados em JSON (json:"-").
 type SocialAccount struct {
 	ID             string         `json:"id"`
 	ProfileID      string         `json:"profileId"`
@@ -94,6 +96,40 @@ type SocialAccount struct {
 	ConnectedAt    time.Time      `json:"connectedAt"`
 	CreatedAt      time.Time      `json:"createdAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
+
+	EncryptedToken        []byte     `json:"-"` // access token AES-256-GCM
+	RefreshTokenEncrypted []byte     `json:"-"` // refresh token AES-256-GCM
+	ExpiresAt             *time.Time `json:"expiresAt,omitempty"`
+	ExternalIdentifier    string     `json:"externalIdentifier,omitempty"` // chat_id / author URN / user id
+	TokenScope            string     `json:"tokenScope,omitempty"`
+}
+
+// OAuthState é o state do OAuth server-side (ADR-006 §1.1): guarda o
+// code_verifier PKCE e o destino (profile) para o callback validar.
+type OAuthState struct {
+	ID           string    `json:"id"`
+	TeamID       string    `json:"teamId"`
+	Platform     Platform  `json:"platform"`
+	State        string    `json:"state"`
+	CodeVerifier string    `json:"-"`
+	RedirectURI  string    `json:"-"`
+	ProfileID    string    `json:"profileId,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+}
+
+// WebhookDelivery é o log append-only de cada tentativa de entrega (ADR-009 §1.5).
+type WebhookDelivery struct {
+	ID         string    `json:"id"`
+	WebhookID  string    `json:"webhookId"`
+	EventID    string    `json:"eventId"` // MESMO id em todos os retries
+	EventType  string    `json:"eventType"`
+	Payload    []byte    `json:"-"`
+	Status     string    `json:"status"` // success | failed
+	HTTPStatus int       `json:"httpStatus,omitempty"`
+	Error      string    `json:"error,omitempty"`
+	Attempts   int       `json:"attempts"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 // Post é a unidade de conteúdo que sofre fan-out (ADR-007).
@@ -176,14 +212,15 @@ type Media struct {
 
 // Webhook é uma configuração de entrega de eventos (ADR-009).
 type Webhook struct {
-	ID            string            `json:"id"`
-	ProfileID     string            `json:"profileId"`
-	Name          string            `json:"name"`
-	URL           string            `json:"url"`
-	SecretHash    string            `json:"-"`
-	Events        []string          `json:"events"`
-	IsActive      bool              `json:"isActive"`
-	CustomHeaders map[string]string `json:"customHeaders,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"`
-	UpdatedAt     time.Time         `json:"updatedAt"`
+	ID              string            `json:"id"`
+	ProfileID       string            `json:"profileId"`
+	Name            string            `json:"name"`
+	URL             string            `json:"url"`
+	SecretHash      string            `json:"-"`
+	SecretEncrypted []byte            `json:"-"` // AES-256-GCM — para ASSINAR payloads
+	Events          []string          `json:"events"`
+	IsActive        bool              `json:"isActive"`
+	CustomHeaders   map[string]string `json:"customHeaders,omitempty"`
+	CreatedAt       time.Time         `json:"createdAt"`
+	UpdatedAt       time.Time         `json:"updatedAt"`
 }
