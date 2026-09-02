@@ -53,3 +53,9 @@ func NewOAuthStateID() (string, error) { return newID("oast_") }
 
 // NewWebhookID gera um ID de webhook (prefixo wh_).
 func NewWebhookID() (string, error) { return newID("wh_") }
+
+// NewInvoiceID gera um ID de invoice (prefixo inv_).
+func NewInvoiceID() (string, error) { return newID("inv_") }
+
+// NewMeteringID gera um ID de metering event (prefixo met_).
+func NewMeteringID() (string, error) { return newID("met_") }

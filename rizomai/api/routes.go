@@ -9,6 +9,7 @@ import (
 
 	"github.com/rizomai/rizomai/api/handlers"
 	"github.com/rizomai/rizomai/api/middleware"
+	"github.com/rizomai/rizomai/internal/billing"
 	"github.com/rizomai/rizomai/internal/platform"
 	"github.com/rizomai/rizomai/internal/queue"
 	"github.com/rizomai/rizomai/internal/store"
@@ -24,6 +25,7 @@ type Deps struct {
 	BaseURL         string // base pública da API (PUBLIC_BASE_URL) p/ redirect_uri
 	APIKeyPepper    string // pepper para hash das API keys (env API_KEY_PEPPER)
 	RateLimitPerMin int    // token bucket por tenant (env RATE_LIMIT_PER_MIN)
+	Stripe          *billing.Client
 }
 
 // NewRouter monta o roteador do gateway.
@@ -41,12 +43,15 @@ func NewRouter(d Deps) http.Handler {
 		Registry: d.Registry,
 		TokenKey: d.TokenKey,
 		BaseURL:  d.BaseURL,
+		Stripe:   d.Stripe,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handlers.Healthz(d.Store))
 	// Callback OAuth é público (redirect do navegador — ADR-006 §1.1).
 	mux.HandleFunc("GET /v1/connect/{platform}/callback", h.ConnectCallback)
+	// Webhook do Stripe é público (assinatura HMAC valida — ADR-010 §1.3).
+	mux.HandleFunc("POST /v1/billing/webhook", h.BillingWebhook)
 
 	// Sub-mux protegido (auth + rate-limit) para o contrato /v1.
 	protected := http.NewServeMux()
@@ -61,6 +66,9 @@ func NewRouter(d Deps) http.Handler {
 	protected.HandleFunc("POST /v1/connect/{platform}/credentials", h.ConnectCredentials)
 	protected.HandleFunc("GET /v1/webhooks", h.ListWebhooks)
 	protected.HandleFunc("POST /v1/webhooks", h.CreateWebhook)
+	protected.HandleFunc("POST /v1/billing/checkout", h.BillingCheckout)
+	protected.HandleFunc("GET /v1/billing/usage", h.BillingUsage)
+	protected.HandleFunc("GET /v1/billing/plan", h.BillingPlan)
 
 	chain := middleware.RateLimit(rateLimiter)(middleware.Auth(d.Store, d.APIKeyPepper)(protected))
 	mux.Handle("/v1/", chain)

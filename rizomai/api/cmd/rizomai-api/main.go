@@ -18,6 +18,7 @@ import (
 
 	"github.com/rizomai/rizomai/api"
 	"github.com/rizomai/rizomai/api/middleware"
+	"github.com/rizomai/rizomai/internal/billing"
 	"github.com/rizomai/rizomai/internal/oauth"
 	"github.com/rizomai/rizomai/internal/platform"
 	"github.com/rizomai/rizomai/internal/platform/linkedin"
@@ -125,6 +126,19 @@ func main() {
 		log.Print("fila: SIMULADA (RIZOMAI_QUEUE=simulated — demo sem conectores)")
 	}
 
+	// --- Billing (Stripe — ADR-010 §1.3) -----------------------------------
+	stripeCfg := billing.FromEnv()
+	if stripeCfg.SuccessURL == "" {
+		stripeCfg.SuccessURL = baseURL + "/billing/success"
+	}
+	if stripeCfg.CancelURL == "" {
+		stripeCfg.CancelURL = baseURL + "/billing/cancel"
+	}
+	stripeClient := billing.NewClient(stripeCfg)
+	if !stripeClient.Configured() {
+		log.Print("Stripe NÃO configurado (STRIPE_SECRET_KEY) — checkout retornará STRIPE_NOT_CONFIGURED")
+	}
+
 	mux := api.NewRouter(api.Deps{
 		Store:           st,
 		Jobs:            jobs,
@@ -133,6 +147,7 @@ func main() {
 		BaseURL:         baseURL,
 		APIKeyPepper:    pepper,
 		RateLimitPerMin: rpm,
+		Stripe:          stripeClient,
 	})
 
 	srv := &http.Server{

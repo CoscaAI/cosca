@@ -130,6 +130,16 @@ func (h *Handlers) ConnectCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Limite do plano (ADR-010): conta nova além do limite → 402 PLAN_LIMIT_EXCEEDED.
+	if ok, current, limit, err := h.Store.CanConnectAccount(ctx, os.TeamID, profileID, os.Platform); err != nil {
+		log.Printf("billing limite check: %v", err)
+		respond.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Erro interno — tente novamente", nil)
+		return
+	} else if !ok {
+		planLimitExceeded(w, current, limit)
+		return
+	}
+
 	encTok, _ := oauth.Encrypt([]byte(tok.AccessToken), h.TokenKey)
 	encRefresh, _ := oauth.Encrypt([]byte(tok.RefreshToken), h.TokenKey)
 	expiresAt := tok.ExpiresAt
@@ -154,6 +164,8 @@ func (h *Handlers) ConnectCallback(w http.ResponseWriter, r *http.Request) {
 	_ = h.Store.DeleteOAuthState(ctx, state)
 
 	log.Printf("oauth: conta %s conectada (%s, profile %s)", acct.ID, os.Platform, profileID)
+	// Metering account-day (ADR-010 §1.2) — idempotente.
+	_ = h.Store.RecordAccountDay(ctx, os.TeamID, acct.ID, time.Now())
 	writeData(w, http.StatusOK, map[string]any{"status": "connected", "accountId": acct.ID})
 }
 
@@ -237,6 +249,16 @@ func (h *Handlers) ConnectCredentials(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Limite do plano (ADR-010): conta nova além do limite → 402 PLAN_LIMIT_EXCEEDED.
+	if ok, current, limit, err := h.Store.CanConnectAccount(r.Context(), teamID, profileID, p); err != nil {
+		log.Printf("billing limite check: %v", err)
+		respond.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Erro interno — tente novamente", nil)
+		return
+	} else if !ok {
+		planLimitExceeded(w, current, limit)
+		return
+	}
+
 	var encToken []byte
 	if creds.AccessToken != "" {
 		encToken, _ = oauth.Encrypt([]byte(creds.AccessToken), h.TokenKey)
@@ -258,6 +280,8 @@ func (h *Handlers) ConnectCredentials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("oauth: conta %s conectada via credentials (%s, profile %s)", acct.ID, p, profileID)
+	// Metering account-day (ADR-010 §1.2) — idempotente.
+	_ = h.Store.RecordAccountDay(r.Context(), teamID, acct.ID, time.Now())
 	writeData(w, http.StatusOK, map[string]any{"status": "connected", "accountId": acct.ID})
 }
 
@@ -276,6 +300,19 @@ func (h *Handlers) ensureProfile(ctx context.Context, teamID string) (string, er
 
 func oauthRedirectURI(h *Handlers, p domain.Platform) string {
 	return h.BaseURL + "/v1/connect/" + string(p) + "/callback"
+}
+
+// planLimitExceeded responde 402 PLAN_LIMIT_EXCEEDED com caminho de upgrade
+// (ADR-010: limite por contas conectadas).
+func planLimitExceeded(w http.ResponseWriter, current, limit int) {
+	respond.Error(w, http.StatusPaymentRequired, "PLAN_LIMIT_EXCEEDED",
+		"Limite de contas conectadas do plano atingido",
+		map[string]any{
+			"current":      current,
+			"limit":        limit,
+			"upgradePath":  "/v1/billing/checkout",
+			"plan":         "use GET /v1/billing/plan para ver o plano atual",
+		})
 }
 
 func randomToken(n int) (string, error) {

@@ -8,6 +8,7 @@ require (
 	github.com/pashagolub/pgxmock/v4 v4.9.0
 	github.com/riverqueue/river v0.47.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0
+	github.com/stripe/stripe-go/v81 v81.4.0
 )
 
 require (

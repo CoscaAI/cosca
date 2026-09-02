@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/rizomai/rizomai/api/respond"
+	"github.com/rizomai/rizomai/internal/billing"
 	"github.com/rizomai/rizomai/internal/platform"
 	"github.com/rizomai/rizomai/internal/queue"
 	"github.com/rizomai/rizomai/internal/store"
@@ -26,6 +27,7 @@ type Handlers struct {
 	Registry *platform.Registry
 	TokenKey []byte // AES-256-GCM (RIZOMAI_TOKEN_KEY) p/ tokens em repouso
 	BaseURL  string // base pública da API p/ redirect_uri (PUBLIC_BASE_URL)
+	Stripe   *billing.Client
 }
 
 // decodeJSON lê o corpo (limitado) e decodifica; em erro de formato responde

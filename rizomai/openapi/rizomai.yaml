@@ -613,6 +613,126 @@ paths:
           $ref: '#/components/responses/RateLimited'
 
   # ---------------------------------------------------------------------------
+  # Billing (ADR-010)
+  # ---------------------------------------------------------------------------
+  /v1/billing/checkout:
+    post:
+      operationId: billingCheckout
+      tags: [Billing]
+      summary: Cria sessão de checkout Stripe (cartão + PIX)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan:
+                  type: string
+                  enum: [growth, escala, agencia]
+                  example: growth
+      responses:
+        '201':
+          description: URL de checkout criada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      checkoutUrl:
+                        type: string
+                        example: "https://checkout.stripe.com/c/pay/..."
+        '422':
+          description: Plano inválido
+        '503':
+          description: Stripe não configurado
+  /v1/billing/webhook:
+    post:
+      operationId: billingWebhook
+      tags: [Billing]
+      summary: Webhook público do Stripe (valida assinatura)
+      security: []
+      responses:
+        '200':
+          description: Evento processado
+        '400':
+          description: Assinatura inválida
+  /v1/billing/usage:
+    get:
+      operationId: billingUsage
+      tags: [Billing]
+      summary: Uso do período atual (contas X/Y + valor estimado)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Uso atual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      plan:
+                        type: string
+                      limit:
+                        type: integer
+                      current:
+                        type: integer
+                      periodStart:
+                        type: string
+                        format: date
+                      periodEnd:
+                        type: string
+                        format: date
+                      estimatedCents:
+                        type: integer
+        '402':
+          description: Limite do plano excedido
+  /v1/billing/plan:
+    get:
+      operationId: billingPlan
+      tags: [Billing]
+      summary: Plano atual e features
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plano atual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      codename:
+                        type: string
+                      name:
+                        type: string
+                      contasIncluidas:
+                        type: integer
+                      precoPorContaExtraCents:
+                        type: integer
+                      precoFixoCents:
+                        type: integer
+                      features:
+                        type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: Billing não configurado
+
+  # ---------------------------------------------------------------------------
   # Webhooks (ADR-009)
   # ---------------------------------------------------------------------------
   /v1/webhooks:
