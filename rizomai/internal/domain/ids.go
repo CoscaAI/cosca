@@ -59,3 +59,6 @@ func NewInvoiceID() (string, error) { return newID("inv_") }
 
 // NewMeteringID gera um ID de metering event (prefixo met_).
 func NewMeteringID() (string, error) { return newID("met_") }
+
+// NewInboxMessageID gera um ID de mensagem do inbox (prefixo msg_).
+func NewInboxMessageID() (string, error) { return newID("msg_") }

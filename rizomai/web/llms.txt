@@ -1,0 +1,59 @@
+# RIZOMAI API — resumo para LLMs
+
+Plataforma API-first de gestão de redes sociais: **um post → todas as redes**
+(13 plataformas). Espec-first: `openapi/rizomai.yaml` é a fonte única da verdade
+(ADR-005) — todos os endpoints, schemas e convenções estão lá.
+
+## Uso rápido
+
+- **Base URL**: `https://api.rizomai.app` (dev: `http://localhost:8080`)
+- **Auth**: header `Authorization: Bearer sk_...` (API key do tenant)
+- **Envelope de sucesso**: `{ "data": ... }` · **Erro**: `{ "code", "error", "details" }`
+- **Idempotência**: header `Idempotency-Key` (UUID) nas mutações
+- **IDs com prefixo**: `profile_`, `account_`, `post_`, `wh_`
+
+## Operações principais (curl)
+
+```bash
+# Listar perfis
+curl http://localhost:8080/v1/profiles -H "Authorization: Bearer $RIZOMAI_API_KEY"
+
+# Criar perfil
+curl -X POST http://localhost:8080/v1/profiles -H "Authorization: Bearer $RIZOMAI_API_KEY" \
+  -H "Content-Type: application/json" -d '{"name":"Minha Agência"}'
+
+# Listar contas conectadas
+curl http://localhost:8080/v1/accounts -H "Authorization: Bearer $RIZOMAI_API_KEY"
+
+# Conectar uma conta (devolve a URL de OAuth; o usuário abre no navegador)
+curl "http://localhost:8080/v1/connect/x?profileId=profile_..." \
+  -H "Authorization: Bearer $RIZOMAI_API_KEY"
+
+# Publicar um post em 2 plataformas (uma chamada = fan-out)
+curl -X POST http://localhost:8080/v1/posts -H "Authorization: Bearer $RIZOMAI_API_KEY" \
+  -H "Content-Type: application/json" -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"content":"Olá mundo","platforms":[{"platform":"x","accountId":"account_..."},{"platform":"linkedin","accountId":"account_..."}]}'
+
+# Status de um post (parcial/publicado/falhou por plataforma)
+curl http://localhost:8080/v1/posts/post_... -H "Authorization: Bearer $RIZOMAI_API_KEY"
+
+# Uso/billing do período
+curl http://localhost:8080/v1/billing/usage -H "Authorization: Bearer $RIZOMAI_API_KEY"
+```
+
+## Plataformas suportadas
+
+`x, linkedin, telegram, instagram, facebook, threads, youtube, tiktok,
+bluesky, reddit, pinterest, snapchat, googlebusiness`
+
+Telegram/Bluesky/Reddit conectam via `POST /v1/connect/{platform}/credentials`;
+as demais via OAuth (`GET /v1/connect/{platform}` → URL de autorização).
+
+## Convenções
+
+- Sem cotas de posts (sempre ilimitado); o meter é por **conta conectada**
+  (free até 3; depois por faixa).
+- Webhooks assinados com HMAC-SHA256 (`X-Rizomai-Signature`).
+- Agentes podem usar o servidor MCP (`cmd/mcp-server`): ferramentas
+  `list_profiles`, `create_post`, `list_posts`, `get_post`, `connect_account`,
+  `get_usage` via JSON-RPC sobre stdio.

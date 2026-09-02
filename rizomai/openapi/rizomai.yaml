@@ -733,6 +733,176 @@ paths:
           description: Billing não configurado
 
   # ---------------------------------------------------------------------------
+  # Analytics (Fase 6)
+  # ---------------------------------------------------------------------------
+  /v1/analytics/posts/{id}:
+    get:
+      operationId: getPostAnalytics
+      tags: [Analytics]
+      summary: Analytics agregados de um post por plataforma
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: post_abc123
+      responses:
+        '200':
+          description: Analytics do post
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      postId:
+                        type: string
+                      platforms:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            platform:
+                              type: string
+                            views:
+                              type: integer
+                            likes:
+                              type: integer
+                            comments:
+                              type: integer
+                            shares:
+                              type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Post não encontrado
+  /v1/analytics/profile:
+    get:
+      operationId: getProfileAnalytics
+      tags: [Analytics]
+      summary: Analytics agregados de um profile em N dias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: profileId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Analytics do profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      profileId:
+                        type: string
+                      platforms:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            platform:
+                              type: string
+                            views:
+                              type: integer
+                            likes:
+                              type: integer
+                            comments:
+                              type: integer
+                            shares:
+                              type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Inbox (Fase 6)
+  # ---------------------------------------------------------------------------
+  /v1/inbox:
+    get:
+      operationId: listInbox
+      tags: [Inbox]
+      summary: Mensagens unificadas (DMs, comentários, menções)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: platform
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: isRead
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Mensagens do inbox
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        platform:
+                          type: string
+                        sender:
+                          type: string
+                        text:
+                          type: string
+                        messageType:
+                          type: string
+                        receivedAt:
+                          type: string
+                        isRead:
+                          type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/inbox/{id}/read:
+    post:
+      operationId: markInboxRead
+      tags: [Inbox]
+      summary: Marca mensagem como lida
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mensagem marcada como lida
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Mensagem não encontrada
+
+  # ---------------------------------------------------------------------------
   # Webhooks (ADR-009)
   # ---------------------------------------------------------------------------
   /v1/webhooks:

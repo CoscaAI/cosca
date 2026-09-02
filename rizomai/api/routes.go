@@ -69,6 +69,10 @@ func NewRouter(d Deps) http.Handler {
 	protected.HandleFunc("POST /v1/billing/checkout", h.BillingCheckout)
 	protected.HandleFunc("GET /v1/billing/usage", h.BillingUsage)
 	protected.HandleFunc("GET /v1/billing/plan", h.BillingPlan)
+	protected.HandleFunc("GET /v1/analytics/posts/{id}", h.GetPostAnalytics)
+	protected.HandleFunc("GET /v1/analytics/profile", h.GetProfileAnalytics)
+	protected.HandleFunc("GET /v1/inbox", h.ListInbox)
+	protected.HandleFunc("POST /v1/inbox/{id}/read", h.MarkInboxRead)
 
 	chain := middleware.RateLimit(rateLimiter)(middleware.Auth(d.Store, d.APIKeyPepper)(protected))
 	mux.Handle("/v1/", chain)
