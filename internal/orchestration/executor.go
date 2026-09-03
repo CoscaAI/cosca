@@ -1323,6 +1323,17 @@ func (e *Executor) extractJSONBlocks(content string) []string {
 		}
 
 		block := strings.TrimSpace(inner[:end])
+		// O fence pode vir com a linguagem: ```shell<newline>{...}``` .
+		// O extractor antes exigia "{"-prefixo, mas a primeira linha do bloco
+		// e' a linguagem (e.g. "shell", "json", "go"), entao um tool-call JSON
+		// emitido num fence com linguagem era DESCARTADO (o modelo menor com
+		// 64K emitia write_file assim). Se o bloco nao comeca com "{", pula a
+		// primeira linha e re-testa.
+		if !strings.HasPrefix(block, "{") {
+			if nl := strings.Index(block, "\n"); nl >= 0 {
+				block = strings.TrimSpace(block[nl+1:])
+			}
+		}
 		if strings.HasPrefix(block, "{") {
 			var test map[string]interface{}
 			if json.Unmarshal([]byte(block), &test) == nil {
