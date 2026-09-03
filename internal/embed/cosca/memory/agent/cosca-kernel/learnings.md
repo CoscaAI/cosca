@@ -486,7 +486,7 @@
 
 ---
 
-## L9 | 2026-07-28 | Parallel CI Fix Orchestration | Level 3
+## L9 | 2026-07-28 | Parallel CI Fix Orchestration | L3 | #ci #race-condition #flaky-test #parallel-orchestration #go-testing | deb6b19ba201bd90
 
 | Field | Value |
 |-------|-------|
@@ -502,7 +502,7 @@
 
 ---
 
-## L10 | 2026-07-28 | Onda 5 — Multi-Agent Activation Wave | Level 3
+## L10 | 2026-07-28 | Onda 5 — Multi-Agent Activation Wave | L3 | #agent-activation #onda-5 #parallel-delegation #cross-domain #orchestration | d89a80f9fea24a38
 
 | Field | Value |
 |-------|-------|
@@ -518,7 +518,7 @@
 
 ---
 
-## L11 | 2026-07-28 | Onda 6 — Liderança + Órfãos Activation Wave | Level 3
+## L11 | 2026-07-28 | Onda 6 — Liderança + Órfãos Activation Wave | L3 | #onda-6 #agent-activation #leadership #parallel-delegation #cross-domain #orchestration | 75fbca19a9b7d207
 
 | Field | Value |
 |-------|-------|
@@ -1088,7 +1088,7 @@
 ## 2026-08-31 - Cosca soberano no Windows: o que FUNCIONA vs o que NAO FUNCIONA
 - FUNCIONA (modelo local qwen3:8b): cosca project new (cria projeto c/ provider injetado), cosca delegate (Gate 0: plano, estimativa 9min, risco baixo, confianca 90%), aprovacao do Don + audit trail (.cosca/memory/audit/approvals-*.md), trace.db (PLAN_CREATED/APPROVED/DELEGATED), cosca agent run (consulta LLM com persona do agente)
 - NAO FUNCIONA no Windows: criacao de arquivo por agente (Tools: 0, Capabilities: 0). Causa: sandbox/jail e bubblewrap sao LINUX-only; sem jail as ferramentas de filesystem do agente nao sao montadas. cosca terminal --task roteia pra workflows erradas (nao e o comando p/ codigo; o certo e cosca delegate).
-- TRADE-OFF RESOLVIDO: qwen3:8b (5.2GB medio) segue system prompt E planeja (90% confianca) sem crashar � resolve o dilemma de qwen2.5-coder (nao segue) vs qwen3-coder:30b (crasha por stall).
+- TRADE-OFF RESOLVIDO: qwen3:8b (5.2GB medio) segue system prompt E planeja (90% confianca) sem crashar � resolve o dilemma de qwen2.5-coder (nao segue) vs qwen3-coder:30b (crasha por stall).
 - INSIGHT: a inteligencia e a casa (Gate 0, epistemologia, auditoria) FUNCIONA soberana no Windows; a execucao de arquivos depende do jail Linux. Pro Windows, precisaria de ferramentas de FS que nao dependam do bubblewrap.
 
 ## 2026-08-31 - COSCA EXECUTA AGENTES COM FERRAMENTAS FS CROSS-PLATFORM (marco)
@@ -1112,7 +1112,7 @@
 - DON mandou criar roadmap de tool discipline (ele e o professor). Criado .opencode/cosca/shared/TOOL_DISCIPLINE.md (contrato COGNITIVO, complementar ao TOOL_EXECUTION_POLICY.md que e o OPERACIONAL).
 - PESQUISA no codigo-fonte do OpenCode (repo sst/opencode): confirmation dos fatos. read.ts tem filePath/offset/limit (2000 linhas)/MAX_BYTES 50KB/deteccao binaria/'did you mean'/LSP warm-up. edit.txt: exige READ antes (erro se nao leu), falha se oldString nao existe ou multiplas ocorrencias, preserve indentacao, replaceAll p/ rename. write.txt: sobrescreve, EXIGE READ antes (erro se nao leu), prefere edit p/ existentes, nunca criar *.md proativamente.
 - ACHADO CRITICO: o OpenCode JA TEM o guard deterministico (read-before-edit/write). As TOOLS DO COSCA (write_file/filesystem.go:116) NAO TEM - sobrescreve sem exigir read previo. FOI ISSO que permitiu o agente apagar 228 linhas do SOLITEK.
-- NOTA: a delega��o de fix do guard (Security Chief) foi REJEITADA pelo Don (ele queria primeiro o roadmap/conversa com professor). O GUARD AINDA NAO ESTA IMPLEMENTADO nas tools do COSCA - gap em aberto.
+- NOTA: a delega��o de fix do guard (Security Chief) foi REJEITADA pelo Don (ele queria primeiro o roadmap/conversa com professor). O GUARD AINDA NAO ESTA IMPLEMENTADO nas tools do COSCA - gap em aberto.
 - LICAO: a seguranca NAO pode depender do chip (LLM). Precisa de guard deterministico na ferramenta (read-before-write) - exatamente o que o professor e o OpenCode ja prescrevem.
 
 ## 2026-08-31 - GUARD read-before-write implementado (Security Chief) + gap LEGACY

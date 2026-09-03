@@ -486,7 +486,7 @@
 
 ---
 
-## L9 | 2026-07-28 | Parallel CI Fix Orchestration | Level 3
+## L9 | 2026-07-28 | Parallel CI Fix Orchestration | L3 | #ci #race-condition #flaky-test #parallel-orchestration #go-testing | deb6b19ba201bd90
 
 | Field | Value |
 |-------|-------|
@@ -502,7 +502,7 @@
 
 ---
 
-## L10 | 2026-07-28 | Onda 5 — Multi-Agent Activation Wave | Level 3
+## L10 | 2026-07-28 | Onda 5 — Multi-Agent Activation Wave | L3 | #agent-activation #onda-5 #parallel-delegation #cross-domain #orchestration | d89a80f9fea24a38
 
 | Field | Value |
 |-------|-------|
@@ -518,7 +518,7 @@
 
 ---
 
-## L11 | 2026-07-28 | Onda 6 — Liderança + Órfãos Activation Wave | Level 3
+## L11 | 2026-07-28 | Onda 6 — Liderança + Órfãos Activation Wave | L3 | #onda-6 #agent-activation #leadership #parallel-delegation #cross-domain #orchestration | 75fbca19a9b7d207
 
 | Field | Value |
 |-------|-------|
