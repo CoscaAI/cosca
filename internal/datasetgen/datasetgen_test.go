@@ -3,6 +3,7 @@ package datasetgen
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -189,5 +190,51 @@ func TestGenerateExampleE2E(t *testing.T) {
 		if ex.Trajectory == nil || len(ex.Trajectory) < 2 {
 			t.Errorf("exemplo %d: trajetória curta (%d)", i, len(ex.Trajectory))
 		}
+	}
+}
+
+// TestToSFTFormat valida que um exemplo positivo vira o formato SFT ChatML.
+func TestToSFTFormat(t *testing.T) {
+	ex := &Example{
+		Task: "Fix main.go", Focus: FocusHappyPath,
+		Label: LabelSuccess,
+		InitialState: map[string]string{"main.go": "package main\nfunc Restart() {"},
+		Trajectory: []TrajectoryStep{
+			{Role: "user", Content: "Fix main.go"},
+			{Role: "assistant", ToolCalls: []ToolCallJSON{{Name: "read_file", Arguments: []byte(`{"path":"main.go"}`)}}},
+			{Role: "tool", Content: "package main\nfunc Restart() {"},
+			{Role: "assistant", Content: "", ToolCalls: []ToolCallJSON{{Name: "edit_file", Arguments: []byte(`{"path":"main.go","old_string":"func Restart() {","new_string":"func Restart() error {"}`)}}},
+			{Role: "tool", Content: "OK"},
+			{Role: "assistant", Content: "Done."},
+		},
+	}
+	sft, err := ex.ToSFTFormat()
+	if err != nil {
+		t.Fatalf("ToSFTFormat: %v", err)
+	}
+	if len(sft.Messages) == 0 {
+		t.Fatal("sem mensagens no SFT")
+	}
+	// system primeiro
+	if sft.Messages[0].Role != "system" {
+		t.Errorf("primeira role = %s, esperado system", sft.Messages[0].Role)
+	}
+	// deve conter a chamada de read_file codificada no assistant
+	hasRead := false
+	for _, m := range sft.Messages {
+		if strings.Contains(m.Content, "read_file") {
+			hasRead = true
+		}
+	}
+	if !hasRead {
+		t.Error("trajetória de read_file não codificada no conteúdo do assistant")
+	}
+	t.Logf("SFT messages: %d", len(sft.Messages))
+}
+
+func TestToSFTFormatRejectsContrast(t *testing.T) {
+	ex := &Example{Task: "x", Focus: FocusHappyPath, Label: LabelFailure}
+	if _, err := ex.ToSFTFormat(); err == nil {
+		t.Fatal("contraste NÃO deveria converter (SFT usa só demonstrações)")
 	}
 }

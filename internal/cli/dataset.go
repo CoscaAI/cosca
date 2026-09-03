@@ -36,6 +36,7 @@ Subcomandos:
 
 	cmd.AddCommand(newDatasetGenerateCommand())
 	cmd.AddCommand(newDatasetGoldenCommand())
+	cmd.AddCommand(newDatasetConvertCommand())
 	return cmd
 }
 
@@ -97,6 +98,35 @@ func newDatasetGenerateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&model, "model", "qwen3:4b", "modelo aluno (executa as trajetórias)")
 	cmd.Flags().StringVar(&out, "out", "", "arquivo de saída JSONL (default: <cwd>/dataset.jsonl)")
 	cmd.Flags().BoolVar(&runEval, "eval", false, "executar trajetórias com o modelo (requer Ollama)")
+	return cmd
+}
+
+// newDatasetConvertCommand converte o dataset (datasetgen) para o formato SFT
+// ChatML (fine-tune) e divide em train/val.
+func newDatasetConvertCommand() *cobra.Command {
+	var input, output string
+	var ratio float64
+
+	cmd := &cobra.Command{
+		Use:   "convert",
+		Short: "Converter dataset para formato SFT (fine-tune ChatML)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			pos, err := datasetgen.ConvertDatasetToSFT(input, output)
+			if err != nil {
+				return fmt.Errorf("dataset convert: %w", err)
+			}
+			trainPath, valPath, err := datasetgen.WriteSFTBatches(output, ratio)
+			if err != nil {
+				return fmt.Errorf("dataset split: %w", err)
+			}
+			formatter.Success(fmt.Sprintf("convertido %d exemplos positivos → %s | train=%s val=%s", pos, output, trainPath, valPath))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&input, "input", "", "dataset JSONL de entrada (datasetgen)")
+	cmd.Flags().StringVar(&output, "output", "", "arquivo SFT JSONL de saída")
+	cmd.Flags().Float64Var(&ratio, "ratio", 0.1, "proporção de validação (0-1)")
 	return cmd
 }
 

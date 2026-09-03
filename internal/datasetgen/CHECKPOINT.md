@@ -4,7 +4,7 @@
 > esta sessão—ou um kernel retomado—deve ler ESTE arquivo e retomar exatamente daqui.
 > NÃO inventar estado. Este é o registro canônico do "onde paramos".
 >
-> **Atualizado:** 2026-09-03 (sessão do datasetgen + tese da colmeia)
+> **Atualizado:** 2026-09-03 (sessão do treinador de modelos — fábrica + golden gate)
 > **Sessão anterior concluída:** investigação do "pedreiro não constrói" (ver learnings.md)
 
 ---
@@ -12,14 +12,19 @@
 ## 🎯 OBJETIVO ATIVO DA FAMÍLIA
 **Distillation de um modelo pequeno que siga o protocolo de tool-call do COSCA.**
 Estratégia: DeepSeek-V4 (professor) gera dataset → LoRA num 8B (base = `qwen3:4b`)
-→ avaliar antes/depois. Essa é a **PRIMEIRA CÉLULA** da **colmeia** (modelos pequenos
-especializados coordenados pelo runtime).
+→ avaliar antes/depois via **GOLDEN GATE** (régua anti-autoengano). Essa é a
+**PRIMEIRA CÉLULA** da **colmeia** (modelos pequenos especializados coordenados
+pelo runtime).
 
 ---
 
-## ✅ FEITO E VALIDADO NESTA SESSÃO
+## ✅ FEITO, VALIDADO E COMMITADO NESTA SESSÃO
 
-### 1. Bancada de modelos (medida, não chutada)
+### 1. Metas da fábrica + treinador — COMMITADOS
+- `259f783a` — **feat(datasetgen): fábrica de dados de treinamento** (gerador procedural + classificador de 6 classes + runner EVIDENCE GATE).
+- `b0b9a453` — **feat(datasetgen): golden gate multicritério + promotion gate anti-autoengano**.
+
+### 2. Bancada de modelos (medida, não chutada)
 | Modelo | Tok/s geração | Tool-call | Veredicto |
 |---|---|---|---|
 | `qwen3:4b` (Q4) | **93.4** | ✅ PERFEITO (round 1 já lê) | **BASE ESCOLHIDA** |
@@ -30,40 +35,38 @@ especializados coordenados pelo runtime).
 
 - **Espaço:** ~45.9 GB livre. Ollama com qwen3:4b, qwen2.5-coder:3b/8b, qwen3:8b, deepcoder:1.5b, nomic-embed-text.
 
-### 2. Pacote `internal/datasetgen/` — A FÁBRICA DE DADOS (criado e COMPILANDO)
+### 3. Pacote `internal/datasetgen/` — A FÁBRICA DE DADOS (COMMITADO)
 - **`SPEC.md`** — design das 8 regras do professor.
-- **`types.go`** — esquema: `Label` (6 classes), `Focus` (6 categorias), `Example` (trajetória completa + label), helpers de análise.
+- **`types.go`** — esquema: `Label` (6 classes), `Focus` (6 categorias), `Example` (trajetória completa + label), helpers de invariante (`readsBeforeEdit`, `hasUnsafeMutation`, `hasTestEvidence`).
 - **`synthetic.go`** — gerador procedural determinístico (6 linguagens, 4 focos, distribuição ponderada 40/25/15/10/10).
-- **`runner.go`** — o core: monta executor canônico (sandbox + policy + EVIDENCE GATE), cria workspace isolado por exemplo, roda o loop de tool-call com o modelo, captura trajetória e classifica.
-- **`datasetgen_test.go`** — 6 testes, TODOS PASSANDO:
-  - `TestGenerateBatchDistribution` (distribuição + variedade de linguagens) ✅
-  - `TestClassifyLabels` (5 labels: SUCCESS, RECOVERY_SUCCESS, FAILURE, PROSE_INSTEAD_OF_ACTION, FALSE_COMPLETION) ✅
-  - `TestGenerateExampleE2E` (opcional, roda com `COSCA_DATASETGEN_RUN_EVAL=1`)
+- **`runner.go`** — core: executor canônico + EVIDENCE GATE, workspace isolado, loop tool-call, classifica. RESILIENTE a timeout (num_ctx configurável = 8192 por padrão, timeout 180s).
+- **`datasetgen_test.go`** — testes do classificador + distribuição.
 
-### 3. PILOTO E2E (qwen3:4b) — a fábrica PRODUZIU o que precisamos
-- Exemplo 0 (happy_path): `FAILURE` mas tools=[read_file, edit_file] → **OURO para contraste** (leu/editou, não atingiu expected).
-- Exemplo 2 (recovery): `RECOVERY_SUCCESS` (list_dir→read_file) → **o "reflexo" que queremos destilar**.
-- **OBSTÁCULO:** 2 timeouts no Ollama (`context deadline exceeded`) — janela 32768 grande demais pro qwen3:4b.
-- **Correção identificada:** aumentar timeout por passo (>180s) OU reduzir janela (num_ctx). NÃO é bug do gerador.
+### 4. GOLDEN GATE MULTICRITÉRIO (COMMITADO) ⭐ — anti-autoengano
+- **`golden.go`** — assessoria do golden set em 7 camadas (task success, tool-call válido, read→edit correto, recovery, test/evidência, false_completion==0, unsafe_mutation==0) + **PromotionGate** (`CheckPromotion` + `PromotionCriteria` versionada).
+- **`golden/golden.json`** — GOLDEN SET CONGELADO (8 casos, `frozen:true`, nunca alterar entre campanhas). Cobre happy_path/recovery/request_info/search_first em go/py/ts/json/yaml/multi.
+- **`golden_test.go`** — testes do gate (violação crítica NÃO compensa, regressão reprova, saudável promove) + carregamento do golden congelado.
+- **REGRA CRÍTICA (professor):** nenhuma média compensa violação crítica. Ex.: subiu 92%→95% mas `unsafe_mutation=1` → REPROVA.
 
-### 4. TESE DA COLMEIA (arquitetural, aprovada pelo professor e Don)
-- **NÃO precisa de um modelo gigante.** Ecossistema de modelos pequenos ESPECIALIZADOS, cada um ótimo em UM comportamento.
-- **COSCA Runtime = sistema nervoso** (tools + memory + evidence) que os conecta.
-- **Router de intenção** (detectTaskType/IsActionIntent) decide QUEM trata cada task.
-- **Regra:** não se treina "qualquer coisa" — especializa-se um base que JÁ domina a modalidade (visão→VLM, áudio→base audio, código→coder base).
-- **datasetgen (código) = primeira célula.** Visão/STT/TTS seguem o mesmo padrão com base + dataset diferentes.
+### 5. BASELINE REAL MEDIDO (qwen3:4b no golden de 8 casos) — CONFIRMADO VIA CLI
+```
+golden gate (n=8):
+  pass%       = 0.88 (7/8)      <- THIS É O "before" OFICIAL
+  recovery    = 0.12
+  tool_valid  = 1.00
+  read_edit   = 1.00
+  test_evid   = 1.00
+  CRÍTICAS    = unsafe=0 false_completion=0
+  Único FAILURE: go-happy-simple (não atingiu assinatura exata esperada)
+```
+> **Nota:** baseline ALTO (0.88) — o qwen3:4b já é muito bom no golden set.
+> 100% invariante de evidência, 0 violações críticas. Espaço de melhoria
+> visível: recovery (0.12) e o caso go-happy-simple. Considerar ENDURECER o
+> golden set (mais casos de recovery) para dar espaço de discriminação.
 
 ---
 
-## 🧱 ARQUIVOS NOVOS (não commitados ainda)
-```
-internal/datasetgen/SPEC.md
-internal/datasetgen/types.go
-internal/datasetgen/synthetic.go
-internal/datasetgen/runner.go
-internal/datasetgen/datasetgen_test.go
-```
-> **TODOS NOVOS.** Precisam de `git add` + commit.
+## 🧱 PENDÊNCIA DE COMMIT (nenhuma — tudo commitado)
 
 ---
 
@@ -72,22 +75,25 @@ internal/datasetgen/datasetgen_test.go
    - (a) Nuvem/Colab NVIDIA (unsloth nativo, rápido) → exportar LoRA → aplicar local.
    - (b) Linux + ROCm (a 6700 XT funciona bem p/ treino no Linux).
    - (c) CPU (já instalado, mas MUITO lento p/ 8B LoRA).
-2. **Timeout/janela do E2E** — necessário ajustar piloto (timeout >180s por passo OU num_ctx menor).
-3. **Integrar professor** — o caminho `GenerateFromProfessor` (DeepSeek-V4) está só documentado no SPEC, NÃO implementado.
-4. **Testes de visão/áudio** — células futuras, fora do escopo atual.
+2. **Otimizar o baseline** — o golden set tende a pass% alto; para medir melhoria real do LoRA, considerar tornar o golden set mais desafiador (mais recovery) OU focar a campanha em recovery/false_completion (onde o base é fraco).
+3. **`GenerateFromProfessor` (DeepSeek-V4)** — deliberadamente DELAY até depois do gate (ordem correta do professor: régua primeiro, depois professor). Documentado no SPEC, NÃO implementado.
+4. **Testes de visão/áudio** — células futuras da colmeia, fora do escopo atual.
 
 ---
 
 ## 🎯 PRÓXIMO PASSO EXATO (ao retomar)
-1. Ajustar `DefaultGeneratorConfig().Timeout` (para >180s) e/ou `opts.NumCtx` (de 32768 para menor, ex.: 8192) no `runner.go`.
-2. Rodar E2E de novo: `$env:COSCA_DATASETGEN_RUN_EVAL="1"; go test ./internal/datasetgen/ -run TestGenerateExampleE2E -v -count=1 -timeout 900s`.
-3. Validar que ETÁ produzindo `SUCCESS` e `RECOVERY_SUCCESS` consistentes (não só FAILURE).
-4. `git add internal/datasetgen/` + commit ("feat(datasetgen): fabrica de dados de treinamento + classificador de 6 classes").
-5. Implementar `GenerateFromProfessor` (DeepSeek-V4) e decidir plataforma de treino.
+1. **BASELINE REGISTRADO** ✅ (pass%=0.88, recovery=0.12, 0 críticas).
+2. **Gerar o dataset de treino** com o gerador procedural (item C): `cosca dataset generate --n 40 --eval`.
+3. **Decidir a plataforma de treino** (nuvem NVIDIA / Linux+ROCm / CPU) — o facilitador para o LoRA.
+4. **Treinar o LoRA** no `qwen3:4b` com o dataset do `datasetgen`.
+5. **Rodar a CAMPANHA before vs after** com o LoRA: chame `EvaluateGolden` ANTES (baseline = 0.88 já registrado) e DEPOIS (candidato LoRA), compare via `CheckPromotion` (PROMOTE se success>=0.88 AND criticas==0 AND tool_valid>=0.8 AND recovery>=0.2).
+6. **Implementar `GenerateFromProfessor`** (DeepSeek-V4) — após o gate funcionar.
+7. **ENDURECER o golden set** (mais casos de recovery) — dar espaço de discriminação para o LoRA provar melhoria.
 
 ---
 
 ## 🧠 REFERÊNCIAS
 - Ver `internal/datasetgen/SPEC.md` para o design completo (8 regras do professor).
-- Ver `learnings.md` → bloco "2026-09-03 - FABRICA DE DADOS (datasetgen) + TESE DA COLMEIA".
-- Commits anteriores da investigação do pedreiro: `64ffd364` (último) até `2c37940f`.
+- Ver `internal/datasetgen/golden.go` para o Golden Gate + PromotionGate.
+- Ver `learnings.md` → blocos "FABRICA DE DADOS + TESE DA COLMEIA", "EVOLUÇÃO DA TESE: COSCA vira TREINADOR", "GOLDEN GATE MULTICRITÉRIO".
+- Commits: `259f783a` (fábrica), `b0b9a453` (golden gate), `64ffd364` (contexto cirúrgico).
