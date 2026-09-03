@@ -2,9 +2,10 @@ package evals
 
 import (
 	"context"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/CoscaAI/cosca/internal/safe"
 )
 
 // maxVerifyTail caps how much of a verify command's output is retained in a
@@ -19,7 +20,8 @@ type VerifyResult struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// RunVerifyCommands executes each command through `sh -c` in dir. Every
+// RunVerifyCommands executes each command through the native shell in dir
+// (cmd.exe on Windows, bash on others — see internal/safe.SafeShellExec). Every
 // command gets its own timeout derived from the parent context. A command
 // passes when it exits 0; otherwise it fails with a tail of its output.
 func RunVerifyCommands(ctx context.Context, dir string, commands []string, timeout time.Duration) []VerifyResult {
@@ -31,12 +33,24 @@ func RunVerifyCommands(ctx context.Context, dir string, commands []string, timeo
 		}
 
 		vctx, cancel := context.WithTimeout(ctx, timeout)
-		cmd := exec.CommandContext(vctx, "sh", "-c", cmdline)
+		// Cross-platform shell execution (cmd.exe on Windows, bash on Unix).
+		// safe.SafeShellExec writes the command to a temp script file instead of
+		// interpolating it into a shell string — this avoids command injection
+		// via `cmd /c <code>` / `bash -c <code>` and makes the verify harness
+		// work on Windows natively (where `sh` is absent).
+		cmd, tmpFile, shellErr := safe.SafeShellExec(vctx, cmdline)
+		if shellErr != nil {
+			cancel()
+			vr := VerifyResult{Command: cmdline, OK: false, Error: "verify shell init failed: " + shellErr.Error()}
+			results = append(results, vr)
+			continue
+		}
 		cmd.Dir = dir
 		release := configureProcessGroup(cmd)
 		out, err := cmd.CombinedOutput()
 		release()
 		cancel()
+		safe.Remove(tmpFile)
 
 		vr := VerifyResult{Command: cmdline, OutputTail: tail(string(out), maxVerifyTail)}
 		if err != nil {

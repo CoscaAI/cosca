@@ -3,14 +3,12 @@ package evals
 import (
 	"context"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestRunVerifyCommandsPass(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("RunVerifyCommands executa via sh -c (shell POSIX) — sh ausente no Windows nativo")
-	}
 	res := RunVerifyCommands(context.Background(), t.TempDir(), []string{"echo hello"}, 10*time.Second)
 	if len(res) != 1 {
 		t.Fatalf("results = %d, want 1", len(res))
@@ -18,7 +16,7 @@ func TestRunVerifyCommandsPass(t *testing.T) {
 	if !res[0].OK {
 		t.Errorf("echo should pass: %+v", res[0])
 	}
-	if res[0].OutputTail != "hello\n" {
+	if strings.ReplaceAll(res[0].OutputTail, "\r\n", "\n") != "hello\n" {
 		t.Errorf("output tail = %q, want %q", res[0].OutputTail, "hello\n")
 	}
 	if res[0].Error != "" {
@@ -40,9 +38,6 @@ func TestRunVerifyCommandsFail(t *testing.T) {
 }
 
 func TestRunVerifyCommandsMultiple(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("RunVerifyCommands executa via sh -c (shell POSIX) — sh ausente no Windows nativo")
-	}
 	res := RunVerifyCommands(context.Background(), t.TempDir(),
 		[]string{"echo one", "false", "echo three"}, 10*time.Second)
 	if len(res) != 3 {
@@ -54,8 +49,15 @@ func TestRunVerifyCommandsMultiple(t *testing.T) {
 }
 
 func TestRunVerifyCommandsTimeout(t *testing.T) {
+	// Process-tree kill is Linux-only in practice: on Windows the Job
+	// Object / taskkill kill the process but exec.Cmd.CombinedOutput does not
+	// return until the child's stdout pipe closes, so a long `ping` orphan
+	// keeps the wait blocked. This is a pre-existing platform gap in the
+	// evals verify harness (process-group termination), NOT in the
+	// cross-platform shell selection that SafeShellExec adds. It is tracked
+	// separately from the `sh -> cmd.exe` fix.
 	if runtime.GOOS == "windows" {
-		t.Skip("sleep semantics differ on windows")
+		t.Skip("process-tree kill not reliable on Windows (exec.Cmd waits on pipe close) — tracked separately from the shell cross-platform fix")
 	}
 	// sh -c "sleep 5" with a 300ms timeout must be killed.
 	start := time.Now()
