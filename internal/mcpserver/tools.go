@@ -753,6 +753,7 @@ var allowedCLIRoot = map[string]bool{
 	"project":    true,
 	"web":        true,
 	"screen":     true,
+	"despertar":  true,
 }
 
 // allowedCLIRootList devolve a lista de comandos permitidos como string

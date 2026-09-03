@@ -85,3 +85,34 @@
 5. **Verificação final de "não quebrei a suíte":** rodar a suíte do pacote inteira e grep por `--- FAIL` deve listar APENAS o novo teste RED. `go build ./...` sem saída = build ok. `git status --short` deve mostrar apenas o arquivo de teste novo como artefato meu (o resto do workspace sujo é ruído pré-existente de outros agentes/runtime).
 
 **Next**: Fase IMPLEMENTAR — conectar `search ↔ vectoragg` e tornar o Teste 1 verde; depois, testar que o novo caminho NÃO introduz regressão de materialização.
+
+---
+
+### 2026-09-03 — Caso D: Continuidade semântica de capacidades (invetariante anti-regressão + doutrina persistida)
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-testing |
+| **Task** | Caso D (restart): provar que o COSCA não regride para "visão = VLM externo". Regressão de continuidade da RELAÇÃO arquitetural (capacidade→sensores→Observation→fusão→gate→(resolve\|escala VLM)). |
+| **Technique** | (1) Teste de INTEGRAÇÃO anti-regressão: caminho canônico em versão de teste (fusion.Fuse→gate.Decide) com um `vlmSet` de providers registrados como fato externo — provar que o provider é INERTE ao veredito; (2) Teste DETERMINÍSTICO de doutrina persistida: ler ADR-036 + provenance.yaml + learnings do kernel do disco (via repoRoot/go.mod walk) e verificar que a RELAÇÃO ressurge e que NÃO é "visão=VLM" (cláusula "VLM é escalada, nunca identidade"). |
+| **Level** | 3 → 4 |
+| **Outcome** | success — 2 arquivos de teste novos, todos PASS; vet/build limpos; 0 regressão na suíte sensor. Nenhum `.go` funcional tocado. |
+| **Confianca** | 0.94 |
+| **Tags** | #testing #caso-D #continuidade-semantica #anti-regressao #capacidade-provider #gate #fusion #ADR-036 #integração #test-deterministico |
+| **Related** | `internal/sensor/gate/continuity_test.go`, `internal/sensor/semantic_continuity_test.go`, `docs/adr/ADR-036-continuidade-semantica-de-capacidades.md`, `internal/sensor/gate/gate.go`, `internal/sensor/fusion/fusion.go` |
+
+**Key Learnings**:
+
+1. **A anti-regressão é testável SEM tocar código funcional — via o invariante de "provider inerte".** O gate (`Policy.Decide`) NÃO recebe um parâmetro provider, então a prova não é "o gate ignora provider" — é que, no caminho canônico, o veredito é função PURA da evidência. Gravei um `route(obs, providers, p)` (helper de teste) que roda `fusion.Fuse→gate.Decide` e outro `assertVerdictInertToProviders` que compara o resultado com `providers=nil` vs `providers={vlm}`. Se o veredito muda, o caminho primário quebrou. As duas invariantes do ADR-036 §2.4 (#2, #3) viram asserções concretas.
+
+2. **Separar "veredito do gate" de "consultar VLM" é essencial — senão o teste fica falso.** `vlm` só é `true` quando o gate diz `Escalate` E há um alvo registrado. Então, ao comparar "sem provider" vs "com provider", o `vlm` DIFERE legitimamente (sem alvo, nunca consulta). A invariante é sobre o VEREDITO (`v`), não sobre `vlm`; `vlm` deve espelhar o `Escalate` quando há alvo. Confundi-los teria gerado erro no caso "contradição" (escalada sem alvo). A lição: **a igualdade entre cenários é sobre a DECISÃO do gate, não sobre a existência do alvo.**
+
+3. **Teste de "restart" não precisa de índice semântico — usa as fontes persistidas em disco.** O knowledge.db pode estar sem reindex (ADR-036 não indexado), então a busca semântica é instável. O Caso D é validável de forma DETERMINÍSTICA lendo as fontes que SOBREVIVEM ao restart e que a busca indexaria: `docs/adr/ADR-036...`, `.cosca/provenance.yaml`, `.opencode/cosca/memory/agent/cosca-kernel/learnings.md`. Encontrei o repo root subindo do CWD do pacote até `go.mod` (padrão `baseline_recall_test.go`). Normalizei o texto (lowercase + strip acentos PT + `≠`→`!=`) pra casar formas acentuadas/não-acentuadas e evitar falsos negativos.
+
+4. **Verificação-negativa robusta (não matchear a frase proibida literalmente).** O texto das fontes CONTÉM a frase "visão = VLM externo" dentro do OBJETIVO ("impedir que o despertar regrida para..."). Logo um teste de "não deve conter 'visão=VLM'" falharia. A saída é asserção-POSITIVA: a doutrina declara explicitamente "VLM é escalada, NUNCA identidade da capacidade" e "capacidade != provider". Presença dessas cláusulas prova a antítese da regressão, sem depender de string proibida.
+
+5. **Não criar diretório novo só de `_test.go`** — quebraria `go build ./...` ("no buildable Go files"). Coloquei os testes em pacotes existentes (`gate` e `sensor`) que já têm código de produção. O teste de doutrina vai em `sensor` porque a doutrina governa exatamente o `sensor.Observation`, mas valida documentação/proveniência, não código.
+
+**Gap comprovado (registrado, NÃO resolvido — exige mudança funcional)**: a continuidade de RELAÇÃO é testada, mas a continuidade de RUNTIME de ponta-a-ponta (o `cosca despertar` carregar a doutrina + pipeline `screen.Observations→fusion.Fuse→gate.Decide` estar ligado + destino de escalada) continua sendo o GAP do ADR-036 §6. Testar isso exigiria ligar o pipeline e/ou carregar a doutrina no despertar — mudança em `.go` funcional, fora do escopo (não fiz nenhuma).
+
+**Next**: (1) Quando o pipeline for ligado em runtime (ADR-036 §6), escrever o teste E2E que fecha `screen→fusion→gate→escalada` de verdade. (2) Após reindex, validar `cosca knowledge search "capacidade visao sensores gate escalacao VLM"` devolve a doutrina. (3) NÃO duplicar: qualquer novo código consome `sensor.Observation`+`fusion.Fuse`+`gate.Policy.Decide`.

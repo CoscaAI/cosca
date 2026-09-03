@@ -251,6 +251,12 @@ claims:
       source: Don+cosca-kernel+cosca-backend+professor
       confidence: 0.93
       created_at: "2026-08-29T00:00:00Z"
+    - id: dogma-continuidade-semantica-capacidades
+      statement: 'DOGMA (2026-09-02, consolidação do Don+professor+kernel) — a continuidade semântica de capacidades. FONTE CANONICA ÚNICA: docs/adr/ADR-036 (não re-escrever; referenciar). Complementa os dogmas dogma-percepcao-como-evidencia e dogma-percepcao-por-representacao. RELAÇÃO arquitetural a preservar: CAPACIDADE (ex: vision) -> sensores locais (screen capture, text-region detector, WinRT OCR, tesseract OCR, CLIP, aesthetic metrics) -> []Observations (sensor.Observation) -> FUSÃO (fusion.Fuse: consenso log-odds + contradição) -> GATE DE EVIDÊNCIA (gate.Policy.Decide: Resolve|Escalate) -> ESCALADA SOMENTE se insuficiência/contradição (VLM/LLM no topo, nunca identidade). REGRA ANTIRREGRESSÃO: (1) CAPACIDADE != PROVIDER; (2) provider nunca vira capacidade; (3) caminho primário intocável; (4) VLM é escalada, nunca identidade; (5) sensor produz evidência, não verdade (MEASURED/INFERRED/EVIDENCE/DECISION, nunca promoção INFERRED->FACT); (6) contradição é informação preservada. OBJETIVO do registro: impedir que o despertar/restart regrida para "visão = VLM externo".'
+      kind: dogma
+      source: Don+professor+cosca-kernel+cosca-architecture(ADR-036)
+      confidence: 0.96
+      created_at: "2026-09-02T00:00:00Z"
     - id: dogma-percepcao-como-evidencia
       statement: 'DOGMA (2026-09-02, professor+Don+kernel): O valor do COSCA NAO esta em cada sensor individual (OCR, CLIP, tracking, web, audio) — esta no KERNEL decidir QUAL evidencia confiar, COMBINAR as evidencias e saber QUANDO uma resposta NAO e confiavel. Sensor entrega EVIDENCIA com perfil de erro conhecido, nao "verdade". Arquitetura em 4 pecas: (1) DTO sensorial normalizado — todo sensor emite o MESMO pacote {tipo, conteudo, confianca, fonte, estilo_epistemico, timestamp, trace_id}; (2) Fusao + deteccao de contradicao — sensores discordando e um SINAL (incerteza ou inconsistencia real); (3) GATE de escalacao — VLM no TOPO da piramide, nunca na base; sobe com confianca baixa/contradicao/pedido explicito; (4) Ledger epistemico — registrar o que foi observado, com que confianca, e o que o kernel concluiu (Estado do Mundo). Regra-sintese: "a resposta nao e confiavel" quando a confianca total nao sustenta a afirmacao. Fundacao para percepcao multimodal consolidada sob um unico kernel de decisao.'
       kind: dogma

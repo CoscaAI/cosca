@@ -6,7 +6,7 @@
 
 | File | Purpose | Entries |
 |------|---------|---------|
-| [learnings.md](learnings.md) | Semantic learning journal | 13 entries (2 new today) |
+| [learnings.md](learnings.md) | Semantic learning journal | 14 entries (3 new today — incl. canonical #capacidade≠provider ADR-036) |
 | [failures.md](failures.md) | Negative memory — failed approaches | 3 failures (hallucination + mandament + false excuse) |
 | [patterns.md](patterns.md) | Reusable solution patterns | — (pending extraction) |
 | [evolution.md](evolution.md) | Capability evolution timeline | Level 3, 0.68 confidence |
