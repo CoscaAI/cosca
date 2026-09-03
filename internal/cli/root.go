@@ -111,6 +111,7 @@ Documentation: https://cosca.enterprise/docs
 		NewWebCommand(),
 		NewScreenCommand(),
 		NewDoctorCommand(),
+		NewDatasetCommand(),
 		NewRuntimeCommand(),
 		NewConfigCommand(),
 		NewCacheCommand(),
