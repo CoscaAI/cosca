@@ -809,17 +809,26 @@ func (e *Executor) buildSystemPrompt(agentName, agentRole, agentDept, agentDesc 
 	}
 
 	// Knowledge context injected by the knowledge-retrieval stage.
-	if knowledge, ok := data.Extra["knowledge_context"].(string); ok && knowledge != "" {
-		sb.WriteString("\n--- RELEVANT KNOWLEDGE ---\n")
-		sb.WriteString(knowledge)
-		sb.WriteString("\n--- END KNOWLEDGE ---\n")
+	// PLANNING × EXECUTION (context budgeting): para tasks de AÇÃO, o plano já
+	// carregou o conhecimento; o executor deve trabalhar CIRÚRGICO (task + tools
+	// + evidência). Injetar knowledge/memory gigantes aqui faz o modelo entrar
+	// em modo "analista/documentador" e NÃO emitir tool-call. Então, para tasks
+	// de ação, pulamos knowledge_context/memory_context.
+	isAction := false
+	if intent, ok := data.Extra["intent"].(string); ok && intent != "" {
+		isAction = IsActionIntent(intent)
 	}
-
-	// Memory context injected by the memory-retrieval stage.
-	if data.MemoryContext != "" {
-		sb.WriteString("\n--- RELEVANT MEMORY ---\n")
-		sb.WriteString(data.MemoryContext)
-		sb.WriteString("\n--- END MEMORY ---\n")
+	if !isAction {
+		if knowledge, ok := data.Extra["knowledge_context"].(string); ok && knowledge != "" {
+			sb.WriteString("\n--- RELEVANT KNOWLEDGE ---\n")
+			sb.WriteString(knowledge)
+			sb.WriteString("\n--- END KNOWLEDGE ---\n")
+		}
+		if data.MemoryContext != "" {
+			sb.WriteString("\n--- RELEVANT MEMORY ---\n")
+			sb.WriteString(data.MemoryContext)
+			sb.WriteString("\n--- END MEMORY ---\n")
+		}
 	}
 
 	// Tools available to this agent (derived from role/department). Enumerating
