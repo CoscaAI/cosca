@@ -1,0 +1,53 @@
+{
+  "suite": "cosca-esteira",
+  "metadata": {
+    "author": "cosca-kernel",
+    "description": "Benchmark completo da esteira de desenvolvimento (feature, bugfix, refactoring, review, audit)",
+    "difficulty": "medium",
+    "category": "pipeline",
+    "tags": [
+      "esteira",
+      "e2e",
+      "regression"
+    ],
+    "created": "2026-08-11"
+  },
+  "started_at": "2026-09-03T04:16:06.4219755Z",
+  "finished_at": "2026-09-03T04:19:28.7839059Z",
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "errors": 0,
+  "timed_out": 0,
+  "pass_rate": 0,
+  "reward_mean": 0,
+  "reward_max": 0,
+  "reward_min": 0,
+  "reward_sum": 0,
+  "metrics": {
+    "accuracy": 0,
+    "precision": 0,
+    "recall": 0,
+    "f1": 0,
+    "matthews_corr": 0,
+    "bootstrap_std": 0,
+    "higher_is_better": true
+  },
+  "cases": [
+    {
+      "id": "feature-development",
+      "status": "failed",
+      "duration": "3m22.362s",
+      "steps": [
+        "wait_for_plan",
+        "approve_plan",
+        "wait_for_execution"
+      ],
+      "summary": "Definition of Done not fully passed",
+      "dod": "Definition of Done Report\n========================\n\n  PASSED (3):\n    [x] no_regressions\n    [x] security_ok\n    [x] documented\n\n  FAILED (3):\n    [ ] code_exists  \u003c- REQUIRED\n    [ ] builds  \u003c- REQUIRED\n    [ ] tests_pass  \u003c- REQUIRED\n\n  STATUS: NOT READY — fix required checks above\n",
+      "reward": 0,
+      "reward_expectation": 1,
+      "weight": 1
+    }
+  ]
+}

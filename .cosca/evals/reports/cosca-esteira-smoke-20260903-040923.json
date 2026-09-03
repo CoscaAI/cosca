@@ -1,0 +1,91 @@
+{
+  "suite": "cosca-esteira-smoke",
+  "metadata": {
+    "author": "cosca-kernel",
+    "description": "Smoke benchmark da esteira",
+    "difficulty": "easy",
+    "category": "pipeline",
+    "tags": [
+      "smoke",
+      "esteira",
+      "regression"
+    ],
+    "created": "2026-08-11"
+  },
+  "started_at": "2026-09-03T04:09:23.4873392Z",
+  "finished_at": "2026-09-03T04:09:57.253448Z",
+  "total": 3,
+  "passed": 0,
+  "failed": 3,
+  "errors": 0,
+  "timed_out": 0,
+  "pass_rate": 0,
+  "reward_mean": 0,
+  "reward_max": 0,
+  "reward_min": 0,
+  "reward_sum": 0,
+  "metrics": {
+    "accuracy": 0,
+    "precision": 0,
+    "recall": 0,
+    "f1": 0,
+    "matthews_corr": 0,
+    "bootstrap_std": 0,
+    "higher_is_better": true
+  },
+  "cases": [
+    {
+      "id": "plan-feature-development",
+      "status": "failed",
+      "duration": "6ms",
+      "steps": [
+        "wait_for_plan"
+      ],
+      "summary": "plan-only: 19 tasks planned",
+      "verify_results": [
+        {
+          "command": "go vet ./internal/pipeline/...",
+          "ok": false,
+          "error": "verify command canceled"
+        }
+      ],
+      "reward": 0,
+      "reward_expectation": 0.8,
+      "weight": 2
+    },
+    {
+      "id": "execute-adhoc-task",
+      "status": "failed",
+      "duration": "33.749s",
+      "steps": [
+        "wait_for_plan",
+        "approve_plan",
+        "wait_for_execution"
+      ],
+      "summary": "Definition of Done not fully passed",
+      "dod": "Definition of Done Report\n========================\n\n  PASSED (3):\n    [x] no_regressions\n    [x] security_ok\n    [x] documented\n\n  FAILED (3):\n    [ ] code_exists  \u003c- REQUIRED\n    [ ] builds  \u003c- REQUIRED\n    [ ] tests_pass  \u003c- REQUIRED\n\n  STATUS: NOT READY — fix required checks above\n",
+      "reward": 0,
+      "reward_expectation": 1,
+      "weight": 1
+    },
+    {
+      "id": "plan-bug-fix",
+      "status": "failed",
+      "duration": "11ms",
+      "steps": [
+        "wait_for_plan"
+      ],
+      "summary": "plan-only: 8 tasks planned",
+      "verify_results": [
+        {
+          "command": "go vet ./internal/cli/...",
+          "ok": false,
+          "error": "verify command canceled"
+        }
+      ],
+      "reward": 0,
+      "reward_expectation": 1,
+      "weight": 1
+    }
+  ]
+}
