@@ -88,7 +88,7 @@ func TestDetectTaskType(t *testing.T) {
 		{"unrelated text", ""},
 	}
 	for _, tc := range cases {
-		if got := detectTaskType(tc.desc); got != tc.want {
+		if got := DetectTaskType(tc.desc); got != tc.want {
 			t.Errorf("detectTaskType(%q) = %q, want %q", tc.desc, got, tc.want)
 		}
 	}

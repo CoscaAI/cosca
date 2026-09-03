@@ -317,6 +317,11 @@ func workflowToPlan(wf *workflows.Workflow) *pipeline.Plan {
 			Description: s.Description,
 			Agent:       s.Agent,
 			Status:      pipeline.TaskPending,
+			// Intenção derivada NO PLANEJAMENTO via DetectTaskType: a task
+			// de ação (implement-fix/create-handlers/...) carrega um tipo que
+			// o executor usa para decidir se deve ir ao LLM com tools. Nunca
+			// inferido dentro do Executor — é dado explícito do plano.
+			IntentType: pipeline.DetectTaskType(s.Description),
 		})
 	}
 	plan := &pipeline.Plan{

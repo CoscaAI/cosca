@@ -149,8 +149,9 @@ func (s *StepRunner) RunStep(ctx context.Context, stepName string, task *TaskNod
 	}
 
 	req := RunRequest{
-		Prompt: task.Description,
-		Agent:  task.Agent,
+		Prompt:     task.Description,
+		Agent:      task.Agent,
+		IntentType: task.IntentType,
 		Options: RunOptions{
 			MaxTurns:    10,
 			Timeout:     300 * time.Second,

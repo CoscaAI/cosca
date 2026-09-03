@@ -325,7 +325,16 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 		return pc, nil
 	}
 
-	if det := deterministicResponse(pc.Data); det != "" {
+	// ── ROTEAMENTO POR INTENÇÃO (dado do plano, não heurística aqui) ────────
+	// A intenção da task (detectTaskType, decidida no planejamento e chegando
+	// via Context["intent"]) determina o caminho: tasks de AÇÃO/IMPLEMENTAÇÃO
+	// devem IR AO LLM COM TOOLS — nunca ser resolvidas pelo knowledge
+	// determinístico (que pode responder com o auto-match do workflow). Tasks
+	// de CONSULTA/AVALIAÇÃO continuam usando o determinístico. Isso preserva o
+	// deterministicResponse global para consulta e só blinda as ações.
+	if intent, ok := pc.Data.Extra["intent"].(string); ok && intent != "" && IsActionIntent(intent) {
+		logger.Info().Str("intent", intent).Msg("executor: task de AÇÃO/IMPLEMENTAÇÃO — segue ao LLM com tools (determinístico bloqueado)")
+	} else if det := deterministicResponse(pc.Data); det != "" {
 		logger.Info().Msg("executor: resposta DETERMINÍSTICA (sem LLM) — conhecimento indexado respondeu")
 		pc = pc.WithLLMResponse(det)
 		pc = pc.WithExecutorDeterministic(true)
@@ -1492,4 +1501,22 @@ func formatToolResultsFallback(results []*ToolCallResult) string {
 // GenerateRequestID creates a unique request identifier for pipeline use.
 func GenerateRequestID() string {
 	return uuid.New().String()
+}
+
+// IsActionIntent reporta se a intenção da task (detectTaskType, decidida no
+// planejamento e chegando via Context["intent"]) é de AÇÃO/IMPLEMENTAÇÃO —
+// deve ir ao LLM com tools e NÃO ser resolvida pelo knowledge determinístico.
+// O predicado espelha o pipeline.IsActionIntentType; é definido aqui (e não
+// importado do pipeline) para o orchestration não depender do package pipeline,
+// evitando ciclo de imports. A tabela é a fonte única em agent_router.go.
+func IsActionIntent(taskType string) bool {
+	switch taskType {
+	case "design-schema", "migrate-data", "create-models", "create-handlers",
+		"integrate-api", "create-tests", "build-verify", "design-auth",
+		"implement-fix", "execute-refactor", "deploy", "containerize", "design-ui",
+		"implement", "merge":
+		return true
+	default:
+		return false
+	}
 }

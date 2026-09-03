@@ -65,13 +65,27 @@ func (a *OrchAdapter) Run(ctx context.Context, req RunRequest) (*RunResult, erro
 	if req.Agent != "" {
 		orchReq.Context["agent"] = req.Agent
 	}
+	// Intenção da task (detectTaskType) chegando como dado explícito. O
+	// executor lê de Context["intent"] para decidir se a task é de ação
+	// (vai ao LLM com tools) ou de consulta (determinística permitida).
+	if req.IntentType != "" {
+		orchReq.Context["intent"] = req.IntentType
+	}
 
 	result, err := a.engine.Execute(ctx, orchReq)
 	if err != nil {
 		// Deterministic fallback: when LLM is unavailable, generate code from templates.
 		if a.workDir != "" {
 			if genErr := a.generateTemplateCode(req.Prompt); genErr != nil {
-				return nil, fmt.Errorf("orchestration: %w (deterministic fallback: %v)", err, genErr)
+				// DIAGNÓSTICO (não comportamento): a causa raiz é o erro do
+				// executor/provider (`err`), não o fallback de template. A
+				// mensagem final deve destacar `err` (já sanitizado pelo
+				// orchestration em executor_failed/chat_completion_failed) e
+				// tratar o "sem template" apenas como contexto secundário —
+				// para nenhuma camada esconder a causa da falha da camada
+				// seguinte. O erro do provider permanece correlacionável via
+				// error_hash/error_length no log (safeerror).
+				return nil, fmt.Errorf("orchestration: executor failed: %w (deterministic fallback ativado sem template correspondente)", err)
 			}
 			result = &orchestration.Result{
 				ID:       "deterministic-" + req.Prompt[:min(8, len(req.Prompt))],

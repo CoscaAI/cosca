@@ -48,7 +48,7 @@ func (r *AgentRouter) Route(task *TaskNode) (string, float64, string) {
 	}
 
 	desc := strings.ToLower(task.Description)
-	taskType := detectTaskType(desc)
+	taskType := DetectTaskType(desc)
 
 	// 1. Exact agent hint from task
 	if task.Agent != "" {
@@ -106,7 +106,7 @@ func (r *AgentRouter) SearchAndRoute(query string) (*AgentRoutingDecision, error
 	}
 
 	decision := &AgentRoutingDecision{
-		TaskType:      detectTaskType(strings.ToLower(query)),
+		TaskType:      DetectTaskType(strings.ToLower(query)),
 		TaskDesc:      query,
 		AgentSelected: best.Name,
 		Reason:        fmt.Sprintf("search match: %s (%s)", best.Name, best.Role),
@@ -228,7 +228,13 @@ func (r *AgentRouter) departmentRoute(taskType string) (string, float64, string)
 
 // ─── Task Type Detection ─────────────────────────────────────────────────
 
-func detectTaskType(desc string) string {
+func DetectTaskType(desc string) string {
+	// Normaliza para lowercase: os callers (workflowToPlan, AgentRouter,
+	// SearchAndRoute) passam o texto do workflow com maiúscula ("Implement
+	// backend changes"), e as keywords são minúsculas. Sem o ToLower, o
+	// "Implement backend changes" não casava "implement" — a causa raiz do
+	// determinístico interceptar tasks de AÇÃO (o "pedreiro não constrói").
+	desc = strings.ToLower(desc)
 	if strings.Contains(desc, "schema") || strings.Contains(desc, "database") || strings.Contains(desc, "sql") || strings.Contains(desc, "query") {
 		return "design-schema"
 	}
@@ -237,6 +243,9 @@ func detectTaskType(desc string) string {
 	}
 	if strings.Contains(desc, "model") || strings.Contains(desc, "struct") {
 		return "create-models"
+	}
+	if strings.Contains(desc, "document") || strings.Contains(desc, "readme") || strings.Contains(desc, "manual") {
+		return "document"
 	}
 	if strings.Contains(desc, "handler") || strings.Contains(desc, "api") || strings.Contains(desc, "endpoint") || strings.Contains(desc, "rest") || strings.Contains(desc, "graphql") {
 		return "create-handlers"
@@ -250,11 +259,15 @@ func detectTaskType(desc string) string {
 	if strings.Contains(desc, "build") || strings.Contains(desc, "compile") {
 		return "build-verify"
 	}
-	if strings.Contains(desc, "auth") || strings.Contains(desc, "security") || strings.Contains(desc, "login") {
-		return "design-auth"
-	}
+	// `audit` ANTES de `auth/security`: "Security audit" / "Auditar" é
+	// AVALIAÇÃO (não-ação, audit-security), não auth (ação, design-auth).
+	// A ordem contrária faria "Security audit of all changes" cair em
+	// design-auth (uma ACTION), o que é semanticamente errado.
 	if strings.Contains(desc, "audit") {
 		return "audit-security"
+	}
+	if strings.Contains(desc, "auth") || strings.Contains(desc, "security") || strings.Contains(desc, "login") {
+		return "design-auth"
 	}
 	if strings.Contains(desc, "diagnose") || strings.Contains(desc, "debug") || strings.Contains(desc, "error") {
 		return "diagnose"
@@ -283,13 +296,46 @@ func detectTaskType(desc string) string {
 	if strings.Contains(desc, "monitor") || strings.Contains(desc, "log") || strings.Contains(desc, "alert") || strings.Contains(desc, "observability") {
 		return "monitor"
 	}
-	if strings.Contains(desc, "document") || strings.Contains(desc, "readme") || strings.Contains(desc, "manual") {
-		return "document"
-	}
 	if strings.Contains(desc, "frontend") || strings.Contains(desc, "ui") || strings.Contains(desc, "component") || strings.Contains(desc, "react") || strings.Contains(desc, "vue") {
 		return "design-ui"
 	}
+	// ── Keywords dos workflows de featura/bugfix (texto REAL da esteira) ──
+	// Sem estas, "Implement backend changes" (workflow feature-development),
+	// "Implement the fix", "Merge feature branch to main" e "Investigate the
+	// root cause" retornavam TaskType="", então IsActionIntentType=false e o
+	// deterministicResponse interceptava a task de AÇÃO ANTES do LLM (a causa
+	// raiz do "pedreiro não constrói"). "implement" cobre os tasks de
+	// implementação; "merge" cobre o handoff de branch; "root cause"
+	// é investigação (não ação — fica false). Cobrem os textos exatos dos
+	// workflows, garantindo que a intenção de AÇÃO chegue ao executor.
+	if strings.Contains(desc, "implement") || strings.Contains(desc, "implementation") {
+		return "implement"
+	}
+	if strings.Contains(desc, "merge") || strings.Contains(desc, "handoff") {
+		return "merge"
+	}
 	return ""
+}
+
+// IsActionIntentType reporta se um task de intenção (detectTaskType) é de
+// AÇÃO/IMPLEMENTAÇÃO — deve ir ao LLM com tools (write/edit/shell/build/test)
+// e NÃO ser resolvido pelo knowledge determinístico. Tipos de consulta/
+// avaliação (analyze/review/diagnose/audit/document/monitor) retornam false e
+// podem continuar no caminho determinístico. É o predicado usado pelo executor
+// (decisão por DADO, não heurística espalhada).
+func IsActionIntentType(taskType string) bool {
+	switch taskType {
+	case "design-schema", "migrate-data", "create-models", "create-handlers",
+		"integrate-api", "create-tests", "build-verify", "design-auth",
+		"implement-fix", "execute-refactor", "deploy", "containerize", "design-ui",
+		// Novos tipos de AÇÃO dos workflows reais: "implement" (Backend/
+		// Frontend/Fix Implementation) e "merge" (handoff de branch). Sem
+		// eles, o determinístico interceptava tasks de implementação.
+		"implement", "merge":
+		return true
+	default:
+		return false
+	}
 }
 
 // ─── History ─────────────────────────────────────────────────────────────

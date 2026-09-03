@@ -17,6 +17,11 @@ type RunRequest struct {
 	Agent   string
 	History []Message
 	Options RunOptions
+
+	// IntentType é a intenção da task (detectTaskType), transportada do
+	// TaskNode até o orquestrador. Decide, pelo DADO, se a task é de ação
+	// (vai ao LLM com tools) ou de consulta (pode ser determinística).
+	IntentType string
 }
 
 type RunOptions struct {

@@ -25,6 +25,13 @@ type TaskNode struct {
 	Result            *TaskResult `json:"result,omitempty"`
 	HandoffArtifactID string      `json:"handoff_artifact_id,omitempty"`
 	CreatedAt         time.Time   `json:"created_at"`
+
+	// IntentType é a intenção da task (detectTaskType). É o dado EXPLÍCITO que
+	// decide, no executor, se a task é de AÇÃO/IMPLEMENTAÇÃO (deve ir ao LLM
+	// com tools) ou de CONSULTA/AVALIAÇÃO (pode ser resolvida pelo knowledge
+	// determinístico). Decidido no PLANEJAMENTO (workflowToPlan/Planner), nunca
+	// inferido dentro do Executor — evita um "segundo COSCA" heurístico.
+	IntentType string `json:"intent_type,omitempty"`
 }
 
 type TaskStatus string
