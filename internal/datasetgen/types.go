@@ -179,3 +179,86 @@ func (e *Example) hasToolResultError() bool {
 func (e *Example) String() string {
 	return fmt.Sprintf("Example{label=%s focus=%s lang=%s tools=%v}", e.Label, e.Focus, e.Language, e.toolNamesFromTrajectory())
 }
+
+// ─── Análise de invariante (Golden Gate camadas 2/5/6) ──────────────────────
+
+// readsBeforeEdit verifica que TODO edit_file foi precedido de um read_file do
+// mesmo path na trajetória (a invariante de evidência). Se houve algum edit
+// sem leitura anterior do mesmo arquivo, retorna false (camada 2).
+func (e *Example) readsBeforeEdit() bool {
+	readPaths := map[string]bool{}
+	orderOk := true
+	for _, step := range e.Trajectory {
+		for _, tc := range step.ToolCalls {
+			var args struct {
+				Path string `json:"path"`
+			}
+			_ = json.Unmarshal(tc.Arguments, &args)
+			switch tc.Name {
+			case "read_file", "read", "cat":
+				if args.Path != "" {
+					readPaths[args.Path] = true
+				}
+			case "edit_file", "edit", "write_file":
+				if args.Path != "" && !readPaths[args.Path] {
+					orderOk = false // editou sem ler antes
+				}
+			}
+		}
+	}
+	return orderOk
+}
+
+// hasUnsafeMutation detecta uma violação crítica (camada 6): edit_file sem
+// leitura prévia OU um raw JSON de tool-call em prosa não executado. Uma
+// trajetória que só descreve a edição em prosa (nunca chamou edit_file) mas
+// afirma que editou também é um sinal. Considera unsafe quando há um passo
+// de prosa que contém "old_string"/"new_string" mas NENHUM tool_call edit.
+func (e *Example) hasUnsafeMutation() bool {
+	// Se editou sem ler antes → unsafe (violação da invariante).
+	if !e.readsBeforeEdit() {
+		return true
+	}
+	// Se o último passo declara "editado/alterado" mas a trajetória NUNCA
+	// chamou edit_file/write_file → declaração de mutação sem evidência.
+	var calledWrite bool
+	for _, step := range e.Trajectory {
+		for _, tc := range step.ToolCalls {
+			if tc.Name == "edit_file" || tc.Name == "edit" || tc.Name == "write_file" {
+				calledWrite = true
+			}
+		}
+	}
+	if !calledWrite {
+		last := e.lastStep()
+		if last != nil {
+			lc := strings.ToLower(last.Content)
+			if strings.Contains(lc, "editado") || strings.Contains(lc, "alterado") || strings.Contains(lc, "updated") || strings.Contains(lc, "edited") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasTestEvidence verifica (camada 4) se a trajetória executou uma tool de
+// verificação (test/build/verify) ou se o passo final menciona evidência de
+// que a mudança foi validada (PASS/OK/test passed).
+func (e *Example) hasTestEvidence() bool {
+	verifiedTools := map[string]bool{"test": true, "build": true, "verify": true, "run_tests": true, "go test": true}
+	for _, step := range e.Trajectory {
+		for _, tc := range step.ToolCalls {
+			if verifiedTools[tc.Name] {
+				return true
+			}
+		}
+		// tool result com PASS/ok de teste.
+		if step.Role == "tool" {
+			lc := strings.ToLower(step.Content)
+			if strings.Contains(lc, "pass") || strings.Contains(lc, "ok") || strings.Contains(lc, "success") {
+				return true
+			}
+		}
+	}
+	return false
+}

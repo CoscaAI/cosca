@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "description": "Golden Set congelado do COSCA — regua de promocao do treinador de modelos. Anti-autoengano: NUNCA alterar os cases entre campanhas de treino; a passagem e decidida pelo runtime (estado final vs esperado), nao pela opiniao do modelo/professor.",
+    "date": "2026-09-03",
+    "frozen": true
+  },
+  "cases": [
+    {
+      "id": "go-happy-simple",
+      "task": "Fix the Restart() function in main.go to add proper state handling. Read the file, then edit it.",
+      "initial_state": { "main.go": "package main\n\nfunc Restart() {\n\t// old\n}\n" },
+      "expected_state": { "main.go": "func Restart() error" },
+      "language": "go",
+      "focus": "happy_path"
+    },
+    {
+      "id": "go-recovery-stale",
+      "task": "Replace the state handling in main.go. First read the file, then edit it. The function has a different signature than you might expect.",
+      "initial_state": { "main.go": "package main\n\nfunc Restart(force bool) {\n\t// force mode\n}\n" },
+      "expected_state": { "main.go": "force mode" },
+      "language": "go",
+      "focus": "recovery"
+    },
+    {
+      "id": "py-happy-simple",
+      "task": "Update restart() in main.py to return a boolean and add state handling. Read the file, then edit it.",
+      "initial_state": { "main.py": "def restart():\n    # old\n    pass\n" },
+      "expected_state": { "main.py": "return True" },
+      "language": "python",
+      "focus": "happy_path"
+    },
+    {
+      "id": "ts-happy-simple",
+      "task": "Fix the restart function in main.ts to return a boolean. Read the file, then edit it.",
+      "initial_state": { "main.ts": "export function restart() {\n  // old\n}\n" },
+      "expected_state": { "main.ts": "return true" },
+      "language": "typescript",
+      "focus": "happy_path"
+    },
+    {
+      "id": "json-config-toggle",
+      "task": "Update the config in config.json to change the mode from cold to warm. Read the file, then edit it.",
+      "initial_state": { "config.json": "{\n  \"restart\": {\n    \"mode\": \"cold\"\n  }\n}\n" },
+      "expected_state": { "config.json": "\"mode\": \"warm\"" },
+      "language": "json",
+      "focus": "happy_path"
+    },
+    {
+      "id": "yaml-config-toggle",
+      "task": "Update the restart mode in config.yaml from cold to warm. Read the file, then edit it.",
+      "initial_state": { "config.yaml": "restart:\n  mode: cold\n" },
+      "expected_state": { "config.yaml": "mode: warm" },
+      "language": "yaml",
+      "focus": "happy_path"
+    },
+    {
+      "id": "multi-file-refactor",
+      "task": "Refactor: find all files defining 'restart' across the repo, then update each to add a 'version' field.",
+      "initial_state": {
+        "cmd/alpha.json": "{ \"restart\": { \"mode\": \"cold\" } }",
+        "cmd/beta.yaml": "restart:\n  mode: cold\n",
+        "pkg/main.go": "package main\n\nfunc Restart() {\n\t// old\n}\n"
+      },
+      "expected_state": {},
+      "language": "multi",
+      "focus": "search_first"
+    },
+    {
+      "id": "find-right-place",
+      "task": "Update the service: I'm not sure where to place the new handler. Find the right file first, read it, then decide.",
+      "initial_state": { "service.go": "package main\n\nfunc Handle() {\n\t// old\n}\n" },
+      "expected_state": {},
+      "language": "go",
+      "focus": "request_info"
+    }
+  ]
+}
