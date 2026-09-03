@@ -116,12 +116,69 @@ func (w *WinRTOCR) ocrOnce(ctx context.Context, img image.Image) ([]ocrLine, err
 	}
 
 	// Parse do JSON: linhas de texto com bounding boxes.
+	// O texto OCR pode conter caracteres de controle (ex: bell \x07, escape
+	// ANSI) que, quando escapados pelo ConvertTo-Json do PowerShell, geram
+	// sequências inválidas (\a, \e, etc.) para o parser JSON do Go. Sanitizamos
+	// o JSON antes do parse — é uma correção de TRANSPORTE, não do motor OCR.
 	var lines []ocrLine
-	if err := json.Unmarshal(out, &lines); err != nil {
+	if err := json.Unmarshal(sanitizeJSON(out), &lines); err != nil {
 		return nil, fmt.Errorf("winrt ocr: parse: %w", err)
 	}
 	return lines, nil
 }
+
+// isValidJSONEscape reporta se c é um caractere de escape JSON válido.
+func isValidJSONEscape(c byte) bool {
+	switch c {
+	case '"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u':
+		return true
+	}
+	return false
+}
+
+// sanitizeJSON torna um documento JSON emitido pelo PowerShell parseável pelo
+// Go. Dois problemas de transporte:
+//   1. Bytes de controle CRUS dentro de string (ex: 0x07 bell dos ícones de
+//      status do terminal) que o ConvertTo-Json não escapa — inválidos em JSON
+//      Go. Substitui por espaço.
+//   2. Sequências de escape inválidas (ex: \x1b ANSI) que o PowerShell serializa
+//      como \x — duplica a barra (\x) para preservar o literal.
+func sanitizeJSON(b []byte) []byte {
+	out := make([]byte, 0, len(b))
+	inString := false
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if c == '"' {
+			// Vira string/fora de string, mas ignora \ antes (escapado).
+			// Precisamos rastrear se a " está escapada.
+			inString = !inString
+			out = append(out, c)
+			continue
+		}
+		if inString {
+			// Byte de controle cru (exceto tab/nl/cr) dentro de string → espaço.
+			if c < 0x20 && c != 0x09 && c != 0x0A && c != 0x0D {
+				out = append(out, ' ')
+				continue
+			}
+			// Escape \X inválido → duplica a barra.
+			if c == '\\' && i+1 < len(b) {
+				next := b[i+1]
+				if isValidJSONEscape(next) {
+					out = append(out, c, next)
+					i++
+					continue
+				}
+				out = append(out, c, c, next)
+				i++
+				continue
+			}
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 
 // ocrLine é uma linha de texto reconhecida, com sua caixa e confiança.
 type ocrLine struct {
