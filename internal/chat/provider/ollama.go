@@ -146,11 +146,20 @@ func (p *OllamaProvider) Chat(ctx context.Context, req chat.ChatRequest) (<-chan
 // ─── Request/response types ──────────────────────────────────────────────────
 
 type ollamaRequest struct {
-	Model     string          `json:"model"`
-	Messages  []ollamaMessage `json:"messages"`
-	Tools     []openAITool    `json:"tools,omitempty"`
-	Stream    bool            `json:"stream"`
-	KeepAlive string          `json:"keep_alive,omitempty"`
+	Model     string             `json:"model"`
+	Messages  []ollamaMessage    `json:"messages"`
+	Tools     []openAITool       `json:"tools,omitempty"`
+	Stream    bool               `json:"stream"`
+	KeepAlive string             `json:"keep_alive,omitempty"`
+	Options   *ollamaOptions     `json:"options,omitempty"`
+}
+
+// ollamaOptions carrega num_ctx (janela de contexto). Sem ele, o Ollama usa o
+// default baixo (4096) e trunca prompts grandes da esteira -> o modelo perde a
+// instrução de tool-call e responde em prosa (a causa raiz do "pedreiro não
+// constrói", 2026-09-03).
+type ollamaOptions struct {
+	NumCtx int `json:"num_ctx,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -265,6 +274,12 @@ func (p *OllamaProvider) buildRequestBody(model string, req chat.ChatRequest) ([
 			})
 		}
 		r.Tools = tools
+	}
+
+	// Janela de contexto (num_ctx): propaga ChatOptions.NumCtx (default 32768).
+	// Sem isto o Ollama trunca prompts grandes da esteira no default 4096.
+	if req.NumCtx > 0 {
+		r.Options = &ollamaOptions{NumCtx: req.NumCtx}
 	}
 
 	return json.Marshal(r)

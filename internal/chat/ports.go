@@ -171,6 +171,11 @@ type ChatRequest struct {
 	// Tools defines the set of tools available for function calling.
 	Tools []Tool
 
+	// NumCtx é o tamanho da janela de contexto (num_ctx) do modelo. 0 = o
+	// provider usa o default (que no Ollama é baixo, 4096 — trunca prompts
+	// grandes da esteira). Propagado de ChatOptions.NumCtx.
+	NumCtx int
+
 	// Stream enables token-by-token streaming via the returned event channel.
 	Stream bool
 }

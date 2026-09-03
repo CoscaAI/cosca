@@ -162,6 +162,14 @@ type ChatOptions struct {
 	// model default limit is used.
 	MaxTokens int `json:"max_tokens,omitempty"`
 
+	// NumCtx é o tamanho da janela de contexto (num_ctx) do modelo. 0 = o
+	// provider usa o default. Quando > 0, o provider envia options.num_ctx no
+	// request (Ollama). Sem isto, o Ollama roda os modelos com context_length
+	// baixo (4096) e TRUNCA prompts grandes da esteira — fazendo o modelo
+	// perder a instrução de tool-call e responder em prosa. Fix do "pedreiro
+	// não constrói" (2026-09-03). Padrão: 32768 (ver DefaultChatOptions).
+	NumCtx int `json:"num_ctx,omitempty"`
+
 	// TopP is the nucleus sampling probability threshold (0.0–1.0).
 	TopP float64 `json:"top_p,omitempty"`
 
@@ -190,6 +198,12 @@ func DefaultChatOptions() ChatOptions {
 		Temperature: 0.7,
 		MaxTokens:   0, // model default
 		TopP:        1.0,
+		// Janela de contexto do Ollama. O contexto real da esteira
+		// (conhecimento+memoria+instrucoes+tools+multiplos tasks) passa de 100K
+		// tokens (medido em execucao). Sem janela adequada, o Ollama trunca e
+		// o modelo perde a secao de tools -> responde em prosa. 131072 (128K)
+		// da folga; Qwen2.5/Qwen3-coder suportam >128K nativamente.
+		NumCtx: 131072,
 	}
 }
 

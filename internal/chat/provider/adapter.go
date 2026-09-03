@@ -64,6 +64,7 @@ func (a *ProviderAdapter) Chat(ctx context.Context, messages []chat.Message, opt
 		Model:    a.model,
 		Messages: messages,
 		Tools:    tools,
+		NumCtx:   opts.NumCtx,
 		Stream:   false,
 	}
 
@@ -89,6 +90,7 @@ func (a *ProviderAdapter) ChatStream(ctx context.Context, messages []chat.Messag
 		Model:    a.model,
 		Messages: messages,
 		Tools:    tools,
+		NumCtx:   opts.NumCtx,
 		Stream:   true,
 	}
 
