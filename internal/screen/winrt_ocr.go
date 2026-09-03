@@ -29,56 +29,98 @@ func NewWinRTOCR() *WinRTOCR {
 	return &WinRTOCR{powershell: "powershell"}
 }
 
-// Recognize lê o texto da imagem via WinRT OCR e preenche as regiões.
+// Recognize lê o texto da imagem via WinRT OCR e preenche as regiões, com
+// refinamento adaptativo de qualidade: se a leitura de 1x for insuficiente,
+// escala a imagem (2x → 4x) e tenta de novo. O sensor barato tenta primeiro;
+// só gasta mais processamento quando a evidência é fraca.
+//
+// qualityThreshold define o score mínimo para aceitar a leitura (0..1). Abaixo
+// dele, escala e tenta de novo.
 func (w *WinRTOCR) Recognize(ctx context.Context, img image.Image, regions []Region) error {
-	if err := ctx.Err(); err != nil {
-		return err
+	const qualityThreshold = 0.4
+
+	// Tenta em escalas progressivas até encontrar uma leitura suficiente ou
+	// esgotar as escalas. A última leitura (4x) é sempre aceita — não há
+	// benefício em descartar a melhor evidência disponível.
+	factors := []int{1, 2, 4}
+	var lastLines []ocrLine
+	var lastErr error
+	for _, factor := range factors {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		scaled := img
+		if factor > 1 {
+			scaled = upscaleImage(img, factor)
+		}
+		lines, err := w.ocrOnce(ctx, scaled)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		lastLines = lines
+		// Aplica ocr à lista de regiões (resetando texto das passadas anteriores).
+		_ = applyOCRToRegions(lines, regions)
+		if qualityScore(lines, regions) >= qualityThreshold {
+			return nil // leitura suficiente — aceita
+		}
 	}
-	// Salva a imagem em PNG temporário.
+	// Nenhuma passada foi suficiente; fica com a última leitura (melhor
+	// evidência) se houver. Se todas falharam, retorna o último erro.
+	if len(lastLines) > 0 {
+		return applyOCRToRegions(lastLines, regions)
+	}
+	if lastErr != nil {
+		return fmt.Errorf("winrt ocr: %w", lastErr)
+	}
+	return nil
+}
+
+// ocrOnce roda o OCR WinRT em uma única imagem e devolve as linhas lidas.
+func (w *WinRTOCR) ocrOnce(ctx context.Context, img image.Image) ([]ocrLine, error) {
+	// Salva a imagem (possivelmente escalada) em PNG temporário.
 	tmp, err := os.CreateTemp("", "cosca-ocr-*.png")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer os.Remove(tmp.Name())
 	if err := png.Encode(tmp, img); err != nil {
 		tmp.Close()
-		return err
+		return nil, err
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Roda o PowerShell que faz o OCR e devolve JSON. O script é escrito em um
-	// arquivo temporário .ps1 e executado com -File — mais confiável que passar
-	// a string longa multi-linha via -Command (que o Windows pode quebrar no
-	// escape). Passa o caminho da imagem via env.
+	// arquivo temporário .ps1 e executado com -File.
 	scriptFile, err := os.CreateTemp("", "cosca-ocr-*.ps1")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	scriptPath := scriptFile.Name()
 	defer os.Remove(scriptPath)
 	if _, err := scriptFile.WriteString(winRTOCRScript); err != nil {
 		scriptFile.Close()
-		return err
+		return nil, err
 	}
 	if err := scriptFile.Close(); err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd := exec.CommandContext(ctx, w.powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
 	cmd.Env = append(os.Environ(), "COSCA_OCR_IMG="+tmp.Name())
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("winrt ocr: %w", err)
+		return nil, fmt.Errorf("winrt ocr: %w", err)
 	}
 
 	// Parse do JSON: linhas de texto com bounding boxes.
 	var lines []ocrLine
 	if err := json.Unmarshal(out, &lines); err != nil {
-		return fmt.Errorf("winrt ocr: parse: %w", err)
+		return nil, fmt.Errorf("winrt ocr: parse: %w", err)
 	}
-	return applyOCRToRegions(lines, regions)
+	return lines, nil
 }
 
 // ocrLine é uma linha de texto reconhecida, com sua caixa e confiança.
