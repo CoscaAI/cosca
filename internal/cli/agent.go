@@ -361,9 +361,10 @@ func buildAgentSystemPrompt(a *agents.Agent) string {
 	b.WriteString("Paths are relative to the workspace root.\n")
 	b.WriteString("You MUST follow these filesystem safety rules (they are enforced by the tools, not optional):\n")
 	b.WriteString("- SEMPRE use read_file to read an existing file BEFORE making any change to it. Never modify code you have not read.\n")
-	b.WriteString("- Use edit_file (find/replace) to MODIFY an existing file. Never overwrite an existing file to change it.\n")
+	b.WriteString("- edit_file pode ser chamado SOMENTE DEPOIS que o arquivo alvo foi lido (read_file) NESTA execucao. old_string deve ser uma substring LITERAL observada no conteudo retornado pelo read_file.\n")
 	b.WriteString("- Use write_file ONLY to create a NEW file. write_file refuses to overwrite a file unless you already read it in this session.\n")
 	b.WriteString("- Never delete or overwrite code without first reading and understanding the file.\n")
+	b.WriteString("REGRA DE RECUPERACAO (obrigatoria): se uma ferramenta falhar (ex: edit_file -> old_string not found), NAO desista nem use search. Faca: (1) read_file no arquivo alvo, (2) inspecione o conteudo real, (3) chame edit_file com o old_string EXATO observado, (4) repita ate funcionar.\n")
 	b.WriteString("After completing the task, describe exactly what you did (e.g. the file created and its content).\n")
 	return b.String()
 }
