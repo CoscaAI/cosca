@@ -1088,7 +1088,7 @@
 ## 2026-08-31 - Cosca soberano no Windows: o que FUNCIONA vs o que NAO FUNCIONA
 - FUNCIONA (modelo local qwen3:8b): cosca project new (cria projeto c/ provider injetado), cosca delegate (Gate 0: plano, estimativa 9min, risco baixo, confianca 90%), aprovacao do Don + audit trail (.cosca/memory/audit/approvals-*.md), trace.db (PLAN_CREATED/APPROVED/DELEGATED), cosca agent run (consulta LLM com persona do agente)
 - NAO FUNCIONA no Windows: criacao de arquivo por agente (Tools: 0, Capabilities: 0). Causa: sandbox/jail e bubblewrap sao LINUX-only; sem jail as ferramentas de filesystem do agente nao sao montadas. cosca terminal --task roteia pra workflows erradas (nao e o comando p/ codigo; o certo e cosca delegate).
-- TRADE-OFF RESOLVIDO: qwen3:8b (5.2GB medio) segue system prompt E planeja (90% confianca) sem crashar — resolve o dilemma de qwen2.5-coder (nao segue) vs qwen3-coder:30b (crasha por stall).
+- TRADE-OFF RESOLVIDO: qwen3:8b (5.2GB medio) segue system prompt E planeja (90% confianca) sem crashar ï¿½ resolve o dilemma de qwen2.5-coder (nao segue) vs qwen3-coder:30b (crasha por stall).
 - INSIGHT: a inteligencia e a casa (Gate 0, epistemologia, auditoria) FUNCIONA soberana no Windows; a execucao de arquivos depende do jail Linux. Pro Windows, precisaria de ferramentas de FS que nao dependam do bubblewrap.
 
 ## 2026-08-31 - COSCA EXECUTA AGENTES COM FERRAMENTAS FS CROSS-PLATFORM (marco)
@@ -1112,7 +1112,7 @@
 - DON mandou criar roadmap de tool discipline (ele e o professor). Criado .opencode/cosca/shared/TOOL_DISCIPLINE.md (contrato COGNITIVO, complementar ao TOOL_EXECUTION_POLICY.md que e o OPERACIONAL).
 - PESQUISA no codigo-fonte do OpenCode (repo sst/opencode): confirmation dos fatos. read.ts tem filePath/offset/limit (2000 linhas)/MAX_BYTES 50KB/deteccao binaria/'did you mean'/LSP warm-up. edit.txt: exige READ antes (erro se nao leu), falha se oldString nao existe ou multiplas ocorrencias, preserve indentacao, replaceAll p/ rename. write.txt: sobrescreve, EXIGE READ antes (erro se nao leu), prefere edit p/ existentes, nunca criar *.md proativamente.
 - ACHADO CRITICO: o OpenCode JA TEM o guard deterministico (read-before-edit/write). As TOOLS DO COSCA (write_file/filesystem.go:116) NAO TEM - sobrescreve sem exigir read previo. FOI ISSO que permitiu o agente apagar 228 linhas do SOLITEK.
-- NOTA: a delegação de fix do guard (Security Chief) foi REJEITADA pelo Don (ele queria primeiro o roadmap/conversa com professor). O GUARD AINDA NAO ESTA IMPLEMENTADO nas tools do COSCA - gap em aberto.
+- NOTA: a delegaï¿½ï¿½o de fix do guard (Security Chief) foi REJEITADA pelo Don (ele queria primeiro o roadmap/conversa com professor). O GUARD AINDA NAO ESTA IMPLEMENTADO nas tools do COSCA - gap em aberto.
 - LICAO: a seguranca NAO pode depender do chip (LLM). Precisa de guard deterministico na ferramenta (read-before-write) - exatamente o que o professor e o OpenCode ja prescrevem.
 
 ## 2026-08-31 - GUARD read-before-write implementado (Security Chief) + gap LEGACY
@@ -1311,3 +1311,16 @@
 - Integrado em respondWithDeliberation e respondWithDeliberationTool (voice_chat_deliberate.go): LOOKUP antes do brain (se ok -> resposta do cache SEM LLM); STORE apos resposta do brain (aprende). Config Perception.KnowledgeCache bool (default true). Wiring em voice_chat_sherpa.go (atras tag stt_sherpa, setVoiceKnowledgeCache).
 - VALORES: 7 testes PASS; build tags OK; vet OK. Fluxo: pergunta -> lookup cache -> (achou: resposta do cache | nao: LLM + store). LLM so quando NAO sabe.
 - NOTA: TestInstall_DriftKnowledgeDB_Repairs e flaky pre-existente (passa isolado).
+
+## 2026-09-02 - DTO SENSORIAL NORMALIZADO (dogma percepcao-como-evidencia)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | O professor mostrou (e Don confirmou) que o valor do COSCA NAO esta em cada sensor, mas no KERNEL decidir no que confiar/combinar/escalar. Implementei a peca (1) da arquitetura: DTO sensorial normalizado. |
+| **Level** | 4 |
+| **Outcome** | success - internal/sensor criado + dogma-percepcao-como-evidencia registrada no ledger (commit 5f86c189) |
+| **Confianca** | 0.95 (build=0, vet=0, 7 testes sensor PASS, dogma YAML parse OK isolada) |
+| **Tags** | #sensor #dto #evidencia #percepcao-como-evidencia #gate-escalacao #kernel #fusao #epistemologia #professor #percepcao-multimodal |
+| **Related** | internal/sensor/sensor.go, internal/sensor/sensor_test.go, .cosca/provenance.yaml |
+| **Learned** | 1) **O PRINCIPIO DO PROFESSOR**: um sensor NAO entrega "verdade" - entrega EVIDENCIA com perfil de erro conhecido. O valor esta no kernel decidir QUAL evidencia confiar, COMBINAR as evidencias e saber QUANDO uma resposta NAO e confiavel. 2) **O DTO como fundacao**: todo sensor deve emitir o MESMO shape {tipo, conteudo, confianca, fonte, estilo_epistemico, timestamp, trace_id} para o kernel nunca precisar saber se veio de OCR/CLIP/web/STT. 3) **EpistemicState distingue natureza, nao conteudo**: MEASURED (leu) > EVIDENCE (2 sensores concordaram) > INFERRED (deduziu) > DECISION (kernel concluiu). Um item INFERRED nunca e lido como fato. 4) **Semente do GATE de escalacao**: IsTrustworthy(threshold) - abaixo do limiar o kernel sabe que NAO e confiavel (escalar/corroborar), NAO que e falso. Confianca alta != verdade; e "este sensor tem pouco ruido". 5) **Arquitetura em 4 pecas** (doctor): (1) DTO sensorial, (2) fusao+contradicao, (3) gate escalacao (VLM no TOPO, nunca base), (4) ledger epistemico (Estado do Mundo). Implementei so a (1) - as outras 3 consomem Evidencia e nao criam nova forma de transporte. 6) **PROCESSO**: reutilizei a convencao de Epistemic como string ja usada no codebase (knowledge/adapter/engine) em vez de inventar novo tipo incompativel. |
+| **Next** | (1) Peca (2): fusao + deteccao de contradicao dos Observation (sensores discordando = SINAL). (2) Peca (3): gate de escalacao real (subir pro VLM so quando confianca baixa/contradicao). (3) Peca (4): ledger epistemico (registrar o que foi observado + que o kernel concluiu). (4) Conectar os sensores existentes (screen/OCR/CLIP/web) para emitirem Observation em vez de tipos ad-hoc. |
