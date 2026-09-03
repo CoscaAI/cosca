@@ -22,6 +22,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -750,6 +751,20 @@ var allowedCLIRoot = map[string]bool{
 	"hardware":   true,
 	"machine":    true,
 	"project":    true,
+	"web":        true,
+	"screen":     true,
+}
+
+// allowedCLIRootList devolve a lista de comandos permitidos como string
+// ordenada (para mensagens de erro). Derivada dinamicamente do mapa para nunca
+// ficar desatualizada quando um comando é adicionado/removido.
+func allowedCLIRootList() string {
+	names := make([]string, 0, len(allowedCLIRoot))
+	for key := range allowedCLIRoot {
+		names = append(names, key)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }
 
 func (e *Engine) handleCLI(ctx context.Context, raw json.RawMessage) (*CallResult, error) {
@@ -772,7 +787,7 @@ func (e *Engine) handleCLI(ctx context.Context, raw json.RawMessage) (*CallResul
 	if !allowedCLIRoot[root] {
 		return &CallResult{
 			IsError: true,
-			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: comando %q não permitido (allowlist default-deny). Comandos permitidos: status, doctor, health, version, capability, cost, budget, agent, skill, memory, knowledge, trace, provider, model, hardware, machine, project", root)}},
+			Content: []ContentItem{{Type: "text", Text: fmt.Sprintf("cosca.cli: comando %q não permitido (allowlist default-deny). Comandos permitidos: %s", root, allowedCLIRootList())}},
 		}, nil
 	}
 

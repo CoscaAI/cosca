@@ -130,9 +130,14 @@ type Config struct {
 }
 
 // DefaultConfig returns sensible defaults for the knowledge engine.
+// O DBPath default é SEMPRE projeto-local (<cwd>/.cosca/knowledge.db), nunca
+// global — doutrina do Don: cada projeto tem seu banco isolado (graph, vetores,
+// chunks), e o caminho nunca depende de ~/.config/cosca nem cria .cosca órfão.
+// Callers que precisam da raiz do projeto devem setar DBPath explicitamente
+// via knowledgeDBPath(dir) (CLI) ou pela resolução walk-up do compute.
 func DefaultConfig() Config {
 	return Config{
-		DBPath:            filepath.Join(os.Getenv("HOME"), ".cosca", "knowledge.db"),
+		DBPath:            defaultKnowledgeDBPath(),
 		RootDir:           ".",
 		AutoMigrate:       true,
 		WatchEnabled:      false,
@@ -140,6 +145,32 @@ func DefaultConfig() Config {
 		IndexerConfig:     indexer.DefaultConfig(),
 		CacheConfig:       cache.DefaultConfig(),
 		RankingConfig:     ranking.DefaultConfig(),
+	}
+}
+
+// defaultKnowledgeDBPath resolve o knowledge.db do projeto a partir do cwd,
+// subindo a árvore até achar `.cosca/` ou um marcador de projeto (go.mod/.git).
+// Nunca retorna um caminho global; fallback é <cwd>/.cosca/knowledge.db.
+func defaultKnowledgeDBPath() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return filepath.Join(".cosca", "knowledge.db")
+	}
+	dir := wd
+	for {
+		if info, err := os.Stat(filepath.Join(dir, ".cosca")); err == nil && info.IsDir() {
+			return filepath.Join(dir, ".cosca", "knowledge.db")
+		}
+		for _, marker := range []string{"go.mod", "package.json", ".git", "Cargo.toml", "pyproject.toml"} {
+			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
+				return filepath.Join(dir, ".cosca", "knowledge.db")
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return filepath.Join(wd, ".cosca", "knowledge.db")
+		}
+		dir = parent
 	}
 }
 

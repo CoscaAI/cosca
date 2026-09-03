@@ -35,6 +35,8 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"version",
 		"knowledge",
 		"search",
+		"web",
+		"screen",
 		"serve",
 		"doctor",
 		"runtime",

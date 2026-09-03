@@ -204,13 +204,48 @@ unless COSCA_MCP_ALLOW_WRITE=1 is set.`,
 	return mcpCmd
 }
 
+// findProjectRootWithFallback resolve a raiz do projeto a partir do cwd,
+// subindo a árvore até achar um diretório `.cosca/` ou um marcador de projeto
+// (go.mod/package.json/.git). Se nada for encontrado, cai no cwd literal —
+// mas **nunca** cria um `.cosca` em subpasta: um `os.Getwd()` cego era a causa
+// dos `.cosca` órfãos (ex: `internal\cli\.cosca`, `bin\.cosca`, `.cosca\.cosca`).
+func findProjectRootWithFallback() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if root, err := findProjectRoot(wd); err == nil {
+		return root, nil
+	}
+	// Fallback: usa o primeiro marcador de projeto subindo a árvore (mesma
+	// heurística do resolveKnowledgeDBPath do compute), ou o cwd se nada existir.
+	dir := wd
+	for {
+		for _, marker := range []string{"go.mod", "package.json", ".git", "Cargo.toml", "pyproject.toml"} {
+			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
+				return dir, nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return wd, nil
+		}
+		dir = parent
+	}
+}
+
 // buildMCPServerEngine monta o Engine do servidor MCP ligado ao runtime atual:
 // knowledge, memory, runtime (corpo), kernel (cÃ©rebro / kill-switch), trace
 // (flight recorder) e a percepÃ§Ã£o determinÃ­stica (vision). Nil-safe e
 // best-effort: um Ã³rgÃ£o que falha ao inicializar Ã© apenas omitido â€” as tools
 // que dele dependem devolvem erro claro em vez de pÃ¢nico.
 func buildMCPServerEngine(ctx context.Context) *mcpserver.Engine {
-	workspace, err := os.Getwd()
+	// Raiz do projeto: sobe a árvore até achar `.cosca/` (ou um marcador de
+	// projeto) em vez de usar o `os.Getwd()` cego. O cwd pode ser uma subpasta
+	// (ex: `internal\cli`), e um `Getwd()` literal criaria um `.cosca` fantasma
+	// ali (reprodução do bug dos .cosca órfãos). Reusa a mesma convenção do
+	// `findProjectRoot` do pacote: subir até a raiz do projeto.
+	workspace, err := findProjectRootWithFallback()
 	if err != nil {
 		return nil
 	}

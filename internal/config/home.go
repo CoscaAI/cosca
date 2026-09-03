@@ -18,6 +18,7 @@ package config
 import (
 	"os"
 	"os/user"
+	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
 )
@@ -55,4 +56,53 @@ func UserHomeDir() string {
 // isNonRoot reports whether the effective user is not uid 0.
 func isNonRoot() bool {
 	return os.Geteuid() != 0
+}
+
+// defaultProjectDBPath resolve o caminho do banco principal do PROJETO a partir
+// do diretório do projeto, em vez de cair no global ~/.config/cosca/cosca.db.
+//
+// Doutrina do Don: cada projeto tem seu próprio banco (isolado). O `cosca init`
+// em qualquer pasta deve gravar um `db.path` projeto-local, nunca global — caso
+// contrário um `cosca.db` fantasma nasce em ~/.config/cosca (reprodução do bug
+// do config.yaml apontando para um banco que não existe).
+//
+// Resolução: se o diretório do projeto não for definido/relativo, sobe a árvore
+// a partir do cwd até achar o `.cosca/` ou um marcador de projeto (go.mod/.git);
+// fallback é <projeto>/.cosca/cosca.db.
+func defaultProjectDBPath(projectDir string) string {
+	// Nenhum caminho do projeto: resolve por walk-up a partir do cwd.
+	if projectDir == "" || projectDir == "." {
+		projectDir = resolveProjectRoot()
+		if projectDir == "" {
+			return filepath.Join(projectDir, "cosca.db")
+		}
+		return filepath.Join(projectDir, ".cosca", "cosca.db")
+	}
+	return filepath.Join(projectDir, ".cosca", "cosca.db")
+}
+
+// resolveProjectRoot sobe a árvore a partir do cwd até achar `.cosca/` ou um
+// marcador de projeto. Devolve "" se nada for encontrado (o chamador decide o
+// fallback). Nunca aponta para o home global.
+func resolveProjectRoot() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	dir := wd
+	for {
+		if info, err := os.Stat(filepath.Join(dir, ".cosca")); err == nil && info.IsDir() {
+			return dir
+		}
+		for _, marker := range []string{"go.mod", "package.json", ".git", "Cargo.toml", "pyproject.toml"} {
+			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
+				return dir
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }

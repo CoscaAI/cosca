@@ -108,6 +108,8 @@ Documentation: https://cosca.enterprise/docs
 		NewDespertarCommand(),
 		NewKnowledgeCommand(),
 		NewSearchCommand(),
+		NewWebCommand(),
+		NewScreenCommand(),
 		NewDoctorCommand(),
 		NewRuntimeCommand(),
 		NewConfigCommand(),

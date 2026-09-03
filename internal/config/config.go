@@ -783,7 +783,7 @@ func DefaultConfig() *Config {
 			Backups: filepath.Join(coscaHome, DefaultBackupDir),
 		},
 		DB: DatabaseConfig{
-			Path:            filepath.Join(coscaHome, "cosca.db"),
+			Path:            defaultProjectDBPath(projectDir),
 			WALMode:         true,
 			PageSize:        DefaultDBPageSize,
 			CacheSizeKB:     DefaultDBCacheSizeKB,

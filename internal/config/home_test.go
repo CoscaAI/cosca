@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -89,9 +91,27 @@ func TestDefaultConfig_HomeNotRoot(t *testing.T) {
 	if cfg.Paths.Home != wantPrefix {
 		t.Errorf("Paths.Home = %q, want %q", cfg.Paths.Home, wantPrefix)
 	}
-	if cfg.DB.Path != filepath.Join(wantPrefix, "cosca.db") {
-		t.Errorf("DB.Path = %q, want under %q", cfg.DB.Path, wantPrefix)
+	// Doutrina do Don (projeto-local): o db.path NUNCA deve cair no home global
+	// ~/.config/cosca/cosca.db. Com o SUDO_UID setado mas um cwd de projeto, o DB
+	// resolve sob o projeto (.cosca/cosca.db), não sob o home do usuário.
+	if cfg.DB.Path == filepath.Join(wantPrefix, "cosca.db") {
+		t.Errorf("DB.Path = %q; must not be the global ~/.config/cosca/cosca.db (projeto-local doctrine)", cfg.DB.Path)
 	}
+	if err := configValidateProjectLocalDB(cfg.DB.Path); err != nil {
+		t.Errorf("DB.Path project-local validation: %v", err)
+	}
+}
+
+// configValidateProjectLocalDB assegura que o db.path default não aponte para
+// o home global (~/.config/cosca) — apenas para um diretório .cosca de projeto.
+func configValidateProjectLocalDB(dbPath string) error {
+	if strings.Contains(filepath.ToSlash(dbPath), ".config/cosca/") {
+		return fmt.Errorf("db.path %q points into global home config", dbPath)
+	}
+	if !strings.Contains(filepath.ToSlash(dbPath), ".cosca/") {
+		return fmt.Errorf("db.path %q is not under a project .cosca/", dbPath)
+	}
+	return nil
 }
 
 // TestUserHomeDir_EnvNotPolluted is a guard: running normally (no sudo,
