@@ -184,8 +184,12 @@ func TestEditFileAuthorizesOverwrite(t *testing.T) {
 	tracker := newPathTracker()
 	wf := newWriteFileTool(ws, tracker)
 	ef := newEditFileTool(ws, tracker)
+	rf := newReadFileTool(ws, tracker)
 
 	writeFixture(t, ws, "doc.txt", "alpha")
+	// EVIDENCE GATE: edit_file exige read_file antes (a invariante).
+	// read_file registra o snapshot; depois edit_file valida old_string contra ele.
+	require.Empty(t, exec(t, rf, `{"path":"doc.txt"}`).Error)
 	require.Empty(t, exec(t, ef, `{"path":"doc.txt","old_string":"alpha","new_string":"beta"}`).Error)
 
 	// After a successful edit the path is "seen" — a write_file overwrite is ok.

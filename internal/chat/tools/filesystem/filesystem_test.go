@@ -27,6 +27,20 @@ func exec(t *testing.T, tool interface {
 	return res
 }
 
+// findToolHelper localiza uma tool pelo nome na lista devolvida por New().
+func findToolHelper(t *testing.T, tools []chat.Tool, name string) interface {
+	Execute(context.Context, json.RawMessage) (*chat.ToolResult, error)
+} {
+	t.Helper()
+	for _, tl := range tools {
+		if tl.Name() == name {
+			return tl
+		}
+	}
+	t.Fatalf("tool %q not found", name)
+	return nil
+}
+
 // writeFixture writes content into a path under the workspace, creating parents.
 func writeFixture(t *testing.T, ws, rel, content string) string {
 	t.Helper()
@@ -136,7 +150,9 @@ func TestEditFileTool(t *testing.T) {
 
 	run(t, "replaces text", func(t *testing.T) {
 		writeFixture(t, ws, "edit.txt", "Hello, World!")
-		tl := NewEditFileTool(ws)
+		tools := New(ws) // tracker compartilhado (read -> edit)
+		exec(t, findToolHelper(t, tools, "read_file"), `{"path":"edit.txt"}`)
+		tl := findToolHelper(t, tools, "edit_file")
 		res := exec(t, tl, `{"path":"edit.txt","old_string":"World","new_string":"Cosca"}`)
 		require.Empty(t, res.Error)
 		data, _ := os.ReadFile(filepath.Join(ws, "edit.txt"))
@@ -145,14 +161,18 @@ func TestEditFileTool(t *testing.T) {
 
 	run(t, "rejects old_string not found", func(t *testing.T) {
 		writeFixture(t, ws, "a.txt", "abc")
-		tl := NewEditFileTool(ws)
+		tools := New(ws)
+		exec(t, findToolHelper(t, tools, "read_file"), `{"path":"a.txt"}`)
+		tl := findToolHelper(t, tools, "edit_file")
 		res := exec(t, tl, `{"path":"a.txt","old_string":"zzz","new_string":"x"}`)
-		assert.Contains(t, res.Error, "old_string not found")
+		assert.Contains(t, res.Error, "EDIT_STALE_OR_UNVERIFIED")
 	})
 
 	run(t, "rejects multiple occurrences", func(t *testing.T) {
 		writeFixture(t, ws, "b.txt", "foo bar foo")
-		tl := NewEditFileTool(ws)
+		tools := New(ws)
+		exec(t, findToolHelper(t, tools, "read_file"), `{"path":"b.txt"}`)
+		tl := findToolHelper(t, tools, "edit_file")
 		res := exec(t, tl, `{"path":"b.txt","old_string":"foo","new_string":"qux"}`)
 		assert.Contains(t, res.Error, "appears 2 times")
 	})

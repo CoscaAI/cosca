@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/CoscaAI/cosca/internal/chat"
 	"github.com/CoscaAI/cosca/internal/chat/tool"
@@ -32,38 +33,62 @@ import (
 // flood the LLM context with an unbounded file.
 const maxReadSize = 2 * 1024 * 1024 // 2 MiB
 
+// pathSnapshot registra o conteúdo observado de um arquivo (evidência do que o
+// agente realmente viu). Diferente de map[path]bool, preserva o conteúdo para
+// validar que um edit_file usa um old_string LITERAL do snapshot observado —
+// impedindo que o agente edite com conteúdo inventado ou obsoleto.
+// A invariante: read -> snapshot -> edit só se old_string ∈ snapshot.
+type pathSnapshot struct {
+	content    string
+	observedAt time.Time
+}
+
 // pathTracker records the absolute paths that have been successfully read in
-// the current session/tool group. It is the deterministic guard that makes
-// write_file refuse to blindly overwrite an existing file: a file may only be
-// overwritten by write_file if it was first read (read_file / edit_file) in the
-// same session. This does NOT depend on the LLM — a rogue or hallucinating
-// model cannot destroy code it never read.
+// the current session/tool group, WITH the content observed (snapshot). It is
+// the deterministic guard that makes write_file refuse to blindly overwrite an
+// existing file AND makes edit_file refuse to run on content the agent never
+// read (evidence gate). A file may only be overwritten/edited if it was first
+// read (read_file / edit_file) in the same session. This does NOT depend on the
+// LLM — a rogue or hallucinating model cannot edit code it never read.
 //
 // It is shared across all filesystem tools created by New() so that a
-// read_file in one tool authorizes a write_file in another. It is goroutine
-// safe because the executor may run concurrent tool calls.
+// read_file in one tool authorizes a write_file/edit_file in another. It is
+// goroutine safe because the executor may run concurrent tool calls.
 type pathTracker struct {
-	mu    sync.Mutex
-	paths map[string]struct{}
+	mu      sync.Mutex
+	snapshots map[string]pathSnapshot
 }
 
 func newPathTracker() *pathTracker {
-	return &pathTracker{paths: make(map[string]struct{})}
+	return &pathTracker{snapshots: make(map[string]pathSnapshot)}
 }
 
-// markRead records that fullPath was successfully read this session.
-func (p *pathTracker) markRead(fullPath string) {
+// markRead records that fullPath was successfully read this session, capturing
+// the content observed (the snapshot that edit_file later validates against).
+func (p *pathTracker) markRead(fullPath, content string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.paths[fullPath] = struct{}{}
+	p.snapshots[fullPath] = pathSnapshot{content: content, observedAt: time.Now()}
 }
 
 // wasRead reports whether fullPath was read this session.
 func (p *pathTracker) wasRead(fullPath string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	_, ok := p.paths[fullPath]
+	_, ok := p.snapshots[fullPath]
 	return ok
+}
+
+// snapshotGet returns the content observed (snapshot) for a path, and whether
+// it was read this session.
+func (p *pathTracker) snapshotGet(fullPath string) (string, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.snapshots[fullPath]
+	if !ok {
+		return "", false
+	}
+	return s.content, true
 }
 
 // errorResult is the standard way to report an expected tool failure
@@ -195,7 +220,7 @@ func (t *WriteFileTool) Execute(_ context.Context, params json.RawMessage) (*cha
 	// A fresh write is a form of "having seen" the path — record it so a
 	// subsequent write_file to the same file (e.g. to fix a mistake) is allowed
 	// within the same session rather than being spuriously rejected.
-	t.tracker.markRead(fullPath)
+	t.tracker.markRead(fullPath, input.Content)
 
 	output := fmt.Sprintf("Successfully wrote %d bytes to %s", len(input.Content), input.Path)
 	if hint != "" {
@@ -346,7 +371,7 @@ func (t *ReadFileTool) Execute(_ context.Context, params json.RawMessage) (*chat
 
 	// A successful read authorizes a subsequent write_file to overwrite this
 	// exact path in the same session (the read → edit/write flow).
-	t.tracker.markRead(fullPath)
+	t.tracker.markRead(fullPath, string(data))
 
 	return &chat.ToolResult{Output: string(data)}, nil
 }
@@ -418,7 +443,12 @@ func (t *EditFileTool) Description() string {
 // Schema returns the JSON Schema describing the tool's parameters.
 func (t *EditFileTool) Schema() json.RawMessage { return t.schema }
 
-// Execute performs the find-and-replace after validating the path.
+// Execute performs the find-and-replace after validating the path, subject to
+// the EVIDENCE GATE (invariante de segurança): o edit_file SÓ pode mutar o
+// arquivo se (1) ele foi lido nesta execução (snapshot registrado) e (2) o
+// old_string é substring LITERAL do conteúdo observado no snapshot. O runtime
+// nunca deixa o modelo transformar conteúdo inventado/obsoleto em mutação —
+// o modelo pode errar; o runtime não deixa o erro virar alteração arbitrária.
 func (t *EditFileTool) Execute(_ context.Context, params json.RawMessage) (*chat.ToolResult, error) {
 	var input struct {
 		Path      string `json:"path"`
@@ -440,35 +470,60 @@ func (t *EditFileTool) Execute(_ context.Context, params json.RawMessage) (*chat
 		return errorResult(err.Error()), nil
 	}
 
-	data, err := os.ReadFile(fullPath)
+	// ── REGRA 1: sem leitura prévia nesta execução → REJECT ────────────────
+	// O edit_file exige que o arquivo tenha sido lido nesta sessão (snapshot
+	// registrado). Sem isso, o agente está editando conteúdo que inventou.
+	if !t.tracker.wasRead(fullPath) {
+		return errorResult("edit_file: EDIT_REQUIRES_READ — Target file must be read before edit_file. Read the file (read_file) and retry using content actually observed."), nil
+	}
+
+	// ── SNAPSHOT: conteúdo observado no último read_file ──────────────────
+	snapshot, _ := t.tracker.snapshotGet(fullPath)
+
+	// ── REGRA 2: old_string não existe no snapshot observado → REJECT ─────
+	// O old_string DEVE ser substring literal do conteúdo que o agente viu
+	// (não do que está no disco agora, para evitar editar conteúdo obsoleto).
+	if !strings.Contains(snapshot, input.OldString) {
+		return errorResult("edit_file: EDIT_STALE_OR_UNVERIFIED — old_string was not found in the last observed snapshot. Re-read the file (read_file) and retry with an exact substring from the current content."), nil
+	}
+
+	// ── REGRA 3: o arquivo mudou desde a leitura? → REJECT (stale) ────────
+	// Mesmo que o old_string exista no snapshot, se o arquivo mudou no disco
+	// desde o read (fonte de verdade divergida), a edição seria baseada em
+	// conteúdo obsoleto — rejeita para não corromper.
+	current, err := os.ReadFile(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return errorResult("edit_file: file not found: " + input.Path), nil
 		}
 		return errorResult("edit_file: read failed: " + err.Error()), nil
 	}
-	if len(data) > maxReadSize {
-		return errorResult(fmt.Sprintf("edit_file: file size %d exceeds maximum %d bytes", len(data), maxReadSize)), nil
+	if len(current) > maxReadSize {
+		return errorResult(fmt.Sprintf("edit_file: file size %d exceeds maximum %d bytes", len(current), maxReadSize)), nil
+	}
+	currentContent := string(current)
+	if currentContent != snapshot {
+		return errorResult("edit_file: EDIT_STALE_OR_UNVERIFIED — file changed since last observed snapshot. Re-read the file (read_file) and retry with exact current content."), nil
 	}
 
-	content := string(data)
-	count := strings.Count(content, input.OldString)
+	// ── REGRA 3 (validação): old_string deve aparecer exatamente uma vez ──
+	count := strings.Count(currentContent, input.OldString)
 	switch {
 	case count == 0:
-		return errorResult("edit_file: old_string not found in file"), nil
+		return errorResult("edit_file: EDIT_STALE_OR_UNVERIFIED — old_string not found in the current file. Re-read and retry."), nil
 	case count > 1:
 		return errorResult(fmt.Sprintf("edit_file: old_string appears %d times; expected exactly 1", count)), nil
 	}
 
-	newContent := strings.Replace(content, input.OldString, input.NewString, 1)
-
+	// ── EDIT VÁLIDO: old_string ∈ snapshot observado → mutação ────────────
+	newContent := strings.Replace(currentContent, input.OldString, input.NewString, 1)
 	if err := os.WriteFile(fullPath, []byte(newContent), 0o644); err != nil {
 		return errorResult("edit_file: write failed: " + err.Error()), nil
 	}
 
-	// edit_file reads the file to perform the edit, so the path is "seen" and a
-	// later write_file overwrite of the same file is permitted this session.
-	t.tracker.markRead(fullPath)
+	// Atualiza o snapshot com o NOVO conteúdo observado (o agente "viu" o
+	// resultado da edição), permitindo um edit subsequente consistente.
+	t.tracker.markRead(fullPath, newContent)
 
 	return &chat.ToolResult{Output: "file edited successfully"}, nil
 }
