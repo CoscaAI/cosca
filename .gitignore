@@ -150,3 +150,9 @@ knowledge.db
 /security-backup/
 
 tmp/
+
+# Cosca training artifacts (pesos LoRA/GGUF — regeneraveis, nao versionar)
+/campaign-001/
+/cosca-qwen3-4b-lora/
+*.safetensors
+*.gguf
