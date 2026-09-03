@@ -125,6 +125,11 @@ func AnalyzeMultimodal(ctx context.Context, display int, ocr OCRProvider) (*Scre
 		}
 	}
 
+	// 3b. Deriva as observações canônicas (DTO interno/sensor) da percepção.
+	// Aplica a classe epistêmica: texto lido = MEASURED, região deduzida =
+	// INFERRED. O kernel decide o que confiar a partir daqui.
+	s.Observations = s.Evidence("screen")
+
 	// 4. Embedding CLIP global (semântico). Best-effort.
 	if pngBytes, eErr := encodePNG(img); eErr == nil {
 		clip := vision.NewClipAdapter(vision.ClipConfig{Model: "ViT-B/32", Device: "cpu"})

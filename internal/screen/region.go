@@ -1,5 +1,7 @@
 package screen
 
+import "github.com/CoscaAI/cosca/internal/sensor"
+
 // RegionKind classifica o tipo de uma região percebida na tela. Um detector
 // nativo (visão computacional clássica) classifica; o OCR posteriormente
 // preenche o texto. Isto NÃO é um "OCR disfarçado" — é apenas "aqui provavelmente
@@ -57,4 +59,8 @@ type Screen struct {
 	HasText bool `json:"has_text"`
 	// OCRError indica se o sensor OCR falhou (degradação graciosa).
 	OCRError string `json:"ocr_error,omitempty"`
+	// Observations são as evidências canônicas (internal/sensor) derivadas
+	// desta percepção — a ponte do sensor de tela para o DTO normalizado.
+	// Preenchido por AnalyzeMultimodal via Screen.Evidence().
+	Observations []sensor.Observation `json:"-"`
 }
