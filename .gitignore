@@ -168,3 +168,8 @@ tmp/
 # ---- Laboratory: modelos/experimentos locais grandes (nao versionar) ----
 /laboratory/models/
 /logs/
+
+# ---- Laboratory: artefatos de experimento (config/model/data — nao versionar) ----
+/laboratory/data/
+/laboratory/campaign-001/*.json
+/laboratory/campaign-001/*.jinja
