@@ -145,6 +145,9 @@ func newDatasetGoldenCommand() *cobra.Command {
 			if model != "" {
 				cfg.Model = model
 			}
+			// Loga qual modelo esta' sendo usado para a campanha - evita rodar
+			// o AFTER com o modelo errado (o "0.88 == 0.88" do base).
+			formatter.Printf("golden gate modelo=%s\n", cfg.Model)
 
 			gs, err := datasetgen.LoadGoldenSet(datasetgen.DefaultGoldenSetPath())
 			if err != nil {
