@@ -171,3 +171,78 @@ func TestRecord_ApplyValue_EmptyEvidence(t *testing.T) {
 		t.Fatalf("UsefulWork() = %v, want 0", got)
 	}
 }
+
+// TestRecord_BudgetTokens_ExcludesCacheRead — nuance de orçamento (ADR-031 /
+// prime autonomous.ts:186-194): o orçamento de um loop longo soma input+output+
+// cacheWrite e EXCLUI cacheRead (o recontexto servido do cache). Não altera
+// TokensTotal (a agregação existente permanece intacta).
+func TestRecord_BudgetTokens_ExcludesCacheRead(t *testing.T) {
+	r := Record{
+		InputTokens:      900, // input "fresco" (não-cacheadado)
+		OutputTokens:     100,
+		CacheReadTokens:  900, // recontexto servido do cache — NÃO conta pro orçamento
+		CacheWriteTokens: 50,  // escrita de cache — CONTA pro orçamento
+		TokensTotal:      1000,
+	}
+	if got := r.BudgetTokens(); got != 1050 {
+		t.Fatalf("BudgetTokens() = %d, want 1050 (900+100+50; cacheRead=900 EXCLUÍDO)", got)
+	}
+	// TokensTotal segue a regra antiga (input+output) — a agregação existente
+	// permanece intacta e o Validate continua limpo.
+	if r.TokensTotal != 1000 {
+		t.Fatalf("TokensTotal = %d, want 1000 (invariante ADR-031 preservada)", r.TokensTotal)
+	}
+	if r.TokensTotal != r.InputTokens+r.OutputTokens {
+		t.Fatalf("Validate() deveria estar limpo: %q", r.Validate())
+	}
+	// BudgetTokens (1050) > TokensTotal (1000) é CORRETO: o cacheWrite que ENTRA
+	// no orçamento não está somado no TokensTotal antigo — a nuance é uma leitura
+	// PARALELA para o budget de autonomia, não um override.
+	if r.BudgetTokens() <= r.TokensTotal {
+		t.Fatalf("BudgetTokens()=%d deveria exceder TokensTotal=%d (cacheWrite entra no orçamento)", r.BudgetTokens(), r.TokensTotal)
+	}
+}
+
+// TestRecord_BudgetTokens_LongLoopDoesNotExhaust — um loop longo com MUITO
+// cacheRead NÃO esgota o orçamento: BudgetTokens ignora cacheRead, então o total
+// de orçamento fica bem abaixo do que seria contado naive (input+output+cacheRead).
+func TestRecord_BudgetTokens_LongLoopDoesNotExhaust(t *testing.T) {
+	const turns = 12
+	var budget, naive int
+	for i := 0; i < turns; i++ {
+		r := Record{InputTokens: 900, OutputTokens: 100, CacheReadTokens: 900, CacheWriteTokens: 0}
+		budget += r.BudgetTokens()      // 1000/turn
+		naive += r.InputTokens + r.OutputTokens + r.CacheReadTokens // 1900/turn
+	}
+	if budget != 12000 {
+		t.Fatalf("budget = %d, want 12000 (cacheRead excluído)", budget)
+	}
+	if naive != 22800 {
+		t.Fatalf("naive = %d, want 22800 (demonstra por que a nuance importa)", naive)
+	}
+	// O orçamento de autonomia deve ser o budget (cacheRead excluído), não o naive.
+	const budgetCap = 15000
+	if budget > budgetCap {
+		t.Fatalf("budget %d excedeu o teto %d — a nuance não funcionou", budget, budgetCap)
+	}
+	if naive <= budgetCap {
+		t.Fatalf("o cenário não é válido: naive=%d deveria exceder %d", naive, budgetCap)
+	}
+}
+
+// TestExecutionRecord_BudgetTokens — a ExecutionRecord (nível de execução)
+// também carrega a nuance de orçamento via conversão RecordToExecution — e o
+// BudgetTokens da execution não conta cacheRead.
+func TestExecutionRecord_BudgetTokens(t *testing.T) {
+	orig := Record{
+		TaskID: "abc", InputTokens: 700, OutputTokens: 200, TokensTotal: 900,
+		CacheReadTokens: 600, CacheWriteTokens: 100,
+	}
+	e := recordToExecution(orig)
+	if e.CacheReadTokens != 600 || e.CacheWriteTokens != 100 {
+		t.Fatalf("conversão perdeu a nuance de cache: read=%d write=%d", e.CacheReadTokens, e.CacheWriteTokens)
+	}
+	if got := e.InputTokens + e.OutputTokens + e.CacheWriteTokens; got != 1000 {
+		t.Fatalf("budget da execution = %d, want 1000 (cacheRead excluído)", got)
+	}
+}

@@ -63,6 +63,13 @@ type Record struct {
 	DelegatedTokens int `json:"delegated_tokens,omitempty"`
 	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 
+	// Nuance de orçamento (ADR-031 / prime-agent autonomous.ts:186-194): um loop
+	// longo NÃO deve esgotar o orçamento só de recontexto em cache. CacheReadTokens
+	// é o recontexto servido do cache (NÃO conta para o orçamento); CacheWriteTokens
+	// é a escrita de cache (CONTA). Ver BudgetTokens.
+	CacheReadTokens  int `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+
 	// DurationMs — duração da execução.
 	DurationMs int64 `json:"duration_ms,omitempty"`
 
@@ -146,6 +153,17 @@ func (r *Record) ApplyToolEvidence(toolName, toolResult string, success bool) {
 func (r Record) UsefulWork() float64 {
 	return r.KnowledgeGain + r.TaskProgress +
 		float64(r.ArtifactValue) + float64(r.EvidenceGain) + float64(r.DecisionGain)
+}
+
+// BudgetTokens devolve os tokens que contam para o ORÇAMENTO de um loop longo
+// (nuance ADR-031 + prime-agent autonomous.ts:186-194): input + output +
+// cacheWrite, EXCLUINDO cacheRead. Cache-read é recontexto servido do cache;
+// contá-lo cumulativamente faria um loop longo esgotar o orçamento apenas de
+// recontexto, antes de o trabalho não-cacheadado atingir o teto. NÃO altera
+// TokensTotal (a agregação existente do ADR-031 permanece intacta) — é uma
+// leitura paralela para o budget de autonomia.
+func (r Record) BudgetTokens() int {
+	return r.InputTokens + r.OutputTokens + r.CacheWriteTokens
 }
 
 // Efficiency devolve a métrica Useful Work / Tokens (tokens_total). Retorna 0
@@ -251,6 +269,10 @@ type ExecutionRecord struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
 	TokensTotal  int `json:"tokens_total"`
+
+	// Nuance de orçamento (ADR-031): cacheRead NÃO conta para o orçamento.
+	CacheReadTokens  int `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
 
 	DurationMs int64  `json:"duration_ms,omitempty"`
 	Status     string `json:"status"`              // success|failed|error
@@ -408,6 +430,11 @@ func Aggregate(records []Record) *Report {
 		if r.CachedTokens > 0 || r.ReasoningTokens > 0 {
 			rep.Decomposed = true
 		}
+		// Nuance de orçamento (ADR-031): cacheRead/cacheWrite decompostos também
+		// marcam a saída decomposta.
+		if r.CacheReadTokens > 0 || r.CacheWriteTokens > 0 {
+			rep.Decomposed = true
+		}
 	}
 
 	for _, key := range order {
@@ -484,19 +511,21 @@ func recordToExecution(r Record) ExecutionRecord {
 	}
 
 	return ExecutionRecord{
-		ExecutionID:   r.TaskID,
-		Phase:         phase,
-		InputTokens:   r.InputTokens,
-		OutputTokens:  r.OutputTokens,
-		TokensTotal:   r.TokensTotal,
-		DurationMs:    r.DurationMs,
-		Status:        executionStatus(r),
-		Result:        r.Result,
-		KnowledgeGain: r.KnowledgeGain,
-		TaskProgress:  r.TaskProgress,
-		ArtifactValue: r.ArtifactValue,
-		EvidenceGain:  r.EvidenceGain,
-		DecisionGain:  r.DecisionGain,
+		ExecutionID:     r.TaskID,
+		Phase:           phase,
+		InputTokens:     r.InputTokens,
+		OutputTokens:    r.OutputTokens,
+		TokensTotal:     r.TokensTotal,
+		CacheReadTokens: r.CacheReadTokens,
+		CacheWriteTokens: r.CacheWriteTokens,
+		DurationMs:      r.DurationMs,
+		Status:          executionStatus(r),
+		Result:          r.Result,
+		KnowledgeGain:   r.KnowledgeGain,
+		TaskProgress:    r.TaskProgress,
+		ArtifactValue:   r.ArtifactValue,
+		EvidenceGain:    r.EvidenceGain,
+		DecisionGain:    r.DecisionGain,
 	}
 }
 
