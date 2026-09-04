@@ -1,0 +1,30 @@
+{
+    "base": "Qwen/Qwen3-4B",
+    "config": {
+        "quant_method": "q4_k_m",
+        "learning_rate": 0.0002,
+        "max_seq_len": 8192,
+        "epochs": 3,
+        "lora": {
+            "alpha": 32,
+            "r": 16,
+            "targets": [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj"
+            ]
+        }
+    },
+    "revision": "golden_v2+temp0 (instrumento calibrado)",
+    "created_at": "2026-09-04T04:22:52.0870238Z",
+    "dataset": "laboratory/data/dataset-curado-002.sft.jsonl.train.jsonl",
+    "commands": [
+        "train",
+        "merge"
+    ],
+    "campaign_id": "campaign-002"
+}

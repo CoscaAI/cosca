@@ -9,7 +9,7 @@
 | Arquivo | Papel |
 |---|---|
 | `lora_qwen3_4b.py` | Script de treino (unsloth/QLoRA) — pronto para Colab/NVIDIA |
-| `(dataset SFT)` | `.cosca/dataset-train.sft.jsonl.{train,val}.jsonl` (gerado pelo `cosca dataset convert`) |
+| `(dataset SFT)` | `laboratory/data/dataset-curado-002.sft.jsonl.{train,val}.jsonl` (gerado pelo `cosca dataset convert`) |
 
 ## Como rodar (Colab / GPU NVIDIA)
 
@@ -20,13 +20,13 @@ pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
 
 **2. Valide o dataset e a config (dry-run, sem treinar):**
 ```bash
-python train/lora_qwen3_4b.py --data .cosca/dataset-train.sft.jsonl.train.jsonl --dry-run
+python laboratory/train/lora_qwen3_4b.py --data laboratory/data/dataset-curado-002.sft.jsonl.train.jsonl --dry-run
 ```
 > Isso confirma que o dataset carrega e a config é válida, sem gastar GPU.
 
 **3. Treine (exige GPU NVIDIA com ~8GB+ VRAM):**
 ```bash
-python train/lora_qwen3_4b.py --data .cosca/dataset-train.sft.jsonl.train.jsonl \
+python laboratory/train/lora_qwen3_4b.py --data laboratory/data/dataset-curado-002.sft.jsonl.train.jsonl \
   --epochs 3 --lora-r 16 --lora-alpha 32
 ```
 > Salva o adaptador em `./output/cosca-qwen3-4b-lora` e exporta GGUF (q4_k_m)
