@@ -184,4 +184,15 @@ tmp/
 .cosca/memory/index.db
 .cosca/semantic.db
 .cosca/tasks.db
+.cosca/trace.db
 .cosca/serve-update.log
+# Traços de planos/workflows (history + checkpoints), relatórios de eval, eventos duráveis,
+# install/jobs/trash, logs de vigia — todos derivados/transitórios (fonte real: config/knowledge/estado).
+.cosca/history/
+.cosca/evals/reports/
+.cosca/durable-events/
+.cosca/install/
+.cosca/jobs/
+.cosca/_trash/
+.cosca/audit/memory-watch.log
+.cosca/campaign-002-package.zip
