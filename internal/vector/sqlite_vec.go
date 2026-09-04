@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"runtime"
@@ -13,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"modernc.org/sqlite" // driver "sqlite" + tipo Error (Code/readonly) p/ leitor modular
 
 	"github.com/CoscaAI/cosca/internal/safe"
 	"github.com/google/uuid"
@@ -108,6 +111,15 @@ func NewSQLiteVec(cfg SQLiteVecConfig) (*SQLiteVec, error) {
 }
 
 // createTable ensures the vector storage table exists.
+//
+// PÓS-CORTE (Plano D): o leitor modular (PartitionStore) abre as partições
+// vector-*.db em mode=ro — então os CREATE TABLE/INDEX IF NOT EXISTS são
+// NO-OPs (a schema já existe) mas o SQLite ainda retorna SQLITE_READONLY
+// (code 8) porque "IF NOT EXISTS" num índice existente tenta escrever na
+// WAL/schema. Sem tolerar readonly aqui, a criação falhava, a partição era
+// descartada e o leitor modular degradava para o monólito drenado (0 vetores
+// — o bug de report "Vectors: 0"). Bancos rw (monólito, escrita) nunca
+// atingem esse caminho.
 func (s *SQLiteVec) createTable() error {
 	query := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
@@ -121,7 +133,7 @@ func (s *SQLiteVec) createTable() error {
 			created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 		)`, s.tableName)
 
-	if _, err := s.db.Exec(query); err != nil {
+	if _, err := s.db.Exec(query); err != nil && !isReadOnlyErr(err) {
 		return err
 	}
 
@@ -136,12 +148,29 @@ func (s *SQLiteVec) createTable() error {
 		fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_created ON %s(created_at)", s.tableName, s.tableName),
 	}
 	for _, idx := range indexes {
-		if _, err := s.db.Exec(idx); err != nil {
+		if _, err := s.db.Exec(idx); err != nil && !isReadOnlyErr(err) {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// isReadOnlyErr reports whether err is the SQLITE_READONLY error (code 8),
+// returned when a statement tries to write to an open read-only database
+// (mode=ro). The modular reader opens vector-*.db read-only, so createTable
+// must not fail on readonly: the schema already exists there, and the only
+// effect of tolerating it is that a genuinely missing schema (empty/invalid
+// module) surfaces later as a read error instead of here.
+func isReadOnlyErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	var serr *sqlite.Error
+	if errors.As(err, &serr) {
+		return serr.Code() == 8 // SQLITE_READONLY
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "readonly")
 }
 
 // Store stores vectors in the database.
