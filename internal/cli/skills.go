@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/CoscaAI/cosca/internal/proposal"
 )
 
 const (
@@ -16,6 +18,14 @@ const (
 	skillsCatalogName = "SKILLS_CATALOG.md"
 	// skillsInventoryMarker marca o início do Inventário Real no catálogo.
 	skillsInventoryMarker = "## 🗂️ Inventário Real"
+
+	// skillsCatalogRuntimeDir é o local DERIVADO (zona RUNTIME) do catálogo de
+	// skills. O FROZEN (internal/embed/cosca/skills/SKILLS_CATALOG.md) é
+	// build-baked via go:embed; escrever nele implicitamente viola o Contrato de
+	// Autoridade (§5 — nenhuma rotina sobrescreve o FROZEN implicitamente; só
+	// promoção explícita, com intenção/hash/gate). Por isso o catálogo derivado
+	// vive no RUNTIME (.cosca/), regenerável a partir do FROZEN.
+	skillsCatalogRuntimeDir = ".cosca/skills"
 )
 
 // NewSkillsCommand cria o comando `cosca skills` — gestão do catálogo de
@@ -35,19 +45,24 @@ func newSkillsSyncCommand() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Regenera o Inventário Real do SKILLS_CATALOG.md a partir do disco",
+		Short: "Regenera o Inventário Real do SKILLS_CATALOG.md (catálogo derivado, zona RUNTIME)",
 		Long: `Regenera a seção "Inventário Real" do SKILLS_CATALOG.md a partir dos
-arquivos reais em internal/embed/cosca/skills/. Tudo que vem antes do
-Inventário Real (aviso de legado, seções obsoletas) é preservado intacto; a
-partir do marcador até o fim do arquivo é substituído pelo estado real do disco.
+arquivos reais na árvore de skills RUNTIME (.cosca/skills/).
+
+Este comando NÃO escreve no FROZEN (internal/embed/cosca/skills/SKILLS_CATALOG.md)
+— aquele é build-baked via go:embed e sobrescrevê-lo implicitamente viola o
+Contrato de Autoridade (§5). O catálogo derivado vive no RUNTIME (.cosca/),
+regenerável a partir do FROZEN. Tudo que vem antes do Inventário Real (aviso de
+legado, seções obsoletas) é preservado intacto; a partir do marcador até o fim
+do arquivo é substituído pelo estado real do disco.
 
   --dry-run   imprime a nova tabela sem alterar o arquivo.`,
 		Example: `  cosca skills sync
   cosca skills sync --dry-run`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Caminho base relativo ao cwd, como faz embed.go.
-			return runSkillsSync(cmd, "internal/embed/cosca/skills", time.Now(), dryRun)
+			// Catálogo derivado na zona RUNTIME (nunca no FROZEN).
+			return runSkillsSync(cmd, skillsCatalogRuntimeDir, time.Now(), dryRun)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "imprime a nova tabela sem escrever no arquivo")
@@ -56,7 +71,19 @@ partir do marcador até o fim do arquivo é substituído pelo estado real do dis
 
 // runSkillsSync executa o sync (modo normal ou dry-run) sobre um diretório de
 // skills raiz. Separado do cobra para permitir testes com diretórios temporários.
+//
+// FAIL-CLOSED: um catálogo derivado nunca pode ser escrito numa zona de
+// autoridade (FROZEN/LIVE). Escrever no FROZEN implicitamente violaria o §5 do
+// Contrato de Autoridade. Só a zona RUNTIME (.cosca/) aceita esta escrita.
 func runSkillsSync(cmd *cobra.Command, root string, now time.Time, dryRun bool) error {
+	if zone := proposal.ProtectedZoneOf(root); zone != "" && zone != "RUNTIME" {
+		return fmt.Errorf(
+			"FAIL-CLOSED: 'cosca skills sync' só escreve catálogo derivado na zona RUNTIME; "+
+				"recusada escrita na zona de autoridade %s (%q). O %s é build-baked — "+
+				"promoção para lá é explícita (intenção + hash + gate), nunca por sync.",
+			zone, root, zone)
+	}
+
 	section, total, cats, err := renderSkillsInventorySection(root, now)
 	if err != nil {
 		return err

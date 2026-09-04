@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/CoscaAI/cosca/internal/proposal"
 )
 
 // fixedSyncNow é a data fixa usada nos testes para o rodapé determinístico.
@@ -242,5 +244,93 @@ func TestSkillsSync_RegisteredInSkillsCommand(t *testing.T) {
 	}
 	if !registered["sync"] {
 		t.Error("missing skills subcommand: sync")
+	}
+}
+
+// =============================================================================
+// (e) skills sync NÃO escreve no FROZEN implicitamente
+// =============================================================================
+
+// TestSkillsSync_RefusesFrozenTarget garante o FAIL-CLOSED do §5: um catálogo
+// derivado nunca pode ser escrito na zona FROZEN (internal/embed/cosca).
+func TestSkillsSync_RefusesFrozenTarget(t *testing.T) {
+	root := t.TempDir()
+	frozen := filepath.Join(root, "internal", "embed", "cosca", "skills")
+	if err := os.MkdirAll(frozen, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := runSkillsSync(&cobra.Command{}, frozen, fixedSyncNow, false)
+	if err == nil || !strings.Contains(err.Error(), "FAIL-CLOSED") {
+		t.Errorf("skills sync APONTANDO para o FROZEN deveria falhar fail-closed, got %v", err)
+	}
+	// Nada pode ter sido escrito no FROZEN.
+	if _, statErr := os.Stat(filepath.Join(frozen, skillsCatalogName)); !os.IsNotExist(statErr) {
+		t.Error("skills sync NÃO deve escrever SKILLS_CATALOG.md no FROZEN")
+	}
+}
+
+// TestSkillsSync_RefusesLiveTarget garante o FAIL-CLOSED também na zona LIVE.
+func TestSkillsSync_RefusesLiveTarget(t *testing.T) {
+	root := t.TempDir()
+	live := filepath.Join(root, ".opencode", "cosca", "skills")
+	if err := os.MkdirAll(live, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := runSkillsSync(&cobra.Command{}, live, fixedSyncNow, false)
+	if err == nil || !strings.Contains(err.Error(), "FAIL-CLOSED") {
+		t.Errorf("skills sync APONTANDO para o LIVE deveria falhar fail-closed, got %v", err)
+	}
+}
+
+// TestSkillsSync_DefaultTargetIsRuntimeNotFrozen valida que o alvo de saída
+// padrão é a zona RUNTIME (.cosca/skills), nunca a FROZEN.
+func TestSkillsSync_DefaultTargetIsRuntimeNotFrozen(t *testing.T) {
+	// O alvo de saída padrão é a zona RUNTIME (.cosca/skills — separador "/"
+	// canônico), NUNCA a FROZEN (internal/embed/cosca) nem a LIVE.
+	if skillsCatalogRuntimeDir != ".cosca/skills" {
+		t.Errorf("skillsCatalogRuntimeDir = %q, want %q", skillsCatalogRuntimeDir, ".cosca/skills")
+	}
+	if strings.Contains(skillsCatalogRuntimeDir, "internal") || strings.Contains(skillsCatalogRuntimeDir, "embed") {
+		t.Errorf("alvo padrão do skills sync não pode ser a zona FROZEN, got %q", skillsCatalogRuntimeDir)
+	}
+	if proposal.ProtectedZoneOf(skillsCatalogRuntimeDir) != "RUNTIME" {
+		t.Errorf("skillsCatalogRuntimeDir deveria mapear para a zona RUNTIME, got %q", proposal.ProtectedZoneOf(skillsCatalogRuntimeDir))
+	}
+}
+
+// TestSkillsSync_EndToEnd_WritesDerivedRuntimeCatalog roda o comando de
+// ponta-a-ponta num CWD temporário e garante que o catálogo derivado vai para
+// .cosca/skills e NÃO para internal/embed/cosca/skills.
+func TestSkillsSync_EndToEnd_WritesDerivedRuntimeCatalog(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	runtimeRoot := filepath.Join(".cosca", "skills")
+	writeSkillsFixture(t, runtimeRoot)
+	writeCatalogWithInventory(t, runtimeRoot)
+
+	cmd := newSkillsSyncCommand()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("skills sync: %v", err)
+	}
+
+	// Catálogo atualizado na zona RUNTIME.
+	content, err := os.ReadFile(filepath.Join(runtimeRoot, skillsCatalogName))
+	if err != nil {
+		t.Fatalf("catálogo derivado deve existir em .cosca/skills: %v", err)
+	}
+	if !strings.Contains(string(content), "**Atualizado**") {
+		t.Errorf("inventário derivado deve ter sido regenerado:\n%s", string(content))
+	}
+
+	// Nada escrito no FROZEN.
+	if _, statErr := os.Stat(filepath.Join("internal", "embed", "cosca", "skills", skillsCatalogName)); !os.IsNotExist(statErr) {
+		t.Error("skills sync NÃO deve ter escrito SKILLS_CATALOG.md no FROZEN")
+	}
+	if _, statErr := os.Stat(filepath.Join(".opencode", "cosca", "skills", skillsCatalogName)); !os.IsNotExist(statErr) {
+		t.Error("skills sync NÃO deve ter escrito SKILLS_CATALOG.md no LIVE")
 	}
 }

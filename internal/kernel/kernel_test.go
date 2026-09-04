@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,10 +40,10 @@ func TestLaws(t *testing.T) {
 	}
 }
 
-// TestConstitution verifies the 8 constitutional principles are present.
+// TestConstitution verifies the 9 constitutional principles are present.
 func TestConstitution(t *testing.T) {
-	if len(Constitution) != 8 {
-		t.Fatalf("expected 8 principles, got %d", len(Constitution))
+	if len(Constitution) != 9 {
+		t.Fatalf("expected 9 principles, got %d", len(Constitution))
 	}
 	for _, p := range Constitution {
 		if p.Number == 0 || p.Title == "" || p.Rule == "" || p.Guardian == "" {
@@ -52,6 +53,35 @@ func TestConstitution(t *testing.T) {
 	// P8 — Integridade do embed — must exist (Amendment v1.1.0).
 	if Constitution[7].Number != 8 || Constitution[7].Title != "Integridade do embed" {
 		t.Errorf("P8 missing or wrong: %+v", Constitution[7])
+	}
+	// P9 — Integridade do LIVE — espelha a P8 para a zona LIVE (Contrato de Autoridade).
+	if Constitution[8].Number != 9 || Constitution[8].Title != "Integridade do LIVE" {
+		t.Errorf("P9 missing or wrong: %+v", Constitution[8])
+	}
+	if !strings.Contains(Constitution[8].Rule, ".opencode/cosca") {
+		t.Errorf("P9 rule must protect .opencode/cosca (LIVE): %+v", Constitution[8])
+	}
+}
+
+// TestLiveZoneProtectedByConstitution verifica que a governança espelha o
+// contrato de autoridade e protege a zona LIVE (.opencode/cosca) de remoção
+// destrutiva sem confirmação explícita do Don.
+func TestLiveZoneProtectedByConstitution(t *testing.T) {
+	var livePrinciple *ConstitutionPrinciple
+	for i := range Constitution {
+		if Constitution[i].Number == 9 {
+			livePrinciple = &Constitution[i]
+			break
+		}
+	}
+	if livePrinciple == nil {
+		t.Fatal("principle protecting the LIVE zone (P9) not found")
+	}
+	if !strings.Contains(strings.ToLower(livePrinciple.Rule), ".opencode/cosca") {
+		t.Errorf("P9 should reference .opencode/cosca, got: %q", livePrinciple.Rule)
+	}
+	if !strings.Contains(strings.ToLower(livePrinciple.Rule), "don") {
+		t.Errorf("P9 should require explicit Don confirmation, got: %q", livePrinciple.Rule)
 	}
 }
 

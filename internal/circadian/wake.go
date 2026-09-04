@@ -46,7 +46,7 @@ type WakeResult struct {
 //
 //  1. load_memory       — open kernel memory (knowledge.db) and collect stats
 //  2. validate_knowledge — PRAGMA integrity_check over the knowledge base
-//  3. read_constitution — verify the 8 constitutional principles (P1-P8)
+//  3. read_constitution — verify the constitutional principles (P1-P9, canonical)
 //  4. sync_clock        — record the current time and the previous state
 //  5. show_summary      — render the ritual summary line
 //  6. accept_commands   — transition the engine to the awake state
@@ -102,14 +102,16 @@ func (e *Engine) Wake(ctx context.Context, coscaDir string) (*WakeResult, error)
 		}
 	}
 
-	// Step 3: read_constitution — verify the 8 constitutional principles.
-	result.ConstitutionLoaded = len(kernel.Constitution) == 8
+	// Step 3: read_constitution — verify the canonical constitutional principles
+	// (P1-P9, que inclui a amenda do Contrato de Autoridade: P9 — Integridade do LIVE).
+	result.ConstitutionLoaded = len(kernel.Constitution) == kernel.ExpectedConstitutionPrinciples
 	if result.ConstitutionLoaded {
 		result.addStep("read_constitution", "ok",
-			fmt.Sprintf("P1-P8 loaded (%d principles)", len(kernel.Constitution)))
+			fmt.Sprintf("P1-P%d loaded (%d principles)", kernel.ExpectedConstitutionPrinciples, len(kernel.Constitution)))
 	} else {
 		result.addStep("read_constitution", "error",
-			fmt.Sprintf("expected 8 constitutional principles, got %d", len(kernel.Constitution)))
+			fmt.Sprintf("expected %d constitutional principles, got %d",
+				kernel.ExpectedConstitutionPrinciples, len(kernel.Constitution)))
 	}
 
 	// Step 4: sync_clock — record the time and the previous engine state.

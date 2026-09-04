@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +18,9 @@ type LegacyIssue struct {
 	Issue   string `json:"issue" yaml:"issue"`
 	Action  string `json:"action" yaml:"action"`
 	SizeEst string `json:"size_est,omitempty" yaml:"size_est,omitempty"`
+	// Protect marca o alvo como zona protegida de autoridade (FROZEN/LIVE/RUNTIME).
+	// O upgrade reporta, tira snapshot e PRESERVA — nunca RemoveAll.
+	Protect bool `json:"protect,omitempty" yaml:"protect,omitempty"`
 }
 
 // UpgradeReport holds the full upgrade analysis/report.
@@ -36,13 +41,18 @@ func NewUpgradeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Cosca from legacy paths to current architecture",
-		Long: `Detect and clean up legacy Cosca artifacts from old architectures:
+		Long: `Detect and clean up legacy Cosca artifacts from old architectures.
 
-  • .opencode/cosca/       — old framework directory (now internal/embed/cosca/)
-  • .cosca/fallback/       — old sync target (now .cosca/framework/)
+Zonas de autoridade (Contrato de Autoridade — FROZEN > LIVE > RUNTIME):
+  • .opencode/cosca/       — zona LIVE (superfície do OpenCode): é preservada,
+                             snapshot backup + aviso de drift; NUNCA é removida.
+  • .cosca/fallback/       — alvo ativo do MaterializeFallback (embed.go):
+                             é preservado, NUNCA é removido.
   • ~/.config/cosca in PATH — old global install path (now ~/.cosca/bin/)
 
-Backs up .cosca/ before making changes. Use --dry-run to preview.`,
+Backs up .cosca/ and snapshots the LIVE zone before making changes.
+Use --dry-run to preview (mandatory for review; nothing is ever removed from a
+protected zone).`,
 		Example: `  cosca upgrade --dry-run    # Preview what needs cleanup
   cosca upgrade              # Execute cleanup + re-init`,
 		Args: cobra.NoArgs,
@@ -99,6 +109,21 @@ func runUpgrade(cmd *cobra.Command, dryRun bool) error {
 		}
 	}
 
+	// ── Zona LIVE: verificação de drift (determinística, não-destrutiva) ──
+	// Lê apenas (.opencode/cosca vs internal/embed/cosca por caminho+hash).
+	// O FROZEN permanece autoridade durante qualquer drift; o LIVE é preservado
+	// como evidência e candidato a promoção explícita (Contrato §2/§3/§4).
+	if drift, err := measureLiveDrift(dir); err == nil && drift.Present {
+		formatter.Bullet("Zona LIVE (.opencode/cosca) detectada — " + drift.Summary())
+		if drift.DriftCount() > 0 {
+			formatter.Warning(fmt.Sprintf(
+				"DRIFT: %d arquivo(s) da zona LIVE divergem do FROZEN (internal/embed/cosca). "+
+					"O FROZEN permanece autoridade; o LIVE é preservado como evidência — nenhuma remoção é feita.",
+				drift.DriftCount()))
+		}
+		report.ActionsTaken = append(report.ActionsTaken, "live drift → "+drift.Summary())
+	}
+
 	if dryRun {
 		formatter.Println("\n--dry-run: nenhuma alteracao foi feita. Rode 'cosca upgrade' para executar.")
 		report.Duration = time.Since(startTime).Round(time.Millisecond).String()
@@ -127,14 +152,35 @@ func runUpgrade(cmd *cobra.Command, dryRun bool) error {
 		report.ActionsTaken = append(report.ActionsTaken, "backup → "+backupDir)
 	}
 
+	// Snapshot da zona LIVE (.opencode/cosca) — preserva evidência e permite
+	// recuperação. O upgrade nunca remove o LIVE; apenas o arquiva.
+	liveDir := filepath.Join(dir, ".opencode", "cosca")
+	if _, err := os.Stat(liveDir); err == nil {
+		liveSnap := filepath.Join(backupDir, "live-snapshot")
+		formatter.Bullet("Snapshot zona LIVE (.opencode/cosca) → " + liveSnap)
+		if err := copyDir(liveDir, liveSnap); err != nil {
+			formatter.Warning("Falha no snapshot LIVE (best-effort): " + err.Error())
+		}
+		report.ActionsTaken = append(report.ActionsTaken, "live snapshot → "+liveSnap)
+	}
+
 	// ── Phase 3: Clean ──────────────────────────────────────────
+	// Zonas protegidas (FROZEN/LIVE/RUNTIME) são PRESERVADAS, nunca removidas.
+	// O restante passa pelo guard FAIL-CLOSED antes de qualquer RemoveAll.
+	removed := 0
 	for _, iss := range issues {
+		if iss.Protect {
+			formatter.Bullet("Preservando (zona protegida): " + iss.Path)
+			report.ActionsTaken = append(report.ActionsTaken, "preserved → "+iss.Path)
+			continue
+		}
 		formatter.Bullet("Limpando: " + iss.Path)
-		if err := os.RemoveAll(iss.Path); err != nil {
-			formatter.Warning("Falha ao remover " + iss.Path)
+		if err := GuardedRemoveAll(iss.Path); err != nil {
+			formatter.Warning("Falha ao remover " + iss.Path + ": " + err.Error())
 			continue
 		}
 		report.ActionsTaken = append(report.ActionsTaken, "removed → "+iss.Path)
+		removed++
 	}
 
 	// ── Phase 4: Re-init ────────────────────────────────────────
@@ -173,25 +219,30 @@ func runUpgrade(cmd *cobra.Command, dryRun bool) error {
 func detectLegacyIssues(dir string) []LegacyIssue {
 	var issues []LegacyIssue
 
-	// 1. .opencode/cosca/ — old framework directory
+	// 1. .opencode/cosca/ — zona LIVE do Contrato de Autoridade.
+	//	G2: "Nenhuma operação pode deletar/conteúdo-destruir o LIVE".
+	//	Aqui o upgrade NÃO remove: reporta, leva snapshot e alerta DRIFT.
 	opencodeCosca := filepath.Join(dir, ".opencode", "cosca")
 	if info, err := os.Stat(opencodeCosca); err == nil && info.IsDir() {
 		issues = append(issues, LegacyIssue{
-			Path:   opencodeCosca,
-			Issue:  "Framework legado (.opencode/cosca/)",
-			Action: "remover (framework agora vive em internal/embed/cosca/)",
+			Path:    opencodeCosca,
+			Issue:   "Zona LIVE detectada (.opencode/cosca/)",
+			Action:  "PROTEGIDO — contrato de autoridade (FROZEN>LIVE>RUNTIME): NÃO remover. Snapshot + aviso de drift, evidência preservada.",
+			Protect: true,
 		})
 	}
 
-	// 2. .cosca/fallback/ — old sync target
+	// 2. .cosca/fallback/ — alvo ativo do MaterializeFallback (embed.go).
+	//	Removê-lo quebraria os consumidores do fallback tree. NÃO remover.
 	fallbackDir := filepath.Join(dir, ".cosca", "fallback")
 	if info, err := os.Stat(fallbackDir); err == nil && info.IsDir() {
 		size := dirSize(fallbackDir)
 		issues = append(issues, LegacyIssue{
 			Path:    fallbackDir,
-			Issue:   "Sync target obsoleto (.cosca/fallback/)",
-			Action:  "remover (framework sync agora usa .cosca/framework/)",
+			Issue:   "MaterializeFallback target (.cosca/fallback/)",
+			Action:  "PRESERVADO — alvo ativo do MaterializeFallback (internal/embed/embed.go): NÃO remover.",
 			SizeEst: formatSize(size),
+			Protect: true,
 		})
 	}
 
@@ -290,4 +341,116 @@ func formatSize(bytes int64) string {
 	default:
 		return fmt.Sprintf("%d B", bytes)
 	}
+}
+
+// ── Detector de drift FROZEN ↔ LIVE (não-destrutivo) ────────────────────────
+//
+// O detector compara a zona LIVE (.opencode/cosca) com o FROZEN
+// (internal/embed/cosca) por caminho relativo canônico + SHA-256 (Contrato §2),
+// de forma determinística e apenas-leitura. Nunca escolhe vencedor: apenas
+// classifica e orienta. O FROZEN permanece autoridade durante qualquer drift; o
+// LIVE é preservado como evidência (candidato a promoção explícita, §4).
+
+// LiveDriftReport descreve a divergência entre LIVE e FROZEN.
+type LiveDriftReport struct {
+	Present    bool `json:"present"`     // LIVE (.opencode/cosca) existe?
+	Comparable bool `json:"comparable"`  // FROZEN em disco existe para comparar?
+	Matches    int  `json:"matches"`     // arquivos idênticos (MATCH)
+	Divergent  int  `json:"divergent"`   // mesmo caminho, hash != (drift)
+	OnlyFrozen int  `json:"only_frozen"` // só no FROZEN (exclusivos — preservar, G5)
+	OnlyLive   int  `json:"only_live"`   // só no LIVE (evolução a promover, §4)
+}
+
+// DriftCount é o total de divergências relevantes (a sinalizar DRIFT).
+func (r LiveDriftReport) DriftCount() int { return r.Divergent + r.OnlyLive }
+
+// Summary resume o estado de forma legível para o relatório do upgrade.
+func (r LiveDriftReport) Summary() string {
+	if !r.Present {
+		return "LIVE não presente — sem drift"
+	}
+	if !r.Comparable {
+		return fmt.Sprintf("%d arquivo(s) no LIVE; FROZEN embutido no binário — sem árvore em disco para comparar (fluxo third-party), tudo registrado como evidência", r.OnlyLive+r.Matches)
+	}
+	return fmt.Sprintf("%d MATCH, %d divergente(s), %d só-LIVE, %d exclusivos-FROZEN",
+		r.Matches, r.Divergent, r.OnlyLive, r.OnlyFrozen)
+}
+
+// measureLiveDrift calcula a divergência LIVE↔FROZEN. Determinístico e
+// não-destrutivo: apenas lê arquivos. Se o FROZEN não existir em disco
+// (projeto third-party, framework apenas no binário), toda a árvore LIVE
+// é registrada como evidência (Comparable=false).
+func measureLiveDrift(dir string) (LiveDriftReport, error) {
+	var rep LiveDriftReport
+
+	liveRoot := filepath.Join(dir, ".opencode", "cosca")
+	if _, err := os.Stat(liveRoot); err != nil {
+		rep.Present = false
+		return rep, nil
+	}
+	rep.Present = true
+
+	frozenRoot := filepath.Join(dir, "internal", "embed", "cosca")
+	if _, err := os.Stat(frozenRoot); err != nil {
+		// FROZEN embutido no binário (não há árvore em disco).
+		rep.Comparable = false
+		rep.OnlyLive = countFiles(liveRoot)
+		return rep, nil
+	}
+	rep.Comparable = true
+
+	live := fileHashes(liveRoot)
+	frozen := fileHashes(frozenRoot)
+	for rel, lh := range live {
+		fh, ok := frozen[rel]
+		switch {
+		case !ok:
+			rep.OnlyLive++
+		case fh == lh:
+			rep.Matches++
+		default:
+			rep.Divergent++
+		}
+	}
+	for rel := range frozen {
+		if _, ok := live[rel]; !ok {
+			rep.OnlyFrozen++ // exclusivos do FROZEN — preservar (G5)
+		}
+	}
+	return rep, nil
+}
+
+// fileHashes devolve relPathCanonical → sha256 para todos os arquivos sob root.
+// Comparamos por caminho relativo canônico com "/" (evita o bug de filepath.Rel).
+func fileHashes(root string) map[string]string {
+	out := map[string]string{}
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(root, path)
+		if rerr != nil {
+			return nil
+		}
+		data, derr := os.ReadFile(path)
+		if derr != nil {
+			return nil // skip unreadable
+		}
+		sum := sha256.Sum256(data)
+		out[filepath.ToSlash(rel)] = hex.EncodeToString(sum[:])
+		return nil
+	})
+	return out
+}
+
+// countFiles conta os arquivos (não diretórios) sob root.
+func countFiles(root string) int {
+	n := 0
+	_ = filepath.Walk(root, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && info != nil && !info.IsDir() {
+			n++
+		}
+		return nil
+	})
+	return n
 }

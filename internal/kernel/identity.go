@@ -81,7 +81,14 @@ var Constitution = []ConstitutionPrinciple{
 	{Number: 6, Title: "Evolução sem regressão", Rule: "Nada que quebre o que funciona. Anti-loop guard é lei.", Guardian: "cosca-kernel"},
 	{Number: 7, Title: "Memória sem poluição", Rule: "Conhecimento é curado: decay, curation, prune. Nunca dogma.", Guardian: "cosca-memory-chief"},
 	{Number: 8, Title: "Integridade do embed", Rule: "Nenhuma remoção do internal/embed/cosca/ sem confirmação explícita do Don.", Guardian: "cosca-kernel"},
+	{Number: 9, Title: "Integridade do LIVE", Rule: "Nenhuma remoção do .opencode/cosca/ (zona LIVE, superfície do OpenCode) sem confirmação explícita do Don.", Guardian: "cosca-kernel"},
 }
+
+// ExpectedConstitutionPrinciples é o número canônico de princípios da
+// CONSTITUTION (v1.1.0 + amenda do Contrato de Autoridade — P9, Integridade do
+// LIVE). Usado pelos invariantes de autochecagem e pelo ritual de despertar
+// para validar que a constituição carregou por inteiro.
+const ExpectedConstitutionPrinciples = 9
 
 // Identity returns the Kernel's identity (persona + state).
 func Identity() Persona {
@@ -108,7 +115,7 @@ func SelfTest() []SelfCheck {
 	checks := []SelfCheck{
 		{Name: "identity", OK: true, Detail: "Identidade carregada: " + Identity().Name},
 		{Name: "laws", OK: len(Laws) == 6, Detail: fmt.Sprintf("%d leis carregadas", len(Laws))},
-		{Name: "constitution", OK: len(Constitution) == 8, Detail: fmt.Sprintf("%d princípios constitucionais", len(Constitution))},
+		{Name: "constitution", OK: len(Constitution) == ExpectedConstitutionPrinciples, Detail: fmt.Sprintf("%d princípios constitucionais", len(Constitution))},
 		{Name: "epistemology", OK: len(Epistemology) == 5, Detail: fmt.Sprintf("%d princípios epistemológicos", len(Epistemology))},
 		{Name: "go-runtime", OK: true, Detail: fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)},
 	}

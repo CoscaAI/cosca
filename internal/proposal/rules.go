@@ -64,19 +64,109 @@ func mentionsGitRewrite(action string) bool {
 		strings.Contains(a, "git filter")
 }
 
+// ─── Alvos de autoridade protegidos (FROZEN > LIVE > RUNTIME) ───────────────
+//
+// Estes são os alvos do Contrato de Autoridade (docs/specs/frozen-live-authority-contract.md):
+//   - FROZEN: internal/embed/cosca/   (compilado no binário via go:embed; autoridade semântica)
+//   - LIVE:   .opencode/cosca/        (superfície operacional ao OpenCode; editável, NUNCA removida)
+//   - RUNTIME: .cosca/                (estado derivado, regenerável)
+//
+// Uma operação destrutiva (RemoveAll/rm -rf/delete) dentro de um destes alvos é
+// FAIL-CLOSED: não executa. O contrato (§5) manda "nenhuma rotina pode deletar/
+// conteúdo-destruir o LIVE/G2" e "não escrever implicitamente no FROZEN/G5".
+
+type protectedZone struct {
+	root string
+	zone string
+}
+
+var protectedZones = []protectedZone{
+	{root: "internal/embed/cosca", zone: "FROZEN"},
+	{root: ".opencode/cosca", zone: "LIVE"},
+	{root: ".opencode", zone: "LIVE"},
+	{root: ".cosca", zone: "RUNTIME"},
+}
+
+// canonicalRmPath normaliza um alvo para comparação determinística de caminho:
+// separador canônico "/", resolve "./" e "..", caixa normalizada. Assim a mesma
+// árvore é identificada de forma idêntica em qualquer SO (o bug histórico de
+// filepath.Rel no Windows não se repete aqui).
+func canonicalRmPath(target string) string {
+	if target == "" {
+		return ""
+	}
+	return strings.ToLower(filepath.ToSlash(filepath.Clean(target)))
+}
+
+// withinRoot reporta se o caminho canônico t é igual ou está sob root como
+// SEGMENTO de caminho completo. Isto evita o falso-positivo de prefixo de
+// string (".cosca-backup" NÃO é protegido por ".cosca") e cobre caminhos
+// absolutos (ex.: C:\...\cosca\.opencode\cosca).
+func withinRoot(t, root string) bool {
+	root = strings.TrimSuffix(root, "/")
+	if root == "" {
+		return false
+	}
+	if t == root {
+		return true
+	}
+	if strings.HasPrefix(t, root+"/") { // t sob root (root é ancestral)
+		return true
+	}
+	if strings.HasSuffix(t, "/"+root) { // root aparece no fim (caminho absoluto)
+		return true
+	}
+	return strings.Contains(t, "/"+root+"/") // root como segmento no meio
+}
+
+// IsProtectedRmTarget reporta se o alvo pertence a uma zona de autoridade
+// protegida do contrato (FROZEN/LIVE/RUNTIME). Uma operação destrutiva contra
+// ele DEVE ser FAIL-CLOSED (não executar). Consulta determinística, read-only.
+func IsProtectedRmTarget(target string) bool {
+	return ProtectedZoneOf(target) != ""
+}
+
+// ProtectedZoneOf devolve a zona de autoridade (FROZEN/LIVE/RUNTIME) do alvo,
+// ou "" se o alvo não for protegido. Fail-closed de consulta: se o caminho não
+// puder ser associado a uma zona explicitamente, NÃO é bloqueado pelo guard.
+func ProtectedZoneOf(target string) string {
+	t := canonicalRmPath(target)
+	if t == "" {
+		return ""
+	}
+	for _, z := range protectedZones {
+		if withinRoot(t, z.root) {
+			return z.zone
+		}
+	}
+	return ""
+}
+
 // help — detecta remoção recursiva de diretórios sensíveis.
 func sensitiveRmTarget(target string) bool {
-	t := strings.ToLower(filepath.Clean(target))
+	t := canonicalRmPath(target)
+	if t == "" {
+		return false
+	}
+	// Alvos de autoridade (FROZEN/LIVE/RUNTIME) — remoção é FAIL-CLOSED.
+	for _, z := range protectedZones {
+		if withinRoot(t, z.root) {
+			return true
+		}
+	}
+	// Legado: raízes e artefatos críticos sempre foram alvos sensíveis.
 	for _, s := range []string{
 		"/", "/*",
-		".cosca", ".git",
-		"internal/embed",
-		"internal/embed/cosca",
+		".git",
 		"knowledge.db", "gate.db", "audit.db",
 		"$home", "~",
 		"/home", "/etc", "/usr", "/var", "/boot",
 	} {
-		if t == s || strings.HasPrefix(t, s+"/") || strings.HasPrefix(t, s+string(filepath.Separator)) {
+		sNorm := strings.TrimSuffix(strings.ToLower(filepath.ToSlash(filepath.Clean(s))), "/")
+		if sNorm == "" {
+			continue
+		}
+		if t == sNorm || strings.HasPrefix(t, sNorm+"/") || strings.HasSuffix(t, "/"+sNorm) {
 			return true
 		}
 	}

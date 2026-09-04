@@ -76,9 +76,12 @@ func TestSetupCreatesOpenCodeConfig(t *testing.T) {
 		t.Errorf("cosca-kernel prompt must be self-contained, got %q", prompt)
 	}
 
-	// The .opencode/ dir must NOT contain framework files.
+	// Setup only writes editor config (.opencode/opencode.json). It must NOT
+	// materialize the framework. Per the Authority Contract the FROZEN source
+	// of truth is internal/embed/cosca/ (built into the binary); .opencode/cosca/
+	// is the LIVE surface — a legitimate zone, but not created by Setup.
 	if _, err := os.Stat(filepath.Join(cfg.ProjectDir, ".opencode", "cosca")); err == nil {
-		t.Error(".opencode/cosca must NOT exist — the framework lives in .cosca/framework")
+		t.Error(".opencode/cosca must NOT be created by Setup — the FROZEN source of truth is internal/embed/cosca")
 	}
 }
 

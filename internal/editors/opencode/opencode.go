@@ -4,7 +4,11 @@
 //
 // IMPORTANT: The .opencode/ directory recreated by Setup is ONLY the
 // editor configuration that OpenCode reads (opencode.json). It is NOT
-// the Cosca framework — the framework lives in .cosca/framework/.
+// the Cosca framework source of truth. Per the Authority Contract
+// (FROZEN > LIVE > RUNTIME), the FROZEN framework lives in
+// internal/embed/cosca/ (compiled into the binary via go:embed) and the LIVE
+// operational surface for OpenCode lives in .opencode/cosca/. Setup never
+// materializes the framework — it only writes the editor config.
 package opencode
 
 import (
