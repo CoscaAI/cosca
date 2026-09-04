@@ -31,7 +31,10 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 FRAMEWORK_DIR="$REPO_ROOT/internal/embed/cosca"
-COSCA_BIN="${COSCA_BIN:-/home/cosca/.cosca/bin/cosca}"
+# COSCA_BIN: onde o auto-build instala e de onde o serve roda. Por padrao, o
+# binario LINUX do repo (que o cosca-serve.service usa no WSL / o bin local no
+# Windows). Sobrescreva com COSCA_BIN=<path> para apontar a outro global.
+COSCA_BIN="${COSCA_BIN:-$REPO_ROOT/bin/cosca}"
 # O cosca-check é um binário separado (cmd/cosca-check), não subcomando do cosca.
 # Prioridade: binário built no repo (Linux) → go run (fallback) → binário do WSL.
 CSCA_CHECK=""
@@ -83,6 +86,61 @@ CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^internal/emb
 if [ -n "$CHANGED" ] && [ -x "$COSCA_BIN" ]; then
   setsid bash -c "cd '$REPO_ROOT' && '$COSCA_BIN' knowledge index '$FRAMEWORK_DIR' >> /tmp/cosca-index.log 2>&1" \
     </dev/null >/dev/null 2>&1 &
+fi
+
+# --- Auto-build global + restart serve (quando o CÓDIGO mudou) ---
+# Mudou código = paths que alimentam o binário do serve: cmd/, internal/, pkg/,
+# api/, sdk/, go.mod, go.sum, Makefile. Docs/.opencode/cosca/.cosca/.githooks NÃO disparam.
+CODE_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^(cmd/|internal/|pkg/|api/|sdk/|go\.mod$|go\.sum$|Makefile$)' | head -100 || true)"
+if [ -n "$CODE_CHANGED" ]; then
+  # Tudo em background (setsid) — o post-commit NUNCA trava nem quebra o commit.
+  setsid bash -c '
+    REPO_ROOT="$1"; COSCA_BIN="$2"
+    BIN_DIR="$(dirname "$COSCA_BIN")"
+    MAIN_FILE="$REPO_ROOT/cmd/cosca/main.go"
+    MODULE="github.com/CoscaAI/cosca"
+    LOG="$REPO_ROOT/.cosca/rebuild.log"
+    {
+      echo "[$(date -u +%FT%TZ)] code change detected -> rebuild"
+      echo "  files: $(git -C "$REPO_ROOT" diff --name-only HEAD~1 HEAD 2>/dev/null | tr -s "\n" " ")"
+      mkdir -p "$BIN_DIR" "$REPO_ROOT/.cosca" 2>/dev/null || true
+      cd "$REPO_ROOT" || { echo "  ! cannot cd to $REPO_ROOT"; exit 0; }
+      VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)"
+      COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+      BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)"
+      LDFLAGS="-X $MODULE/pkg/cosca.Version=$VERSION -X $MODULE/pkg/cosca.CommitHash=$COMMIT_HASH -X $MODULE/pkg/cosca.BuildDate=$BUILD_DATE -w -s"
+      echo "  building -> $COSCA_BIN (main: $MAIN_FILE)"
+      if CGO_ENABLED=0 go build -mod=mod -ldflags "$LDFLAGS" -o "$BIN_DIR/.cosca.new" "$MAIN_FILE"; then
+        chmod +x "$BIN_DIR/.cosca.new" 2>/dev/null || true
+        if mv -f "$BIN_DIR/.cosca.new" "$COSCA_BIN" 2>/dev/null; then
+          echo "  install ok (atomic rename): $COSCA_BIN"
+        else
+          echo "  ! install (mv) falhou -> binario anterior preservado"
+          rm -f "$BIN_DIR/.cosca.new" 2>/dev/null || true
+          exit 0
+        fi
+      else
+        echo "  ! build FAILED -> mantendo binario anterior, sem restart"
+        rm -f "$BIN_DIR/.cosca.new" 2>/dev/null || true
+        exit 0
+      fi
+      if systemctl --user is-active cosca-serve.service >/dev/null 2>&1; then
+        echo "  restarting via systemd (cosca-serve.service)"
+        systemctl --user restart cosca-serve.service
+      else
+        PID="$(ss -tlnp 2>/dev/null | grep -E ':14120 ' | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)"
+        if [ -z "$PID" ]; then PID="$(pgrep -f "cosca serve" 2>/dev/null | head -1)"; fi
+        if [ -n "$PID" ]; then
+          echo "  stopping current serve (PID $PID, port 14120)"
+          kill "$PID" 2>/dev/null || true
+          sleep 1
+        fi
+        setsid nohup "$COSCA_BIN" serve >> "$HOME/.cosca-serve.log" 2>&1 < /dev/null &
+        echo "  serve restarted in background (port 14120, log: ~/.cosca-serve.log)"
+      fi
+    } >> "$LOG" 2>&1
+    exit 0
+  ' _ "$REPO_ROOT" "$COSCA_BIN" </dev/null >/dev/null 2>&1 &
 fi
 
 exit 0

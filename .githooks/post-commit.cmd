@@ -52,6 +52,68 @@ if defined CATALOG_CHANGED (
     )
 )
 
+rem --- AUTO-BUILD global (repo bin) + restart do serve quando o CODIGO mudou ---
+rem Mudou codigo = paths que alimentam o binario do serve: cmd/, internal/, pkg/,
+rem api/, sdk/, go.mod, go.sum, Makefile. Docs/.opencode/cosca/.cosca/.githooks NAO disparam.
+rem IMPORTANTE: em cmd, `set "VAR="` define VAR como string vazia MAS definida, e
+rem `if defined VAR` seria SEMPRE true. Por isso usamos flag por VALOR (0/1).
+set "CODE_CHANGED=0"
+for /f "usebackq delims=" %%f in (`git diff --name-only HEAD~1 HEAD 2^>nul`) do (
+    set "FILE=%%f"
+    if /i "!FILE!"=="go.mod"     set "CODE_CHANGED=1"
+    if /i "!FILE!"=="go.sum"     set "CODE_CHANGED=1"
+    if /i "!FILE!"=="Makefile"   set "CODE_CHANGED=1"
+    if /i "!FILE:~0,4!"=="cmd/"      set "CODE_CHANGED=1"
+    if /i "!FILE:~0,4!"=="pkg/"      set "CODE_CHANGED=1"
+    if /i "!FILE:~0,4!"=="api/"      set "CODE_CHANGED=1"
+    if /i "!FILE:~0,4!"=="sdk/"      set "CODE_CHANGED=1"
+    if /i "!FILE:~0,9!"=="internal/" set "CODE_CHANGED=1"
+)
+if "%CODE_CHANGED%"=="1" (
+    rem --- Rebuild do binario (repo bin) quando o codigo mudou ---
+    if not exist "bin" mkdir "bin"
+    echo [cosca-hook] codigo mudou - rebuild bin\cosca.exe 1>&2
+    rem Build para arquivo temporario primeiro (nao conflita com o binario em execucao)
+    go build -mod=mod -o "bin\cosca.exe.new" "cmd\cosca\main.go" >"%TEMP%\cosca-rebuild.log" 2>&1
+    if errorlevel 1 (
+        echo [cosca-hook] build FALHOU - mantendo binario anterior, sem restart 1>&2
+        del /q "bin\cosca.exe.new" >nul 2>&1
+    ) else (
+        rem cosca-check tambem (opcional): manter o sign-auto com o build novo
+        if exist "cmd\cosca-check\main.go" (
+            go build -mod=mod -o "bin\cosca-check.exe.new" "cmd\cosca-check\main.go" >>"%TEMP%\cosca-rebuild.log" 2>&1
+            if not errorlevel 1 (
+                if exist "bin\cosca-check.exe" del /q "bin\cosca-check.exe" >nul 2>&1
+                move /y "bin\cosca-check.exe.new" "bin\cosca-check.exe" >nul 2>&1
+            ) else (
+                del /q "bin\cosca-check.exe.new" >nul 2>&1
+            )
+        )
+        rem --- Restart do serve: matar o que escuta na porta 14120 (se cosca.exe) e relancar ---
+        set "SERVE_PID="
+        for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr ":14120" ^| findstr "LISTENING"') do set "SERVE_PID=%%p"
+        if defined SERVE_PID (
+            tasklist /FI "PID eq !SERVE_PID!" | findstr /I "cosca" >nul 2>&1
+            if not errorlevel 1 (
+                echo [cosca-hook] encerrando serve (PID !SERVE_PID!, porta 14120) 1>&2
+                taskkill /PID !SERVE_PID! /F >nul 2>&1
+                ping 127.0.0.1 -n 2 >nul
+            )
+        )
+        rem Troca atomica: substitui o binario do repo pelo build novo
+        move /y "bin\cosca.exe.new" "bin\cosca.exe" >nul 2>&1
+        if not errorlevel 1 (
+            echo [cosca-hook] install ok: bin\cosca.exe 1>&2
+            if not exist ".cosca" mkdir ".cosca"
+            set "COSCA_ALLOW_NO_ROOT=1"
+            start "" /b cmd /c "bin\cosca.exe serve >> .cosca\serve-update.log 2>&1"
+            echo [cosca-hook] serve relancado em background (porta 14120) 1>&2
+        ) else (
+            echo [cosca-hook] aviso: nao foi possivel trocar bin\cosca.exe.new 1>&2
+        )
+    )
+)
+
 rem --- Framework internal\embed\cosca (embeddings + ORDEM SAGRADA) ---
 set "FRAMEWORK_DIR=%REPO_ROOT%\internal\embed\cosca"
 if not exist "%FRAMEWORK_DIR%\" exit /b 0
