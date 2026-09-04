@@ -162,6 +162,11 @@ func (s *SQLiteVec) createTable() error {
 // must not fail on readonly: the schema already exists there, and the only
 // effect of tolerating it is that a genuinely missing schema (empty/invalid
 // module) surfaces later as a read error instead of here.
+// isReadOnlyErr reports whether err is a SQLITE_READONLY failure (code 8),
+// which occurs when createTable ran DDL against a read-only module partition
+// (e.g. a modular vector-*.db opened with mode=ro). Tolerating it lets the
+// PartitionStore open and READ the physical modules; it must never mask a real
+// write-path failure on the writable monolith.
 func isReadOnlyErr(err error) bool {
 	if err == nil {
 		return false
