@@ -81,19 +81,39 @@ golden gate (n=8):
 
 ---
 
-## 🎯 PRÓXIMO PASSO EXATO (ao retomar)
-1. **BASELINE REGISTRADO** ✅ (pass%=0.88, recovery=0.12, 0 críticas).
-2. **Gerar o dataset de treino** com o gerador procedural (item C): `cosca dataset generate --n 40 --eval`.
-3. **Decidir a plataforma de treino** (nuvem NVIDIA / Linux+ROCm / CPU) — o facilitador para o LoRA.
-4. **Treinar o LoRA** no `qwen3:4b` com o dataset do `datasetgen`.
-5. **Rodar a CAMPANHA before vs after** com o LoRA: chame `EvaluateGolden` ANTES (baseline = 0.88 já registrado) e DEPOIS (candidato LoRA), compare via `CheckPromotion` (PROMOTE se success>=0.88 AND criticas==0 AND tool_valid>=0.8 AND recovery>=0.2).
-6. **Implementar `GenerateFromProfessor`** (DeepSeek-V4) — após o gate funcionar.
-7. **ENDURECER o golden set** (mais casos de recovery) — dar espaço de discriminação para o LoRA provar melhoria.
+## 🎯 PRÓXIMO PASSO EXATO (ao retomar) — CAMPANHA 002
+> A campanha 001 ESTÁ FECHADA e REPROVADA (0.88 -> 0.75). O pipeline está
+> PROVADO. A campanha 002 ataca os aprendizados da 001.
+
+### ESTADO DA CAMPANHA 001 (FECHADA — não repetir)
+- ✅ Treino OK → fusão GGUF → Ollama → golden AFTER → **PromotionGate REPROVOU**
+- ✅ Veredito: 0.88 (before) → 0.75 (after), caso `py-happy-simple` regrediu
+- ✅ Rollback: `qwen3:4b` continua produção; `cosca-qwen3-4b-lora-001` = experimental (campaign-001/)
+- ✅ Invariantes PRESERVADAS (read_edit=1.00, tool_valid=1.00, 0 críticas)
+- ✅ Fix aplicado: `dataset golden` agora loga `golden gate modelo=...` (evita AFTER inválido)
+
+### CAMPANHA 002 — PLANO (do professor + aprendizados da 001)
+1. **MAIS dados** (100+, não 18): `cosca dataset generate --n 120 --eval`.
+2. **Melhor distribuição de linguagens** — o `py-happy-simple` regrediu por
+   faltar casos Python no treino. Garantir cobertura equilibrada (go/py/ts/json/yaml/md).
+3. **Foco em RECOVERY** (0.12 é o alvo): gerar mais casos de erro→recuperação.
+4. **NÃO mexer nas invariantes** (já estão em 1.00) — o treino deve focar em
+   task success + recovery, não em re-ensinar read→edit.
+5. Continuar com `qwen3:4b` como base; LoRA 002 = novo artefato separado.
+6. Rodar BEFORE (0.88) → treinar → AFTER → `CheckPromotion` (PROMOTE se
+   success>=0.88 AND criticas==0 AND tool_valid>=0.8 AND recovery>=0.2).
+
+### DECISÃO DE PLATAFORMA (ainda pendente — usar o mesmo caminho da 001)
+- ✅ Colab + unsloth FUNCIONOU (foi assim que treinamos a 001).
+- ✅ Fusão FP16 + GGUF + Ollama FUNCIONOU (caminho provado).
+- Manter Colab/NVIDIA para treinar a 002.
 
 ---
 
 ## 🧠 REFERÊNCIAS
 - Ver `internal/datasetgen/SPEC.md` para o design completo (8 regras do professor).
 - Ver `internal/datasetgen/golden.go` para o Golden Gate + PromotionGate.
-- Ver `learnings.md` → blocos "FABRICA DE DADOS + TESE DA COLMEIA", "EVOLUÇÃO DA TESE: COSCA vira TREINADOR", "GOLDEN GATE MULTICRITÉRIO".
-- Commits: `259f783a` (fábrica), `b0b9a453` (golden gate), `64ffd364` (contexto cirúrgico).
+- Ver `campaign-001/RESULTADO.md` para o veredito completo da campanha 001.
+- Ver `train/lora_qwen3_4b.py` (treino) e `train/merge_gguf.py` (fusão GGUF).
+- Ver `learnings.md` → blocos "FABRICA DE DADOS + TESE DA COLMEIA", "EVOLUÇÃO DA TESE: COSCA vira TREINADOR", "GOLDEN GATE MULTICRITÉRIO", "CAMPANHA 001" (veredito).
+- Commits: `259f783a` (fábrica), `b0b9a453` (golden gate), `40f4dd00` (treino), `b615fc99` (fusão), `2577f0ba`+`c7219d31` (veredito 001).
