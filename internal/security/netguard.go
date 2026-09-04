@@ -21,14 +21,19 @@ package security
 import (
 	"fmt"
 	"net/netip"
+	"regexp"
+	"strings"
 )
 
 // blockedPrefixes são faixas que o netip.IsPrivate/IsLoopback/IsLinkLocal/...
 // NÃO cobrem e que representam rede interna/ambiguidade (CGNAT + benchmark).
 // Banir por prefixo é o equivalente do PinchTab netguard.blockedPrefixes.
 var blockedPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("100.64.0.0/10"), // CGNAT (RFC 6598)
-	netip.MustParsePrefix("198.18.0.0/15"), // benchmark (RFC 2544)
+	netip.MustParsePrefix("100.64.0.0/10"),  // CGNAT (RFC 6598)
+	netip.MustParsePrefix("198.18.0.0/15"),  // benchmark (RFC 2544)
+	netip.MustParsePrefix("2001:db8::/32"),  // documentação (RFC 3849)
+	netip.MustParsePrefix("fec0::/10"),      // site-local (RFC 3879, deprecado)
+	netip.MustParsePrefix("64:ff9b:1::/48"), // NAT64 local-use (RFC 8215)
 }
 
 // IsPublicIP devolve true se addr é um endereço IP comprovadamente público.
@@ -101,6 +106,36 @@ func ValidatePublicIP(ip netip.Addr) error {
 			return fmt.Errorf("ssrf guard: IP %s (IPv4 embutido em transição, alvo %s) não é público — acesso à rede interna bloqueado", ip, decoded)
 		}
 		return fmt.Errorf("ssrf guard: IP %s não é público — acesso à rede interna/metadata bloqueado", ip)
+	}
+	return nil
+}
+
+// metadataHostPatterns são padrões de hostname que indicam rede interna/metadata
+// em NÍVEL DE NOME, independentemente do IP que resolvem. Bloquear pelo nome
+// (ANTES do DNS) é defesa em profundidade: um hostname como `metadata.google.internal`
+// é um indicador de intenção anterior à resolução, e não deve nem chegar ao dial.
+var metadataHostPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^localhost$`),
+	regexp.MustCompile(`(?i)\.localhost$`),
+	regexp.MustCompile(`(?i)\.local$`),
+	regexp.MustCompile(`(?i)\.internal$`),
+	regexp.MustCompile(`(?i)^host\.docker\.internal$`),
+	regexp.MustCompile(`(?i)^metadata\.google\.internal$`),
+}
+
+// CheckHostname rejeita hostnames de rede interna/metadata por NOME, antes de
+// qualquer resolução DNS. Fail-closed: um hostname que casa padrão reservado é
+// rejeitado mesmo que o IP final fosse público (evita depender do DNS para
+// defender). Devolve nil para hostnames legítimos.
+func CheckHostname(host string) error {
+	trimmed := strings.ToLower(strings.TrimSpace(host))
+	if trimmed == "" {
+		return fmt.Errorf("ssrf guard: hostname vazio")
+	}
+	for _, re := range metadataHostPatterns {
+		if re.MatchString(trimmed) {
+			return fmt.Errorf("ssrf guard: hostname %q corresponde a padrão de rede interna/metadata", host)
+		}
 	}
 	return nil
 }

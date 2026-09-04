@@ -97,8 +97,10 @@ func TestCallSelf_InspectsOrgans(t *testing.T) {
 // rede interna (host que resolve para IP privado) — fail-closed via SSRF guard.
 func TestCallWeb_SSRFBlocked(t *testing.T) {
 	eng := NewEngine(WithKernel(nil))
-	// URL que resolve para loopback (localhost) deve ser bloqueada.
-	_, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"http://localhost:3000"}`))
+	// URL que resolve para loopback (IP literal 127.0.0.1) deve ser bloqueada
+	// pela validação de IP público. (Um hostname como "localhost" é rejeitado
+	// ainda mais cedo, pela blocklist de hostname — coberto em TestCheckHostname.)
+	_, err := eng.Call(context.Background(), ToolWeb, rawArgs(t, `{"url":"http://127.0.0.1:3000"}`))
 	if err == nil {
 		t.Fatal("URL localhost deveria ser bloqueada pelo SSRF guard")
 	}

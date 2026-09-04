@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"net/netip"
 	"net/url"
 	"os"
@@ -1126,6 +1125,11 @@ func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResul
 	if u.Hostname() == "" {
 		return nil, fmt.Errorf("cosca.web: URL sem host")
 	}
+	// Bloqueia hostnames de rede interna/metadata pelo NOME (defesa em
+	// profundidade, antes do DNS). Ver ADR-041.
+	if err := security.CheckHostname(u.Hostname()); err != nil {
+		return nil, fmt.Errorf("cosca.web: %w", err)
+	}
 
 	// Resolve o host e valida contra SSRF (todas as IPs devem ser públicas).
 	ips, rerr := net.DefaultResolver.LookupIP(ctx, "ip", u.Hostname())
@@ -1142,8 +1146,8 @@ func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResul
 		}
 	}
 
-	// HTTP client com timeout.
-	client := &http.Client{Timeout: 15 * time.Second}
+	// Client com revalidação anti-SSRF hop-by-hop (redirects revalidados).
+	client := security.NewSafeClient(15*time.Second, 3)
 	resp, herr := client.Get(u.String())
 	if herr != nil {
 		return nil, fmt.Errorf("cosca.web: GET falhou: %w", herr)
@@ -1187,6 +1191,6 @@ func (e *Engine) handleWeb(ctx context.Context, raw json.RawMessage) (*CallResul
 		Relevance: 1.0,
 	}})
 	packet.Capability = ToolWeb
-	packet.Decisions = append(packet.Decisions, DecisionRef{Kind: "ssrf_guard_ok", Details: "host resolvido + IP publico validado"})
+	packet.Decisions = append(packet.Decisions, DecisionRef{Kind: "ssrf_guard_ok", Details: "hostname bloqueado + IP publico validado + redirect revalidado hop-by-hop"})
 	return resultFromToolCall(packet, ToolWeb, statusFor(len(packet.Context))), nil
 }

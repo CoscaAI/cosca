@@ -68,3 +68,48 @@ func TestValidatePublicIP_MetadataServiceBlocked(t *testing.T) {
 		t.Fatal("erro deveria ser instrutivo (não vazio)")
 	}
 }
+
+// TestIsPublicIP_ReservedIPv6Blocked valida os ranges IPv6 reservados que o
+// hardening (ADR-041) acrescenta: documentação, site-local e NAT64 local-use.
+func TestIsPublicIP_ReservedIPv6Blocked(t *testing.T) {
+	cases := []string{
+		"2001:db8::1",      // documentação (RFC 3849)
+		"fec0::1",          // site-local (deprecado)
+		"64:ff9b:1::a9fe:a9fe", // NAT64 local-use (RFC 8215)
+	}
+	for _, c := range cases {
+		if IsPublicIP(netip.MustParseAddr(c)) {
+			t.Errorf("IsPublicIP(%s) = true, esperava false (range reservado)", c)
+		}
+	}
+}
+
+// TestCheckHostname valida a blocklist de hostnames de metadata por NOME
+// (defesa em profundidade, antes do DNS). Ver ADR-041.
+func TestCheckHostname(t *testing.T) {
+	blocked := []string{
+		"localhost",
+		"node.localhost",
+		"foo.local",
+		"bar.internal",
+		"host.docker.internal",
+		"metadata.google.internal",
+	}
+	for _, h := range blocked {
+		if err := CheckHostname(h); err == nil {
+			t.Errorf("CheckHostname(%q) deveria rejeitar", h)
+		}
+	}
+	allowed := []string{
+		"example.com",
+		"www.example.com",
+		"api.github.com",
+		"8.8.8.8",
+		"sub.domain.example.org",
+	}
+	for _, h := range allowed {
+		if err := CheckHostname(h); err != nil {
+			t.Errorf("CheckHostname(%q) = %v, esperava nil", h, err)
+		}
+	}
+}

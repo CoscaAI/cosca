@@ -64,6 +64,11 @@ const (
 	DefaultMaxRedirects = 3
 	// DefaultMaxBodyBytes é o limite de corpo por artefato (10 MiB).
 	DefaultMaxBodyBytes int64 = 10 << 20
+
+	// acquisitionUA é o User-Agent IDENTIFICADOR honesto (não um browser-UA
+	// spoofed). Alguns endpoints rejeitam UA default/browser e pedem um
+	// identificador — ver ADR-042 (princípio de honestidade > spoofing).
+	acquisitionUA = "Cosca-Acquisition/1.0 (+https://github.com/CoscaAI/cosca)"
 )
 
 // AcquiredArtifact é o resultado da aquisição: metadados + fingerprint.
@@ -142,13 +147,11 @@ func (c *Client) Fetch(ctx context.Context, rawURL string) (*AcquiredArtifact, e
 	return art, err
 }
 
-// FetchAll faz o fetch endurecido e devolve o artefato E o corpo bruto numa
-// única requisição (o hash e o corpo gravado nunca divergem).
-func (c *Client) FetchAll(ctx context.Context, rawURL string) (*AcquiredArtifact, []byte, error) {
-	if err := c.validateTarget(rawURL); err != nil {
-		return nil, nil, err
-	}
-
+// httpClient devolve o http.Client endurecido de aquisição: transport com
+// re-validação anti-SSRF no DIAL (defesa em profundidade vs DNS rebinding e
+// redirects a hosts internos), timeout, teto de redirects. É o plumbing comum a
+// FetchAll e FetchConditional.
+func (c *Client) httpClient() *http.Client {
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			// Defense in depth: re-valida o IP no momento do dial — protege
@@ -167,8 +170,7 @@ func (c *Client) FetchAll(ctx context.Context, rawURL string) (*AcquiredArtifact
 			return (&net.Dialer{Timeout: c.timeout, Resolver: fallbackDNSResolver}).DialContext(ctx, network, addr)
 		},
 	}
-
-	client := &http.Client{
+	return &http.Client{
 		Timeout:   c.timeout,
 		Transport: transport,
 		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
@@ -178,11 +180,23 @@ func (c *Client) FetchAll(ctx context.Context, rawURL string) (*AcquiredArtifact
 			return nil
 		},
 	}
+}
+
+// FetchAll faz o fetch endurecido e devolve o artefato E o corpo bruto numa
+// única requisição (o hash e o corpo gravado nunca divergem).
+func (c *Client) FetchAll(ctx context.Context, rawURL string) (*AcquiredArtifact, []byte, error) {
+	if err := c.validateTarget(rawURL); err != nil {
+		return nil, nil, err
+	}
+
+	client := c.httpClient()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("acquisition: requisição inválida: %w", err)
 	}
+	// User-Agent identificador honesto (honestidade > spoofing; ADR-042).
+	req.Header.Set("User-Agent", acquisitionUA)
 	if c.GitHubToken != "" && strings.Contains(rawURL, "api.github.com") {
 		req.Header.Set("Authorization", "Bearer "+c.GitHubToken)
 		log.Debug().Str("url", rawURL).Bool("auth", true).Msg("acquisition: usando token GitHub")

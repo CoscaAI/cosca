@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/CoscaAI/cosca/internal/concurrency"
 	"github.com/rs/zerolog/log"
 )
 
@@ -108,9 +109,11 @@ type SemanticRouter struct {
 	// recalcula; as demais esperam e reutilizam o snapshot publicado.
 	refreshMu sync.Mutex
 
-	// sem limits concurrent embedding API calls to prevent overwhelming
-	// the provider when falling back to individual calls. Capacity of 5.
-	sem chan struct{}
+	// limiter aplica a política de concorrência às chamadas de embedding ao
+	// provider (fallback individual). Concorrência é propriedade do sistema —
+	// declarada via Policy, não uma constante mágica no worker (ADR-040). Teto
+	// global de 5 mantém o comportamento anterior.
+	limiter *concurrency.Limiter
 }
 
 // NewSemanticRouter creates a SemanticRouter backed by the given AgentResolver,
@@ -130,12 +133,17 @@ func NewSemanticRouter(agents AgentResolver, embedder Embedder, keyword *Router,
 		config.MaxCandidates = 5
 	}
 
+	// Concorrência declarada como propriedade do sistema (ADR-040): o limiter
+	// substitui o semáforo cru por uma política. Teto global = 5 == comportamento
+	// anterior (drop-in, zero regressão).
+	limiter, _ := concurrency.NewLimiter(concurrency.Policy{MaxGlobal: 5})
+
 	sr := &SemanticRouter{
 		agents:   agents,
 		embedder: embedder,
 		keyword:  keyword,
 		config:   config,
-		sem:      make(chan struct{}, 5),
+		limiter:  limiter,
 	}
 
 	return sr
@@ -393,13 +401,12 @@ func (sr *SemanticRouter) computeEmbeddingsIndividual(ctx context.Context, agent
 		go func(a AgentInfo, desc string) {
 			defer wg.Done()
 
-			// Acquire semaphore (blocks if 5 goroutines already active).
-			select {
-			case sr.sem <- struct{}{}:
-			case <-ctx.Done():
+			// Acquire via a política de concorrência (teto global, bairrão
+			// cancelável). Bloqueia se o teto já estiver ativo.
+			if err := sr.limiter.Acquire(ctx, "embedding"); err != nil {
 				return
 			}
-			defer func() { <-sr.sem }()
+			defer sr.limiter.Release("embedding")
 
 			result, err := sr.embedder.GenerateEmbedding(ctx, desc)
 			if err != nil {
