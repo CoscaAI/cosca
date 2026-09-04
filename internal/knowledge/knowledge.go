@@ -1537,13 +1537,31 @@ func (e *Engine) Verify() (*VerificationResult, error) {
 		vecStats, err := e.vecStore.Stats()
 		if err == nil {
 			result.Checks["vector_store_healthy"] = true
-			// Only chunk vectors participate in the chunk match: entity
-			// vectors (entity_id != '') are graph entities, not chunks, and
-			// would otherwise always produce a false mismatch (L338).
+			// PÓS-CORTE (Plano D): quando o vecStore é um PartitionStore (o
+			// leitor modular), Stats() soma os vetores das partições
+			// vector-*.db — a verdade que a busca semântica lê de fato. O
+			// monólito (knowledge.db) é drenado pós-corte, então a tabela
+			// vectors dele teria 0 (o bug histórico "0 vectors vs N chunks"):
+			// por isso, no modo modular, o count vem do leitor modular, não de
+			// SQL direto no monólito. No modo LEGADO (store base/monólito),
+			// mantemos o filtro entity_id='' para não contar vetores de
+			// entidades do grafo, que nunca devem causar falso mismatch.
+			//
+			// Nota (mismatch legítimo): num sistema modular as partições
+			// guardam vetores de MÚLTIPLAS fontes (code/docs/memory/embed...),
+			// sem correspondência 1:1 com chunks — mesmo com o cosseno funcional
+			// o "vector count mismatch" pode persistir, agora com os números
+			// REAIS em vez de 0.
 			var chunkVectors int
-			if cErr := e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&chunkVectors); cErr != nil {
-				log.Warn().Err(cErr).Msg("verify: failed to count chunk vectors")
+			if e.vectorPartitionsExist() {
+				// Modular ativo: a verdade é a soma das partições.
 				chunkVectors = vecStats.TotalVectors
+			} else {
+				// Legado (monólito, sem corte): conta só vetores de chunk.
+				if cErr := e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&chunkVectors); cErr != nil {
+					log.Warn().Err(cErr).Msg("verify: failed to count chunk vectors")
+					chunkVectors = vecStats.TotalVectors
+				}
 			}
 			if chunkVectors != chunkCount {
 				result.Issues = append(result.Issues,
@@ -2305,15 +2323,41 @@ func computeHash(content string) string {
 	return fmt.Sprintf("%x", h[:])
 }
 
-// VectorCoverageCounts devolve (chunks, vetores-chunk) — usado pelo watchdog
-// de cobertura (`cosca index rebuild --watch`) e pelo check de inicialização.
+// VectorCoverageCounts devolve (chunks, vetores) — usado pelo watchdog de
+// cobertura (`cosca index rebuild --watch`), pelo check de inicialização e
+// pelo setup. PÓS-CORTE (Plano D): quando os módulos físicos existem, o count
+// de vetores vem do LEITOR modular (e.vecStore.Stats() — PartitionStore soma
+// as partições vector-*.db), nunca da tabela vectors do monólito (drenada —
+// reportaria 0/falso "CRITICAL"). Em modo legado (sem corte) mantém a query
+// entity_id='' do monólito, para não contar vetores de entidade do grafo.
+// Chunks continuam no monólito (fonte da verdade dos documentos).
 func (e *Engine) VectorCoverageCounts() (chunks, vectors int) {
 	if e.db == nil {
 		return 0, 0
 	}
 	_ = e.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&chunks)
-	_ = e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&vectors)
+	if e.vectorPartitionsExist() {
+		if vs, err := e.vecStore.Stats(); err == nil {
+			vectors = vs.TotalVectors
+		}
+	} else {
+		_ = e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&vectors)
+	}
 	return chunks, vectors
+}
+
+// vectorPartitionsExist reporta se os módulos físicos de vetor (vector-*.db)
+// estão presentes no data dir — o corte que torna o vecStore um leitor de
+// múltiplas partições. É o discriminador entre "modular ativo" (a contagem de
+// vetores vem da soma das partições) e "legado/monólito" (vem da tabela
+// vectors do knowledge.db). Determinístico: só depende do disco, do mesmo
+// glob que o engine usa para montar o PartitionStore.
+func (e *Engine) vectorPartitionsExist() bool {
+	if e.cfg.DBPath == "" {
+		return false
+	}
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(e.cfg.DBPath), "vector-*.db"))
+	return err == nil && len(matches) > 0
 }
 
 // checkVectorCoverage mede a cobertura do índice vetorial na inicialização e
