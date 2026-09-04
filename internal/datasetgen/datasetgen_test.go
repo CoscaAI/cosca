@@ -139,7 +139,6 @@ func TestClassifyLabels(t *testing.T) {
 			// disco (simula a edição). Para casos de FALHA/prosa/false_completion,
 			// deixamos o initial_state original (que NÃO contém o needle) para
 			// que expectedReached seja falso e o classificador avalie a falha.
-			tc.ex.ExpectedState = tc.ex.ExpectedState // mantém para o classificador
 			for path, needle := range tc.ex.ExpectedState {
 				full := ws + "/" + path
 				switch tc.want {

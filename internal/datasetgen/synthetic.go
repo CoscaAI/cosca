@@ -146,53 +146,69 @@ func searchFirstSpec() TaskSpec {
 	}
 }
 
-// GenerateBatch produz N tarefas determinísticas com distribuição de focos.
-// A distribuição é construída para aproximar o peso-alvo do SPEC (mais
-// happy_path, bastante recovery).
+// GenerateBatch produz N tarefas determinísticas com DISTRIBUIÇÃO EQUILIBRADA
+// de linguagens e foco ponderado (mais recovery — o alvo da campanha 002).
+//
+// LIÇÃO DA CAMPANHA 001: a distribuição anterior não garantia que cada
+// linguagem aparecesse em cada foco. O `py-happy-simple` regrediu porque o
+// dataset de treino tinha poucos casos Python. Este gerador GARANTE cobertura
+// de todas as 6 linguagens em cada foco (round-robin determinístico).
+//
+// Distribuição de focos (peso-alvo do SPEC §5, ajustado p/ campanha 002):
+//   recovery     ~35%  <- alvo da 002 (0.12 no baseline é o gargalo)
+//   happy_path   ~30%
+//   request_info ~20%
+//   search_first ~15%
 func GenerateBatch(n int, seed int64) []TaskSpec {
-	strategies := generatorPool()
-	// Distribuição ponderada (espelha o SPEC §5).
-	//
-	// Para cada estratégia, geramos em proporção:
-	//   happy_path   ~40%
-	//   recovery     ~25%
-	//   request_info ~15%
-	//   search_first ~10%
-	//   multi_file   ~10%
-	//
-	// Como o pool tem estratégias em ordem [happy, recovery, request, search]
-	// por linguagem, usamos um índice ponderado simples.
-	weighted := make([]TaskSpec, 0, n)
+	languages := []string{"go", "python", "typescript", "json", "yaml", "markdown"}
+	// Estratégias por foco, cada uma cobrindo TODAS as linguagens (round-robin).
+	// Foco -> função que gera um spec para a linguagem dada.
+	focusGens := []struct {
+		focus Focus
+		gen   func(lang string) TaskSpec
+		weight int
+	}{
+		{FocusRecovery, recoverySpec, 35},
+		{FocusHappyPath, happyPathSpec, 30},
+		{FocusRequestInfo, requestInfoSpec, 20},
+		{FocusSearchFirst, searchCoversLangs, 15},
+	}
+
+	// Preenche a lista ponderada: para cada foco, gera `weight` exemplos
+	// distribuindo as linguagens em round-robin (todas aparecem).
+	var weighted []TaskSpec
+	for _, fg := range focusGens {
+		for j := 0; j < fg.weight; j++ {
+			lang := languages[j%len(languages)]
+			weighted = append(weighted, fg.gen(lang))
+		}
+	}
+
+	// Trunca/repete até n (ciclo determinístico dos pesos).
+	out := make([]TaskSpec, 0, n)
 	for i := 0; i < n; i++ {
-		idx := weightedPick(i, n)
-		weighted = append(weighted, strategies[idx%len(strategies)]())
+		out = append(out, weighted[i%len(weighted)])
 	}
-	return weighted
+	_ = seed // mantido p/ compatibilidade de assinatura; geração é determinística
+	return out
 }
 
-// weightedPick devolve um índice de estratégia de acordo com o peso do foco.
-// round-robin ponderado determinístico (não usa rand para nunca variar entre
-// execuções — dados de treino devem ser reproduzíveis).
-func weightedPick(i, n int) int {
-	// Janela de 10: [0-3]=happy, [4-6]=recovery, [7-8]=request, [9]=search.
-	// Isso aproxima 40/30/20/10.
-	slot := i % 10
-	switch {
-	case slot < 4:
-		return slot * 2 // happy
-	case slot < 7:
-		return slot*2 + 1 // recovery
-	case slot < 9:
-		return slot * 2 // request (índice par = request)
-	default:
-		return 7 // search (último índice)
+// searchCoversLangs faz o caso search_first cobrir também uma linguagem
+// (além do cenário multi-arquivo), para não restringir o search a uma única
+// forma. Usa a linguagem dada para compor o cenário.
+func searchCoversLangs(lang string) TaskSpec {
+	lk, ok := languageKinds[lang]
+	if !ok {
+		// fallback para cenário multi default
+		return searchFirstSpec()
 	}
-}
-
-// seedStr é usado pelo gerador do professor para variar; aqui mantido para
-// compatibilidade de assinatura.
-func seedStr(seed int64) string {
-	return fmt.Sprintf("seed-%d", seed)
+	return TaskSpec{
+		Task:          fmt.Sprintf("Refactor: find all %s files defining the restart symbol, then update each to add a version field. Inspect before editing.", lk.ext),
+		InitialState:  map[string]string{"main" + lk.ext: lk.base(), "pkg/other" + lk.ext: lk.base()},
+		ExpectedState: map[string]string{},
+		Language:      lang,
+		Focus:         FocusSearchFirst,
+	}
 }
 
 // SummarizeBatch descreve as labels/idiomas de um lote (para relatório).
