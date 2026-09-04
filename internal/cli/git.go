@@ -106,7 +106,7 @@ func newGitLogCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().IntVar(&n, "n", 10, "número de commits")
+	cmd.Flags().IntVarP(&n, "count", "n", 10, "número de commits")
 	return cmd
 }
 
