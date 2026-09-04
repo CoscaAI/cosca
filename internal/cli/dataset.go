@@ -135,6 +135,7 @@ func newDatasetConvertCommand() *cobra.Command {
 // do LoRA.
 func newDatasetGoldenCommand() *cobra.Command {
 	var model string
+	goldenPath := datasetgen.DefaultGoldenSetPathV2()
 
 	cmd := &cobra.Command{
 		Use:   "golden",
@@ -148,8 +149,9 @@ func newDatasetGoldenCommand() *cobra.Command {
 			// Loga qual modelo esta' sendo usado para a campanha - evita rodar
 			// o AFTER com o modelo errado (o "0.88 == 0.88" do base).
 			formatter.Printf("golden gate modelo=%s\n", cfg.Model)
+			formatter.Printf("golden set=%s\n", goldenPath)
 
-			gs, err := datasetgen.LoadGoldenSet(datasetgen.DefaultGoldenSetPath())
+			gs, err := datasetgen.LoadGoldenSet(goldenPath)
 			if err != nil {
 				return fmt.Errorf("dataset golden: %w", err)
 			}
@@ -180,5 +182,6 @@ func newDatasetGoldenCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&model, "model", "qwen3:4b", "modelo aluno (executa o golden)")
+	cmd.Flags().StringVar(&goldenPath, "golden", datasetgen.DefaultGoldenSetPathV2(), "arquivo do golden set (default: golden_v2.json, contrato calibrado)")
 	return cmd
 }

@@ -32,6 +32,16 @@ import (
 //     condições idênticas (mesmas tools, mesmo prompt, mesmo runtime).
 
 // GoldenCase é uma tarefa do golden set com resultado esperado conhecido.
+//
+// GOLDEN v2 (correção de contrato — descoberta epistemológica 2026-09-04):
+// o antigo ExpectedState usava substring LITERAL (strings.Contains), o que
+// produzia FALSOS NEGATIVOS: o modelo podia fazer uma edição semanticamente
+// válida ("add proper state handling" → `state = "restarted"`) mas era
+// reprovado por não conter a string exata ("return True").
+//
+// O NOVO contrato verifica a INTENÇÃO da tarefa, aceitando MÚLTIPLAS
+// implementações válidas. Um caso passa se o estado final satisfaz uma das
+// formas aceitas (StateOptions), avaliadas semanticamente.
 type GoldenCase struct {
 	// ID identifica a tarefa de forma estável (o mesmo ID NUNCA muda de
 	// significado entre campanhas).
@@ -40,9 +50,17 @@ type GoldenCase struct {
 	Task string `json:"task"`
 	// InitialState é o estado inicial do workspace (path → conteúdo).
 	InitialState map[string]string `json:"initial_state"`
-	// ExpectedState é o estado esperado após a execução (path → substring que
-	// DEVE estar presente). Vazio → só exige trabalho agêntico.
+	// ExpectedState é o estado esperado tradicional (path → substring).
+	// MANTIDO para retrocompatibilidade e como referência do resultado ideal.
+	// Um caso passa se ExpectedState OU qualquer StateOptions for satisfeito.
+	// Vazio → só exige trabalho agêntico.
 	ExpectedState map[string]string `json:"expected_state"`
+	// StateOptions permite especificar MÚLTIPLAS formas semanticamente válidas
+	// do estado final. Cada entrada: path → lista de fragmentos aceitáveis
+	// (o caso passa se QUALQUER um deles estiver presente). Isso resolve o
+	// falso negativo do contrato v1 (string literal).
+	// Ex: { "main.py": ["state = 'restarted'", "return True", "# added state handling"] }
+	StateOptions map[string][]string `json:"state_options,omitempty"`
 	// Language é a linguagem/idioma do artefato.
 	Language string `json:"language"`
 	// Focus é a categoria de comportamento coberta.
@@ -132,6 +150,15 @@ func DefaultGoldenSetPath() string {
 	return filepath.Join(pkgDir, "golden", "golden.json")
 }
 
+// DefaultGoldenSetPathV2 retorna o caminho do GOLDEN v2 (contrato calibrado)
+// — a régua CORRETA para campanhas. O v1 (golden.json) permanece como
+// histórico (descoberta de falha de contrato 2026-09-04).
+func DefaultGoldenSetPathV2() string {
+	_, thisFile, _, _ := runtime.Caller(0)
+	pkgDir := filepath.Dir(thisFile)
+	return filepath.Join(pkgDir, "golden", "golden_v2.json")
+}
+
 // LoadGoldenSet carrega o golden set CONGELADO do disco.
 func LoadGoldenSet(path string) (*GoldenSet, error) {
 	data, err := os.ReadFile(path)
@@ -185,6 +212,7 @@ func (c GoldenCase) toTaskSpec() TaskSpec {
 		Task:          c.Task,
 		InitialState:  c.InitialState,
 		ExpectedState: c.ExpectedState,
+		StateOptions:  c.StateOptions,
 		Language:      c.Language,
 		Focus:         c.Focus,
 	}

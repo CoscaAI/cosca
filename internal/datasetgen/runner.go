@@ -37,6 +37,11 @@ type GeneratorConfig struct {
 	// timeout. Para o datasetgen (tarefas curtas), um valor menor é o ideal.
 	// Default: 8192.
 	NumCtx int
+	// Temperature controla a temperatura de amostragem. Para AVALIAÇÃO
+	// (golden), SEMPRE 0 (determinístico) — descoberta 2026-09-04: sem seed
+	// fixa, o mesmo modelo oscila (0.88 vs 0.75), impossibilitando medir
+	// regressão. Para GERAÇÃO de dados (variedade), pode ser >0.
+	Temperature float64
 	// WorkDir é o diretório base para os workspaces temporários isolados.
 	WorkDir string
 }
@@ -44,11 +49,12 @@ type GeneratorConfig struct {
 // DefaultGeneratorConfig retorna a config padrão (modelo qwen3:4b).
 func DefaultGeneratorConfig() GeneratorConfig {
 	return GeneratorConfig{
-		Model:     "qwen3:4b",
-		MaxRounds: 8,
-		Timeout:   180 * time.Second,
-		NumCtx:    8192,
-		WorkDir:   filepath.Join(os.TempDir(), "cosca-datasetgen"),
+		Model:       "qwen3:4b",
+		MaxRounds:   8,
+		Timeout:     180 * time.Second,
+		NumCtx:      8192,
+		Temperature: 0, // determinístico (avaliação confiável)
+		WorkDir:     filepath.Join(os.TempDir(), "cosca-datasetgen"),
 	}
 }
 
@@ -80,6 +86,7 @@ func (r *Runner) GenerateExample(ctx context.Context, spec TaskSpec) (*Example, 
 		Task:          spec.Task,
 		InitialState:  spec.InitialState,
 		ExpectedState: spec.ExpectedState,
+		StateOptions:  spec.StateOptions,
 		Language:      spec.Language,
 		Focus:         spec.Focus,
 		AgentModel:    r.cfg.Model,
@@ -98,6 +105,15 @@ func (r *Runner) GenerateExample(ctx context.Context, spec TaskSpec) (*Example, 
 		opts.Tools = tools
 	}
 	opts.NumCtx = r.cfg.NumCtx // janela configurável (menor = mais rápido p/ 4B local)
+	// DETERMINISMO (descoberta 2026-09-04): sem seed fixa, o golden dará
+	// resultados DIFERENTES entre execuções (0.88 vs 0.75 para o MESMO
+	// modelo) — impossível medir regressão de forma confiável. temperature=0
+	// torna a medição REPRODUTÍVEL. Para campanha/avaliação, SEMPRE 0.
+	if r.cfg.Temperature == 0 {
+		opts.Temperature = 0
+	} else {
+		opts.Temperature = r.cfg.Temperature
+	}
 
 	// Timeout total por exemplo (não só por passo): garante que um exemplo
 	// travado não pendure o lote inteiro.
@@ -269,10 +285,45 @@ func (r *Runner) classify(ctx context.Context, ws string, ex *Example) Label {
 }
 
 func (r *Runner) expectedReached(ws string, ex *Example) bool {
-	if len(ex.ExpectedState) == 0 {
+	// Se não há estado esperado explícito, basta ter feito trabalho agêntico.
+	if len(ex.ExpectedState) == 0 && len(ex.StateOptions) == 0 {
 		return ex.anyToolCall()
 	}
+
+	// GOLDEN v2: verifica INTENÇÃO, não substring literal.
+	// Um caso passa se cada path exigido tem pelo menos UMA forma aceita
+	// (StateOptions) OU o fragmento tradicional (ExpectedState).
+	for path, options := range ex.StateOptions {
+		data, err := os.ReadFile(filepath.Join(ws, path))
+		if err != nil {
+			return false
+		}
+		content := string(data)
+		// Aceita se QUALQUER uma das formas válidas estiver presente.
+		matched := false
+		for _, opt := range options {
+			if opt != "" && strings.Contains(content, opt) {
+				matched = true
+				break
+			}
+		}
+		// Fallback: ExpectedState (se definido para o mesmo path).
+		if !matched {
+			if needle := ex.ExpectedState[path]; needle != "" && strings.Contains(content, needle) {
+				matched = true
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	// Para paths definidos apenas em ExpectedState (sem StateOptions), usa a
+	// lógica tradicional (substring) — mantido para os casos não migrados.
 	for path, needle := range ex.ExpectedState {
+		if _, hasOpts := ex.StateOptions[path]; hasOpts {
+			continue // já avaliado acima
+		}
 		data, err := os.ReadFile(filepath.Join(ws, path))
 		if err != nil {
 			return false

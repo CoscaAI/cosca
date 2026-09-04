@@ -237,3 +237,55 @@ func TestToSFTFormatRejectsContrast(t *testing.T) {
 		t.Fatal("contraste NÃO deveria converter (SFT usa só demonstrações)")
 	}
 }
+
+// TestGoldenV2AcceptsSemanticVariants valida a CORREÇÃO do contrato (Golden v2).
+// O v1 reprovava uma edição semanticamente válida por exigir substring literal
+// ("return True"). O v2 aceita MÚLTIPLAS formas válidas via StateOptions.
+func TestGoldenV2AcceptsSemanticVariants(t *testing.T) {
+	cfg := DefaultGeneratorConfig()
+	r := NewRunner(cfg)
+
+	// Caso: py-happy-simple. O modelo fez "state = 'restarted'" (semanticamente
+	// válido para "add proper state handling"), mas o v1 exigia "return True".
+	// O v2 aceita qualquer uma das formas em StateOptions.
+	ex := &Example{
+		Task: "Add proper restart state handling to main.py.",
+		Focus: FocusHappyPath, Language: "python",
+		ExpectedState: map[string]string{"main.py": "return True"},
+		StateOptions: map[string][]string{
+			"main.py": {"state = 'restarted'", "return True", "# added state handling"},
+		},
+		Trajectory: []TrajectoryStep{
+			{Role: "user", Content: "Add proper restart state handling to main.py."},
+			{Role: "assistant", ToolCalls: []ToolCallJSON{{Name: "read_file", Arguments: []byte(`{"path":"main.py"}`)}}},
+			{Role: "tool", Content: "def restart():\n    # old\n    pass\n"},
+			{Role: "assistant", ToolCalls: []ToolCallJSON{{Name: "edit_file", Arguments: []byte(`{"path":"main.py","old_string":"pass","new_string":"state = 'restarted'"}`)}}},
+			{Role: "tool", Content: "file edited successfully"},
+			{Role: "assistant", Content: "Done."},
+		},
+		ToolNames: []string{"read_file", "edit_file"},
+	}
+
+	// Grava o workspace com o resultado da edição (state = 'restarted').
+	ws, err := r.newWorkspace(TaskSpec{InitialState: map[string]string{"main.py": "def restart():\n    state = 'restarted'\n"}})
+	if err != nil {
+		t.Fatalf("workspace: %v", err)
+	}
+	defer os.RemoveAll(ws)
+
+	// expectedReached deve retornar TRUE (aceita a variante válida).
+	if !r.expectedReached(ws, ex) {
+		t.Fatalf("Golden v2 deveria ACEITAR a variante 'state = restarted' (semanticamente valida)")
+	}
+	t.Logf("Golden v2 OK: aceita variante semantica que o v1 reprovava")
+}
+
+func TestGoldenV2JSONValid(t *testing.T) {
+	gs, err := LoadGoldenSet(DefaultGoldenSetPathV2())
+	if err != nil { t.Fatalf("LoadGoldenSet v2 falhou: %v", err) }
+	if len(gs.Cases) != 8 { t.Fatalf("esperado 8 cases, got %d", len(gs.Cases)) }
+	withOpts := 0
+	for _, c := range gs.Cases { if len(c.StateOptions) > 0 { withOpts++ } }
+	t.Logf("golden v2 carregado: %d cases, %d com state_options", len(gs.Cases), withOpts)
+	if withOpts == 0 { t.Fatalf("golden v2 deveria ter state_options (contrato calibrado)") }
+}

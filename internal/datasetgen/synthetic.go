@@ -18,6 +18,7 @@ type TaskSpec struct {
 	Task          string            // instrução ao agente
 	InitialState  map[string]string // path → conteúdo (estado inicial do workspace)
 	ExpectedState map[string]string // path → substring esperada (verificação)
+	StateOptions  map[string][]string // path → lista de formas válidas (Golden v2)
 	Language      string            // linguagem do artefato
 	Focus         Focus             // categoria de comportamento
 }

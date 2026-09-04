@@ -88,6 +88,11 @@ type Example struct {
 	InitialState map[string]string `json:"initial_state"`
 	// ExpectedState descreve o resultado esperado (path → substring/condição).
 	ExpectedState map[string]string `json:"expected_state"`
+	// StateOptions permite múltiplas formas semanticamente válidas do estado
+	// final (Golden v2). path → lista de fragmentos; o caso passa se QUALQUER
+	// um estiver presente. Corrige o falso negativo do contrato v1 (substring
+	// literal rejeitava edições válidas). Ver FALHA DE CONTRATO 2026-09-04.
+	StateOptions map[string][]string `json:"state_options,omitempty"`
 	// Language é a linguagem do artefato (go|python|ts|json|yaml|markdown...).
 	Language string `json:"language"`
 	// Focus é a categoria de comportamento exercitada.
