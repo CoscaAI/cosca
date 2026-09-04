@@ -12,6 +12,15 @@
 //	func FromConfig(cfg map[string]any) Ruleset   // config -> ruleset
 //	func Disabled / VisibleTools                  // hide denied tools from the LLM
 //
+// Attribution (provenance of a decision, ADAPTER-1 mined from openwork's
+// effective-permissions): Evaluate decides an action but discards WHERE the
+// winning rule came from. EvaluateAttributed / Summarize extend the same
+// deterministic, zero-LLM resolution to return, alongside the verdict, the
+// layer that authored the winning rule (the last layer in merge order that
+// defined the match — most-specific-wins + merge-order). Layers are an
+// arbitrary, caller-supplied name (e.g. global, workspace, agent, engine);
+// the engine-fail-safe "ask" default is attributed to LayerDefault.
+//
 // `Action` is one of allow / ask / deny. `deny` never lets the action through.
 // `ask` produces a pending approval (in this codebase, with no confirmation UI
 // yet, it is treated as a fail-closed deny with a clear log). `allow` executes.
@@ -155,25 +164,19 @@ func ruleSpecificity(r Rule) int {
 // the MOST SPECIFIC rule wins; ties are broken by the later rule (so rules
 // merged last — agent/project — override equally-specific earlier rules). When
 // no rule matches, it returns default rule {ask} (fail-safe).
+//
+// Evaluate returns only the winning rule. When you also need to know WHICH
+// layer authored it, use EvaluateAttributed (preferred for provenance); the two
+// functions resolve identically and attribute the same rule.
 func Evaluate(permission, pattern string, rulesets ...Ruleset) Rule {
-	resolved := defaultRule(permission)
-	bestScore := math.MinInt
-	bestPos := -1
-	pos := 0
-	for _, rs := range rulesets {
-		for _, r := range rs {
-			if matchWildcard(r.Permission, permission) && matchWildcard(r.Pattern, pattern) {
-				score := ruleSpecificity(r)
-				if score > bestScore || (score == bestScore && pos > bestPos) {
-					resolved = r
-					bestScore = score
-					bestPos = pos
-				}
-			}
-			pos++
-		}
+	if len(rulesets) == 0 {
+		return defaultRule(permission)
 	}
-	return resolved
+	layered := make([]NamedRuleset, len(rulesets))
+	for i, rs := range rulesets {
+		layered[i] = NamedRuleset{Rules: rs}
+	}
+	return EvaluateAttributed(permission, pattern, layered...).Rule
 }
 
 // defaultRule is the fail-safe rule returned when nothing matches. It carries
@@ -191,6 +194,195 @@ func Merge(rulesets ...Ruleset) Ruleset {
 	var out Ruleset
 	for _, rs := range rulesets {
 		out = append(out, rs...)
+	}
+	return out
+}
+
+// ─── Attribution (provenance of a decision, ADAPTER-1) ────────────────────────
+
+// Layer names the provenance layer that authored a permission rule. It is used
+// to attribute an evaluation verdict to the layer that wrote the winning rule
+// (the source/provenance of the decision). A layer is an arbitrary, caller-
+// supplied string; the zero value is the engine default. The constants below
+// cover the idiomatic layers (mirroring openwork's engine|global|openwork|
+// workspace sources and the codebase's global → agent → project precedence).
+type Layer string
+
+const (
+	// LayerDefault is the engine layer: the fail-safe "ask" verdict used when no
+	// configured rule matches. Any Verdict whose Layer is LayerDefault means the
+	// decision was NOT authored by a configured policy layer.
+	LayerDefault Layer = "default"
+	// LayerEngine is an engine-authored policy layer.
+	LayerEngine Layer = "engine"
+	// LayerGlobal is the global/user-wide policy layer (e.g. ~/.config/cosca).
+	LayerGlobal Layer = "global"
+	// LayerAgent is the agent-scoped policy layer (higher precedence than global
+	// for equal-specificity ties).
+	LayerAgent Layer = "agent"
+	// LayerWorkspace is the workspace/project policy layer (highest precedence
+	// among configured layers for equal-specificity ties).
+	LayerWorkspace Layer = "workspace"
+	// LayerOpenwork is the engine-level authored policy, mirroring the
+	// `openwork` source in openwork's effective-permissions engine.
+	LayerOpenwork Layer = "openwork"
+)
+
+// NamedRuleset couples a Ruleset with the layer that authored it. Passing a
+// slice of NamedRuleset in precedence order (low → high) mirrors the engine's
+// merge order: later layers win equal-specificity ties, exactly like passing
+// rulesets to Merge in the same order.
+type NamedRuleset struct {
+	Layer Layer
+	Rules Ruleset
+}
+
+// Verdict is the attributed outcome of a layered permission evaluation: the
+// winning rule AND the layer that authored it (provenance of the decision).
+type Verdict struct {
+	Rule  Rule
+	Layer Layer
+}
+
+// Action returns the verdict's action (allow/ask/deny).
+func (v Verdict) Action() Action { return v.Rule.Action }
+
+// String returns a human-readable representation of the attributed verdict
+// (e.g. "edit:*.go allow @workspace").
+func (v Verdict) String() string {
+	layer := string(v.Layer)
+	if layer == "" {
+		layer = string(LayerDefault)
+	}
+	return fmt.Sprintf("%s @%s", v.Rule.String(), layer)
+}
+
+// EvaluateAttributed resolves the action for a given (permission, pattern)
+// across the provided LAYERED rulesets and returns the winning rule together
+// with the layer that authored it. Resolution is identical to Evaluate: among
+// all rules whose Permission AND Pattern both match, the MOST SPECIFIC wins;
+// equal-specificity ties break to the LATER rule (and thus the later layer in
+// the pass order). When no rule matches, it returns the fail-safe default
+// {ask} attributed to LayerDefault.
+//
+// This is deterministic and zero-LLM: the verdict and its provenance are a pure
+// function of the rules and their layer order.
+func EvaluateAttributed(permission, pattern string, layered ...NamedRuleset) Verdict {
+	resolved := defaultRule(permission)
+	bestScore := math.MinInt
+	bestPos := -1
+	bestLayer := LayerDefault
+	pos := 0
+	for _, ln := range layered {
+		layer := ln.Layer
+		if layer == "" {
+			layer = LayerDefault
+		}
+		for _, r := range ln.Rules {
+			if matchWildcard(r.Permission, permission) && matchWildcard(r.Pattern, pattern) {
+				score := ruleSpecificity(r)
+				if score > bestScore || (score == bestScore && pos > bestPos) {
+					resolved = r
+					bestScore = score
+					bestPos = pos
+					bestLayer = layer
+				}
+			}
+			pos++
+		}
+	}
+	return Verdict{Rule: resolved, Layer: bestLayer}
+}
+
+// ─── Per-key attribution summary ───────────────────────────────────────────────
+
+// ActionKey is a category of gated action (a permission namespace) that can be
+// summarized for attribution. Each key corresponds to a set of tool permissions
+// (see ToolPermission) or a named engine category (e.g. doom_loop). Keys are
+// evaluated against their default wildcard pattern "*" ("any target").
+type ActionKey string
+
+// Common action keys. These mirror the effective-permissions categories mined
+// from openwork (shell, edit, web, mcp, outside_folders, env_files, doom_loop),
+// augmented with the read/write namespaces the COSCA ToolPermission maps to.
+const (
+	KeyShell          ActionKey = "shell"
+	KeyEdit           ActionKey = "edit"
+	KeyWrite          ActionKey = "write"
+	KeyRead           ActionKey = "read"
+	KeyWeb            ActionKey = "web"
+	KeyMCP            ActionKey = "mcp"
+	KeyOutsideFolders ActionKey = "outside_folders"
+	KeyEnvFiles       ActionKey = "env_files"
+	KeyDoomLoop       ActionKey = "doom_loop"
+)
+
+// DefaultActionKeys is the standard set of action keys summarized by Summarize
+// when no explicit key set is provided.
+var DefaultActionKeys = []ActionKey{
+	KeyShell, KeyEdit, KeyWrite, KeyRead, KeyWeb, KeyMCP,
+	KeyOutsideFolders, KeyEnvFiles, KeyDoomLoop,
+}
+
+// Exception is a scoped rule that refines an action key beyond its wildcard
+// verdict (e.g. an allow for "*.go" while the edit key resolves to deny). It
+// records the rule and the layer that authored it so deviations from the key's
+// default are attributable.
+type Exception struct {
+	Rule  Rule
+	Layer Layer
+}
+
+// KeySummary is the attributed result for one action key: the winning verdict
+// (rule + layer) and any scoped exceptions that change the verdict for specific
+// targets.
+type KeySummary struct {
+	Key        ActionKey
+	Verdict    Verdict
+	Exceptions []Exception
+}
+
+// Summarize computes the attributed verdict for each action key across the
+// given layered rulesets, returning one KeySummary per key in the order of
+// keys. For each key the summary exposes the winning rule (most-specific +
+// merge-order) and the layer that authored it, plus the scoped rules
+// (pattern != "*") that act as exceptions to the key's wildcard verdict.
+//
+// The "any target" wildcard is used to drive each key's verdict (matching how a
+// tool is gated on its general permission). Keys with no configured rule report
+// the fail-safe default {ask} at LayerDefault. If keys is empty, the default
+// key set is used. Deterministic and zero-LLM.
+func Summarize(keys []ActionKey, layered ...NamedRuleset) []KeySummary {
+	if len(keys) == 0 {
+		keys = DefaultActionKeys
+	}
+	out := make([]KeySummary, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, KeySummary{
+			Key:        k,
+			Verdict:    EvaluateAttributed(string(k), "*", layered...),
+			Exceptions: exceptionsFor(string(k), layered),
+		})
+	}
+	return out
+}
+
+// exceptionsFor collects the scoped rules (pattern != "*") for a permission
+// across all layered rulesets, attributed to their layer in deterministic
+// (layer order, then rule order). These are the rules that refine a key beyond
+// its wildcard verdict.
+func exceptionsFor(perm string, layered []NamedRuleset) []Exception {
+	var out []Exception
+	for _, ln := range layered {
+		layer := ln.Layer
+		if layer == "" {
+			layer = LayerDefault
+		}
+		for _, r := range ln.Rules {
+			if r.Pattern != "*" && matchWildcard(r.Permission, perm) {
+				out = append(out, Exception{Rule: r, Layer: layer})
+			}
+		}
 	}
 	return out
 }
