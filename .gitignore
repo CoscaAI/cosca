@@ -169,7 +169,19 @@ tmp/
 /laboratory/models/
 /logs/
 
-# ---- Laboratory: artefatos de experimento (config/model/data � nao versionar) ----
+# ---- Laboratory: artefatos de experimento (config/model/data � nao versionar) ----
 /laboratory/data/
 /laboratory/campaign-001/*.json
 /laboratory/campaign-001/*.jinja
+
+# ---- Cosca runtime: ignorar DERIVADOS/TRANSIENTES; versionar a memória REAL (Don 2026-09-04) ----
+# Recibos do "Operational Rest Cycle" (ORC) — gerados a cada ~30s (6.8k acumulados). São log, não memória.
+.cosca/memory/audit/rest-cycle-*.md
+# Traçados operacionais por conversa/workspace (per-session/per-workspace) — crescem sem limite, não são conhecimento da família.
+.cosca/memory/session/
+.cosca/memory/workspace/
+# DBs de runtime derivados/regeneráveis (a fonte real é .cosca/memory/agent/**, versionada) e logs.
+.cosca/memory/index.db
+.cosca/semantic.db
+.cosca/tasks.db
+.cosca/serve-update.log

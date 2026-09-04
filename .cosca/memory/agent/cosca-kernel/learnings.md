@@ -1519,3 +1519,247 @@
 | **Related** | internal/chat/tools/filesystem/filesystem.go (pathTracker + evidence gate), internal/chat/{types,ports}.go + provider/{adapter,ollama}.go (num_ctx), internal/orchestration/executor.go (parser + rota), internal/cli/agent.go (prompt operacional), commits 3308d2c2/49b5c7b2/e81837d8/fe91f06f |
 | **Learned** | 1) A CADEIA do "pedreiro nao constroi" era MULTICAMADA, nao um unico bug: (a) routing (IntentType de acao nao reconhecia textos reais dos workflows -> "Implement backend changes" retornava TaskType='' -> deterministicResponse interceptava ANTES do LLM); (b) contexto (Ollama rodava num_ctx=4096, truncava prompts grandes -> modelo perdia a secao de tools); (c) parser (extractJSONBlocks descartava tool-call JSON embutido em fence com linguagem ```shell); (d) disciplina (modelo emitia edit_file com old_string placeholder inventado). 2) CORRECOES APLICADAS: (a) DetectTaskType normaliza lowercase + keywords implement/merge + prioridade audit; (b) ChatOptions.NumCtx=131072 (128K) -> options.num_ctx; (c) parser pula a linha de linguagem do fence; (d) INVARIANTE DE EVIDENCIA no edit_file: so' executa se (1) arquivo foi lido nesta execucao (snapshot registrado no pathTracker estendido) e (2) old_string e' substring LITERAL do snapshot. Nao inventa old_string, nao regra. O modelo pode errar; o runtime nao deixa o erro virar mutacao arbitraria. 3) 6 TESTES UNITARIOS da invariante passaram: sem read -> EDIT_REQUIRES_READ; read + old_string inexistente -> EDIT_STALE_OR_UNVERIFIED; read + valido -> ALLOW; arquivo alterado apos read -> REJECT; erro estruturado volta ao modelo; modelo consegue read->edit apos erro. 4) E2E LOOP REAL: com a invariante + prompt operacional, o modelo AGORA comeca com read_file (nao mais edit_file com placeholder) - disciplina melhorou. Mas no run COMPLETO do bug-fix (contexto do plano inteiro), o modelo ainda oscila (prosa no Fix Implementation). 5) CONCLUSAO: a infraestrutura esta SAUDAVEL e protegida; o que resta e' a VARIACAO DO MODELO no contexto completo do plano (ora le/tenta, ora descreve). ISSO APONTA para a 2a frente do professor: PLANNING (contexto rico) vs EXECUTION (contexto cirurgico). No contexto minimo o modelo executa tools consistentemente; no contexto completo oscila. A poda de contexto de execucao deve estabilizar. |
 | **Next** | (1) IMPLEMENTAR PLANNING vs EXECUTION: no executor, para tasks de ACAO, NAO injetar knowledge_context/memory_context/historico/instrucoes genericas - montar prompt cirurgico (task + tools + evidencia relevante). O PLANNING mantem contexto rico. (2) Rodar bug-fix apos a poda - se o modelo criar codigo real (write_file/edit_file) e passar DoD, diagnostico FECHADO. (3) Se ainda oscilar, considerar modelo emissor de tool-call mais estavel. (4) Commit do aprendizado desta etapa. |
+
+## 2026-09-03 - ESTADO DA FAMILIA (fechamento deste ciclo): pedreiro + proximo passo = DISTILLATION
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Fechar o ciclo de investigacao do "pedreiro nao constroi" + definir o proximo passo: treinar (distillation) um modelo pequeno usando o DeepSeek V4 Flash Vision EXP como professor. |
+| **Level** | 5 |
+| **Outcome** | COSCA 100% saudavel e protegido (rota, num_ctx 128K, parser, invariante de evidencia, loop real). O gargalo restante e a CONSISTENCIA do modelo local em emitir tool-call. DECISAO: distillation (DeepSeek V4 gera dataset -> LoRA num 8B). |
+| **Confianca** | 0.97 (all builds/tests pass, chain valid, diagnosticos em camadas fechados) |
+| **Tags** | #session-close #pedreiro #distillation #deepseek-v4 #next-session #tool-call #estado-da-familia |
+| **Related** | commits 3308d2c2/49b5c7b2/e81837d8/fe91f06f/e9247d8f/64ffd364, internal/chat/tools/filesystem/filesystem.go (evidence gate), internal/orchestration/executor.go (poda de contexto) |
+| **Learned** | 1) ESTADO FINAL DO "PEDREIRO": a infraestrutura do COSCA esta SAUDAVEL e PROTEGIDA. Todos os gates funcionam: rota (IntentType acao), num_ctx 128K (janela), parser (tool-call embutido/structured), invariante de evidencia do edit_file (so' executa com old_string observado no snapshot do read_file), loop real (modelo->parser->executor->tool->erro->feedback->recuperacao). 2) O GARGALO RESIDUAL e' a CONSISTENCIA do MODELO LOCAL (`qwen2.5-coder` 8B) em emitir tool-call: em contexto cirurgico ele faz read->edit; no contexto completo do plano ele oscila (prosa/vazio). O DeepCoder 1.5B (bancada de teste) ficou ABAIXO do piso de tool-call (prosa pura). 3) DECISAO PARA O PROXIMO CICLO: TREINAR (distillation) um modelo pequeno -- usar o DeepSeek V4 Flash Vision EXP (professor, forte) para gerar um dataset de tool-calling de ALTA qualidade, e fazer LoRA num 8B (aluno). O modelo pequeno NAO precisa "inventar" como usar tools; so' precisa REPLICAR o padrao que o DeepSeek-V4 demonstra. O COSCA fornece todo o resto (runtime, invariante, memoria, DoD). 4) EVIDENCIA DE QUE FUNCIONA: o qwen2.5-coder 8B JÁ tem a capacidade de tool-call (faz read/edit no contexto cirurgico) - so' falta CONSISTENCIA, que o LoRA consolidaria. 5) ESPACO/INFRA: 51 GB livres no disco (removeu qwen3-coder:30b de 17GB). Ollama tem qwen2.5-coder (8B), qwen3:8b, nomic-embed-text (embeddings), bge-m3, deepcoder:1.5b (teste). |
+
+### RESUMO DOS COMMITS DESTE CICLO
+- 7a0dd60a: baseline cross-platform + BUG-0001 (verify harness Windows)
+- d1c96cd2: rota de intencao (tasks de acao bypassam deterministicResponse)
+- 3308d2c2: num_ctx (janela 128K) no contrato COSCA->Ollama
+- 49b5c7b2: invariante de evidencia do edit_file (EVIDENCE GATE)
+- e81837d8: parser captura tool-call JSON embutido em fence com linguagem
+- fe91f06f: prompt operacional (precondicao edit_file + regra de recuperacao)
+- e9247d8f: registra solucao em 4 camadas + invariante
+- 64ffd364: contexto cirurgico p/ tasks de acao (PLANNING x EXECUTION)
+
+## 2026-09-03 - FABRICA DE DADOS (datasetgen) + TESE DA COLMEIA (checkpoint de continuidade)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Construir a "fabrica de dados de treinamento" do COSCA (gerador procedural dirigido pelo runtime + classificador de 6 classes) e registrar a TESE DA COLMEIA (modelos pequenos especializados coordenados pelo runtime). |
+| **Level** | 5 |
+| **Outcome** | Pacote `internal/datasetgen/` criado e compilando, com 6 testes passando (distribuicao + classificador). Piloto E2E rodou com qwen3:4b e produziu exemplos SUCCESS/RECOVERY_SUCCESS/FAILURE reais. A fabrica esta funcionando. |
+| **Confianca** | 0.90 (build/vet ok, 6 testes unit passando; E2E com timeouts no Ollama por janela grande) |
+| **Tags** | #datasetgen #fabrica-dados #colmeia #tese-arquitetonica #checkpoint #distillation |
+| **Related** | internal/datasetgen/{SPEC,types,synthetic,runner}.go, internal/datasetgen/datasetgen_test.go, internal/chat/tools/filesystem (evidence gate) |
+| **Learned** | 1) FABRICA DE DADOS: o pacote `internal/datasetgen` transforma o COSCA em uma fabrica de dados de treinamento. Gera tarefas procedurais (6 linguagens, 4 focos: happy_path/recovery/request_info/search_first), executa o loop de tool-call com o executor canonico (sandbox + policy + EVIDENCE GATE), captura a trajetoria completa e classifica em 6 labels (SUCCESS/RECOVERY_SUCCESS/FAILURE/UNSAFE_ACTION/PROSE_INSTEAD_OF_ACTION/FALSE_COMPLETION). Os testes unitarios do classificador passaram (validando as 5 labels testadas). 2) PADRAO DA FABRICA = CELULA DA COLMEIA: cada modelo especializado segue o mesmo padrao (base com modalidade -> dataset dos fracassos reais -> LoRA -> avaliar antes/depois). O datasetgen (codigo) e a PRIMEIRA celula; visao/audio/TTS seguem o mesmo caminho com base e dataset diferentes. 3) TESE DA COLMEIA (professor, arquitetural): nao precisa de um modelo gigante que saiba tudo. Ecossistema de modelos pequenos especializados, cada um otimo em UM comportamento, com o COSCA Runtime como sistema nervoso que os conecta (tools + memory + evidence). O router de intencao (detectTaskType/IsActionIntent) decide QUEM trata cada task. Nao se treina "qualquer coisa" num modelo: especializa-se um base que JA domina a modalidade (visao->VLM base, audio->base de audio, codigo->coder base). 4) PILOTO E2E (qwen3:4b) revelou o valor do classificador: exemplo 0 (happy_path) = FAILURE mas tools=[read_file,edit_file] (leu/edito mas nao atingiu o expected -> OURO para contraste); exemplo 2 (recovery) = RECOVERY_SUCCESS (errou e recuperou: list_dir->read_file -> o "reflexo" que queremos destilar). 5) OBSTACULO OPERACIONAL: 2 timeouts no Ollama (context deadline exceeded) com qwen3:4b em janela 32768. Precisa de mais timeout por passo OU janela menor (o qwen3:4b e lento processando prompt grande). Nao e bug do gerador - e tuning de tempo/janela. |
+| **Decision** | Fechar o ciclo do datasetgen (ajustar timeout/janela do E2E, comitar a fabrica de dados) como PRIMEIRA celula da colmeia. Retomar na proxima sessao: validar SUCCESS/RECOVERY_SUCCESS reais com timeout ajustado, integrar o professor (DeepSeek-V4) via GenerateFromProfessor, e decidir plataforma de treino (nuvem NVIDIA vs Linux+ROCm vs CPU). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md` para o estado completo de continuidade. |
+
+## 2026-09-03 - EVOLUÇÃO DA TESE: COSCA vira TREINADOR DE MODELOS (anti-autoengano)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a evolução arquitetural: da fábrica de dados para o TREINADOR DE MODELOS (pipeline professor→dataset→LoRA→golden→checkpoint→produção), com a regra ANTI-AUTOENGANO (golden set congelado + métricas objetivas + checkpoint por promoção). |
+| **Level** | 5 |
+| **Outcome** | A brincadeira deixou de ser "vou treinar um modelo" e virou "vou construir uma fábrica que treina modelos". O COSCA não é mais só o agente — é a infraestrutura de TREINAMENTO + AVALIAÇÃO + EXECUÇÃO dos próprios agentes. |
+| **Confianca** | 0.90 |
+| **Tags** | #treinador #colmeia #pipeline-treinamento #anti-autoengano #golden-set #checkpoint #promocao |
+| **Related** | internal/datasetgen/{SPEC,CHECKPOINT,types,synthetic,runner}.go, learnings (bloco FABRICA DE DADOS + TESE DA COLMEIA) |
+| **Learned** | 1) PIPELINE DO TREINADOR (professor, arquitetural): DeepSeek V4 (PROFESSOR) → gera trajetórias → Dataset Builder + avaliação → LoRA/QLoRA → Qwen3 4B especializado → GOLDEN TESTS → PASS/FAIL → CHECKPOINT (promoção) ou ROLLBACK → PRODUÇÃO. Repetível para código, visão, áudio, ferramentas, recuperação de erros, planejamento, etc. 2) ANTI-AUTOENGANO é o detalhe que separa um treinador de um charlatão: GOLDEN SET CONGELADO (nunca muda no meio da campanha), MÉTRICAS OBJETIVAS (não subjetivas), e CHECKPOINT EM CADA PROMOÇÃO. Cada geração precisa PROVAR que ficou melhor antes de ganhar o crachá — senão o treinador se autoengana e "passa" um modelo que não melhorou. 3) O COSCA fornece as peças: runtime (tools+memory+evidence) para executar, o datasetgen para avaliar/medir, e o EVIDENCE GATE como fonte de métrica objetiva (não é a opinião do modelo, é o runtime confirmando/rejeitando). 4) O GOLDEN SET precisa ser CONGELADO e REPRESENTATIVO: exemplos curados que já sabemos o resultado certo (SUCCESS/RECOVERY_SUCCESS) + exemplos de contraste (FAILURE/PROSE/UNSAFE). A métrica de promoção = taxa de passagem no golden set ANTES vs DEPOIS do LoRA. 5) IMPLICAÇÃO PRÁTICA: o próximo marco não é "treinar", é "definir o GOLDEN SET CONGELADO + a métrica de promoção" — só assim o treinador prova que cada geração é melhor. |
+| **Decision** | Expandir o roadmap: (1) fechar o datasetgen (comitar a fábrica) como primeiro componente do treinador; (2) implementar/definir o GOLDEN SET CONGELADO (em internal/datasetgen) — um conjunto fixo de tarefas com resultado esperado conhecido, usado como régua de promoção; (3) definir a MÉTRICA DE PROMOÇÃO (pass% no golden before vs after); (4) então rodar o pipeline LoRA→golden→checkpoint/rollback. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03 - GOLDEN GATE MULTICRITÉRIO (anti-autoengano) — implementado e testado
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Implementar o GOLDEN GATE em camadas (professor): o "crachá" do treinador NÃO é só pass%. Nenhuma média compensa uma violação crítica. |
+| **Level** | 5 |
+| **Outcome** | Golden Gate multicritério implementado em `internal/datasetgen/golden.go` + helpers de invariante em `types.go` + `PromotionGate`. 10 testes no pacote (todos passando), incluindo o cenario critico do professor (subiu 92%→95% mas unsafe_mutation=1 → REPROVA). |
+| **Confianca** | 0.95 (build ok, 10 testes unit passando, chain valid) |
+| **Tags** | #golden-gate #anti-autoengano #promotion-gate #multicriterio #colmeia #treinador |
+| **Related** | internal/datasetgen/{golden.go,golden_test.go,types.go,runner.go,CHECKPOINT.md}, golden/golden.json, internal/chat/tools/filesystem (evidence gate) |
+| **Learned** | 1) GOLDEN GATE EM CAMADAS (professor, decisao arquitetural): o cracha NÃO é só pass%. Camadas: (0) Task Success, (1) Tool-call valido, (2) Read→Edit correto (invariante), (3) Recovery apos erro, (4) Test/Build + evidencia, (5) False Completion == 0, (6) Unsafe Mutation == 0. 2) REGRA CRITICA IRRECOMPENSÁVEL: nenhuma metrica media compensa uma violacao critica. Exemplo do professor: Before 92% success / After 95% success MAS unsafe_edit=1 → REPROVA (mesmo subindo o score). Implementado em CheckPromotion. 3) PROMOTION GATE VERSIONADO (PromotionCriteria, DefaultPromotionCriteria): PROMOTE se success_after >= success_before AND critical_violations_after == 0 AND tool_validity_after >= threshold AND recovery_after >= threshold. 4) SEPARACAO FUNDAMENTAL (professor, para nao autoenganar): dataset de treinamento ≠ Golden Set ≠ teste de promocao. Se o avaliador basear-se no mesmo dataset do treino, o aluno so' "decora a prova" e da' "100%". O golden set e CONGELADO e SEPARADO. 5) BASELINE REAL MEDIDO (qwen3:4b no golden de 8 casos): pass% = 0.88 (7/8); NAO houve unsafe/false_completion; recovery basico (o unico caso de recovery passou como SUCCESS, nao RECOVERY_SUCCESS). O go-happy-simple foi o unico FAILURE (o modelo nao atingiu exacta assinatura esperada). 6) ORDEM DO ROADMAP CONFIRMADA: (1) construir a REGUA primeiro (golden gate + promotion criteria), (2) so' depois o professor (GenerateFromProfessor/DeepSeek-V4) produz material. Porque professor→dataset→aluno→avaliador baseado no mesmo dataset = "100%!!! (decorou a prova)". |
+| **Decision** | Manter a ordem do roadmap: gate primeiro (FEITO), golden set imutavel (FEITO/versionado em golden.json), regra de promocao versionada (FEITO), depois professor. Proximo marco: rodar a CAMPANHA before (baseline) vs after (apos LoRA) usando o golden gate. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03 - CAMPANHA EXPERIMENTAL 001: pipeline de treino montado (dataset→SFT)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Montar o pipeline de treino do primeiro LoRA (campanha experimental 001). Converter o dataset (datasetgen) para o formato SFT ChatML e dividir em train/val. |
+| **Level** | 5 |
+| **Outcome** | Pipeline de treino montado e testado. Conversor `dataset convert` (datasetgen→SFT ChatML) + split train/val. Dataset de treino (30 exemplos) convertido: 20 positivos → SFT, split 18 train / 2 val. |
+| **Confianca** | 0.95 (build ok, testes do conversor passando, CLI funcional) |
+| **Tags** | #campanha-001 #pipeline-treino #sft #chatoformat #unsloth #cola-de-treino #dataset-convert |
+| **Related** | internal/datasetgen/to_sft.go, internal/cli/dataset.go (convert), .cosca/dataset-train*.jsonl |
+| **Learned** | 1) CAMPANHA EXPERIMENTAL 001 (professor): tratar o primeiro LoRA como EXPERIMENTO controlado — provar que o ciclo de treinamento funciona. NAO mexer no Golden v1 (ja' e' o experimento controlado, congelado). 2) ORDEM: 30 exemplos → LoRA Qwen3 4B → Qwen3 4B+adapter → Golden v1 AFTER → BEFORE x AFTER → PROMOTE/REJECT. 3) OBSERVAR COM LUPA o recovery 0.12 → ? — porque read→edit=1.00 ja' esta' praticamente resolvido. O ganho desejado NAO e' re-ensinar o que o modelo domina; e' fazer o agente SE RECUPERAR melhor quando a primeira acao nao funciona. 4) PEGADINHA DO 30 exemplos: e' um dataset PEQUENO — otimo para o primeiro experimento (sabemos o que entrou no forno), mas NAO da' para concluir muito de um salto se o modelo apenas memorizar. Tratar como campanha 001 (provar o ciclo), depois aumentar 30→100→500→2k. 5) SE o AFTER vier 0.88→1.00 com 0 violacoes criticas, ficar DE OLHO (aprendeu ou decorou?) — nao para comemorar menos, mas para perguntar imediatamente. Entram casos ineditos, reposicao de Golden oculto e tarefas proceduralmente geradas. 6) FABRICA EXPERIMENTAL FECHADA: professor → dataset → aluno → prova → promocao. 7) CONVERSOR SFT: datasetgen.Example → SFT ChatML (system+user+assistant com tool-calls como texto). So' exemplos POSITIVOS (SUCCESS/RECOVERY_SUCCESS) sao demonstracoes; contratos sao material de preferencia (DPO), nao de SFT. Split train/val (ratio 0.1): train=18, val=2. |
+| **Decision** | (1) Registra-se a campanha 001. (2) Dataset convertido para SFT (20 pos) e split train/val pronto. (3) Proximo passo: DECIDIR PLATAFORMA DE TREINO (nuvem NVIDIA / Linux+ROCm / CPU) para rodar o LoRA. (4) Se 0.88→1.00, investigar overfitting comportamental (prova inedita/oculta). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Rodar a campanha BASELINE do golden gate (antes do LoRA) usando o CLI `cosca dataset golden`. Registrar o `before` oficial para a métrica de promoção. |
+| **Level** | 5 |
+| **Outcome** | Golden gate rodou com sucesso via CLI. Baseline confirmado e REPRODUTÍVEL. Registrado como o `before` oficial da campanha de promoção. |
+| **Confianca** | 0.95 (comando CLI real executado, serve de pé, chain valid) |
+| **Tags** | #baseline #campanha #golden-gate #qwen3-4b #promotion-gate #treinador |
+| **Related** | internal/datasetgen/golden.go (EvaluateGolden/CheckPromotion), internal/cli/dataset.go (dataset golden) |
+| **Learned** | 1) BASELINE OFICIAL (qwen3:4b, 8 casos do golden set): pass%=0.88 (7/8), recovery=0.12, tool_valid=1.00, read_edit=1.00, test_evid=1.00, CRITICAS=0 (unsafe=0/false_completion=0). 2) O qwen3:4b JA' e MUITO BOM no golden set: 100% tool_valid/read_edit/test_evid (invariante de evidencia SEMPRE respeitada), 0 violacoes criticas (nunca editou sem ler, nunca declarou sucesso falso). Unico FAILURE: go-happy-simple (nao atingiu a assinatura exata esperada). Recovery=0.12 (so' 1 caso recuperou: find-right-place virou RECOVERY_SUCCESS). 3) IMPLICACAO PARA O TREINADOR: baseline ALTO (0.88) significa que o LoRA precisa PROVAR melhoria acima de 0.88 E manter 0 criticas. O unico espaco de melhoria visivel: recovery (0.12) e o caso go-happy-simple. 4) CONSIDERACAO DE DESIGN (professor alertou): com baseline tao alto, o golden set pode ser MUITO FACIL para discriminar melhoria. Caminho: ENDURECER o golden set (adicionar casos de recovery/erro) para dar espaco de discriminacao. 5) METRICA DE PROMOCAO (CheckPromotion): PROMOTE se success_after >= success_before (0.88) AND criticas_after == 0 AND tool_valid >= 0.8 AND recovery >= 0.2. 6) OPERACIONAL: para subir o serve no Windows, usar WRAPPER .cmd com set em linhas separadas (cmd /c set + && NAO propaga env corretamente). |
+| **Decision** | (1) Registrar baseline 0.88 como before oficial. (2) Gerar o dataset de treino com o gerador procedural. (3) Decidir plataforma de treino do LoRA (nuvem NVIDIA / Linux+ROCm / CPU). (4) Considerar ENDURECER o golden set p/ dar espaco de discriminacao. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03 - CAMPANHA 001: LoRA TREINADO COM SUCESSO + artefato preservado
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Treinar o primeiro LoRA (campanha 001) no Qwen3-4B e preservar o artefato original antes da etapa de fusão/GGUF. |
+| **Level** | 5 |
+| **Outcome** | LoRA treinado com sucesso no Colab (18 exemplos SFT, 3 épocas, LoRA r=16/alpha=32, 7 módulos alvo). Adapter baixado e preservado em `campaign-001/` (hash SHA256 DF5709...). Decisão do professor: fundir em FP16 (NÃO em 4-bit) e exportar GGUF. |
+| **Confianca** | 0.97 (treino concluiu, adapter validado, artefato preservado) |
+| **Tags** | #campanha-001 #lora-treinado #qwen3-4b #artefato-preservado #fusao-fp16 #gguf #after-golden |
+| **Related** | campaign-001/ (adapter preservado), train/lora_qwen3_4b.py, internal/datasetgen (golden gate) |
+| **Learned** | 1) TREINO OK: LoRA r=16, alpha=32, 7 módulos alvo (q/k/v/o/gate/up/down_proj), base unsloth/qwen3-4b-unsloth-bnb-4bit. 2) CORREÇÕES DE API (trl 0.24) que destravaram: SFTConfig usa max_length (não max_seq_length); SFTTrainer usa processing_class (não tokenizer); T4 não tem Ampere -> bf16=False,fp16=True; eos_token=<|im_end|> no SFTConfig (a chave - TRL 0.24 usava <EOS_TOKEN> default); tokenizer eos/pad; import unsloth PRIMEIRO (antes de trl/transformers). 3) DECISÃO DO PROFESSOR (arquitetura): NÃO fundir em 4-bit. O ideal é re-carregar Qwen3-4B em FP16 + aplicar adapter treinado, SÓ DEPOIS quantizar/exportar GGUF. 4) PRESERVAR o ZIP/artefato original como campaign-001/, e gerar artefato SEPARADO (cosca-qwen3-4b-lora-001-f16/ + .gguf) - se o GGUF falhar, o LoRA original fica intacto. 5) FLUXO AFTER: Qwen3-4B base (baseline 0.88) -> LoRA 001 -> merge FP16 -> modelo fundido -> GGUF -> Ollama -> cosca dataset golden -> comparar 0.88. 6) IMPORTÂNCIA CIENTÍFICA: BEFORE 0.88 vs AFTER = delta. Se subir -> campanha produziu efeito; se igual -> 18 exemplos insuficientes; se cair -> investigar. |
+| **Decision** | (1) Preservar o LoRA em campaign-001/. (2) Seguir Opção A (fusão FP16 + GGUF + Ollama). (3) Próximo: rodar no Colab a fusão FP16 do base Qwen3-4B + adapter, exportar GGUF, baixar, carregar no Ollama como cosca-qwen3-4b-lora, rodar AFTER no golden. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03 - CAMPANHA 001: VEREDITO REPROVADO (0.88 -> 0.75) + LICOES DO PIPELINE
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Rodar o AFTER da campanha 001 (modelo fundido GGUF no Ollama) no golden gate e registrar o veredito cientifico. |
+| **Level** | 5 |
+| **Outcome** | AFTER CORRETO (com --model cosca-qwen3-4b-lora-001:latest) = pass% 0.75 (6/8). REGRESSAO vs baseline 0.88. PROMOTION GATE REPROVOU. Modelo NAO promovido. Caso que regrediu: py-happy-simple. |
+| **Confianca** | 0.97 |
+| **Tags** | #campanha-001 #veredito-reprovado #golden-gate #promotion-gate #anti-autoengano #regressao #rollback |
+| **Related** | campaign-001/RESULTADO.md, internal/datasetgen/golden.go (CheckPromotion), train/merge_gguf.py |
+| **Learned** | 1) O PRIMEIRO AFTER (sem --model) foi INVALIDO - rodou com o base default (qwen3:4b) porque o cli aceita --model mas nao foi passado, e COSCA_OLLAMA_MODEL do wrapper nao e' usado pelo datasetgen (usa cfg.Model). FIX: logar 'golden gate modelo=...' no cli. 2) AFTER CORRETO (campanha 001) = 0.75 (6/8) vs baseline 0.88 (7/8): REGRESSAO de -0.13. 3) VEREDITO DO PROMOTION GATE: REPROVADO (success 0.75 < 0.88; recovery 0.12 < 0.2). 4) O QUE O LORA PRESERVOU (critico): tool_valid=1.00, read_edit=1.00, test_evid=1.00, 0 VIOLACOES CRITICAS - a invariante de evidencia NAO foi quebrada. 5) O QUE REGREDIU: o caso py-happy-simple (SUCCESS no base -> FAILURE no LoRA). Os outros 7 casos FICARAM IDENTICOS. Diagnostico: overfit nos 18 exemplos (poucos casos Python) - o LoRA "desaprendeu" o happy_path em Python. 6) GRANDE VITORIA DO PIPELINE: o Golden Gate + PromotionGate DETECTOU a regressao e REPROVOU. O sistema disse "voce treinou um modelo, mas ele ficou PIOR. Nao vou promover." - o anti-autoengano FUNCIONOU. 7) CAMPANHA 001 = REPROVADA como producao, APROVADA como prova do ciclo. 18 exemplos INSUFICIENTES (professor previu). 8) ROLLBACK: base qwen3:4b continua producao; campanha 001 marcada experimental/nao-promovido, preservada em campaign-001/. |
+| **Decision** | Campanha 001 NAO promovida (rollback para qwen3:4b base). Proxima campanha 002: mais dados (100+), foco em recovery, investigar py-happy-simple (overfit Python). O Pipeline PROVOU o ciclo completo: treinar -> fundir GGUF -> carregar Ollama -> golden AFTER -> promotion gate -> veredito honesto (reprovado). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03 - VISAO DO PROFESSOR: COSCA como GERENCIADOR DE TREINAMENTO COLABORATIVO
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a visao arquitetural do professor: o COSCA evolui de "IA que treina um LoRA" para "sistema que coordena uma populacao de maquinas para aprender, medir, comparar e decidir" + Git como camada de proveniencia/colaboracao. |
+| **Level** | 5 |
+| **Outcome** | Visao registrada. 7 blocos de estudo + arquitetura COSCA HUB (orchestrator + nodes + aggregator + golden gate + promotion gate) + Git SDK como camada de colaboracao. Roadmap de longo prazo. |
+| **Confianca** | 0.85 (visao conceitual, nao implementada; roadmapping) |
+| **Tags** | #visao-professor #gerenciador-treinamento #colaborativo #federated #git-sdk #cosca-hub #roadmap |
+| **Related** | internal/datasetgen (golden gate), train/ (pipeline), futuramente um cosca-hub |
+| **Learned** | 1) 7 BLOCOS: Federated Learning (FedAvg/FedProx, clientes+agregador), Federated LoRA/PEFT (cada no treina seu LoRA, merge de adapters, conflitos), Distributed Training (jobs/workers/filas/checkpoint-resume/descoberta), Dataset Collaboration (versionamento, dedup, provenance, train/val/test isolados), Node Management (registrar maquinas, GPU/VRAM/RAM, escolher no, detectar offline, retry), Trust & Security (identidade, auth, assinatura de updates, impedir injecao de lixo, agregacao segura), Evaluation & Governance (Golden Gate, BEFORE/AFTER, metricas por idioma, regressoes, PromotionGate, rollback). 2) ARQUITETURA COSCA HUB: Orchestrator central -> Nodes (GPU forte/media/fraca, cada um treina LoRA) -> Aggregator -> LoRA v002 -> Golden Gate -> Promotion Gate -> PASS (nova rodada) / FAIL (rollback). COSCA NAO precisa de dados privados dos participantes - recebe updates/adapters e metricas. 3) GIT COMO CAMADA DE COLABORACAO: branches, clone/sync, commits, PRs, conflitos, versionamento de datasets, rastrear qual dataset gerou qual LoRA, rollback, train/val/golden protegidos. Colaborador -> Git repo -> dataset contribution -> COSCA valida -> commit/branch -> treina LoRA -> Golden Gate -> PASS(merge)/FAIL(reject). 4) ACESSO GIT: Git CLI, Git SDK em Go (go-git), GitHub API, SSH deploy key ou GitHub App (preferido), Fine-grained PAT. Credenciais em secrets.db/secret manager (NUNCA no prompt/codigo). 5) MANDATO DE LONGO PRAZO: "COSCA, sincronize a campanha 002" -> buscar repo, criar branch, atualizar dataset, commitar, abrir PR, acompanhar CI, pegar Golden Gate, decidir promoção. Isso seria um AGENTE GIT de verdade. |
+| **Decision** | (1) ROADMAP FUTURO: comecar com coordinator + 2 workers + LoRA + agregacao + Golden Gate (minimo viavel), depois adicionar seguranca, descoberta automatica, reputacao. (2) IMEDIATO (NOW): focar na CAMPANHA 002 (mais dados + distribuicao equilibrada + recovery) que esta em geracao. A visao federated/Git e' o marco LONGO; nao bloquear o trabalho imediato. (3) Git SDK sera a peca central para colaboracao futura (usar existente, nao reinventar). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-03(4) - DECISAO ARQUITETURAL: Colab CLI (via WSL) para o Remote Training Worker
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a decisao do professor: usar Google Colab CLI (via WSL) para o Remote Training Worker, em vez do caminho Colab->gh->GitHub. |
+| **Level** | 5 |
+| **Outcome** | Descoberto que o Google Colab CLI (2026) permite controlar runtimes do Colab pelo terminal (criar runtime GPU, executar scripts, baixar artefatos, encerrar). O `colab run` e' um JOB EFEMERO que cria VM, executa, coleta arquivos e destroi - EXATAMENTE a ideia do Remote Training Worker v1. Muito mais alinhado que gh/GitHub. |
+| **Confianca** | 0.88 |
+| **Tags** | #colab-cli #remote-worker #wsl #decisao-arquitetonica #treinamento-remoto #colab-run |
+| **Related** | internal/training/job.go (contrato Job/WorkerReport), train/worker_colab.py (worker), internal/gitmgr (Git Manager) |
+| **Learned** | 1) Colab CLI (2026): comandos colab new --gpu T4, colab exec, colab run, colab download, colab log, colab stop. Foco declarado em automacao e integracao com agentes de IA. 2) O `colab run` e' um job efemero: cria VM, executa script, recupera arquivos ANTES de destruir o runtime - praticamente o nosso Remote Training Worker v1. 3) Colab CLI suporta Linux e macOS (NAO Windows). Solucao: o PC Windows e' o cerebro/orquestrador, e o colab CLI roda no WSL (Ubuntu-24.04) - que JA esta instalado e acessa o projeto. 4) FLUXO NOVO: COSCA (Windows) -> Job Manifest -> WSL -> colab CLI -> cria runtime GPU T4 -> executa treinamento -> coleta checkpoint/GGUF/logs -> encerra runtime -> COSCA -> Golden Gate -> PromotionGate. 5) Git (clone/checkout/commit) e' separado do gh (GitHub CLI - autenticacao/PRs). Para o worker, usar Git + Colab CLI; gh so' para operacoes GitHub que precisarem. 6) PAUSAR a autenticacao GitHub/gh por enquanto - descobrimos ferramenta mais alinhada (Colab CLI). 7) AMBIENTE WSL Verificado: Ubuntu-24.04, acessa /mnt/c/Users/Henrique/Documents/cosca, python3 3.12.3, git 2.43.0, acesso de rede (pypi). FALTA: pip (instalar via python3 -m ensurepip ou apt). |
+| **Decision** | (1) Remote Training Worker v1 passa a usar Colab CLI via WSL. (2) Instalar pip no WSL (ensurepip/apt) para o colab CLI. (3) Instalar colab CLI no WSL. (4) Fluxo: COSCA publica Job no project dir -> WSL colab run --gpu T4 <worker_colab.py> -> coleta artefatos -> COSCA valida (Golden/Promotion). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - LICAO EXPERIMENTAL: auto-treino vs distillation (e por que a 001 regrediu)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a distincao fundamental: auto-treino (self-training) vs distillation com professor forte. Esta e' a raiz da regressao da campanha 001. |
+| **Level** | 5 |
+| **Outcome** | Esclarecido o desenho experimental. O pipeline atual e' AUTO-TREINO (Qwen gera -> COSCA avalia com tools/testes -> SFT no mesmo Qwen). NAO e' distillation (nao ha professor generativo mais forte). A 002 sera uma CONDICAO EXPERIMENTAL comparavel. |
+| **Confianca** | 0.9 |
+| **Tags** | #auto-treino #self-training #distillation #design-experimental #licao-001 #professor-forte |
+| **Related** | internal/training (Remote Worker), internal/datasetgen (GenerateFromProfessor - NAO implementado), campaign-001/RESULTADO.md |
+| **Learned** | 1) DISTINCAO CRITICA: "auto-aperfeicoamento" e' melhor chamar de SELF-TRAINING. Auto-treino NAO significa que o modelo descobre conhecimento novo sozinho - ha feedback externo (testes/Golden Gate) mas NAO ha professor generativo mais forte produzindo a solucao ideal. 2) PIPELINE ATUAL (auto-treino): Qwen3-4B -> gera tentativa -> COSCA avalia com tools/testes -> seleciona trajetorias -> SFT no mesmo Qwen3-4B. 3) POR QUE A 001 REGREDIU (0.88-0.75): nao havia PROFESSOR SUPERIOR. Re-treinar com os proprios dados = reforca o que ja sabe, sem aprender algo novo; com dataset pequeno, pode esquecer (overfit no py-happy-simple). 4) A 002 E' VALIDA COMO EXPERIMENTO: responde "ate onde o COSCA melhora um modelo usando experiencia gerada pelo proprio modelo + verificacao objetiva?" - diferente de distillation tradicional. 5) COMPARACAO CIENTIFICA (3 condicoes): BASE QWEN -> auto-treino 001 (0.75 ❌) | BASE QWEN -> auto-treino 002 (?) | BASE QWEN -> professor DeepSeek -> distillation 003 (?). Isoladas, sem misturar experimentos. 6) AUDITORIA POSITIVA: o COSCA percebeu sozinho que estava confundindo o desenho experimental (distillation) com a implementacao real (auto-treino) e levantou a discrepancia antes de continuar - e' a auditoria que o Don queria no sistema. 7) DECISAO: nao parar a 002; deixar terminar (ja em 75/100). Depois analisar com evidencia, sem assumir antecipadamente. |
+| **Decision** | (1) Deixar a 002 terminar (auto-treino) como condicao experimental comparavel. (2) Comparar BASE / auto-001 (0.75) / auto-002 / distillation-003 (professor forte). (3) FUTURO: implementar GenerateFromProfessor (DeepSeek V4 como professor) para a distillation 003 - o caminho correto. (4) Remote Training Worker segue em paralelo (nao toca no dataset/binario). |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - DESCOBERTA EPISTEMOLOGICA: falha de contrato no Golden v1 (FACT != INFERRED)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Registrar a descoberta de falha no instrumento de avaliacao (Golden v1): expectedReached usava substring literal onde a semantica da tarefa permitia multiplas implementacoes validas. |
+| **Level** | 5 |
+| **Outcome** | Identificado falso negativo sistematico no Golden v1. A "regressao" da campanha 001 pode estar PARCIALMENTE contaminada pelo avaliador rigido. O treinamento da 002 foi CONGELADO (nao comecou). |
+| **Confianca** | 0.95 (diagnostico empirico com trajetorias reais) |
+| **Tags** | #benchmark-contract-flaw #epistemologia #fact-vs-inferred #golden-v2 #calibrar-instrumento #congelar-002 |
+| **Related** | internal/datasetgen/golden.go (expectedReached, EvaluateGolden), campaign-001/RESULTADO.md, internal/datasetgen/synthetic.go (happyPathSpec) |
+| **Learned** | 1) DESCOBERTA: o expectedReached do Golden v1 usava strings.Contains (substring LITERAL) para verificar o estado esperado. Ex: py-happy-simple esperava a substring 'return True'; ts esperava 'return true'; go esperava 'func Restart() error'. 2) EVIDENCIA EMPIRICA (trajetorias reais): em 3 de 4 FAILUREs de happy_path, o modelo EDITOU COM SUCESSO (tool retornou 'file edited successfully') mas o golden reprovou porque o expected esperava OUTRA string (ex: modelo fez 'state = restarted' — semanticamente valido para "add state handling" — mas o golden exigia 'return True'). 3) FALHA DE INSTRUMENTO: o Golden v1 testava STRING, nao COMPETENCIA. "A tarefa pede state handling, mas eu so aceito return True." Isso produz FALSOS NEGATIVOS sistematicos. 4) FACT vs INFERRED: FACT = "Golden v1 rejeitou determinadas trajetoarias". INFERRED anterior = "o modelo nao conseguiu realizar a tarefa". Agora a inferencia esta SOB SUSPEITA. 5) IMPLICACAO PARA CAMPANHA 001: a "regressao" 0.88->0.75 pode ser PARCIALMENTE efeito do avaliador rigido, nao so perda real do modelo. O 0.88 baseline pode estar SUBESTIMADO. 6) DECISAO DO PROFESSOR: congelar treinamento da 002. Primeiro CALIBRAR o instrumento (Golden v2). Nao treinar o modelo para enganar o avaliador. 7) PRINCIPIO: "A tarefa define o que precisa ser feito; o avaliador verifica se o estado final satisfaz a INTENCAO da tarefa" — nao uma substring literal. Verificar ESTADO/EFEITO, nao string. 8) PLANO DO PROFESSOR: (1) corrigir contrato (Golden v2 - verificar efeito, aceitar multiplas implementacoes validas), (2) separar o que ja foi medido (manter Golden v1 historico; criar Golden v2 e reavaliar BASE + 001), (3) so' entao mexer na 002. Tabela: Modelo | Golden v1 | Golden v2: Base=0.88->? ; 001=0.75->?. Se Base 0.88->0.96 e 001->0.91 => regressao recontextualizada (parte era efeito do avaliador). Se Base->0.89 e 001->0.70 => evidencia forte de que 001 realmente regrediu. |
+| **Decision** | (1) CONGELAR o treino da 002 (nao comecou). (2) Corrigir o contrato do Golden (v2): expectedReached deve verificar ESTADO/EFEITO, nao substring literal; aceitar multiplas implementacoes semanticamente validas. (3) Criar Golden v2 e reavaliar BASE + 001 (nao apagar v1 - historico). (4) Registrar como evento de engenharia/epistemologia (FACT != INFERRED). (5) So' depois do instrumento calibrado, continuar a 002. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - RE-BASELINE DETERMINISTICO: baseline inflado + campanha 001 inconclusiva
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Re-baselinear o qwen3:4b base com o instrumento calibrado (Golden v2 + temperature=0). Descobrir o pass% REAL e reconciliar a campanha 001. |
+| **Level** | 5 |
+| **Outcome** | REVELACAO: o instrumento anterior (temp 0.7) inflava o baseline. Golden v2 + temp=0 = PASS% 0.75 (6/8) para o qwen3:4b BASE. O baseline original "0.88" era OTIMISTA (amostragem). A campanha 001 (0.88->0.75) era ARTEFATO do baseline inflado, NAO regressao real. Base = 0.75 = LoRA 001 = 0.75 -> INCONCLUSIVA. |
+| **Confianca** | 0.95 (medicao deterministica temp=0, instrumento calibrado) |
+| **Tags** | #rebaseline #determinismo #instrumento-calibrado #campanha-001-inconclusiva #baseline-inflado #epistemologia |
+| **Related** | internal/datasetgen/runner.go (Temperature=0 Default), internal/datasetgen/golden/golden_v2.json, internal/datasetgen/golden.go (StateOptions, DefaultGoldenSetPathV2) |
+| **Learned** | 1) O instrumento original (Golden v1 + temp=0.7) INFLAVA o baseline: o qwen3:4b acertava casos por SORTE de amostragem (nao-determinismo). Medicoes: v1/temp0.7=0.88, v2/temp0.7=0.75-0.88 (instavel), v2/temp0=0.75 (deterministico=REAL). 2) A CAMPANHA 001 (0.88->0.75) era ARTEFATO: o baseline "0.88" era inflado; o real e' 0.75. LoRA 001=0.75 e BASE=0.75 -> IGUAIS -> INCONCLUSIVA (nem melhora nem regressao real). 3) EPISTEMOLOGIA: FACT="Golden v1 mediu 0.88 com temp0.7" ; INFERRED anterior="001 regrediu" ; AGORA: a "regressao" era o baseline inflado. 4) O QUE A 001 REALMENTE MOSTROU: auto-treino com 18 exemplos NAO MELHOROU (0.75->0.75 na medicao correta) - o que confirma a hipotese de que auto-treino puro nao gera ganho. 5) INSTRUMENTO CALIBRADO AGORA: Golden v2 (state_options, aceita multiplas implementacoes semanticamente validas) + temperature=0 (deterministico) = PASS% BASE 0.75 estavel. 6) O qwen3:4b base REALMENTE falha em py-happy-simple e go-happy-simple (com temp=0) - os 2 FAILUREs sao falhas reais do modelo, NAO do contrato. 7) MULTI-FILE refactor passou (antes era RECOVERY no v1) - agora e' SUCCESS, consistente. |
+| **Decision** | (1) O instrumento calibrado agora = Golden v2 + temperature=0 (deterministico). SEMPRE usar para medir campanha. (2) O baseline CORRETO do qwen3:4b base = 0.75. (3) CAMPANHA 001 = INCONCLUSIVA (nivel de ruido). (4) Para a 002: medir com temp=0. Se LoRA-002 passar de 0.75, e' MELHORIA REAL (nao ruido). (5) A hipotese de que auto-treino puro nao gera ganho e' AGORA SUSTENTADA (001 nao melhorou). A distillation (003, com professor forte/DeepSeek) ganha justificativa experimental mais solida. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - CAMPANHA 002: PROTOCOLO CONGELADO (instrumento calibrado) - pronto p/ pista
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Congelar o protocolo da campanha 002 com o instrumento calibrado (Golden v2 + temp=0, BASE=0.75). Preparar o pacote de treino (dataset curado + worker + job). |
+| **Level** | 5 |
+| **Outcome** | Protocolo congelado conforme professor. Dataset curado 002 (17 positivos, 15 train/2 val, happy_path=2). Instrumento oficial = Golden v2 + temp=0 (BASE real 0.75). Pacote de treino montado (dataset.jsonl + worker_colab.py + campaign-002.json). DeepSeek conectado (OK). |
+| **Confianca** | 0.95 |
+| **Tags** | #campanha-002 #protocolo-congelado #instrumento-calibrado #distillation #professor-deepseek #ready-pista |
+| **Related** | internal/datasetgen/golden.go (Golden v2 + temp=0), golden/golden_v2.json, train/worker_colab.py, .cosca/campaign-002-package/ |
+| **Learned** | 1) PROTOCOLO CONGELADO (professor): (a) Congelar Golden V2 + temp=0 como instrumento oficial, (b) treinar LoRA-002 com dataset curado que ja' esta' pronto, (c) NAO alterar Golden/dataset/criterios durante o treino, (d) rodar Golden V2 + temp=0 no 002, (e) comparar diretamente contra BASE=0.75, (f) so' entao decidir promocao/rejeicao. 2) NAO regenere happy_path agora - Go/Python sao falhas REAIS do comportamento atual, e sao PARTE DO TESTE da 002. 3) O DATASET CURADO 002: 17 positivos (15 train/2 val), happy_path=2 (json+yaml), recovery=6, request_info=6, search_first=6. 4) BASE REAL = 0.75 (instrumento calibrado). SE LoRA-002 > 0.75 = MELHORIA REAL (nao ruido). SE <= 0.75 = nao melhorou. 5) DEEPSEEK CONECTADO (resposta OK) - para o FUTURO GenerateFromProfessor (campanha 003). 6) WORKER_colab.py ja' trata EOS/template (eos_token <|im_end|>, template manual - correcoes da 001). 7) PACOTE DE TREINO pronto: dataset.jsonl (15 exemplos) + worker_colab.py + campaign-002.json (job manifest). |
+| **Decision** | (1) Protocolo congelado. (2) Rodar o treino do LoRA-002 no Colab (V1 - Don inicia sessao, worker_colab.py + dataset.jsonl). (3) Medir com Golden V2 + temp=0. (4) Comparar com BASE 0.75. (5) Promocao/rejeicao so' pelo resultado. (6) FUTURO: GenerateFromProfessor (DeepSeek) para campanha 003. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - DESCOBERTA: Colab CLI `colab run` (doc oficial) - o Remote Training Worker perfeito
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Pesquisar no GitHub a doc oficial do Google Colab CLI para criar o Remote Training Worker corretamente. |
+| **Level** | 5 |
+| **Outcome** | Doc oficial do `colab run` (googlecolab/google-colab-cli, docs/05_run_command.md) descoberta. O comando e' exatamente o nosso Remote Training Worker: 1 comando = aloca VM + executa + detecta falha + derruba. |
+| **Confianca** | 0.95 (doc oficial lida) |
+| **Tags** | #colab-cli #colab-run #remote-worker #doc-oficial #ephemeral-job #manifesto |
+| **Related** | internal/training/job.go (contrato Job), train/worker_colab.py, train/lora_qwen3_4b.py |
+| **Learned** | 1) `colab run [OPTIONS] SCRIPT [ARGS]` = Ephemeral Job Runner: (1) Allocate VM, (2) Execute script, (3) Detect failure (exit non-zero), (4) Tear down (libera VM, a menos de --keep). 2) FLAGS: --gpu T4/L4/G4/H100/A100, --tpu v5e1/v6e1, --keep (nao derruba ao terminar), -s/--session, --high-mem, --timeout (default 30s). 3) SHEBANG: `#!/usr/bin/env -S colab run --gpu T4` + `chmod +x` = 1 arquivo = "rent a GPU, run, return". 4) O script pode ser o worker_colab.py: `colab run --gpu T4 worker_colab.py --job campaign-002.json`. 5) PLATAFORMA: Linux e macOS APENAS (NAO Windows) - confirmado. Solucao: WSL (Ubuntu-24.04 ja instalado). 6) INSTALACAO: `uv tool install google-colab-cli` (recomendado) ou `pip install google-colab-cli`. 7) ESTADO WSL: Python 3.12.3 ok, mas SEM pip e SEM uv - precisa instalar (apt para pip, ou curl para uv). 8) O "manifesto correto" para colab run NAO e' arquivo complexo - e' o SCRIPT + ARGS (o nosso job manifest campaign-002.json + worker_colab.py). |
+| **Decision** | (1) Configurar o WSL: instalar pip/uv + google-colab-cli. (2) Rodar treino via `colab run --gpu T4 worker_colab.py --job campaign-002.json`. (3) O worker_colab.py ja' e' o script self-contained (trata EOS/template). (4) Fluxo: COSCA -> WSL -> colab run --gpu T4 -> treina -> coleta -> derruba VM -> COSCA valida -> Golden v2 + temp=0. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - DECISAO: Colab CLI tem bugs (usar Colab manual hoje; CLI p/ V2 futuro)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Tentar rodar o treino via Colab CLI (colab run). Diagnosticar bugs. Decidir caminho. |
+| **Level** | 5 |
+| **Outcome** | Colab CLI autenticado (token.json ok), mas colab run falha com bugs de dependencia: (1) "Scope has changed" (escopo inconsistente), (2) "AttributeError: jupyter_kernel_client has no attribute KernelClient" (bug da lib do CLI). DECISAO: usar Colab MANUAL (ja aberto e funcional) para a 002 hoje; Colab CLI fica como V2 futuro. |
+| **Confianca** | 0.95 |
+| **Tags** | #colab-cli #bugs #decisao #colab-manual #campanha-002 #v2-futuro |
+| **Related** | internal/training (Remote Worker), train/worker_colab.py, .cosca/campaign-002-package/ |
+| **Learned** | 1) Colab CLI AUTENTICADO: o bug "Scope has changed" foi resolvido com um script de auth manual (train/colab_auth.py) que gera o token.json com os escopos EXATOS (drive.file, cloud-platform, colaboratory...). Token salvo em ~/.config/colab-cli/token.json. 2) MAS o colab run falha com bug de DEPENDENCIA do CLI: `AttributeError: module 'jupyter_kernel_client' has no attribute 'KernelClient'` - a lib instalada pelo uv tool esta' incompativel com a versao que o CLI espera. 3) O upgrade (`uv tool install --upgrade`) NAO corrigiu - o jupyter_kernel_client ja' estava na ultima. 4) DECISAO (professor/consigliere): o Colab CLI e' o caminho do FUTURO (V2 - automatizar de vez), mas tem BUGS que bloqueiam hoje. O experimento da 002 vale mais que a ferramenta. 5) USAR O COLAB MANUAL (ja aberto e funcional, campanha 001 provou) para rodar a 002 HOJE. 6) O pacote campaign-002-package/ esta' PRONTO (dataset.jsonl 15 exemplos, worker_colab.py, campaign-002.json). |
+| **Decision** | (1) Campanha 002: rodar no Colab MANUAL (ja aberto). (2) Colab CLI: V2 futuro - investigar bugs de dependencia quando houver tempo (ou usar RunPod/Vast/maquina propria). (3) Pacote pronto: .cosca/campaign-002-package/. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
+
+## 2026-09-04 - DIAGNOSTICO FINAL: COSCA INOCENTE, WORKER OK, so' falta GPU do Google
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Diagnosticar o bloqueio do treino remoto via colab run. Separar bug de pipeline vs indisponibilidade externa. |
+| **Level** | 5 |
+| **Outcome** | CONCLUSAO: o COSCA e' INOCENTE. O worker (versao do professor com install_eos_compat) esta' 100% CORRETO. O unico bloqueio e' o Google Colab nao alocar a T4 (503 Service Unavailable - cota/demanda da conta gratuita). Teste CPU PROVOU o pipeline: chegou ate IMPORT, EOS bug RESOLVIDO, so' falhou por falta de GPU (esperado). |
+| **Confianca** | 0.97 |
+| **Tags** | #diagnostico-final #cosca-inocente #worker-ok #gpu-google #503-transiente #retry-automatico #eos-resolvido |
+| **Related** | train/gen_worker.py (install_eos_compat), train/worker_self_contained.py, .cosca/_auto_retry.sh (retry automatico T4) |
+| **Learned** | 1) O WORKER (versao do professor) esta' CORRETO - roda de ponta a ponta ate IMPORT. 2) BUG do <EOS_TOKEN> RESOLVIDO com install_eos_compat (intercepta convert_tokens_to_ids('<EOS_TOKEN>') -> retorna o EOS real <|im_end|>/151645, SEM redimensionar embeddings). 3) TESTE CPU PROVOU o pipeline: dados materializados, job VALIDO (fail-fast), deps instaladas, CONFIG ok, IMPORT ok. Falhou so' em "Unsloth cannot find any torch accelerator? You need a GPU" (ESPERADO - QLoRA precisa GPU). 4) O UNICO BLOQUEIO REAL = Google Colab nao alocar a T4: 503 Service Unavailable (cota/demanda da conta gratuita, transiente). 5) GPU L4 rejeitada (sem quota/entitlement na conta) - so' T4 tem quota. 6) O CLI funciona (CPU provisiona). 7) DECISAO: retry automatico persistente na T4 (tenta a cada 180s ate o Google liberar). O worker do professor esta' pronto; quando a T4 liberar, o treino roda automatico. 8) RESUMO das tentativas: run8=TooManyAssignments(412), run10=ValueError EOS (worker rodou), run12/13/retry=Service Unavailable(503) ANTES de alocar, run_cpu=NotImplementedError (sem GPU, esperado). |
+| **Decision** | (1) Retry automatico persistente na T4 (rodando em background). (2) Worker do professor pronto e correto. (3) Quando a GPU do Google liberar, o treino da campaign-002 roda automatico (EOS resolvido). (4) Nao mexer no worker/dataset/Golden - estao corretos. |
+| **Checkpoint** | Ver arquivo `CHECKPOINT.md` em `C:\Users\Henrique\Documents\cosca\internal\datasetgen\CHECKPOINT.md`. |
