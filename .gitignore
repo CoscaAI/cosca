@@ -156,3 +156,15 @@ tmp/
 /cosca-qwen3-4b-lora/
 *.safetensors
 *.gguf
+# ---- bwrap auto-jail workspace bind dirs (criados no workspace, NUNCA versionar) ----
+/usr/
+/lib/
+/lib64/
+/etc/
+/proc/
+/dev/
+/run/
+
+# ---- Laboratory: modelos/experimentos locais grandes (nao versionar) ----
+/laboratory/models/
+/logs/
