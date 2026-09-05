@@ -23,12 +23,15 @@ type mockChatProvider struct {
 	chatResponse *chat.ChatResponse
 	chatErr      error
 	chatCalled   atomic.Int64
-
-	// chatFn overrides the Chat method when set (allows dynamic behaviour).
-	chatFn func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error)
+	chatFn       func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error)
 
 	streamResponse *mockChatStream
 	streamErr      error
+	streamCalled   atomic.Int64
+
+	// streamFn overrides the ChatStream method when set (allows dynamic
+	// behaviour, e.g. counting calls or injecting a custom stream).
+	streamFn func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (chat.ChatStream, error)
 }
 
 func newMockChatProvider(name, model string) *mockChatProvider {
@@ -67,7 +70,11 @@ func (m *mockChatProvider) Chat(ctx context.Context, messages []chat.Message, op
 	}, nil
 }
 
-func (m *mockChatProvider) ChatStream(_ context.Context, _ []chat.Message, _ chat.ChatOptions) (chat.ChatStream, error) {
+func (m *mockChatProvider) ChatStream(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (chat.ChatStream, error) {
+	m.streamCalled.Add(1)
+	if m.streamFn != nil {
+		return m.streamFn(ctx, messages, opts)
+	}
 	if m.streamErr != nil {
 		return nil, m.streamErr
 	}

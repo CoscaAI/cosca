@@ -637,6 +637,79 @@ func (e *Engine) runStreamingPipeline(ctx context.Context, req *Request, pc Pipe
 		}
 	}
 
+	// 4.5 DELIBERATION (Kernel-First, deterministic, zero-LLM — ADR-032/033).
+	// Espelha Engine.Execute (orchestrator.go:420-478): o Kernel pensa primeiro
+	// sobre a evidência que o pipeline já coletou ANTES de chamar a LLM, para que
+	// o streaming atravesse o MESMO fluxo decisório de POST /v1/run (sem segundo
+	// caminho de deliberação — ADR-015 reuse).
+	//   - ATIVE (Enabled): EmitOK responde SEM a LLM (streaming determinístico);
+	//     EmitWithReservations/Escalate entrega o contexto limpo ao executor.
+	//   - SHADOW (ShadowMode): registra o contrafactual (ADR-033) e NUNCA aplica.
+	// Fail-closed (LEI DO COFRE): se nem Enabled nem ShadowMode, ou em erro, a
+	// PipelineContext passa intacta e o executor streaming roda exatamente como
+	// hoje (o shadow store apenas observa; nunca bloqueia).
+	delibCfg := e.config.DeliberateConfig
+	if (delibCfg.Enabled || delibCfg.ShadowMode) && e.deliberator != nil {
+		callStart := time.Now()
+		trace, err := e.deliberator.Deliberate(ctx, pc)
+		elapsed := time.Since(callStart)
+		if err != nil {
+			info := safeError("deliberation_failed", err)
+			logger.Warn().Str("error_code", info.Code).Str("error_hash", info.Hash).Int("error_length", info.Length).Msg("deliberation failed, continuing with legacy streaming path (fail-closed)")
+		} else {
+			pc = pc.WithDeliberationTrace(&trace)
+
+			// SHADOW (ADR-033): registra o contrafactual, NUNCA aplica o veredito.
+			if delibCfg.ShadowMode {
+				e.recordShadow(ctx, pc, trace, elapsed)
+			}
+
+			// ATIVE (ADR-032): aplica o veredito (autoritativo).
+			if delibCfg.Enabled {
+				switch trace.Verdict {
+				case deliberate.EmitOK:
+					resp := BuildDeterministicResponse(pc.Data, trace)
+					if resp != "" {
+						pc = pc.WithLLMResponse(resp)
+						pc = pc.WithExecutorDeterministic(true)
+						pc = pc.WithDeliberationHandled(true)
+						logger.Info().Float64("confidence", trace.Confidence.Final).Msg("deliberation: EmitOK — streaming deterministic response WITHOUT LLM")
+						// O Kernel respondeu sozinho: emite a resposta determinística
+						// como chunk(s) de stream e fecha o canal. NENHUMA chamada à
+						// LLM (ChatStream/Chat) acontece neste caminho.
+						emit(StreamEvent{
+							Type:    StreamEventProgress,
+							Content: "Kernel resolved deterministically (EmitOK) — no LLM",
+							Metadata: map[string]interface{}{
+								"agent":      pc.Data.ResolvedAgent,
+								"confidence": trace.Confidence.Final,
+								"verdict":    string(trace.Verdict),
+							},
+						})
+						emit(StreamEvent{Type: StreamEventChunk, Content: resp})
+						emit(StreamEvent{
+							Type:    StreamEventProgress,
+							Content: fmt.Sprintf("Deterministic stream complete (%d chars)", len(resp)),
+							Metadata: map[string]interface{}{
+								"content_length": len(resp),
+							},
+						})
+						close(eventCh)
+						return
+					}
+					// Sem resposta montável: segue ao LLM (exatamente como o
+					// caminho síncrono — fail-open apenas para o fallthrough).
+					logger.Warn().Msg("deliberation: EmitOK but empty deterministic response — falling through to LLM")
+				case deliberate.EmitWithReservations, deliberate.Escalate:
+					// O Kernel está incerto: entrega ao LLM um contexto LIMPO.
+					clean := BuildCleanContext(pc.Data, trace, delibCfg)
+					pc = pc.WithAugmentedPrompt(clean)
+					logger.Info().Str("verdict", string(trace.Verdict)).Float64("confidence", trace.Confidence.Final).Msg("deliberation: uncertain — clean context handed to streaming LLM")
+				}
+			}
+		}
+	}
+
 	// 4. Executor streaming — hands off to the executor's internal goroutine.
 	if e.executor != nil {
 		_, err := e.executor.ExecuteStream(ctx, pc, eventCh)

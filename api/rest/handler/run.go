@@ -708,17 +708,23 @@ func buildAgentSystemPrompt(agent *agents.Agent) string {
 	return prompt
 }
 
-// Stream handles POST /v1/run/stream — executes a prompt via the LLM and
-// streams the response back as Server-Sent Events (SSE).
+// Stream handles POST /v1/run/stream — executes a prompt through the SAME
+// Kernel-First decision flow as POST /v1/run and streams the response back as
+// Server-Sent Events (SSE).
 //
-// NOTE (unification scope): this endpoint intentionally stays on the direct
-// chat-stream path instead of the orchestration engine used by /v1/run. The
-// SSE wire protocol is its own contract (event types thinking/response/done,
-// consumed by the web dashboard's useOrchestrationStream and the TypeScript
-// SDK), while the engine's ExecuteStream emits different event types
-// (progress/chunk/stage_transition/error). Mapping them would change the SSE
-// shape and risk breaking existing stream consumers. Unifying streaming is
-// tracked separately from the non-streaming /v1/run unification.
+// Kernel-First (FASE 2, Etapa 1): este endpoint NÃO atalha mais direto para
+// registry.ChatStream. Ele constrói o engine (buildEngine, idêntico a /v1/run),
+// atravessa o MESMO fluxo decisório (MAG → Context → Router → Deliberação
+// ADR-032 → Oracle Gate), e só então a decisão governa a saída:
+//   - se a deliberação resolve (EmitOK) → resposta DETERMINÍSTICA sem LLM;
+//   - se escalar (EmitWithReservations/Escalate) → Router → provider com
+//     streaming (executor), com o contexto limpo injetado.
+//
+// O contrato SSE externo (thinking/response/done/error, consumido por
+// pkg/cosca.Stream, cosca-desktop e o dashboard) é preservado: os eventos do
+// engine (progress/chunk/stage_transition/error) são traduzidos para as MESMAS
+// chaves (type/content/duration_ms). Nenhum caminho de deliberação paralelo
+// foi criado — apenas reusado (ADR-015/ADR-032).
 func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	var req runRequest
 	limitBody(w, r, bodyLimitLarge)
@@ -737,6 +743,27 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ── ORACLE_PROTOCOL: o bloqueio do Oráculo na fronteira do Cofre ──
+	// MESMO gate de /v1/run (Execute): a request só avança se o pacote
+	// semântico valida. Fail-closed. (Kernel-First: o Oráculo decide antes da
+	// execução — o streaming não é exceção.)
+	oracleVerdict := h.oracleGate.Evaluate(oracle.SemanticPackage{
+		Intent:  "responder ao prompt do usuário",
+		Result:  req.Prompt,
+		Source:  "external",
+		Context: "request do usuário via API",
+	})
+	if oracleVerdict.Decision == oracle.Reject {
+		LogEvent(h.auditStore, r, "oracle.reject", "oracle",
+			audit.DetailsJSON(map[string]string{
+				"reason":   oracleVerdict.Reason,
+				"prompt":   req.Prompt,
+				"decision": string(oracleVerdict.Decision),
+			}), "warn")
+		writeError(w, http.StatusBadRequest, "request rejeitada pelo oráculo: "+oracleVerdict.Reason)
+		return
+	}
+
 	// Resolve the registry for this request. An explicit provider override
 	// is applied to a fresh, per-request registry so it never leaks into
 	// the shared/default registry.
@@ -751,7 +778,7 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine the agent and system prompt.
+	// Determine the agent and system prompt (para o hub broadcast + execStore).
 	agentName := req.Agent
 	systemContent := "You are a helpful AI assistant. Provide thorough, well-reasoned responses."
 
@@ -764,12 +791,6 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 	if agentName == "" {
 		agentName = "COSCA KERNEL"
-	}
-
-	// Build messages.
-	messages := []chat.Message{
-		{Role: chat.RoleSystem, Content: systemContent},
-		{Role: chat.RoleUser, Content: req.Prompt},
 	}
 
 	// Set up SSE writer and headers.
@@ -791,15 +812,26 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	// Send initial "thinking" event.
 	_ = sw.WriteEvent(stream.EventThinking, "Analyzing request and preparing response...")
 
-	// Execute.
+	// Execute (Kernel-First).
 	startTime := time.Now()
 	ctx, cancel := h.requestCtx(r)
 	defer cancel()
 
-	opts := chat.DefaultChatOptions()
-	opts.Stream = true
+	// ── KERNEL-FIRST: roteia pelo MESMO fluxo decisório de /v1/run ──
+	// buildEngine + Engine.ExecuteStream. A deliberação ADR-032 vive no engine.
+	// Se o Kernel resolver (EmitOK) a resposta sai DETERMINÍSTICA sem LLM; se
+	// escalar, o executor entrega o contexto limpo ao provider em streaming —
+	// via Router → provider (o mesmo registry e o mesmo failoverStream).
+	engine := h.buildEngine(registry)
+	orchReq := &orchestration.Request{
+		Prompt:  req.Prompt,
+		Context: make(map[string]interface{}),
+	}
+	if req.Agent != "" {
+		orchReq.Context["agent"] = req.Agent
+	}
 
-	chatStream, err := registry.ChatStream(ctx, messages, opts)
+	events, err := engine.ExecuteStream(ctx, orchReq)
 	if err != nil {
 		LogEvent(h.auditStore, r, "orchestration.stream", "orchestration",
 			audit.DetailsJSON(withPromptAuditInfo(map[string]string{
@@ -808,13 +840,17 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		_ = sw.WriteError(fmt.Errorf("chat stream failed: %v", err))
 		return
 	}
-	defer func() { _ = chatStream.Close() }()
 
 	var fullResponse strings.Builder
-	var model string
+	// Model do provider que efetivamente serve o stream (o selected do
+	// registry) — exatamente o "Model() do provider" (prova B).
+	model := registry.Model()
 	skillsUsed := deriveSkillsFromRequest(req.Prompt, agentName, systemContent)
 
+streamLoop:
 	for {
+		// Não-bloqueante: garante que o cancelamento do request seja tratado
+		// de forma determinística (como no caminho direto legado).
 		select {
 		case <-ctx.Done():
 			_ = sw.WriteError(fmt.Errorf("request cancelled or timed out"))
@@ -822,27 +858,40 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		chunk, err := chatStream.Recv()
-		if err != nil {
-			// Stream ended — treat as successful completion if we have content.
-			break
-		}
-		// Defesa em profundidade (ordem do Don + professor): um chunk nil sem
-		// erro NUNCA deve panica o handler (incidente: chunk.Model com nil).
-		// O failoverStream já não devolve (nil, nil); esta guarda cobre
-		// qualquer provider degenerado futuro.
-		if chunk == nil {
-			continue
-		}
-
-		if chunk.Model != "" {
-			model = chunk.Model
-		}
-
-		for _, choice := range chunk.Choices {
-			if choice.Delta.Content != "" {
-				fullResponse.WriteString(choice.Delta.Content)
-				_ = sw.WriteEvent(stream.EventResponse, choice.Delta.Content)
+		select {
+		case <-ctx.Done():
+			_ = sw.WriteError(fmt.Errorf("request cancelled or timed out"))
+			return
+		case ev, ok := <-events:
+			if !ok {
+				break streamLoop
+			}
+			switch ev.Type {
+			case orchestration.StreamEventChunk:
+				if ev.Content != "" {
+					fullResponse.WriteString(ev.Content)
+					_ = sw.WriteEvent(stream.EventResponse, ev.Content)
+				}
+			case orchestration.StreamEventError:
+				// Erro sanitizado (safe-error): NÃO vaza texto do provider
+				// (o caminho direto vazava "chat stream failed: %v"). O engine
+				// já mascarou o erro original no Content/Metadata.
+				msg := ev.Content
+				if msg == "" {
+					msg = "The operation could not be completed."
+				}
+				LogEvent(h.auditStore, r, "orchestration.stream", "orchestration",
+					audit.DetailsJSON(withPromptAuditInfo(map[string]string{
+						"agent": agentName, "provider": registry.Name(), "error": msg,
+					}, req.Prompt)), "error")
+				_ = sw.WriteError(fmt.Errorf("%s", msg))
+				// Erro em banda: não armazena execução nem envia "done".
+				return
+			case orchestration.StreamEventProgress, orchestration.StreamEventStageTransition:
+				// Contrato SSE (/v1/run/stream): thinking/response/done. Os
+				// eventos de progresso do engine são observáveis mas não fazem
+				// parte do wire contract — são ignorados (não quebram
+				// pkg/cosca.Stream / cosca-desktop).
 			}
 		}
 	}

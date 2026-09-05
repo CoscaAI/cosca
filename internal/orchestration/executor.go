@@ -585,6 +585,34 @@ func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventC
 	opts := e.buildChatOptions(ctx, pc.Data)
 	opts.Stream = true
 
+	// 5.5.0 ── DELIBERAÇÃO DO KERNEL (ADR-032, streaming) ──
+	// Quando a etapa Kernel-First Deliberation já produziu a resposta final
+	// (EmitOK), o executor de streaming pula a LLM de forma aditiva e
+	// reversível: o flag DeliberationHandled é checado ANTES de abrir a
+	// ChatStream. Quando false, comporta-se exatamente como antes.
+	// Este ramo é uma defesa em profundidade; o caminho canônico de EmitOK
+	// é tratado em runStreamingPipeline (que fecha o canal e nem chega aqui).
+	if pc.Data.DeliberationHandled {
+		resp := pc.Data.LLMResponse
+		if resp == "" {
+			resp = pc.Prompt
+		}
+		logger.Info().Msg("executor: streaming resposta DETERMINÍSTICA (deliberação do kernel) — pulando LLM")
+		e.emitEvent(eventCh, StreamEvent{Type: StreamEventChunk, Content: resp})
+		e.emitEvent(eventCh, StreamEvent{
+			Type:    StreamEventProgress,
+			Content: "Kernel resolved deterministically — stream complete without LLM",
+			Metadata: map[string]interface{}{
+				"agent":        agentName,
+				"deterministic": true,
+			},
+		})
+		// Este ramo não inicia o readStream, então o executor é o dono do
+		// eventCh e deve fechá-lo (senão o consumidor bloqueia para sempre).
+		close(eventCh)
+		return pc, nil
+	}
+
 	// Kill-switch guard (Etapa 3b): kernel haltado → bloqueia o streaming
 	// antes de abrir a chamada.
 	if e.haltBlocked() {
