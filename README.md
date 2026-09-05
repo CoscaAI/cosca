@@ -1,17 +1,16 @@
 # Cosca — Enterprise AI Orchestration System
 
 <p align="center">
-  <strong>53 Agents · 29 Skills · 34 Engines · 30 Workflows · Semantic Auto-Evolution Memory</strong>
+  <strong>61 Agents · 88 Skills · 39 Workflows · 112 Comandos · Semantic Auto-Evolution Memory</strong>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go" alt="Go Version">
   <img src="https://img.shields.io/badge/version-1.5.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build">
-  <img src="https://img.shields.io/badge/agents-53-blue" alt="Agents">
-  <img src="https://img.shields.io/badge/skills-29-purple" alt="Skills">
-  <img src="https://img.shields.io/badge/engines-34-green" alt="Engines">
-  <img src="https://img.shields.io/badge/workflows-30-orange" alt="Workflows">
+  <img src="https://img.shields.io/badge/agents-61-blue" alt="Agents">
+  <img src="https://img.shields.io/badge/skills-88-purple" alt="Skills">
+  <img src="https://img.shields.io/badge/workflows-39-orange" alt="Workflows">
   <img src="https://img.shields.io/badge/vetores_modulares-55.453-brightgreen" alt="Modular Vectors">
   <img src="https://img.shields.io/badge/conhecimento-ADR--013-brightgreen" alt="Modular Knowledge">
   <img src="https://img.shields.io/badge/security-nohigh%2Fnocritical-brightgreen" alt="Security">
@@ -60,7 +59,7 @@ DON (autoridade) ── ordem ──► KERNEL (consigliere, roteia, NÃO implem
                             Specialists (soldados)
 ```
 
-**Hierarquia real (53 agents no framework):** Kernel + CEO + CTO + Chiefs de
+**Hierarquia real (61 agents no framework):** Kernel + CEO + CTO + Chiefs de
 cada domínio (backend, frontend, database, devops, security, performance, qa,
 ...) + Specialists (backend-api, database-sql, testing-*, review-code, ...).
 
@@ -357,10 +356,9 @@ reportar um superset — embutido + fallback + registrados).
 
 | Métrica | Valor |
 |---|---|
-| Agentes (framework) | **53** |
-| Skills (framework) | **29** |
-| Engines (framework) | **34** |
-| Workflows (framework) | **30** |
+| Agentes (framework) | **61** |
+| Skills (framework) | **88** |
+| Workflows (framework) | **39** |
 | Agentes (registry runtime) | 61 |
 | Skills (registry runtime) | 88 |
 | Workflows (registry runtime) | 39 |
