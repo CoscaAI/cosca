@@ -75,8 +75,8 @@ func TestNew_KernelIdentityLoaded(t *testing.T) {
 	if len(kernel.Laws) != 6 {
 		t.Errorf("kernel laws = %d, want 6", len(kernel.Laws))
 	}
-	if len(kernel.Constitution) != 8 {
-		t.Errorf("constitution principles = %d, want 8", len(kernel.Constitution))
+	if len(kernel.Constitution) != 9 {
+		t.Errorf("constitution principles = %d, want 9", len(kernel.Constitution))
 	}
 }
 
