@@ -1470,3 +1470,27 @@ PASSO A PASSO (para trocar modelo da esteira - aplicavel a qualquer modelo):
 5. Registrar no Model Registry (se quiser q apareca): cosca model add <id> --provider ollama --version <v> --task text_generation --format gguf --quantization int4. ATENCAO: tarefa valida e 'text_generation' (nao 'chat'); quant valida int4/fp16 (nao 'q4_k_m').
 6. Subir/reiniciar serve; validar cosca run (sem --model) responde com o novo.
 LICOES: (a) config GLOBAL sobrepoe a do projeto - verificar AS DUAS; (b) GPU/ollama parado = modelo 'nao esta em lugar nenhum' mas existe; (c) GGUF e gitignored (2,3GB nao vai pro git) - so o index.yaml do registry e versionavel. Fazer backup do config antes de editar (base da seguranca).
+## 2026-09-05 — Mineracao da mina HKUDS/CLI-Anything (padrao agente-native)
+
+MINA: https://github.com/HKUDS/CLI-Anything (49k stars, Apache-2.0, Python). Conceito: "tornar TODO software agente-native" - gera CLI/harness estadoful para agente usar por CLI + JSON + preview-feedback. 79 CLIs no registry, 151 SKILL.md, 87 dirs, 1037 .py.
+VALOR PAN CADA PEDACINHO (8 padroes + 5 harnesses + ecosystem + dado de treino):
+1. PADRAO SKILL agente-native: contracto de descoberta (frontmatter name+description use-when -> install pip -> grupos -> --json -> "For AI Agents").
+2. GERACAO automatica de skill via AST do Click (skill_generator.py) - sem drift.
+3. CLI ESTADO Dual-mode: REPL default + one-shot + --json; comando deleta ao core/; @handle_error; session status p/ agente inspecionar.
+4. BACKEND REAL nunca reimplantado (wrapper utils/<sw>_backend.py + streaming NDJSON).
+5. NAMESPACE PACKAGING (cli_anything/ sem __init__.py, PEP 420) - extensivel sem conflito.
+6. REGISTRY MANIFESTO (name,install_cmd,entry_point,skill_md,category,requires) - contrato de instalacao.
+7. PACKAGE MANAGER (cli-hub install/search/info/launch/can + estrategias pip|npm|uv|bundled) - mercado de skills.
+8. PREVIEW-FEEDBACK LOOP (produtor cli-anything-<sw> preview vs consumidor cli-hub previews; bundle/session/trajectory) + MATRIZES de capacidade (capability->provider fallback cost/quality/offline).
+HARNESSES MAIS VALIOSOS (pra COSCA): blender (preview bundle hero+workbench, live session), comfyui (node graph validado + inventario de models), audacity (motor audio Python puro JSON->WAV, 16 efeitos), zotero (item context->prompt_context = contracto RAG), browser/DOMShell (MCP-as-backend, Accessibility Tree como filesystem = percepcao navegavel).
+ECOSYSTEMA: cli-hub = catalogo+package manager; ADAPTADORES de editor (cursor/claude/codex/hermes/reasonix/qoder/opencode) - fonte canonica unica cosca-plugin + gerador de skins -> as 88 skills do COSCA podem ser "marketplace-able" e descobriveis (--json).
+DADO DE TREINO (honesto): corpus descriptivo ~334 arquivos ~500K tokens (SKILL+SOP+TEST+matrix). NAO e dataset de trajectories (sem pares prompt->tool_call->obs->resposta). MELHOR como RAG (embed no semantic_router) + SINTETIZAR pares SFT dos TEST.md/workflow scenarios (a caminho p/ atacar happy path). INFORMACAO: para SFT mire ~10-20K pares sinteticos de 3-5 tool_steps (relevancia>quantidade); NUNCA treinar no codigo go. RISC0: skills geradas por template = redundancia alta, pode memorizar esqueleto em vez de generalizar; limpar secoes verbatim antes.
+PONTE NATURAL: preview-feedback do CLI-Anything = lado da FERRAMENTA; Perception Bus do COSCA = lado do MODELO. Sao as 2 metades do mesmo loop agente<->real. Mapear trajectory.json/session.json como memoria episodica.
+PROXIMO: (1) RAG imediato - embed skills/**/SKILL.md + matrix_registry + cli-hub-matrix/guides; (2) SFT sintetizado dos TEST.md p/ LoRA 002; (3) possivel cosca-hub c/ 88 skills como marketplace.
+## 2026-09-05 — FIX BUG: knowledge index nao gravava (corte ADR-013)
+
+BUG (confirmado por leitura causal): withQualifier(ds.QualifiedTable) injetava "core.documents" na ESCRITA do indexer, mas a conexao principal (e.db = knowledge.db) NAO tinha o core.db ATTACHado -> INSERT INTO core.documents falhava silenciosamente (log.Warn por arquivo, nao aborta). Resultado: knowledge index dizia "Indice atualizado" mas nao gravava NADA (documents/chunks inalterados).
+FIX (internal/knowledge/knowledge.go ~416): manter OpenDataSources para LEITURA (corte/vectoragg ATTACH), mas NAO injetar WithQualifier na escrita -> indexer escreve no MONOLITO (knowledge.db, fonte de escrita). O db build ja sincroniza monolito->modulos depois.
+VALIDACAO: go build ./internal/knowledge/ = 0; binario corrigido; knowledge index da mina -> documents 1965->1998 (+33 docs da mina); busca semantica acha a mina (8 resultados).
+LICAO ARQUITETURAL: O corte ADR-013 separa LEITURA (vectoragg ATTACH modules read-only) de ESCRITA (monolito fonte -> db build sincroniza). O WithQualifier na escrita era uma OTIMIZACAO que quebrou porque faltou ATTACH. Regra: NUNCA ativar qualifier de tabela se o database da conexao nao tem o modulo ATTACHado. Ingestao funciona via monolito; db build propaga.
+IMPACTO: beneficia QUALQUER ingestao via knowledge index (nao so a mina) - o indice estava todo quebrado na escrita desde o corte ativado.

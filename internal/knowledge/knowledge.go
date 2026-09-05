@@ -409,23 +409,22 @@ func (e *Engine) Init() error {
 	if len(e.cfg.IndexerConfig.AllowedExtensions) > 0 {
 		idxCfg.AllowedExtensions = e.cfg.IndexerConfig.AllowedExtensions
 	}
-	// Corte do Plano D (D3): se os módulos físicos existirem no data dir, o
-	// indexer escreve NELES (via QualifiedTable); senão, usa o monolito
-	// (comportamento histórico). O DataSources é aberto best-effort — um
-	// erro aqui NÃO derruba o boot (o monolito cobre).
+	// Corte do Plano D (D3): os módulos físicos são a fonte de LEITURA (vectoragg
+	// ATTACH read-only). A ESCRITA do indexer fica no monolito (knowledge.db) —
+	// é a fonte de escrita, e o `cosca db build` sincroniza monolito→módulos depois.
+	// NÃO injetamos WithQualifier aqui: a conexão principal (e.db) não tem os
+	// módulos ATTACHados, então `INSERT INTO core.documents` falharia silenciosamente
+	// (bug real: knowledge index não gravava). O OpenDataSources é mantido para
+	// expor `dataSources` a quem precisa, mas o indexer escreve na tabela pura.
 	if ds, dsErr := OpenDataSources(filepath.Dir(e.cfg.DBPath)); dsErr == nil && len(ds.Present()) > 0 {
 		e.dataSources = ds
-		idxOpts := []func(*indexer.Indexer){
-			indexer.WithQualifier(ds.QualifiedTable),
-		}
 		e.indexer = indexer.New(
 			idxCfg, e.mdParser, e.entityParser, e.chunker,
 			e.embRegistry, e.vecStore, e.fts, e.db, e.graphBuilder,
-			idxOpts...,
 		)
 		log.Info().
 			Strs("modules", modulesPresent(ds)).
-			Msg("knowledge engine: corte ativo — indexer escreve nos módulos físicos")
+			Msg("knowledge engine: corte ativo (leitura nos módulos); indexer escreve no monolito")
 	} else {
 		e.indexer = indexer.New(
 			idxCfg, e.mdParser, e.entityParser, e.chunker,
