@@ -57,8 +57,8 @@
       "created_at": "2026-07-30T09:15:00Z",
       "promoted_at": "2026-08-24T08:46:42.5995836-03:00",
       "status": "SUPPORTED",
-      "last_verified": "2026-09-04T16:47:48.5245831-03:00",
-      "verification_count": 6892
+      "last_verified": "2026-09-05T15:56:42.7998381-03:00",
+      "verification_count": 6935
     },
     {
       "id": "K-02",
@@ -106,8 +106,8 @@
       "created_at": "2026-07-31T10:10:00Z",
       "promoted_at": "2026-08-24T08:46:42.5995836-03:00",
       "status": "SUPPORTED",
-      "last_verified": "2026-09-04T16:47:48.5245831-03:00",
-      "verification_count": 6892
+      "last_verified": "2026-09-05T15:56:42.7998381-03:00",
+      "verification_count": 6935
     },
     {
       "id": "K-03",
@@ -178,8 +178,8 @@
       "created_at": "2026-07-31T10:20:00Z",
       "promoted_at": "2026-08-24T08:46:42.5995836-03:00",
       "status": "SUPPORTED",
-      "last_verified": "2026-09-04T16:47:48.5245831-03:00",
-      "verification_count": 6892
+      "last_verified": "2026-09-05T15:56:42.7998381-03:00",
+      "verification_count": 6935
     },
     {
       "id": "K-04",
@@ -240,8 +240,8 @@
       "created_at": "2026-07-31T10:30:00Z",
       "promoted_at": "2026-08-24T08:46:42.5995836-03:00",
       "status": "SUPPORTED",
-      "last_verified": "2026-09-04T16:47:48.5245831-03:00",
-      "verification_count": 6892
+      "last_verified": "2026-09-05T15:56:42.7998381-03:00",
+      "verification_count": 6935
     },
     {
       "id": "K-05",
@@ -289,8 +289,8 @@
       "created_at": "2026-07-31T10:00:00Z",
       "promoted_at": "2026-08-24T08:46:42.5995836-03:00",
       "status": "SUPPORTED",
-      "last_verified": "2026-09-04T16:47:48.5245831-03:00",
-      "verification_count": 6892
+      "last_verified": "2026-09-05T15:56:42.7998381-03:00",
+      "verification_count": 6935
     }
   ]
 }
