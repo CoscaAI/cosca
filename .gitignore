@@ -1,0 +1,198 @@
+# Cosca runtime — versionado por ordem do Don (2026-08-22), EXCETO lixo transitório:
+# - *.db-wal / *.db-shm: sidecars SQLite vivos, mudam a cada escrita do servidor
+#   (commit deles = working tree eternamente sujo + snapshot inconsistente)
+# - cosca.pid: muda a cada restart
+# - logs/ e cache/: regeneráveis, ruído puro
+# - knowledge.db: é o ÍNDICE DERIVADO (vetores + grafo + FTS). Pode passar de
+#   100MB (limite do GitHub) e é RECONSTRUÍVEL (indexação) — NÃO é fonte de
+#   verdade. Por decisão do Don (2026-08-24, arquitetura modular ADR-013):
+#   índices derivados NÃO são versionados; só o CORE imutável (chain + blocks
+#   + manifest) fica no git (pequeno). Regenerar localmente: cosca knowledge index.
+#   ANTES: o knowledge.db entrava no git como snapshot (regra antiga 2026-08-22).
+.cosca/logs/
+.cosca/cache/
+.cosca/cosca.pid
+.cosca/knowledge.db
+.cosca/projects.db
+.cosca/graph.db
+.cosca/vector.db
+.cosca/fts.db
+.cosca/core.db
+# Módulos derivados do split físico (ADR-013 Fase C): reconstruíveis via
+# `cosca db build` — NUNCA versionados (a fonte é o knowledge.db).
+.cosca/vector-*.db
+
+# Fase C ADR-030 — state CoW derivado do KnowledgeFS (reconstruível via
+# `cosca knowledge snapshot`, NÃO é fonte). manifest.yaml/lock.yaml (a fonte)
+# CONTINUAM versionados; só os artefatos derivados ficam fora.
+.cosca/knowledge/objects/
+.cosca/knowledge/snapshots/
+.cosca/knowledge/refs/
+
+# ADR-031 Fase 0 — log de custo/token (append-only, runtime derivado)
+.cosca/cost/
+
+# ADR-033 Fase 0 — Cognitive Shadow Mode (registro contrafactual, runtime derivado)
+.cosca/shadow/
+
+# Artefatos de fetch em quarentena (dados externos não-confiáveis) — runtime,
+# nunca versionar. A memória da família (.cosca/memory/...) É versionada.
+.cosca/quarantine/
+
+# Sidecars SQLite vivos — SEMPRE transitórios em qualquer local (mudam a cada escrita)
+*.db-wal
+*.db-shm
+
+# Activity log transitório (append-only, rotacionado) — não é fonte de verdade;
+# .1 é o backup da rotação. Regenerável, nunca commitado.
+.cosca/activity.jsonl
+.cosca/activity.jsonl.1
+
+# Skill version ledger (F1) — runtime/derived state produced by `cosca skill evolve`.
+# Like knowledge.db it is a DERIVED, regenerable index (rebuildable from the
+# versioned SKILL.md + git history), not the immutable core. Not versioned.
+.cosca/skill-version-ledger/
+
+# Lixo isolado da limpeza arquitetural (Etapa 1 — 2026-09-01): legado/accidental
+# state movido para fora do caminho canônico aguardando remoção autorizada.
+# NUNCA versionar — é estado derivado/lixo, não fonte de verdade.
+.cosca/_lixo_da_festa/
+
+# durable.db — ledger de crash-recovery de workflows (runtime derivado,
+# rebuildable; não é fonte imutável). Migrado do caminho bugado .cosca/.cosca/
+# na Etapa 1 (2026-09-01). Fora do git como os demais DBs de runtime.
+.cosca/durable.db
+
+
+
+# Accidental .cosca dirs in subdirectories (created by tests running cosca with CWD in subdirs)
+# NOTE: `*/**/.cosca/` (NOT `**/.cosca/`) — requires >=1 parent dir so the root
+# .cosca/ (whose .cosca/framework/ subdirectory IS versioned) is never excluded at the root.
+*/**/.cosca/
+
+# Archived (unused/regenerable — moved out of the working tree by Don's order)
+/archived/
+
+# External reference clones (mining — never versioned; they carry their own .git)
+/eigen/
+.cosca/fallback/knowledge/blender-repo/
+
+# Build artifacts & binaries (anchored to root — do NOT ignore internal/embed/cosca/)
+/cosca
+/cosca-indexer
+bin/
+build/
+dist/
+
+# Root-owned artifacts (from sudo executions)
+.config/
+
+# Secrets
+.env
+*.env
+!.env.example
+
+# OS
+.DS_Store
+
+# Go module cache (never versioned)
+/go/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+scripts/voice/venv/
+.venv/*
+/models
+
+# Node.js (TypeScript SDK)
+node_modules/
+
+# Build cache
+.cache/
+cosca-forex/
+
+# Binários de teste órfãos (go test -c)
+*.test
+
+# Training runs — artefatos LoRA (binários pesados, regeneráveis)
+/checkpoints/
+/training/checkpoints/
+/training/data/
+
+# Dados de runtime/teste
+/data/
+
+# Logs na raiz
+/*.log
+
+# Transient runtime auto-backups (Don policy: lixo transitorio)
+# NUNCA versionar: são cópias voláteis do knowledge.db (podem passar de 100MB,
+# limite do GitHub) e são lixo transitório. Regra da Decisão 1 (ADR-013, 2026-08-24).
+.cosca/backups/
+.cosca/assets/
+
+# ---- Cosca: artefatos nao sao fonte de verdade (2026-08-27) ----
+cosca.exe
+inst_user_settings.tmp
+.cosca/evals/recall/
+knowledge.db
+
+# ---- Artefatos binarios de build/modelo soltos (lixo, nao fonte de verdade) ----
+# cosca-indexer.exe: binario de build gerado (o gitignore cobria /cosca-indexer
+# sem extensao; o .exe compilado escapava). yolov8n.pt: peso de modelo YOLOv8
+# baixado para testes/vision — regeneravel, pesado, nao versionado.
+/cosca-indexer.exe
+/yolov8n.pt
+
+# Chave privada do certificado (NUNCA versionar)
+/security-backup/
+
+tmp/
+
+# Cosca training artifacts (pesos LoRA/GGUF — regeneraveis, nao versionar)
+/campaign-001/
+/cosca-qwen3-4b-lora/
+*.safetensors
+*.gguf
+# ---- bwrap auto-jail workspace bind dirs (criados no workspace, NUNCA versionar) ----
+/usr/
+/lib/
+/lib64/
+/etc/
+/proc/
+/dev/
+/run/
+
+# ---- Laboratory: modelos/experimentos locais grandes (nao versionar) ----
+/laboratory/models/
+/logs/
+
+# ---- Laboratory: artefatos de experimento (config/model/data � nao versionar) ----
+/laboratory/data/
+/laboratory/campaign-001/*.json
+/laboratory/campaign-001/*.jinja
+
+# ---- Cosca runtime: ignorar DERIVADOS/TRANSIENTES; versionar a memória REAL (Don 2026-09-04) ----
+# Recibos do "Operational Rest Cycle" (ORC) — gerados a cada ~30s (6.8k acumulados). São log, não memória.
+.cosca/memory/audit/rest-cycle-*.md
+# Traçados operacionais por conversa/workspace (per-session/per-workspace) — crescem sem limite, não são conhecimento da família.
+.cosca/memory/session/
+.cosca/memory/workspace/
+# DBs de runtime derivados/regeneráveis (a fonte real é .cosca/memory/agent/**, versionada) e logs.
+.cosca/memory/index.db
+.cosca/semantic.db
+.cosca/tasks.db
+.cosca/trace.db
+.cosca/serve-update.log
+# Traços de planos/workflows (history + checkpoints), relatórios de eval, eventos duráveis,
+# install/jobs/trash, logs de vigia — todos derivados/transitórios (fonte real: config/knowledge/estado).
+.cosca/history/
+.cosca/evals/reports/
+.cosca/durable-events/
+.cosca/install/
+.cosca/jobs/
+.cosca/_trash/
+.cosca/audit/memory-watch.log
+.cosca/campaign-002-package.zip

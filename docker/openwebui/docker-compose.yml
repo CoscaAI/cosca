@@ -1,0 +1,32 @@
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: cosca-openwebui
+    restart: unless-stopped
+    # Bridge networking bound to loopback only — NEVER network_mode: host
+    # (host networking exposes the container to all host interfaces). The
+    # web UI is reachable at http://127.0.0.1:8080.
+    ports:
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # OLLAMA_BASE_URL via host.docker.internal (bridge network) — the
+      # host's Ollama on 127.0.0.1:11435 is NOT reachable from the container
+      # loopback.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11435
+      # Secret must come from the environment — never hardcode it in the
+      # compose file. Generate: openssl rand -base64 64
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:?set a strong secret in the environment (e.g. openssl rand -base64 64)}
+      - WEBUI_NAME=Cosca AI
+    volumes:
+      - openwebui_data:/app/backend/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  openwebui_data:
+    name: cosca_openwebui_data

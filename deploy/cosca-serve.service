@@ -1,0 +1,23 @@
+[Unit]
+Description=Cosca — Serve daemon 24/7 (API, memória, manutenção de índice)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cosca/bin/cosca serve
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=always
+RestartSec=5
+WorkingDirectory=%h/Documents/cosca
+# Hardening
+NoNewPrivileges=yes
+MemoryMax=16G
+# Segredos NUNCA no unit file — lidos de arquivo 0600 (só o Don acessa)
+EnvironmentFile=%h/.config/cosca/serve.env
+Environment=COSCA_PIPELINE_ENABLED=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

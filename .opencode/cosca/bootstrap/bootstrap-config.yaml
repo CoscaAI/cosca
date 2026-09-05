@@ -1,0 +1,169 @@
+# Cosca Bootstrap Configuration
+
+# Version: 1.0.0
+
+# ─── System Health ───
+health_check:
+  required_components:
+    - name: "Kernel"
+      path: "${COSCA_HOME}/KERNEL.md"
+      critical: true
+    - name: "Skills Engine"
+      path: "${ENGINES_HOME}/skills/SKILL.md"
+      critical: true
+    - name: "Memory Engine"
+      path: "${ENGINES_HOME}/memory/SKILL.md"
+      critical: false
+    - name: "Workflow Engine"
+      path: "${ENGINES_HOME}/workflow/SKILL.md"
+      critical: false
+    - name: "Discovery Engine"
+      path: "${ENGINES_HOME}/discovery/SKILL.md"
+      critical: false
+    - name: "Context Engine"
+      path: "${ENGINES_HOME}/context/SKILL.md"
+      critical: false
+    - name: "Observability Engine"
+      path: "${ENGINES_HOME}/observability/SKILL.md"
+      critical: false
+    - name: "Cosca Loader Plugin"
+      path: "${COSCA_HOME}/../node_modules/cosca-loader/"
+      critical: true
+
+# ─── Detection Rules ───
+detection:
+  language_detector: "detectors/language-detector.md"
+  framework_detector: "detectors/framework-detector.md"
+  database_detector: "detectors/database-detector.md"
+  architecture_detector: "detectors/architecture-detector.md"
+  infrastructure_detector: "detectors/infrastructure-detector.md"
+
+# ─── Project Classification ───
+classification:
+  type_mapping:
+    - patterns: ["next", "stripe", "paddle", "subscription"]
+      type: "saas"
+      template: "templates/saas/TEMPLATE.md"
+    - patterns: ["nestjs", "django", "react", "angular", "postgresql"]
+      type: "erp"
+      template: "templates/erp/TEMPLATE.md"
+    - patterns: ["express", "fastapi", "react", "vue", "postgresql"]
+      type: "crm"
+      template: "templates/crm/TEMPLATE.md"
+    - patterns: ["nestjs", "django", "next", "elasticsearch"]
+      type: "marketplace"
+      template: "templates/marketplace/TEMPLATE.md"
+    - patterns: ["react-native", "expo", "flutter"]
+      type: "mobile"
+      template: "templates/mobile/TEMPLATE.md"
+    - patterns: ["nestjs", "fastapi", "gin", "actix"]
+      type: "api"
+      template: "templates/api/TEMPLATE.md"
+      condition: "no frontend framework detected"
+    - patterns: ["rabbitmq", "kafka", "nats", "microservice"]
+      type: "microservices"
+      template: "templates/microservices/TEMPLATE.md"
+    - patterns: ["next", "astro", "tailwind"]
+      type: "landing"
+      template: "templates/landing/TEMPLATE.md"
+    - patterns: ["ant-design", "mui", "admin"]
+      type: "admin"
+      template: "templates/admin/TEMPLATE.md"
+
+  complexity_thresholds:
+    trivial:
+      max_files: 10
+      max_deps: 5
+    simple:
+      max_files: 50
+      max_deps: 15
+    medium:
+      max_files: 200
+      max_deps: 50
+    complex:
+      max_files: 1000
+      max_deps: 150
+    epic:
+      min_files: 1001
+      min_deps: 151
+
+# ─── Agent Activation Matrix ───
+agent_activation:
+  always_active:
+    - cosca-ceo
+    - cosca-cto
+    - cosca-product
+    - cosca-architecture
+    - cosca-review
+    - cosca-qa
+    - cosca-documentation
+    - cosca-security
+    - cosca-context
+    - cosca-memory-chief
+    - cosca-critic
+    - cosca-paradigm
+
+  language_triggers:
+    - languages: ["typescript", "javascript"]
+      activate: [cosca-backend, cosca-frontend]
+    - languages: ["python"]
+      activate: [cosca-backend]
+    - languages: ["go"]
+      activate: [cosca-backend]
+    - languages: ["rust"]
+      activate: [cosca-backend]
+    - languages: ["java", "kotlin"]
+      activate: [cosca-backend]
+    - languages: ["dart"]
+      activate: [cosca-mobile]
+
+  infrastructure_triggers:
+    - patterns: ["docker", "docker-compose", "dockerfile", "kubernetes", "k8s"]
+      activate: [cosca-devops, cosca-infrastructure]
+    - patterns: ["terraform", "pulumi"]
+      activate: [cosca-infrastructure]
+    - patterns: ["github-actions", "gitlab-ci", "jenkins"]
+      activate: [cosca-devops]
+
+  database_triggers:
+    - patterns: ["postgresql", "mysql", "sqlite", "mongodb", "redis"]
+      activate: [cosca-database]
+    - patterns: ["prisma", "typeorm", "drizzle", "sequelize", "knex"]
+      activate: [cosca-database]
+
+  special_triggers:
+    - patterns: ["openai", "anthropic", "langchain", "llm", "rag", "embedding"]
+      activate: [cosca-ai]
+    - patterns: ["stripe", "paypal", "webhook", "oauth", "sdk"]
+      activate: [cosca-integrations]
+    - patterns: ["grafana", "prometheus", "datadog", "sentry"]
+      activate: [cosca-monitoring]
+    - patterns: ["bull", "bullmq", "celery", "sidekiq", "queue"]
+      activate: [cosca-runtime]
+    - patterns: ["monorepo", "turbo", "nx", "lerna"]
+      activate: [cosca-automation, cosca-workflow-chief]
+
+# ─── Validation Rules ───
+validation:
+  project_validator: "validators/project-validator.md"
+  aos_validator: "validators/cosca-validator.md"
+  dependency_validator: "validators/dependency-validator.md"
+
+# ─── Bootstrap Limits ───
+limits:
+  max_discovery_time_ms: 80000
+  max_context_files: 6
+  max_memory_load: 2000
+  max_report_size_bytes: 200000
+
+# ─── Observability ───
+observability:
+  log_events: true
+  event_log_path: ".cosca/memory/session/bootstrap-events.json"
+  metrics:
+    - bootstrap_duration_ms
+    - components_healthy
+    - languages_detected
+    - frameworks_detected
+    - skills_loaded
+    - agents_activated

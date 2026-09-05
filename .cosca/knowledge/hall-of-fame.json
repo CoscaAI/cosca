@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "discoveries": [
+    {
+      "id": "D-05",
+      "name": "Cosca Knowledge Lifecycle (CKL)",
+      "description": "Conhecimento como código: leis com evidência rastreável, promoção gradual (observation → … → law) e aprovação do Don — contexto governado reduz o contexto carregado em 18%.",
+      "impact": 5,
+      "projects_affected": 1,
+      "economy_percent": 18,
+      "economy_usd": 0,
+      "risk_reduction_percent": 0,
+      "validated_sessions": 1,
+      "origin": "conversa do Don — conhecimento como código",
+      "related_law": "K-05",
+      "created_at": "2026-07-31T12:51:00Z"
+    },
+    {
+      "id": "D-01",
+      "name": "Jail fail-closed — recusa executar como root",
+      "description": "A jail passou a falhar fechada (fail-closed): recusa executar como root automaticamente, eliminando a superfície do incidente F001 (fuga da jail como root).",
+      "impact": 5,
+      "projects_affected": 1,
+      "economy_percent": 0,
+      "economy_usd": 0,
+      "risk_reduction_percent": 87,
+      "validated_sessions": 4,
+      "origin": "red-team-onda-1 (auditoria A1+C3)",
+      "related_law": "K-01",
+      "created_at": "2026-07-31T11:36:00Z"
+    },
+    {
+      "id": "D-04",
+      "name": "Refresh token com rotação e revogação",
+      "description": "O refresh token agora rotaciona a cada uso e revoga o anterior: reuse de token rotacionado é detectado e bloqueado (fail-closed) — auditoria A4 encontrou o refresh reusável.",
+      "impact": 4,
+      "projects_affected": 1,
+      "economy_percent": 0,
+      "economy_usd": 0,
+      "risk_reduction_percent": 60,
+      "validated_sessions": 4,
+      "origin": "red-team-onda-2 (A4)",
+      "related_law": "K-04",
+      "created_at": "2026-07-31T11:58:00Z"
+    },
+    {
+      "id": "D-02",
+      "name": "Registro público desabilitado por padrão",
+      "description": "O endpoint de registro passou a ser desabilitado por padrão (fail-closed): nenhum usuário anônimo sem configuração explícita — auditoria A1 encontrou o registro público.",
+      "impact": 4,
+      "projects_affected": 1,
+      "economy_percent": 0,
+      "economy_usd": 0,
+      "risk_reduction_percent": 70,
+      "validated_sessions": 3,
+      "origin": "red-team-onda-1 (auditoria A1)",
+      "related_law": "K-02",
+      "created_at": "2026-07-31T11:36:00Z"
+    },
+    {
+      "id": "D-03",
+      "name": "Path traversal bloqueado por containment",
+      "description": "Containment no indexador e no memory ID: caminhos fora da raiz do sandbox são rejeitados (fail-closed) — as auditorias C1 (indexador) e C2 (memory ID) encontraram traversal.",
+      "impact": 4,
+      "projects_affected": 1,
+      "economy_percent": 0,
+      "economy_usd": 0,
+      "risk_reduction_percent": 65,
+      "validated_sessions": 5,
+      "origin": "red-team-onda-1 (C1+C2)",
+      "related_law": "K-03",
+      "created_at": "2026-07-31T11:36:00Z"
+    }
+  ]
+}

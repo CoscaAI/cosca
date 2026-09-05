@@ -1,0 +1,27 @@
+# heuristics/H-016-declarative-state-machine-gap.yaml
+id: H-016
+title: "State machine declarativo com enforcement imperativo = gap de bugs"
+domain: refactoring
+type: anti-pattern
+severity: high
+source_agents: [cosca-review, cosca-testing, cosca-kernel]
+description: >
+  Definir um mapa de transições válidas (validTransitions) não garante que
+  o código de produção as execute. A transição Stopped→Uninitialized existe
+  no mapa mas Restart() chama Stop()→Start() sem nunca executar essa transição.
+  O state machine é "declarative" (mapa de regras) mas o uso é "imperative"
+  (chamadas manuais) — o gap entre definição e enforcement é onde bugs nascem.
+  O testing agent confirmou: state machine requer cobertura de grafo de transições,
+  não só happy paths. Eventos disparados antes do lifecycle step correspondente
+  (EventStartupComplete prematuro) são o mesmo padrão de gap.
+evidence:
+  - "2026-07-28: Review agent — 'Restart() calls Stop()→Start() without executing Stopped→Uninitialized'"
+  - "2026-07-28: Review agent — 'Emitir eventos de completion ANTES do lifecycle step é um antipattern crítico'"
+  - "2026-07-28: Testing agent — 'State machine testing requires transition graph coverage, not just happy paths'"
+  - "2026-07-28: Testing agent — 'BUG-U01 confirmed: validTransitions map is correct but the code never executes the transition'"
+  - "2026-07-28: Kernel L9 — 'Teste desatualizado: código já corrigido mas teste esperava comportamento antigo'"
+action: "Encapsular sequências de transições em wrapper methods (ex: RestartSequence()) em vez de deixar cada caller compor transições manualmente. Testar TODA edge do grafo de transições, não só happy paths. Verificar ordem: lifecycle step → transição → evento."
+related: [H-004, H-017]
+tags: [refactoring, state-machine, transitions, bugs, anti-pattern, enforcement, contract-violation]
+confidence: 0.88
+created: 2026-07-29

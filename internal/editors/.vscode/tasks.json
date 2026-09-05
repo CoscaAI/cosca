@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Cosca: Search Codebase",
+      "type": "shell",
+      "command": "cosca search \"${input:query}\"",
+      "presentation": {
+        "echo": true,
+        "focus": false,
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "group": "none",
+      "detail": "Search the codebase using Cosca semantic search"
+    },
+    {
+      "label": "Cosca: Index Codebase",
+      "type": "shell",
+      "command": "cosca index",
+      "presentation": {
+        "echo": true,
+        "focus": true,
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "group": "none",
+      "detail": "Index the codebase with Cosca for semantic search"
+    },
+    {
+      "label": "Cosca: Get Context",
+      "type": "shell",
+      "command": "cosca context ${file}",
+      "presentation": {
+        "echo": true,
+        "focus": false,
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "group": "none",
+      "detail": "Get Cosca context for the current file"
+    },
+    {
+      "label": "Cosca: Status",
+      "type": "shell",
+      "command": "cosca status",
+      "group": "none",
+      "detail": "Check Cosca system status"
+    }
+  ]
+}

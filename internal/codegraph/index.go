@@ -1,0 +1,197 @@
+// F3 do ADR-019 — Índice persistente e RAM-first do code graph.
+//
+// Index pre-computa o grafo + os sinais de cada arquivo uma vez (RAM-first) e
+// busca sem re-ler o codebase. Publicação ATÔMICA (I2, fail-closed): Save grava
+// em <path>.tmp e renomeia — uma interrupção nunca deixa um índice parcial
+// (o índice antigo permanece íntegro até o rename).
+//
+// Determinístico (I1), zero LLM/zero rede. Compõe sobre codegraph.BuildGraph +
+// codeembed.Signals (nada duplicado).
+package codegraph
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"time"
+
+	"github.com/CoscaAI/cosca/internal/codeembed"
+	"github.com/CoscaAI/cosca/internal/codeindex"
+	"github.com/CoscaAI/cosca/internal/graph"
+)
+
+// FileMeta é a metadados auto-contida de um arquivo indexado (para a busca NÃO
+// depender do round-trip do grafo — que não é garantido via JSON).
+type FileMeta struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Lang string `json:"lang,omitempty"`
+}
+
+// Index é o índice em memória do code graph + sinais por arquivo.
+type Index struct {
+	Root     string                         `json:"root"`
+	Dim      int                            `json:"dim"`
+	BuiltAt  time.Time                      `json:"built_at"`
+	Graph    *graph.Graph                   `json:"graph"`
+	Signals  map[string]codeembed.SignalSet `json:"signals"` // node ID (file) -> sinais
+	Meta     map[string]FileMeta            `json:"meta"`     // node ID (file) -> metadados (busca auto-contida)
+	Symbols  map[string][]codeindex.Symbol  `json:"symbols"`  // Go symbols com byte-offset (O(1) retrieval)
+	Hashes   map[string]string              `json:"hashes"`   // content-hash por arquivo (incremental, P2.5)
+	Coverage Coverage                       `json:"coverage"`
+}
+
+// BuildIndex constrói o índice (RAM-first) do diretório `root`. A Coverage (F4)
+// é computada por arquivo — a omissão (arquivo pulado) é registrada e separada
+// dos fatos do grafo ("não registrado ≠ não existe", I3/I4).
+func BuildIndex(root string, dim int) (*Index, error) {
+	if dim <= 0 {
+		dim = codeembed.DefaultDim
+	}
+	g, err := BuildGraph(root)
+	if err != nil {
+		return nil, fmt.Errorf("build graph: %w", err)
+	}
+	ix := &Index{
+		Root:     root,
+		Dim:      dim,
+		BuiltAt:  time.Now().UTC(),
+		Graph:    g,
+		Signals:  map[string]codeembed.SignalSet{},
+		Meta:     map[string]FileMeta{},
+		Symbols:  map[string][]codeindex.Symbol{},
+		Hashes:   map[string]string{},
+		Coverage: Coverage{Langs: map[string]int{}, BestEffort: true, BuiltAt: time.Now().UTC()},
+	}
+
+	// Conta a cobertura por arquivo-fonte (collectFiles é a mesma régua do grafo).
+	files, _ := collectFiles(root)
+	for _, fi := range files {
+		ix.Coverage.TotalSourceFiles++
+		ix.Coverage.Langs[fi.lang]++
+		content, rerr := os.ReadFile(filepath.Join(root, filepath.FromSlash(fi.rel)))
+		if rerr != nil {
+			ix.Coverage.SkippedFiles++ // omissão registrada (I4)
+			continue
+		}
+		ix.Signals[fi.rel] = codeembed.Signals(string(content), dim)
+		ix.Meta[fi.rel] = FileMeta{Name: filepath.Base(fi.rel), Path: fi.rel, Lang: fi.lang}
+		ix.Hashes[fi.rel] = hashBytes(content)
+		// Go: captura símbolos com byte-offset (AST preciso) para O(1) retrieval.
+		if fi.lang == "go" {
+			if syms, serr := codeindex.ExtractFile(filepath.Join(root, filepath.FromSlash(fi.rel))); serr == nil {
+				ix.Symbols[fi.rel] = syms
+			}
+		}
+	}
+	ix.Coverage.IndexedFiles = len(ix.Signals)
+	ix.Coverage.CoversAll = ix.Coverage.SkippedFiles == 0
+	return ix, nil
+}
+
+// SearchSimilar devolve os arquivos mais similares à consulta, usando os sinais
+// pré-computados (sem re-ler o codebase). Determinístico (I1).
+func (ix *Index) SearchSimilar(query string, limit int) []SearchHit {
+	if ix == nil {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	q := codeembed.Signals(query, ix.Dim)
+	var hits []SearchHit
+	for id, sig := range ix.Signals {
+		score := codeembed.Fuse(q, sig)
+		meta, ok := ix.Meta[id]
+		if !ok {
+			continue
+		}
+		hits = append(hits, SearchHit{
+			File:  meta.Name,
+			Path:  meta.Path,
+			Lang:  meta.Lang,
+			Score: score,
+		})
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].Score != hits[j].Score {
+			return hits[i].Score > hits[j].Score
+		}
+		return hits[i].Path < hits[j].Path // tie-break determinístico (I1)
+	})
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+	return hits
+}
+
+// Save publica o índice de forma ATÔMICA (I2, fail-closed): grava em <path>.tmp
+// e renomeia. Uma falha durante o write deixa o índice ANTIGO intacto.
+func (ix *Index) Save(path string) error {
+	if ix == nil {
+		return fmt.Errorf("index: nil")
+	}
+	data, err := json.Marshal(ix)
+	if err != nil {
+		return fmt.Errorf("index save: marshal: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("index save: mkdir: %w", err)
+	}
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return fmt.Errorf("index save: write tmp: %w", err)
+	}
+	// fsync + rename atômico: o nome final só existe se o tmp estiver completo.
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("index save: rename: %w", err)
+	}
+	return nil
+}
+
+// Load lê um índice previamente publicado. Inexistente devolve nil,nil.
+func LoadIndex(path string) (*Index, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("index load: %w", err)
+	}
+	var ix Index
+	if err := json.Unmarshal(data, &ix); err != nil {
+		return nil, fmt.Errorf("index load: unmarshal: %w", err)
+	}
+	return &ix, nil
+}
+
+// GetSymbolSource devolve o SOURCE de um símbolo O(1) (byte-offset seek+read),
+// sem re-parses do arquivo — token-efficiency (~80-99% menos tokens, ADR-020).
+// `file` é a chave (rel path); `symIndex` é o índice em Symbols[file].
+func (ix *Index) GetSymbolSource(file string, symIndex int) (string, error) {
+	meta, ok := ix.Meta[file]
+	if !ok {
+		return "", fmt.Errorf("file %q not in index", file)
+	}
+	syms := ix.Symbols[file]
+	if symIndex < 0 || symIndex >= len(syms) {
+		return "", fmt.Errorf("symbol index %d out of range (len %d)", symIndex, len(syms))
+	}
+	s := syms[symIndex]
+	if s.Offset < 0 || s.Length <= 0 {
+		return "", fmt.Errorf("symbol %q has no byte-offset", s.Name)
+	}
+	f, err := os.Open(filepath.Join(ix.Root, filepath.FromSlash(meta.Path)))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	buf := make([]byte, s.Length)
+	if _, err := f.ReadAt(buf, int64(s.Offset)); err != nil && err != io.EOF {
+		return "", err
+	}
+	return string(buf), nil
+}

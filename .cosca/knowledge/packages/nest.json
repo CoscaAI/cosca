@@ -1,0 +1,20 @@
+{
+  "id": "nest",
+  "kind": "library",
+  "ecosystem": "unknown",
+  "versions": [
+    "*"
+  ],
+  "sources": [
+    "official-docs",
+    "official-repository"
+  ],
+  "knowledge_level": "partial",
+  "repository": "nestjs/nest",
+  "acquired_at": "2026-08-24T21:42:55.2517139-03:00",
+  "artifact_ids": [
+    "A-0002"
+  ],
+  "sha256": "3558e1bb4ae16193055579d6544fc95ac158412067a1dbe43194177b469baf12",
+  "status": "acquired"
+}

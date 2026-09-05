@@ -1,0 +1,27 @@
+# heuristics/H-009-memory-drift-fiction.yaml
+id: H-009
+title: "Memória pode derivar para ficção sem verificação contra código fonte"
+domain: memory
+type: anti-pattern
+severity: critical
+source_agents: [cosca-kernel, cosca-security, cosca-semantic-memory, cosca-documentation]
+description: >
+  A memória do sistema (learnings, docs, capability profiles) pode acumular
+  claims aspiracionais ou fictícios ao longo do tempo. O Kernel documentou
+  "PostgreSQL fantasy" (memória alegava PostgreSQL quando era SQLite),
+  "GDPR fabrication" (datas de compliance inventadas), e "Go SDK fiction"
+  (SDK Go descrito como funcional quando era só type exports).
+  O semantic-memory identificou que 78% dos arquivos são agent memory
+  mas só ~12% têm conteúdo substantivo — o resto é template seed.
+  Pattern: sempre verificar claims de memória contra go.mod + código fonte.
+evidence:
+  - "2026-07-28: Kernel L4 — 'memory can drift into aspirational/fictitious claims (PostgreSQL fantasy, GDPR fabrication)'"
+  - "2026-07-28: Security agent — 'Memory can drift into aspirational/fictitious claims. Pattern: always verify memory claims against codebase reality.'"
+  - "2026-07-28: Semantic-memory — 'PostgreSQL fantasy pattern recurred across agents'"
+  - "2026-07-28: Kernel L3 — '207 Go packages was invented (real: 71), 336 Go files was wrong (real: 357)'"
+  - "2026-07-28: Documentation fix — 52 issues across 19 files, 11 broken links, 16 stale numbers"
+action: "Toda claim de memória sobre capacidades técnicas deve ser verificada contra go.mod, código fonte, ou arquivos reais do sistema antes de ser aceita como verdade. Implementar doc-code validator no CI."
+related: [H-010, H-012, H-013]
+tags: [memory, drift, fiction, verification, documentation, anti-pattern, aspirational]
+confidence: 0.93
+created: 2026-07-29

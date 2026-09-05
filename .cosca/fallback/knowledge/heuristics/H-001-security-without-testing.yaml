@@ -1,0 +1,22 @@
+# heuristics/H-001-security-without-testing.yaml
+id: H-001
+title: "Segurança sem teste é segurança de fachada"
+domain: testing
+type: anti-pattern
+severity: critical
+source_agents: [cosca-kernel, cosca-security, cosca-testing]
+description: >
+  Código de segurança sem cobertura de testes permanece invisível e não revisado.
+  jail.go ficou semanas a 0% de cobertura — 6 funções de isolamento de segurança
+  sem um único teste. Ninguém revisava, ninguém sabia. O teste é o canário:
+  se ninguém testou, ninguém revisou.
+evidence:
+  - "2026-07-29: jail.go — 6 funções de isolamento (ReexecInJail, memfd_create, bubblewrap namespace creation) a 0% de cobertura"
+  - "2026-07-29: Auditoria de cobertura do runtime revelou gap depois de semanas em produção. core runtime 97.9% mas jail.go 0%."
+  - "Kernel L18: 'a funcionalidade de segurança mais crítica do sistema não tem um único teste'"
+  - "Kernel L19 meta-aprendizado #2: 'Código de segurança sem teste = código invisível'"
+action: "Exigir teste unitário junto com todo PR de código de segurança. Coverage gate específico para pacotes de segurança: mínimo 70%."
+related: [H-002, H-005, H-006]
+tags: [security, testing, coverage, jail, anti-pattern, least-privilege, invisible-code]
+confidence: 0.95
+created: 2026-07-29

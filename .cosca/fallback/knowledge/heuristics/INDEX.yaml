@@ -1,0 +1,234 @@
+# heuristics/INDEX.yaml
+# Auto-generated index of all heuristics extracted from agent learnings.
+# DO NOT edit manually — regenerate from H-*.yaml files.
+
+meta:
+  version: "1.0.0"
+  generated: "2026-07-29"
+  total_heuristics: 20
+  source: "Agent learnings.md across 17+ agents with 3+ substantive entries"
+  coverage:
+    agents_analyzed: 17
+    total_agent_learnings: 55
+    learnings_reviewed_lines: 1500+
+
+heuristics:
+  - id: H-001
+    title: "Segurança sem teste é segurança de fachada"
+    domain: testing
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-security, cosca-testing]
+    confidence: 0.95
+    file: H-001-security-without-testing.yaml
+
+  - id: H-002
+    title: "O threshold que vale é o que o CI executa, não o que a documentação diz"
+    domain: testing
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-qa, cosca-platform, cosca-review, cosca-devops]
+    confidence: 0.95
+    file: H-002-ci-threshold-is-truth.yaml
+
+  - id: H-003
+    title: "continue-on-error: true torna qualquer gate de CI inoperante"
+    domain: ci-cd
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-review, cosca-devops]
+    confidence: 0.92
+    file: H-003-continue-on-error-noop.yaml
+
+  - id: H-004
+    title: "Monolito é o inimigo da cobertura — extrair, depois testar"
+    domain: refactoring
+    type: pattern
+    severity: high
+    source_agents: [cosca-kernel, cosca-testing, cosca-performance]
+    confidence: 0.90
+    file: H-004-extract-to-test.yaml
+
+  - id: H-005
+    title: "O build é o momento mais crítico da segurança: proteção deve ser atômica"
+    domain: security
+    type: pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-security]
+    confidence: 0.95
+    file: H-005-build-is-security-moment.yaml
+
+  - id: H-006
+    title: "Permissões coringa (.* ou /**) violam least privilege e criam superfície de ataque"
+    domain: security
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-security]
+    confidence: 0.92
+    file: H-006-wildcard-permissions.yaml
+
+  - id: H-007
+    title: "Three-wave orchestration: analítico → implementação → revisão"
+    domain: orchestration
+    type: pattern
+    severity: high
+    source_agents: [cosca-kernel, cosca-critic, cosca-ceo]
+    confidence: 0.85
+    file: H-007-three-wave-orchestration.yaml
+
+  - id: H-008
+    title: "Delegação paralela não exige dependência sequencial se contexto for fornecido"
+    domain: orchestration
+    type: pattern
+    severity: high
+    source_agents: [cosca-kernel, cosca-ceo]
+    confidence: 0.88
+    file: H-008-parallel-delegation-context.yaml
+
+  - id: H-009
+    title: "Memória pode derivar para ficção sem verificação contra código fonte"
+    domain: memory
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-security, cosca-semantic-memory, cosca-documentation]
+    confidence: 0.93
+    file: H-009-memory-drift-fiction.yaml
+
+  - id: H-010
+    title: "Agentes devem atualizar learnings.md após TODA tarefa significativa"
+    domain: memory
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-kernel, cosca-semantic-memory, cosca-memory-chief, cosca-governance]
+    confidence: 0.90
+    file: H-010-update-learnings-every-task.yaml
+
+  - id: H-011
+    title: "Thresholds conflitantes: auditar o que executa, não o que está documentado"
+    domain: governance
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-kernel, cosca-qa, cosca-platform, cosca-devops, cosca-review]
+    confidence: 0.93
+    file: H-011-conflicting-thresholds.yaml
+
+  - id: H-012
+    title: "Bug registry formal subestima bugs reais — auditar código fonte para completude"
+    domain: governance
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-qa, cosca-technical-debt, cosca-critic, cosca-performance]
+    confidence: 0.87
+    file: H-012-bug-registry-underestimates.yaml
+
+  - id: H-013
+    title: "Arquitetura documentada vs implementada: verificar código antes de confiar na doc"
+    domain: governance
+    type: anti-pattern
+    severity: critical
+    source_agents: [cosca-provider, cosca-platform, cosca-critic, cosca-kernel]
+    confidence: 0.90
+    file: H-013-architecture-code-gap.yaml
+
+  - id: H-014
+    title: "N+1 roundtrips em queries sequenciais matam performance mesmo com queries rápidas"
+    domain: performance
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-performance, cosca-cache]
+    confidence: 0.85
+    file: H-014-n-plus-one-queries.yaml
+
+  - id: H-015
+    title: "Múltiplas implementações do mesmo padrão: consolidar em backend único"
+    domain: performance
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-cache, cosca-provider]
+    confidence: 0.85
+    file: H-015-duplicate-cache-implementations.yaml
+
+  - id: H-016
+    title: "State machine declarativo com enforcement imperativo = gap de bugs"
+    domain: refactoring
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-review, cosca-testing, cosca-kernel]
+    confidence: 0.88
+    file: H-016-declarative-state-machine-gap.yaml
+
+  - id: H-017
+    title: "Flaky test por iteração não-determinística: Go map range + acesso posicional"
+    domain: ci-cd
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-kernel, cosca-review, cosca-testing, cosca-qa]
+    confidence: 0.90
+    file: H-017-flaky-test-nondeterministic-iteration.yaml
+
+  - id: H-018
+    title: "Confidence theatre: métricas que incentivam reportar sucesso em vez de melhoria real"
+    domain: orchestration
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-critic, cosca-kernel, cosca-ceo, cosca-governance]
+    confidence: 0.85
+    file: H-018-confidence-theatre.yaml
+
+  - id: H-019
+    title: "Memória negativa é o recurso de aprendizado mais valioso e mais subutilizado"
+    domain: memory
+    type: anti-pattern
+    severity: high
+    source_agents: [cosca-semantic-memory, cosca-critic, cosca-kernel, cosca-ceo]
+    confidence: 0.87
+    file: H-019-negative-memory-underutilized.yaml
+
+  - id: H-020
+    title: "Scripts externos são single point of failure — embutir proteção no binário"
+    domain: security
+    type: pattern
+    severity: critical
+    source_agents: [cosca-kernel]
+    confidence: 0.90
+    file: H-020-auto-jail-embedded.yaml
+
+statistics:
+  by_domain:
+    testing: 2
+    ci-cd: 2
+    refactoring: 2
+    security: 3
+    orchestration: 3
+    memory: 3
+    governance: 3
+    performance: 2
+  by_type:
+    pattern: 5
+    anti-pattern: 15
+  by_severity:
+    critical: 9
+    high: 11
+  confidence_range:
+    min: 0.85
+    max: 0.95
+    avg: 0.898
+  total_source_agents: 17
+  source_agents_list:
+    - cosca-kernel
+    - cosca-testing
+    - cosca-security
+    - cosca-qa
+    - cosca-platform
+    - cosca-review
+    - cosca-devops
+    - cosca-performance
+    - cosca-cache
+    - cosca-provider
+    - cosca-critic
+    - cosca-ceo
+    - cosca-semantic-memory
+    - cosca-memory-chief
+    - cosca-governance
+    - cosca-documentation
+    - cosca-technical-debt

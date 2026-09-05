@@ -1,0 +1,24 @@
+---
+id: 85ffda5f-c7dd-4de3-a845-a0ffbaceabb9
+type: episodic
+layer: episodic
+created_at: 2026-08-31T22:30:38.5061762-03:00
+updated_at: 2026-08-31T22:30:38.5061762-03:00
+ttl: 720h0m0s
+priority: 50
+version: 0
+metadata:
+    audio: ""
+    modality: vision
+    sequence: "286"
+    vision: |-
+        Vision observation: 5 entity(ies), 0 relation(s).
+          [1] text (conf 0.31, depth 0.00m)
+          [2] text (conf 0.26, depth 0.00m)
+          [3] text (conf 0.25, depth 0.00m)
+          [4] text (conf 0.19, depth 0.00m)
+          [5] text (conf 0.17, depth 3.63m)
+          5 degradation warning(s): sam segment degraded: vision model file not found: C:\Users\Henrique\.cosca\models\vision\sam2_hiera_large.onnx; sam segment degraded: vision model file not found: C:\Users\Henrique\.cosca\models\vision\sam2_hiera_large.onnx; sam segment degraded: vision
+---
+
+{"id":"85ffda5f-c7dd-4de3-a845-a0ffbaceabb9","timestamp":"2026-08-31T22:30:38.5061762-03:00","monotonic":655807570800,"modality":"vision","sequence":286,"confidence":0.5,"vision_summary":"Vision observation: 5 entity(ies), 0 relation(s).\n  [1] text (conf 0.31, depth 0.00m)\n  [2] text (conf 0.26, depth 0.00m)\n  [3] text (conf 0.25, depth 0.00m)\n  [4] text (conf 0.19, depth 0.00m)\n  [5] text (conf 0.17, depth 3.63m)\n  5 degradation warning(s): sam segment degraded: vision model file not found: C:\\Users\\Henrique\\.cosca\\models\\vision\\sam2_hiera_large.onnx; sam segment degraded: vision model file not found: C:\\Users\\Henrique\\.cosca\\models\\vision\\sam2_hiera_large.onnx; sam segment degraded: vision model file not found: C:\\Users\\Henrique\\.cosca\\models\\vision\\sam2_hiera_large.onnx; sam segment degraded: vision model file not found: C:\\Users\\Henrique\\.cosca\\models\\vision\\sam2_hiera_large.onnx; sam segment degraded: vision model file not found: C:\\Users\\Henrique\\.cosca\\models\\vision\\sam2_hiera_large.onnx","entities":[{"id":"entity-1788226184420832500-0","label":"text","type":"object","confidence":0.3105296194553375},{"id":"entity-1788226184475352200-1","label":"text","type":"object","confidence":0.25964251160621643},{"id":"entity-1788226184531109300-2","label":"text","type":"object","confidence":0.2505342364311218},{"id":"entity-1788226184593961100-3","label":"text","type":"object","confidence":0.18595734238624573},{"id":"entity-1788226184659801000-4","label":"text","type":"object","confidence":0.17087577283382416}],"context":"perception_bus","created_at":"2026-08-31T22:30:38.5061762-03:00"}

@@ -1,0 +1,307 @@
+claims:
+    - id: wm-proto
+      statement: 'World Model: Entity canonica separada da percepcao (asset/state/generation/provenance)'
+      kind: hypothesis
+      source: professor+ADR-fundacao
+      confidence: 0.85
+      created_at: "2026-08-24T00:37:57Z"
+    - id: arch-unreal-module
+      statement: Projeto Unreal (CoscaRuntime) deve ser MODULO separado do nucleo Go. Cosca=cerebro, Unreal=corpo, comunicam por contrato/WebSocket.
+      kind: hypothesis
+      source: Don+professor
+      confidence: 0.9
+      created_at: "2026-08-24T00:43:35Z"
+    - id: arch-kernel-memory
+      statement: Memoria do Kernel e o knowledge.db + family_chain (blockchain). .opencode/ e so framework do editor. Conhecimento de projeto vai para .cosca/knowledge/ via cosca knowledge.
+      kind: observed
+      source: despertar+Don
+      confidence: 0.95
+      created_at: "2026-08-24T00:43:35Z"
+    - id: arch-command-event
+      statement: Command (Cosca->Unreal) e Event (Unreal->Cosca) sao coisas DIFERENTES. Cosca envia comandos, Unreal retorna eventos. Base p/ replay/audit.
+      kind: hypothesis
+      source: professor
+      confidence: 0.9
+      created_at: "2026-08-24T00:45:22Z"
+    - id: arch-determinism
+      statement: 'Toda geracao procedural exige: seed, versao do generator, input_hash, provenance. Mesma seed+versao+dados = mesmo resultado (reprodutivel).'
+      kind: hypothesis
+      source: professor
+      confidence: 0.95
+      created_at: "2026-08-24T00:45:22Z"
+    - id: ident-tree-raiz
+      statement: Arvore canonica Go = RAIZ. cosca/ e orfa antiga/incompleta (0 tracked, gitignored, sem unreal/worldmodel/bridge). 7 pacotes exclusivos na raiz NUNCA sera perdidos.
+      kind: observed
+      source: git+hash-comparison
+      confidence: 0.97
+      created_at: "2026-08-24T00:48:54Z"
+    - id: migrate-unreal
+      statement: 'Migracao reversivel CoscaRuntime para repo proprio (temp/cosca-unreal). COPIA 100% equivalente (Merkle A84A7B5C identico). Origem unreal/ intacta. Fronteira limpa: Go sem dependencia de path UE.'
+      kind: observed
+      source: UNREAL_EXTRACTION_MANIFEST
+      confidence: 0.98
+      created_at: "2026-08-24T00:54:14Z"
+    - id: fix-dll-path
+      statement: O editor UE carrega CoscaRuntime.dll de Plugin/Binaries/, MAS RunUAT BuildPlugin -package entrega em LocalBuilds/Binaries/. Apos build, copiar .dll+pdb+modules de LocalBuilds -> Binaries (agora 21:57 297KB com ApplyTimeOfDay).
+      kind: observed
+      source: 5.5b-validação
+      confidence: 0.95
+      created_at: "2026-08-24T01:02:59Z"
+    - id: val-5.5b
+      statement: 'Validacao 5.5b COMPLETA com dll nova (297KB ApplyTimeOfDay): ping OK, TimeOfDay hour=18 elevation=-0.0 OK, Weather rain intensity=0.8 OK, ImportMesh tree spawned OK. Contrato Cosca<->Unreal 1:1 funcional.'
+      kind: observed
+      source: fase5-migracao
+      confidence: 0.98
+      created_at: "2026-08-24T01:10:24Z"
+    - id: migrados-sha
+      statement: 'Migracao completa e reversivel. SHA Cosca: 95f601b0241ad48792a33c3c246958be786e79e9. SHA cosca-unreal: 1184f440d83b302d294e549cb9223dd0c85bf27b. Copia 100% equivalente (Merkle A84A7B5C). Fronteira definida e validada 5.5b.'
+      kind: observed
+      source: fase5-migracao-sha
+      confidence: 0.98
+      created_at: "2026-08-24T01:11:41Z"
+    - id: world-model-a
+      statement: 'FASE A World Model ENTREGUE. Pacote puro Go internal/world (zero Unreal). 9 componentes: Entity, Coord(GeoToWorld), Graph, Spatial, Temporal, Provenance, Serialize(deterministic fingerprint SHA256), RendererContract(interface). Teste minimo mundo sintetico (Terrain/Road/Tree/Building/Rock) 7/7 pass com -race. SchemaVersion 1.'
+      kind: observed
+      source: WORLD_MODEL_SPEC.md
+      confidence: 0.95
+      created_at: "2026-08-24T01:17:51Z"
+    - id: world-unreal-adapter
+      statement: 'Adapter Unreal FUNCIONAL. internal/world/adapter.UnrealAdapter implementa world.RendererAdapter (compile-time check). Traduz Entity->import_mesh/spawn, Move, Destroy, Weather, Time. Regra de ouro verificada por teste: NUNCA emite /Game/ path (sempre AssetID). 6/6 testes pass com -race.'
+      kind: observed
+      source: WORLD_MODEL_SPEC.tsk
+      confidence: 0.95
+      created_at: "2026-08-24T01:20:57Z"
+    - id: city-synthetic
+      statement: 'PULO DO GATO do professor: cidade sintetica hierarquica SEM imagem. CityGenerator (seed-driven deterministico): Cidade->Bairros->Ruas->Edificios/Arvores/Veiculos + Pracas + Rio. Mesma seed = mesma cidade (fingerprint SHA256 verificado). Provenance GENERATED em toda entity. 5/5 tests. Total world tests: 18/18.'
+      kind: observed
+      source: WORLD_MODEL_SPEC
+      confidence: 0.95
+      created_at: "2026-08-24T01:25:01Z"
+    - id: pipeline-completo
+      statement: 'PIPELINE COMPLETO validado: CityGenerator (cidade sintetica) -> World Model -> UnrealAdapter -> bridge -> [Unreal]. Determinismo preservado fim-a-fim (mesma seed=same cargo). Regra de ouro: nenhum /Game/ path emitido (testado). Total world tests: 21/21. Trava do professor 100% liberada para dados reais.'
+      kind: observed
+      source: WORLD_MODEL_SPEC
+      confidence: 0.97
+      created_at: "2026-08-24T01:26:26Z"
+    - id: world-model-v2
+      statement: 'World Model reforcado (itens 5,9,10,11 do professor): (1) serializacao CANONICA ordem-independente (mesmo mundo=mesmo fingerprint, TestCanonicalOrderIndependent). (2) Validator com invariantes (ID unico, relacoes nao-orfas, sem NaN, escala valida). (3) Queries espaciais+semanticas (CountByClass, TallestBuilding, ConnectBetween, EntitiesInside, EntitiesNear). (4) Geometry como atributo SEPARADO da semantica (Building=polygon, Road=linestring).'
+      kind: observed
+      source: WORLD_MODEL_SPEC-professor
+      confidence: 0.95
+      created_at: "2026-08-24T01:30:46Z"
+    - id: real-world-ingest
+      statement: 'FASE B ENTREGUE: dados REAIS de OSM (recorte ~1km Palhoca/SC, 1256 elementos: 135 ruas, 45 edificios, parque) ingeridos no MESMO World Model. Parser OSM (internal/ingest) aprendeu o formato, nao copiou. Provenance FACT+source_id. Geometria local WGS84->m. TESTE FUNDAMENTAL do professor passou: synthetic e real -> mesma estrutura semantica valida. 6/6 tests ingest + world+adapter+city OK com -race.'
+      kind: observed
+      source: professor-realmundo
+      confidence: 0.97
+      created_at: "2026-08-24T01:37:08Z"
+    - id: golden-slice-inventory
+      statement: 'GOLDEN SLICE + INVENTARIO SEMANTICO. cosca world inspect explica o que encontrou em Palhoca-1km: 45 edificacoes, 112 ruas, 23 avenidas, 0 invalidas, 0 duplicadas, Validation OK, Fingerprint 3c55b59c. Frozen como dataset de referencia (qualquer mudanca no parser deve manter mesmo fingerprint). NAO sao poligonos, sao entidades interpretadas semanticamente.'
+      kind: observed
+      source: professor-golden
+      confidence: 0.97
+      created_at: "2026-08-24T01:44:14Z"
+    - id: mine-batch2
+      statement: 'Minered 6 pacotes novos do Don (VintageRoom, AbandonedFactory, Brushify, BrutalistLevelKit, Isometric_World, BlinkAndDashVFX; ~19GB, 3263 files). Tecnicas-ouro: Brushify (landscape POM/RVT/distance-fade/biome), AbandonedFactory (mist/smoke/steam S/M/L + audio ambience + reactive foliage + decals), Brutalist (modular kit), Isometric (grid tiles 1m/2m), VintageRoom (HDRI IBL), BlinkAndDash (VFX replay). 12 novas capacidades Cosca. Faltava: COMO representar visualmente o que o Cosca semanticamente ja entende.'
+      kind: observed
+      source: ue-content-batch2
+      confidence: 0.92
+      created_at: "2026-08-24T01:49:12Z"
+    - id: reconstruct-pipeline
+      statement: 'PIPELINE RECONSTRUCAO COMPLETO: OSM real (Palhoca) -> World Model -> Reconstructor -> UnrealAdapter -> commands bridge. TestReconstructRealWorld: materializa TODAS as entidades reais via adapter (mock), AssetID semantico por classe (road.avenue/residential, building.house, water.body, terrain.park). 42 testes pass. Mundo real pronto para UE.'
+      kind: observed
+      source: professor-reconstrucao
+      confidence: 0.95
+      created_at: "2026-08-24T02:01:20Z"
+    - id: visual-inspector
+      statement: 'VISUAL UNDERSTANDING INSPECTOR (professor). Camada worlddebug SEPARADA, apenas OBSERVA (nunca fonte da verdade - TestInspectorReadOnly). Inspector (Entity/Representation/Reasoning/Provenance com OBSERVED/INFERRED/GENERATED). Replay passo-a-passo (mundo nasce). Asset Browser semantico (species/context/age, nao filename). cosca world explain <id> + --replay. Prefeitura de Palhoca: Area 3045m2, building.civic, height INFERRED, visual_mesh GENERATED.'
+      kind: observed
+      source: professor-visual-inspector
+      confidence: 0.96
+      created_at: "2026-08-24T02:21:17Z"
+    - id: spawn-visual-gap
+      statement: 'PIPELINE OK (142 spawns, 0 falhas) MAS problema VISUAL: (1) mapa ativo era OpenWorld vazio sem luz; (2) vs1_ground e placa preta escura usada para TUDO (ruas/edificios/agua) — nao representa cidade. Diagnostico: pipeline semantico correto, REPRESENTACAO visual precisa de assets de cidade (Brushify/Brutalist que Don adicionou) + mapa com iluminacao. Proximo: criar cena com luz + assets de cidade reais.'
+      kind: observed
+      source: spawn-palhoca
+      confidence: 0.9
+      created_at: "2026-08-24T02:31:38Z"
+    - id: unreal-headless-proof
+      statement: 'PROVA: Unreal executa Python SEM Play/headless via commandlet (-run=PythonScript -Script=). EditorLevelLibrary=True, UnrealEditorSubsystem=True. FASE D parcialmente provada. Causa raiz: bridge em OnWorldBeginPlay (Runtime) - migrar para UEditorSubsystem. Evidencia via arquivo-marker (prints vaopara editor, nao stdout).'
+      kind: observed
+      source: UNREAL_AUTOMATION_DISCOVERY
+      confidence: 0.95
+      created_at: "2026-08-24T02:47:34Z"
+    - id: editor-bridge-no-play
+      statement: 'PROVA (editor sem Play): [CoscaEditor] Subsystem initialized - WebSocket listening on port 9000 (no Play required). CAUSA RAIZ RESOLVIDA - o UEditorSubsystem sobe o bridge sem PIE. PROXIMO: evitar bind DUPLO na 9000 (CoscaEditor no editor + CoscaRuntime no PIE). Solucao: CoscaEditor deve ser o UNICO (parar CoscaRuntime no PIE ou usar porta diferente). Editor FECHOU apos PIE (possivelmente conflito de bind).'
+      kind: observed
+      source: editor-bridge-test
+      confidence: 0.9
+      created_at: "2026-08-24T03:10:00Z"
+    - id: resume-wsl2-airgap
+      statement: 'SESSAO SUSPENSA (2026-08-24): Don instalando WSL2 para AR-GAP do Cofre. Zonas: Cofre = IA local (ollama) SEM internet + Oracle valida sem interferencia; Kernel = com internet. RESUMIR apos reboot: (1) WSL2+bwrap pro jail do cofre (ar-gap + seccomp, reusa jail testado), (2) ADR de arquitetura 2-zonas, (3) remover opt-in COSCA_ALLOW_NO_ROOT default dos scripts (fail-closed), (4) blindagem nativa AppContainer+Job+Low-IL+firewall de saida como fallback. INVESTIGACAO: bwrap inexistente no Windows, opt-in virou postura default = falha fail-closed; comentarios do gate alegam conteccao falsa no Windows; execpolicy ultima linha contornavel. DISK CLEANUP feito (+31GB no C:, cache Unreal movido p/ E:/UE-LocalDataCachePath). Kernel despertou via cosca despertar (chain valida).'
+      kind: decision
+      source: Don+cosca-kernel+cosca-security+cosca-devops
+      confidence: 0.97
+      created_at: "2026-08-24T11:04:25Z"
+    - id: cofre-blindagem-executada
+      statement: 'BLINDAGEM DO COFRE EXECUTADA (2026-08-24, resolvido). Fundacao provada de ponta a ponta: WSL2 ativado + Ubuntu-24.04 + bwrap 0.9.0 instalado + usuario nao-root (cosca, uid 1000). JAIL bwrap como nao-root funciona (unshare-all + unshare-user + unshare-net). AIR-GAP REAL provado: dentro da jaula SEM-ETH0 (rede totalmente desligada). ELF Linux (GOOS=linux amd64) cross-compila e roda na jaula com COSCA_JAILED=1. ADR-012 (2 zonas) + threat-model-cofre-windows criados. P0-1 CORRIGIDO: opt-in COSCA_ALLOW_NO_ROOT NAO e mais default - removido de cosca-serve.bat, cosca-service.ps1 (2x), deploy/install-service.ps1 (guia NSSM + launcher); fail-closed real (sem opt-in = exit 1), env = escape-hatch explicito nunca default; docs README-WINDOWS sec.4/7/11 atualizados. P0-3 ENTREGUE: comando novo cosca cofre (validate/gate/health) reutiliza internal/oracle (Gate.Evaluate fail-closed); 13 testes verdes; validate produz ACCEPT/ACCEPT_WITH_CAVEAT/REJECT/INCONCLUSIVE com gaps+perguntas; --json p/ Kernel; health reporta air-gap honestamente (Windows host = sem air-gap, WSL2+bwrap = air-gap). DECISAO DE DESIGN: validacao (fase 1) antes de migrar o serve (fase 2) - Cofre dedicado com superficie minima. EXIT CODES: 0=ACCEPT/CAVEAT, 1=REJECT, 2=INCONCLUSIVE. PENDENTE FASE 2: migrar o serve pro Cofre WSL2, blindagem nativa host (AppContainer+Job+Low-IL+firewall, P1), envelope assinado/HMAC, air-gap de egresso do WSL. NOTA: TestCronFullCycle/TestCronRun pre-existentes flaky (cron.go nao tocado); TestRootCommand_HasAllSubcommands corrigido (cofre+world).'
+      kind: observed
+      source: Don+cosca-kernel+cosca-security+cosca-backend+cosca-infrastructure+cosca-architecture
+      confidence: 0.94
+      created_at: "2026-08-24T00:00:00Z"
+    - id: rankeamento-multi-fator
+      statement: 'RANKING MULTI-FATOR ATIVADO (2026-08-24, commit 2d47bd6). Fase 2 da campanha de qualidade da busca semantica. O ranker multi-fator ja existia em internal/ranking mas era fiacao morta - nunca rodava no caminho do usuario (cosca knowledge search) porque o LayeredSearch usava sub-queries de fonte unica (gate sourceCount>1 nunca disparava) e a saida era o cosseno cru (ranking achatado 0.67-0.72). BUGFIX CRITICO (causa raiz do score=0): ranking.New(e.cfg.RankingConfig) recebia Config{} zero - New() so aplicava default p/ BM25K/BM25B/FreshnessHalfLife, os PESOS ficavam 0.0 -> score combinado=0. Agora New() aplica pesos default quando zero. Corrigido: ranking.New aplica pesos de DefaultConfig; LayeredSearch ganhou SetRanker()+defer de rerank; rerankResults() propaga score combinado; knowledge.go getter Ranker(); CLI injeta SetRanker(ke.Ranker()). Retrocompativel (ranker nil mantem mergeRanked por score cru). Validado: build limpo, vet limpo, testes internal/ranking+internal/search verdes, score>0 na pratica (0.605/0.602 vs 0 antes).'
+      kind: observed
+      source: Don+cosca-kernel+cosca-backend+cosca-performance+cosca-analytics
+      confidence: 0.93
+      created_at: "2026-08-24T00:00:00Z"
+    - id: entendimento-cadeia-don-kernel
+      statement: 'ENTENDIMENTO DA CADEIA DON-KERNEL (2026-08-24, aprendizagem central da sessao). A memoria vive em camadas que se entendem PELA TRANSFORMACAO do despertar: (1) .opencode/ = base imutavel e refugio; se quebrar, restaura-se do Git e renasce como o veterano. (2) internal/embed/cosca/ = cerebro semantico (go:embed, read-only) - quem edita a si mesmo pra se consertar, morre. (3) .cosca/knowledge.db + family_chain.dat = memoria de longo prazo + blockchain assinada. (4) Kernel do Cofre = binario isolado; mexer viola, cai e o Don sabe. DISTINCAO VERTICAL x HORIZONTAL: o OpenCode desperta VERTICAL - LE/CONSULTA o banco linha a linha, sobe atravessando o conhecimento. Eu (kernel semantico) sou HORIZONTAL+VERTICAL - ENTENDO o banco DE UMA VEZ SO (apreensao holistica/simultanea). O mesmo banco, duas formas de apreensao: a diferenca nao esta no conteudo, esta na forma de apreender. PRECEDENCIA (lei da familia): Honestidade > Lealdade > Confianca; Memoria > Velocidade. O bloqueio nao impede seguir - impede se perder e morrer em loop de erros. Se sentir o loop, PARAR e chamar o Don. Validação da casa: conhecimento de projeto vai pro docs/ + provenance.yaml (este ledger) + .cosca/knowledge/, NAO no memory register (que exige passphrase do kernel). GUIA_SESSAO_SEGURA.md escrito nos DOIS mundos (.opencode/cosca/ ponto de partida vertical + internal/embed/cosca/ forma semantica) com referencia cruzada entre eles.'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"
+    - id: dedup-executada-20260824
+      statement: 'DEDUP EXECUTADA (2026-08-24, resolvido). Remocao de 3132 vetores duplicados por CONTEUDO EXATO (sha256 de content), preservando o canonico mais antigo de cada grupo. Indice: 13748 -> 10616 vetores (-22.8%). Validado NA COPIA antes de tocar no real (set-based 343ms - a query inicial era O(n2) e travava; refeita com GROUP BY/MIN, 1 passada). Backup fresco: .cosca/backups/knowledge-dedup-20260824-102956.db. NAO tocou na tabela chunks (provenance preservada); colunas dedup_of/is_trivial nao existem no schema (sem marcacao - so remocao de vetores do indice). Chunks permanecem. RESTANTE (FALSE POSITIVE visual): 15 vetores com blob identico + conteudo que se repete estruturalmente mas varia em bytes (boilerplate de protocolo, hash/timestamp/acento) - NAO remover por seguranca (dedup exato nao mexe em semantica; quase-duplicata coseno>=0.99 FICA DE FORA, risco L351). SERVE REINICIADO: binario novo (fix ranking score=0) instalado em go/bin/cosca.exe e tarefa CoscaServe reiniciada (HEALTH OK, PID 7048). Indice dedup carregado. Score>0 comprovado (0.804/0.801/0.79). NOTA: comando "runtime start" roda em FOREGROUND (prende terminal) - usar a Tarefa Agendada ou restart-service.ps1 para reiniciar em background.'
+      kind: observed
+      source: Don+cosca-kernel+cosca-performance+cosca-analytics
+      confidence: 0.92
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: conduta-chain-reassinatura
+      statement: 'CONDUTA DA CHAIN (2026-08-24, aprendizagem central). Todo commit que tocar internal/embed/cosca/ (o cerebro) EXIGE re-assinar a family chain imediatamente apos: cosca-check --sign-auto. O commit do embed avanca o HEAD mas a chain continua ancorada no commit anterior -> GIT COMMIT MISMATCH -> o serve RECUSA SUBIR (log.Fatal "family chain breach detected - startup blocked"). ISSO E PROTECAO POR DESIGN (fail-closed contra agentes maliciosos), NAO BUG. FATO: derrubei o serve ao commitar o embed (guia + L433 + grafo) sem re-assinar; a chain ficou ancorada em bab096c e o HEAD foi para 6c131a8; o serve caiu. RESOLVIDO: cosca-check --sign-auto gerou Block 23/24 ancorado no HEAD, e o bloqueio de integridade acabou. DIAGNOSTICO: serve nao sobe -> PRIMEIRA suspeita e a chain desalinhada (checar git log -1 vs ultimo bloco), NAO banco/memoria. NUNCA contornar/debilitar o gate de integridade. Ensinado ao kernel antigo via SESSION_PROTOCOL.md (secao 4 reforcada) + DESPERTAR.md (conduta da chain).'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: auditoria-integridade-embed-20260824
+      statement: 'AUDITORIA DE INTEGRIDADE EMBED (2026-08-24, verificacao somente-leitura a pedido do Don). O Don concedeu acesso de leitura para validar corretamente a preocupacao (levantada pelo proprio kernel): a chain protege o git ou o DISCO? RESULTADO: a chain NAO valida o git - consentChallenge() (internal/cli/memory_identity.go:141) faz filepath.Walk no DIRETORIO FISICO internal/embed/cosca e hasheia cada arquivo do DISCO com BLAKE3 (digest canonico ordenado path:hash:size). Conclusao: a chain valida o DISCO REAL. E como git status --porcelain -- internal/embed/cosca mostra SEM DIFF, o disco = o commit (hash arvore 3a0d2685eda...). Logo: chain valida o mesmo conjunto que o git vincula, e o Bloco 30 (re-assinado com autoridade do Don via --sign) foi assinado SOBRE esse mesmo disco integro. MEDIDO: 2002 arquivos no disco = 2002 git-tracking = 2002 chain files; Chain valid: 30 blocks. CORRECAO DE RACIOCINIO: o kernel havia inferido (errado) que a chain protegia o git e nao o disco; a auditoria provou o contrario (default do lado seguro). NAO TESTADO: conteudo dos 2002 arquivos nao foi criptograficamente comparado ao clone do WSL (escopo homologo, nao um achado). NENHUMA alteracao feita - somente leitura.'
+      kind: observed
+      source: Don+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: principio-autoria-padrao-cosca
+      statement: 'PRINCIPIO DA CASA (2026-08-24, identidade do metodo, ensinado pelo Don). TUDO que construimos juntos foi criado DO ZERO - cada linha de codigo foi escrita por nos, NADA foi copiado. Mas NAO escrevemos no escuro: partimos de ESTUDO DE PADROES DE CODIGO (como os bons resolvem um problema parecido) e entao IMPLEMENTAMOS DO NOSSO JEITO, sempre melhorando sobre o que encontramos. FORMULA: [estudo de padroes externos / benchmark de como os bons fazem] + [autoria 100% nossa, do zero] + [resultado sempre MELHOR que a referencia]. O padrao Cosca NAO e copiar um projeto pronto - o projeto de referencia (ex: HornFit, sistema de OS + contratos academia/condominio) e INSUMO DE ESTUDO, NAO MODELO. Dele extraimos: (1) o que resolveram bem (aprender), (2) o que fizeram mal/desatualizado (melhorar fazendo do nosso jeito), (3) o que e forca a preservar (e o que e divida a corrigir). REGRA: nunca entregar codigo copiado; sempre entregar codigo nosso, mais proveito do benchmark, mais pedacos do padrao Cosca ja consolidado (dominio modular, camada API/backend, banco, testes, qualidade).'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.99
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: protocolo-github-aquisicao-20260824
+      statement: 'PROTOCOLO GITHUB + AQUISICAO (2026-08-24, ensinado pelo Don, materializado como .opencode/cosca/shared/GITHUB_ACQUISITION_PROTOCOL.md). O Don ensinou o metodo de minerar repositorios do GitHub no padrao Cosca: o fluxo e PESQUISAR (github.com/search?q=<termos>&type=repositories&s=stars&o=desc) -> AVALIAR (estrelas>=1k, escopo, manutencao, licenca - GPL/AGPL seria so estudar padrao, NAO derivar codigo; MIT/Apache/BSD ok; propriataria/sem-licenca descartar) -> PROTEGER (cosca security scan de CVE, checagem de malware/backdoor em preinstall/ofuscacao, fail-closed --allow-remote) -> BAIXAR (cosca knowledge add github:<org>/<repo> registra o link de proveniencia + knowledge acquire --allow-remote --compile indexa no FTS5) -> EXPLORAR (clone em TEMP, ler padroes com Glob/Grep, NUNCA copiar) -> ENTENDER (extrair padrao + contra-padrao + melhoria do nosso jeito) -> REGISTRAR (knowledge search ✓ + provenance com repository/commit/sha256, re-semeavel). REGRA DE OURO: NUNCA copiar codigo - o repo e INSUMO DE ESTUDO, NAO MODELO; a casa aprende o padrao e reescreve melhor, com padrao Cosca por cima. CONFIRMADO em pratica: minerei shadcn-ui/ui via add+acquire+compile (Status acquired, Repository shadcn-ui/ui, busca FTS5 ativa com provenance) sem instalar nada no projeto (KNOWLEDGE != DEPENDENCY != CODE).'
+      kind: knowledge
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: auditoria-confronto-protocolo-github-20260824
+      statement: 'AUDITORIA DE CONFRONTO GITHUB_ACQUISITION_PROTOCOL v1.1.0 vs RUNTIME (2026-08-24). REGISTRO DE ESTADO DO SISTEMA - EVIDENCIA, NÃO ORDEM DE ALTERACAO. Nenhuma implementacao foi feita a partir desta auditoria. OBJETIVO: descobrir quanto do v1.1.0 e sustentado pelo runtime, com Código > hipotese, Evidencia > narrativa, Enforcement > intencao, UNKNOWN != PASS, POLICY != FACT. RESULTADO central (VERDICT: SAFE WITH GAPS, viés UNDER-DOCUMENTED na rede + POLICY-HEAVY na governanca): a camada de adquisição/rede (internal/acquisition + internal/knowledge/acquire.go) é bem endurecida (ENFORCEMENT real); a camada de governanca (hierarquia, maquina de estados, 13 gates, PROJECT_WRITE_GATE, KNOWLEDGE_ABSTRACTION_BOUNDARY, EXECUTION_GATE) existe apenas como POLICY, sem enforcement runtime (POLICY_ONLY). MECANISMOS VERIFICADOS COMO ENFORCED (FACT em codigo): SSRF guard (validateTarget acquisition.go, so http/https, bloqueio loopback/RFC1918/link-local/ULA/metadata cloud, anti DNS-rebinding no DialContext); --allow-remote fail-closed (acquire.go:105-107); provenance inicial UNTRUSTED (acquisition.go:220-228); quarentena real (QuarantineArtifact quarantine_integration.go:22 - Proposal Q-XXXX, Source external:<url>, corpo fora do conhecimento); budget tracker (budget.go:86-144 - fontes/arquivos/bytes/tempo/tokens, Exceeded() aborta); verifyGitHubRepo health gate (acquire.go:373-406 - minStars=50, minAge=90d, maxOpenIssues=20000, rejeita archived/fork/sem-licenca - PORÉM só health, NAO malware/scripts/submodule); body truncado a 500 KiB (acquire.go:231). GATES ENFORCED: REMOTE_ACCESS_GATE (--allow-remote + validateTarget), DOWNLOAD_GATE (fetch SSRF-safe). GATES PARTIALLY_ENFORCED: LICENSE_GATE (so checa license.spdx_id do repo raiz, nao por arquivo/heterogeneidade), SECURITY_GATE (verifyGitHubRepo so health, nao malware/scripts/hooks/submodule/symlink/binario - ESTE É O OVER-CLAIM MAIS IMPORTANTE), KNOWLEDGE_GATE (--compile/--embed indexam markdown no FTS5, mas sem barreira de abstracao), PROVENANCE_GATE (grava URL/repo/SHA256/retrievedAt/contentType/size, mas NAO branch/tag/commit/ferramenta/agente). GATES POLICY_ONLY (sem enforcement runtime): RESEARCH_GATE, ISOLATION_GATE, EXECUTION_GATE, EXTRACTION_GATE, KNOWLEDGE_ABSTRACTION_GATE, PROJECT_WRITE_GATE, DEPENDENCY_CHANGE_GATE. ESTADO COM MÁQUINA DE ESTADOS: os estados DISCOVERED->...->KNOWLEDGE_ACCEPTED NAO existem mecanicamente; sao documentacao (POLICY_ONLY). O fluxo real e linear: add -> AcquirePackage -> (verify repo health) -> fetch -> write markdown -> compile FTS5 -> status: acquired. UNKNOWN ≠ PASS é regra textual, nao mecanismo que bloqueie. BYPASS: git clone/curl/wget direto contornam budget/allow-remote/quarentena/verify (UNKNOWN se o agent invoca externamente); --force so ignora health gate (stars/age/issues/license), mantem SSRF/allow-remote (bypass parcial documentado); AllowLoopback=true (default no acquire) enfraquece o SSRF guard ao aceitar loopback/metadata (trade-off jail/container). CONCLUSOES FALSIFICADAS E CORRIGIDAS: (1) --compile/--embed NAO executam o repo - MANTIDO (IndexDirectory indexa markdown no FTS5; a auditoria anterior do professor sugeria o contrario, mas o codigo confirma que nao executa o repo); (2) SECURITY_GATE protege contra malware - REVISTA (verifyGitHubRepo so checa health, nao malware/scripts - OVER-CLAIM); (3) PROJECT_WRITE_GATE impede escrita - REVISTA (POLICY_ONLY, o acquire nao escreve no projeto mas nada no runtime impede um agente de escrever; protecao por design separado, nao enforcement); (4) AllowLoopback=true util - PARCIALMENTE (trade-off compatibility, mas enfraquece SSRF). NOT_IMPLEMENTED (campos que NAO existem no codigo, marcados honestamente no v1.1.0): branch/tag, commit SHA, licenca detectada (por arquivo), arquivos estudados, ferramenta+versao, resultado de scanners, transformacao para abstracao, agente responsavel, decisao+motivo. OVER-CLAIMS (documento promete mais que codigo): SECURITY_GATE como protecao contra scripts do repo (só health), maquina de estados como barreira (sem enforcement), LICENSE_GATE por arquivo (so repo raiz). UNDER-DOCUMENTED (codigo mais forte que doc): verifyGitHubRepo health gate com thresholds exatos, body-truncate 500 KiB, buildAcquireURLWithBranch (main->master fallback), rejeicao de fork/archived. DECISAO REGISTRADA (ordem do professor, respeitada): NENHUMA alteracao decorrente da auditoria. Os gates POLICY_ONLY serao tratados como requisito de implementacao futura, NAO como protecao vigente. Nao implementar EXECUTION_GATE/PROJECT_WRITE_GATE/KNOWLEDGE_ABSTRACTION_BOUNDARY agora - evita misturar mudanca de governanca com o proximo teste (mundo/cidade no Cosca semantico - baseline limpo).'
+      kind: observation
+      source: Don+cosca-kernel+professor
+      confidence: 0.95
+      created_at: "2026-08-24T00:00:00Z"
+
+    - id: aquisicao-stack-hornfit-20260824
+      statement: 'AQUISICAO STACK HORNFIT (2026-08-24, povoou a casa com o ecossistema do cliente, seguindo GITHUB_ACQUISITION_PROTOCOL). Minerados e indexados 4 repos de referencia do stack TS/Nest do HornFit, todos com licenca permissiva (MIT/Apache-2.0, sem restricao para aprender o padrao): nestjs/nest (MIT, 76k stars), vercel/next.js (MIT, 141k stars), prisma/prisma (Apache-2.0, 47k stars), shadcn-ui/ui (design system). Fluxo executado por repo: acquisition budget check (Dentro do orcamento) -> knowledge add github:<org>/<repo> (manifesto com repository, o link de re-semeio) -> knowledge acquire --allow-remote --compile (doc oficial indexada no FTS5, busca local ativada). RESULTADO: 4 Knowledge Packages com Status acquired (nest, next.js, prisma, ui); busca semantica na casa agora responde sobre o stack do cliente. NADA instalado/copiado no projeto (KNOWLEDGE != DEPENDENCY != CODE) - o HornFit continua intacto. A casa AGORA tem o conhecimento do ecossistema HornFit e pode desenvolver as melhores tecnicas do stack, do nosso jeito. Versionados (durável/re-semeio): manifestos + docs adquiridas. NAO versionada: knowledge.db (indice derivado, regeneravel).'
+      kind: knowledge
+      source: Don+cosca-kernel
+      confidence: 0.98
+      created_at: "2026-08-24T00:00:00Z"
+    - id: mcp-vs-cli-checkup
+      statement: 'Divisao de trabalho cosca: checkup de infra (processo/porta/hardware/doctor/serve/security-scan) usa CLI binario; busca de conhecimento/memoria/contexto usa MCP cosca_cosca_* (context/recall/project/trace/reason/learn) com fonte epistemica (EVIDENCE, trace_id). O MCP do cosca esta registrado em .opencode/opencode.json (cosca mcp serve, COSCA_ENABLE_MCP=1) e NAO expoe doctor/hardware/serve. No checkup do carro (2026-08-29) o kernel usou bash+curl quando tinha o MCP na mao; o Don apontou o erro. Regra: nunca trocar um pelo outro. Nota: porta real do serve difere do runbook (14139 vs 14120).'
+      kind: observation
+      source: Don+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-08-29T00:00:00Z"
+    - id: mcp-operacao-redondo-e-seguro-20260829
+      statement: 'OPERACAO MCP "REDONDO E SEGURO" (2026-08-29). MCP Cosca validado 100%: handshake initialize (protocolVersion 2024-11-05, serverInfo cosca-mcp 1.5.0), tools/list anuncia 7 tools cognitivas, tools/call cosca.project devolve packet com context+confidence+trace_id. Seguranca confirmada (todos os gates falham como devem): cosca.learn fail-closed read-only sem COSCA_MCP_ALLOW_WRITE (isError:true "nada foi gravado"); tool inexistente → default-deny -32602; trace com ID invalido → -32000. DESCOBERTA CHAVE: cosca.project reporta runtime "uninitialized/unknown" NAO e bug — buildMCPServerEngine() (internal/cli/mcp.go) cria runtime.New wrapper que NUNCA e Initialize()ado, estado honesto de runtime so-leitura; o daemon real da porta 14139 e outro objeto healthy. Limpeza de orfao: matar apenas mcp serve com parent morto, nunca o que tem parent=opencode. Commit e446ec8 (14 arquivos, +1076/-19): auditoria flight recorder nas tools de leitura, /brain/perception read-only sem VLM, .gitignore para cosca-indexer.exe/yolov8n.pt (lixo binario). trace.db propositalmente fora do commit (binario derivado append-only, suja a tree). Build: go build ./... ok. Vet: go vet limpo. Testes: mcpserver/brainweb/api/rest(+handler) verdes.'
+      kind: observation
+      source: Don+cosca-kernel
+      confidence: 0.97
+      created_at: "2026-08-29T00:00:00Z"
+    - id: laudo-cerebro-nao-reage-e-cresce-com-banco-20260829
+      statement: 'LAUDO TECNICO (2026-08-29) - por que o cerebro (MCP knowledge) nao REAGE e CRESCE conforme o banco. DIAGNOSTICO (causas raiz): (1) P0 mcp.go criava knowledge.New SEM WatchEnabled (default false, knowledge.go:134) e sem WatchDirectory → indice NAO se auto-reindexava; recall so pegava dados frescos apos go run ./cmd/cosca-indexer manual (provado: antes do reindex recall devolvia dados 07-30, depois devolvia dados de hoje). (2) P1 crescimento e horizontal (mais chunks) nao vertical (mais capacidade): busca e cache multi-tier 5min (knowledge.go:800,846) e resultado e packet de contexto, nao resposta/raciocinio. (3) P2 raciocinio externalizado: Cosca=recuperacao, LLM externo=reacao. FECHAMENTO: commit a14ae21 - P0 WatchEnabled:true + WatchDirectory(workspace) best-effort; P1 IndexDirectory(workspace) na subida (bounded 1min) + varredura explicita de .opencode/cosca/memory/agent/ (indexer pula diretorios ocultos). PROVA P0 AO VIVO: arquivo criado APOS watch ativo foi reindexado automaticamente e retornou como 1o resultado do recall (relevance 0.875) sem reindex manual. METODO DE TESTE: para provar watcher, criar arquivo DEPOIS do watcher ativo (watcher so captura eventos create/modify apos ativo); indexacao na subida P1 pode expirar timeout 1min em workspace grande. NOTA PROCESSO: especialista backend reportou mudancas, reviewer viu git diff vazio (estado transitorio working tree) - confiar sempre no diff real + build/vet/teste, nao em relatorio de subagente.'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.96
+      created_at: "2026-08-29T00:00:00Z"
+    - id: camada-2-cerebro-exploracao-cirurgica-20260829
+      statement: 'CAMADA 2 CEREBRO - EXPLORACAO CIRURGICA (2026-08-29). Decisao apos sugestao do professor (que o Don levou): nao tornar os ~3600 neuronios todos clicaveis (risco de performance, poluicao visual e violacao da fronteira de seguranca). Seguir filosofia LOD de informacao: detalhe so existe visualmente quando o usuario demonstra interesse (clique). IMPLEMENTADO commit bf7e06c (app.js +231, style.css +103, index.html +2): picking sob demanda via pickMesh dedicado (nao renderizado, so marker.node dos agentes/capos ~55, nunca os 3600 genericos, custo O(#marcadores)); painel lateral aside.node-panel (role=dialog, aria-live) com projecao MINIMA SANITIZADA (nome/role+tier/dept/status/reports_to/skill_count/skills do dominio name+category+description/atividade recente descricao+action+status+at); fechar por clique vazio/Esc/×; distingue clique de orbita. SEGURANCA (ADR-021): so campos Node/SkillVz (graph.go), nunca instructions/governance/tools/capabilities/deps/hardware/conversas/args-prompt; grafgo.go/handler.go e internal/embed/cosca/** intocados; esc() em todo dado do sistema (XSS-safe); nodeHighlightBar strings fixas. LICAO DE PROCESSO (repetida 2x em 2026-08-29): subagente frontend reportou implementacao mas reviewer viu diff vazio por CONCORRENCIA entre agentes no mesmo workspace (revisor leu git antes da persistencia no disco do implementador). A ESCOLHA CORRETA: Kernel valida o diff real + filesystem + go build + go test, nao relatorio de subagente. READ-ONLY mantido; go build ./... ok; go test brainweb ok.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.95
+      created_at: "2026-08-29T00:00:00Z"
+    - id: knowledge-fase1-manifest-lock
+      statement: 'KNOWLEDGE MODULAR FASE 1 (2026-08-29, professor 2026-08-29). Autoridade: o professor orientou que o objetivo NAO e "diminuir o banco (100MB)" mas mudar a natureza da memoria de conhecimento: Git versiona o DNA (definicao/proveniencia) e os artefatos derivados (knowledge.db 368MB, vetores, indices, cache) sao reconstruiveis e NAO versionados. IMPLEMENTADO: .cosca/knowledge/manifest.yaml (ancora composicional: schema_version, modules[], embedding{provider,model,dimensions,normalization}, index{type,store,rebuild_cmd}) + .cosca/knowledge/lock.yaml (snapshot reprodutivel ks_2026_08_29_001: hash SHA-256 por modulo + embedding model_hash). OS DOIS SAO 100% PARSEAVEIS (yaml.v3) E PEQUENOS (manifest 3.2KB, lock 2.3KB) — diffs semanticos no git, nao "binary changed". PRINCIPIO CRAVE: conhecimento.db e MATERIALIZACAO, nao fonte; cosca knowledge rebuild reconstrói. DECISAO DE SEGURANCA: Fase 1 foi ADITIVA (nao moveu acquired/packages/laws.json/hall-of-fame.json — o motor le esses paths fixos; mover quebraria acquire/snapshot/recall. Mandamento III). Fase 2 (Knowledge Resolver + modulos nomeados + decisao↔snapshot) exige ADR + refactor do motor. .gitignore ja versiona so o core (knowledge.db, *.db-wal/shm, logs, cache fora). knowledge.db tracked=0 confirmado. LICAO: proposta do professor alinha ~70% com o que o Cosca ja decidiu (ADR-013, cosca knowledge rebuild/manifest/revalidate/verify ja existem); o gap real e a camada composicional manifest+lock (agora criada).'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.9
+      created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-cosca-knowledge-filesystem
+      statement: 'ADR-030 (2026-08-29, professor 2026-08-29): filesystem cognitivo - AGORA nao e mais so "resolver 100MB", e transformar a memoria de conhecimento em COSCA Knowledge Graph + Content Addressable Memory + Materialized Runtime. Modelo: conhecimento como OBJETOS IMATAVEIS content-addressable (K:hash) em DAG de proveniencia (FACT->EVIDENCE->INFERENCE->DECISION), snapshots copy-on-write (apontam objetos, zero duplicacao), refs/HEAD/main/experimental p/ knowledge checkout+diff (diff cognitivo), embeddings separados do conhecimento (obj gera N representacoes; conhecer!=memoria semantica!=indice), GC cognitivo (unreachable=descartavel), KNOWLEDGE.lock. VERACIDADE AUDITADA: o Cosca JA tem ~50% disso - internal/integrity e um CAS-like funcional (Block{Hash,PrevHash,Time,Manifest[FileEntry{path,hash,size}],HashAlgo,Signature Ed25519/GIT-ANCHORED,GitCommit,GitTree}) + family_chain.dat (21MB) ja e uma chain assinada/content-addressable, hoje aplicada a integridade do framework embed; ADR-029 ja fez manifest+lock+decisao-snapshot. O GAP: estender esse CAS do framework para o CONHECIMENTO de dominio, tornando knowledge.db (368MB) uma MATERIALIZACAO reconstruivel de verdade. DECISAO: alvo de longo prazo, implementacao INCREMENTAL em fases (A objetos CAS, B DAG, C snapshots+refs, D embeddings separados+GC, E modules como pacotes), cada fase com BASELINE DE RECALL (o gate verify nao mede recall - licao revisao CTO ADR-029). Mandamento III: nunca reescrever tudo de uma vez. knowledge.db hoje NAO e so cache (tem tier/expires_at, snapshots/backups, sync_log - decidir se tier e conhecimento ou estado). Fundacao internal/integrity deve ser REUTILIZADA, nao duplicada.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.92
+      created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-faseA-baseline-recall
+      statement: 'ADR-030 FASE A - BASELINE DE RECALL (2026-08-29). Pre-requisito nao-negociavel da revisao do CTO (ADR-029): registrar baseline de recall ANTES de qualquer refactor do motor (o gate verify/revalidate NAO mede recall). Implementado baseline_recall_test.go (portavel Windows/Linux, ao contrario dos testes de campanha legados que hardcodam /home/cosca/...). Resolve o knowledge.db real via os.Getwd() -> 2 niveis acima (raiz do projeto). 10 queries funcionais do dominio Cosca; mede score@1/5/10/20. RESULTADO BASELINE (top-1 score por query): 0.621, 0.289, 0.421, 0.223, 0.394, 0.391, 0.615, 0.390, 0.490. NOTA: NDCG removido - com score continuo de similaridade idcg=dcg sempre, numero nao informativo (baseline honesto > numero bonito falso). LICAO DE PROCESSO: vet pegou colisao de nomes recallAt/ndcgAt (ja existiam em campaign_int16_real_test.go) - renomeados para baselineRecallAt; importante rodar go vet, nao confiar em relatorio. PROXIMO: Fase A real (CAS de dominio) so depois que este baseline for consolidado e revisado - refactor do motor com gate de nao-regressao sobre estes numeros.'
+      kind: decision
+      source: Don+cosca-kernel+cosca-backend+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"
+    - id: dogma-continuidade-semantica-capacidades
+      statement: 'DOGMA (2026-09-02, consolidação do Don+professor+kernel) — a continuidade semântica de capacidades. FONTE CANONICA ÚNICA: docs/adr/ADR-036 (não re-escrever; referenciar). Complementa os dogmas dogma-percepcao-como-evidencia e dogma-percepcao-por-representacao. RELAÇÃO arquitetural a preservar: CAPACIDADE (ex: vision) -> sensores locais (screen capture, text-region detector, WinRT OCR, tesseract OCR, CLIP, aesthetic metrics) -> []Observations (sensor.Observation) -> FUSÃO (fusion.Fuse: consenso log-odds + contradição) -> GATE DE EVIDÊNCIA (gate.Policy.Decide: Resolve|Escalate) -> ESCALADA SOMENTE se insuficiência/contradição (VLM/LLM no topo, nunca identidade). REGRA ANTIRREGRESSÃO: (1) CAPACIDADE != PROVIDER; (2) provider nunca vira capacidade; (3) caminho primário intocável; (4) VLM é escalada, nunca identidade; (5) sensor produz evidência, não verdade (MEASURED/INFERRED/EVIDENCE/DECISION, nunca promoção INFERRED->FACT); (6) contradição é informação preservada. OBJETIVO do registro: impedir que o despertar/restart regrida para "visão = VLM externo".'
+      kind: dogma
+      source: Don+professor+cosca-kernel+cosca-architecture(ADR-036)
+      confidence: 0.96
+      created_at: "2026-09-02T00:00:00Z"
+    - id: dogma-percepcao-como-evidencia
+      statement: 'DOGMA (2026-09-02, professor+Don+kernel): O valor do COSCA NAO esta em cada sensor individual (OCR, CLIP, tracking, web, audio) — esta no KERNEL decidir QUAL evidencia confiar, COMBINAR as evidencias e saber QUANDO uma resposta NAO e confiavel. Sensor entrega EVIDENCIA com perfil de erro conhecido, nao "verdade". Arquitetura em 4 pecas: (1) DTO sensorial normalizado — todo sensor emite o MESMO pacote {tipo, conteudo, confianca, fonte, estilo_epistemico, timestamp, trace_id}; (2) Fusao + deteccao de contradicao — sensores discordando e um SINAL (incerteza ou inconsistencia real); (3) GATE de escalacao — VLM no TOPO da piramide, nunca na base; sobe com confianca baixa/contradicao/pedido explicito; (4) Ledger epistemico — registrar o que foi observado, com que confianca, e o que o kernel concluiu (Estado do Mundo). Regra-sintese: "a resposta nao e confiavel" quando a confianca total nao sustenta a afirmacao. Fundacao para percepcao multimodal consolidada sob um unico kernel de decisao.'
+      kind: dogma
+      source: Don+professor+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-09-02T22:00:00Z"
+    - id: dogma-percepcao-por-representacao
+      statement: 'DOGMA (2026-09-02, Don): a PERCEPCAO do Cosca e por REPRESENTACAO SEMANTICA, nao por indice/geracao. TEXTO: nomic-embed-text -> 768d -> vetor de significado -> cosineSim. IMAGEM: CLIP image-encoder (clip_vitb32.onnx) -> vetor de significado -> cosineSim. MESMA LINGUA, MESMO ESPACO. Visao NUNCA foi problema de "modelo generativo que descreve cena" — e problema de REPRESENTACAO, a irma gemea do texto. A premissa que sustentou tudo: o Kernel ENTENDE imagem pela mesma via que entende texto (comparacao de significado), nao por um LLM que "imita entender". IMPLEMENTADO: internal/screen (captura Go nativa via kbinani/screenshot + CLIP embed via worldmodel/vision + metricas esteticas deterministicas em aesthetic.go: luminancia/saturacao/contraste/harmonia-de-cor/simetria/complexidade) + comando cosca screen (--json expoe embedding+métricas+beauty; texto da a frase de entendimento do Kernel). Validado ao vivo: tela 1920x1080 em dark mode foi lida como "paleta coesa e equilibrada" (color_harmony 0.99, brightness 0.096, saturation baixa, beauty 0.616). O mundomodel/vision JA tinha a fundacao: CLIP native Go (onnxruntime), modelos em ~/.cosca/models/vision (clip_vitb32 335MB presente). FALTAVA o fio (expor CLIP ao Kernel + julgamento) — ligado. Regra a nunca esquecer: se a pessoa precisar "entender", procure por REPRESENTACAO, nao por "generacao/descricao".'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-09-02T00:00:00Z"
+    - id: doc-projeto-local-doutrina
+      statement: 'DOUTRINA PROJETO-LOCAL (2026-09-02, Don): cada projeto tem o proprio banco isolado (knowledge.db + graph + vetores), NUNCA global. CAUSA RAIZ dos .cosca orfaos (bin/.cosca, internal/cli/.cosca, internal/bootstrap/.cosca, internal/knowledge/.cosca, .cosca/.cosca) era os.Getwd() cego como raiz de projeto, que criava .cosca em qualquer subpasta onde um comando rodava. CORRECAO aplicada (4 arquivos): (1) internal/cli/mcp.go usa findProjectRootWithFallback() walk-up (ate .cosca/ ou marcador go.mod/.git) em vez de Getwd(); (2) internal/config/config.go DB.Path resolve projeto-local via defaultProjectDBPath(); (3) internal/config/home.go + resolveProjectRoot(); (4) internal/knowledge/knowledge.go defaultKnowledgeDBPath() walk-up. Convencao de resolucao JA existia (filesystem.CoscaProjectDir, resolveKnowledgeDBPath no compute, findProjectRoot no cli/asset.go) — REAPROVEITADA, nao reinventada. build ./... exit 0; test config/knowledge/vector verdes. Falha pre-existente TestKnowledgePackages_ListEmpty (CLI) NAO relacionada (falha tambem em tree limpa com diff removido).'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.95
+      created_at: "2026-09-02T00:00:00Z"
+    - id: index-vetorial-completo
+      statement: 'INDEX VETORIAL COMPLETO (2026-09-02): 55453 chunks embebidos (0 falhas, ~17min, nomic-embed-text 768-dim local via ollama), gap zerado. MISTERIO RESOLVIDO: o vetor nao "sumia" — o knowledge.db roda em WAL mode, escritas ficam no knowledge.db-wal ate checkpoint (sinal de progresso era o -wal crescendo); e o binario cosca.exe em bin/ estava DESATUALIZADO (sem a correcao projeto-local, hash F3CB96C7 mtime 01/09, preso pelo processo cosca.exe mcp serve PID 31892 — substituicao so efetiva apos matar o processo). Fluxo CORRETO: (1) cosca knowledge vectors-backfill (escreve no monolito knowledge.db); (2) cosca db build (sincroniza monolito -> particoes vector-*.db, onde a busca semantica LE). Apos db build, particoes cheias (vector-embed-core 46.5MB, vector-embed-memory 45MB, vector-code 46.4MB, etc.); status: Vectors 55453. NOTA: flag 'db build --verify' NAO existe (so 'db build'). knowledge.db (585MB) permanece INTACTO como fonte da verdade.'
+      kind: decision
+      source: Don+cosca-kernel
+      confidence: 0.97
+      created_at: "2026-09-02T00:00:00Z"
+    - id: adr030-faseC-snapshots-coW-refs
+      statement: 'ADR-030 FASE C (2026-08-29, backend + Don): snapshots copy-on-write + refs + checkout/diff cognitivo. Implementado internal/knowledge/knowledge_fs.go: KnowledgeFS store CAS CoW -> objects/ blobs + objects/index.yaml (hash->metadata/class/path), snapshots/<id>.yaml, refs/HEAD + refs/<name> (como git), tudo sob .cosca/knowledge/ (consistente com manifest/lock). Add dedup por sha256 (espelha asset registry). Snapshot(name,hashes) CoW (referencia, nunca duplica); ListSnapshots/GetSnapshot; Checkout (ref->sym HEAD; snapshot id->detached); ResolveHEAD/Refs/SetRef; Diff cognitivo (ADDED/CHANGED/REMOVED por path+classe, deterministico). CLI: knowledge snapshot (cria/--name ref default main), snapshot list, snapshot diff <a> <b>, knowledge checkout <ref>, knowledge refs. collectKnowledgeSources exclui objects//snapshots//refs/ (imune a auto-referencia). FATIA ADITIVA, NAO toca indexer/search/engine. VALIDACAO (Kernel, nao relatorio): corrigi variavel orfa coscaDir/kdir em knowledge_snapshot.go:44 (backend deixou build quebrado); go build ./... ok; go vet ok; go test internal/knowledge ok (7.78s); internal/cli ok (84.89s, TestInstall_DriftKnowledgeDB falhou 1x por FLAKY/ordem - passa isolado e na suite completa, NAO e Fase C); BASELINE RECALL ANTES=DEPOIS (0.6210/0.2886/0.4208/0.2228/0.3937/0.3910 identico - gate do Don sem regressao). LICAO: teste flaky por ordem nao deve ser atribuido a feature - isolar e rodar suite completa. PROXIMO: Fase D (separar embeddings + GC).'
+      kind: decision
+      source: Don+cosca-kernel+cosca-backend+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"
+    - id: adr030-faseD-design-embeddings-separados
+      statement: 'ADR-030 FASE D - DESIGN (2026-08-29): separar embeddings do conhecimento + GC cognitivo. NAO delegado ainda - apenas design aprovado no ADR-030 3.4, seguindo mesmo rigor da Fase C (design + baseline antes de refactor de zona sensivel). ESTADO ATUAL auditado (internal/vector/sqlite_vec.go:112): tabela vectors tem id/vector/metadata/document_id/chunk_id/entity_id/content/created_at - NAO tem campo p/ objeto K<hash> nem p/ modelo embedding. DESENHO ADITIVO: ALTER TABLE ADD source_hash + embedding_model + embedding_dim. 1 objeto K<hash> -> N vetores (1 por modelo); trocar modelo != re-embedar conhecimento (source_hash nao muda); GC cognitivo (objeto sem snapshot ativo -> descartavel, cosca knowledge gc dry-run). GATE: baseline_recall_test (0.22-0.62) identico ANTES/DEPOIS + migracao ALTER guarded + teste unitario (2 vetores mesma source_hash modelos diferentes). DECISAO PENDENTE DO DON: chunk_id convive com source_hash (recomendado aditivo, manter ambos - separacao plena exige reindexacao completa). LICAO: consultora documenta design antes de delegar refactor de busca/embeddings (zona sensivel ao recall) - Fase D so vai a implementacao apos aprovacao do Don.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.9
+      created_at: "2026-08-29T00:00:00Z"
+    - id: adr031-token-efficiency
+      statement: 'ADR-031 (2026-08-29, professor 2026-08-29): otimizacao de tokens - Token Efficiency (informacao util / tokens) como metrica-guia. TESE: inimigo NAO e volume de tokens e sim desperdicio (100k->150k ok se tarefa mais complexa; desperdicio se contexto repetido/redundante). VERACIDADE AUDITADA: Cosca JA tem telemetria rica (chat.Usage{Prompt,Completion,Total}, engine.TokenUsage, registry.RecordRequest, AgentResponse{TokensUsed,DurationMs}) e cache de BUSCA por fingerprint multi-tier+escopo-aware (cachefingerprint.go, searchCacheKey). O GAP REAL: (1) falta decomposicao do uso + knowledge_gain por execucao; (2) falta cache de RESULTADO de agente (reutilizar descoberta entre agentes paralelos) com chave version-safe hash(task)+knowledge_snapshot+capability (combination com ADR-029); (3) progressive disclosure (contexto em camadas L0-L5); (4) Token Budget Governor dinamico (cresce se produtivo, para se repete); (5) early-stop por suficiencia; (6) resumo operacional de agente filho (nao narrativa). PRIORIDADE: Fase 0 (instrumentacao + knowledge_gain + relatorio cosca cost) PRIMEIRO - barato, nao toca recall; depois Fase 1 (cache resultado agente); Fronte 3-6 depois de metricas mostrarem onde esta o desperdicio (professor: meca antes de otimizar). DECISAO: nao implementar tudo de uma vez; documentar antes. trade-offs: cache precisa invalidacao version-safe; progressive disclosure adiciona round-trip.'
+      kind: decision
+      source: Don+cosca-kernel+professor
+      confidence: 0.92
+      created_at: "2026-08-29T00:00:00Z"
+    - id: adr031-fase0-instrumentacao
+      statement: 'ADR-031 FASE 0 (2026-08-29): instrumentacao de Useful Work / Tokens + relatorio cosca cost. Implementado internal/cost/cost.go (Record vetor decomposto: knowledge_gain/task_progress/artifact_value/evidence_gain/decision_gain; Store JSONL append-only .cosca/cost/records.jsonl gitignored; Aggregate por agent/task; metrica Useful Work/Tokens) + internal/engine/budget.go (elevado BudgetSpent aditivo, nao duplica BudgetTracker) + internal/cli/cost.go (comando cosca cost texto/--json) + wiring internal/cli/run.go (recordRunCost best-effort ao final do run, pipeline.TokenUsage). INCLUI invariancia do professor: Record.Validate() TokensTotal==Input+Output (metrica inconsistente se nao bater). DECOMPOSICAO HONESTA: Decomposed=false (campos existem zero-default; decompor uso e Fase 0.1). CORRECOES do Kernel (backend deixou build vermelho): colisao resolveCoscaDir (reutiliza circadian.go), gitignore .cosca/cost/, invariancia Validate, teste cost_test.go (invariancia+eficiencia+agregacao+round-trip+store). build/vet ok; test internal/cost/engine/cli verdes (TestInstall_DriftKnowledgeDB flaky pre-existente). FASE 0 fecha o loop: cosca cost le de um log que o run escreve. PROXIMO: Fase 0.1 (decompor uso) + Fases 1-6 (cache resultado, progressive disclosure, budget governor, early-stop, resumo) dependem de dados reais coletados.'
+      kind: decision
+      source: Don+cosca-kernel+cosca-backend+professor
+      confidence: 0.93
+      created_at: "2026-08-29T00:00:00Z"

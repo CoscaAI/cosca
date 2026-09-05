@@ -1,0 +1,20 @@
+{
+  "id": "next.js",
+  "kind": "library",
+  "ecosystem": "unknown",
+  "versions": [
+    "*"
+  ],
+  "sources": [
+    "official-docs",
+    "official-repository"
+  ],
+  "knowledge_level": "partial",
+  "repository": "vercel/next.js",
+  "acquired_at": "2026-08-24T21:43:09.248245-03:00",
+  "artifact_ids": [
+    "A-0003"
+  ],
+  "sha256": "ede7e5574d8aa39abb40aa0d31ea1788a171d6ba3c8940b7d94c26c80f0d9e01",
+  "status": "acquired"
+}

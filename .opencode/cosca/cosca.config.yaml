@@ -1,0 +1,53 @@
+# Cosca Configuration
+# Virtual Path overrides — all paths are resolved at runtime
+# Environment variables take priority over this file
+
+# Version: 1.0.0
+
+paths:
+  # COSCA_HOME: Cosca installation root (auto-detected if not set)
+  # Set via: export COSCA_HOME=/custom/path
+  COSCA_HOME: null
+
+  # PROJECT_ROOT: Current workspace (auto-detected from CWD)
+  # Set via: export PROJECT_ROOT=/custom/path  
+  PROJECT_ROOT: null
+
+  # MEMORY_GLOBAL: Cross-project memory (auto: ${COSCA_HOME}/memory)
+  # Set via: export COSCA_MEMORY_GLOBAL=/shared/memory
+  MEMORY_GLOBAL: null
+
+  # Override any derived path:
+  # SKILLS_HOME: null
+  # ENGINES_HOME: null
+  # DEPARTMENTS_HOME: null
+  # WORKFLOWS_HOME: null
+  # TEMPLATES_HOME: null
+  # CONFIG_HOME: null
+  # BOOTSTRAP_HOME: null
+  # SCAFFOLD_HOME: null
+  # SESSIONS_HOME: null
+  # AUDIT_HOME: null
+
+# Resource Resolver settings
+resolver:
+  cache_enabled: true
+  cache_ttl_seconds: 3600
+  fallback_create_missing: true   # Auto-create .cosca/ if missing
+  validate_on_resolve: true       # Validate path exists after resolve
+  log_resolution_errors: true
+
+# Bootstrap settings
+bootstrap:
+  auto_init: true                 # Run bootstrap on every session start
+  quick_bootstrap: true           # Skip full discovery if .cosca/ exists
+  max_discovery_time_ms: 30000
+  create_context_files: true
+  load_memory_on_start: true
+  activate_agents_on_start: true
+
+# Observability
+observability:
+  log_resolution_events: true
+  log_bootstrap_events: true
+  event_log_path: ".cosca/memory/session/bootstrap-events.json"

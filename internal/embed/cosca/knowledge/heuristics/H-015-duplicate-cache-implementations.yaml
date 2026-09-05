@@ -1,0 +1,25 @@
+# heuristics/H-015-duplicate-cache-implementations.yaml
+id: H-015
+title: "Múltiplas implementações do mesmo padrão: consolidar em backend único"
+domain: performance
+type: anti-pattern
+severity: high
+source_agents: [cosca-cache, cosca-provider]
+description: >
+  O código tinha três implementações de cache independentes (cache.Cache 583 LOC,
+  EmbedCache 228 LOC, embeddingCache inline) — todas com LRU, TTL, hit/miss stats,
+  e APIs Get/Set próprias. EmbedCache e cache.Cache usavam SHA256 para hashing
+  de chave independentemente. Consolidar sob cache.Cache eliminaria ~400+ LOC
+  duplicados e adicionaria SQLite persistence aos outros caminhos.
+  O mesmo padrão ocorre nos providers: isNonRetryable, truncateBody, estimateTokens
+  duplicados em 5+ arquivos quando common.go já exporta versões canônicas.
+evidence:
+  - "2026-07-28: Cache agent — 'Five cache implementations exist but three are the same pattern reinvented'"
+  - "2026-07-28: Cache agent — 'cache.Cache (583 LOC), EmbedCache (228 LOC), embeddingCache (inline)'"
+  - "2026-07-28: Cache agent — 'Both EmbedCache and cache.Cache use SHA256 for key hashing — independently'"
+  - "2026-07-28: Provider agent — 'Several utility functions duplicated: isNonRetryable, truncateBody, estimateTokens across 5+ provider files'"
+action: "Identificar implementações duplicadas via grep por assinaturas de função similares. Consolidar sob a implementação mais completa (cache.Cache, providers/common.go). Manter wrappers tipados se necessário, mas com backend compartilhado."
+related: [H-014, H-016]
+tags: [performance, cache, duplication, dry, consolidation, anti-pattern, provider]
+confidence: 0.85
+created: 2026-07-29

@@ -1,0 +1,66 @@
+schema_version: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cosca Knowledge — Manifest (âncora de composição)
+# ─────────────────────────────────────────────────────────────────────────────
+# Este é o "DNA" da memória de conhecimento — a fonte declarativa, versionada
+# no Git, do que o cérebro SABE. O knowledge.db (368MB+, vetores+grafo+FTS) é
+# uma REPRESENTAÇÃO MATERIALIZADA (derivada) desse DNA e NÃO é versionado.
+#
+# Princípio (professor, 2026-08-29): o Git versiona a definição/proveniência do
+# conhecimento, não os artefatos pesados. O cérebro reconstrói os derivados.
+# Mesmo conhecimento + mesmo embedding model + mesma fonte = mesmo índice.
+# Logo: sqlite deixa de ser a fonte de verdade e vira cache materializado.
+#
+# Regenerar derivados:  cosca knowledge rebuild
+# Revalidar hashes:     cosca knowledge revalidate
+# Verificar integridade: cosca knowledge verify
+# ─────────────────────────────────────────────────────────────────────────────
+
+knowledge:
+  id: cosca-knowledge
+  version: 0.8.0
+  schema_version: 1
+
+# Módulos de conhecimento — cada um é uma unidade semântica versionável.
+# path aponta para a pasta/arquivo declarativo (fonte canônica), NÃO para o db.
+# version + hash identificam exatamente o que está carregado (lock.yaml).
+modules:
+  - id: cosca-core
+    path: knowledge/laws.json
+    description: "Leis de conhecimento canônicas (CKL) — níveis de verdade do cérebro."
+    version: 1.0.0
+  - id: cosca-hall-of-fame
+    path: knowledge/hall-of-fame.json
+    description: "Descobertas de conhecimento (Hall of Fame) — padrões que se provaram."
+    version: 1.0.0
+  - id: pkg-nest
+    path: knowledge/acquired/nest
+    description: "Conhecimento adquirido do framework NestJS (docs oficiais)."
+    version: 1.0.0
+  - id: pkg-nextjs
+    path: knowledge/acquired/next.js
+    description: "Conhecimento adquirido do framework Next.js (docs oficiais)."
+    version: 1.0.0
+  - id: pkg-prisma
+    path: knowledge/acquired/prisma
+    description: "Conhecimento adquirido do ORM Prisma (docs oficiais)."
+    version: 1.0.0
+  - id: pkg-ui
+    path: knowledge/acquired/ui
+    description: "Conhecimento adquirido da UI kit (docs oficiais)."
+    version: 1.0.0
+
+# Configuração de embeddings — determinística para o snapshot.
+# Mesmo conhecimento + provider/dims diferentes ≠ mesmo índice (matéria do lock).
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  dimensions: 768
+  normalization: cosine
+
+# Índice — como o conhecimento é materializado.
+index:
+  type: hybrid            # FTS5 + sqlite-vec (busca híbrida: lexical + semântica)
+  store: sqlite           # conhecimento.db (derivado, NÃO versionado)
+  rebuild_cmd: cosca knowledge rebuild

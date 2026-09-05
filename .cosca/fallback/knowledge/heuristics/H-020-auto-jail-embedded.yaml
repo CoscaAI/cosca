@@ -1,0 +1,26 @@
+# heuristics/H-020-auto-jail-embedded.yaml
+id: H-020
+title: "Scripts externos são single point of failure — embutir proteção no binário"
+domain: security
+type: pattern
+severity: critical
+source_agents: [cosca-kernel]
+description: >
+  Scripts externos de proteção (jaula-cosca.sh, protect-cosca.sh) são um ponto
+  único de falha: se o script some, a proteção some. A solução é colocar a
+  jaula DENTRO do binário. O auto-jail usa memfd_create para criar um executável
+  que só existe na RAM, faz fork+exec via bwrap com namespaces isolados
+  (user, pid, uts), e faz cleanup automático do memfd após término.
+  Fallback para /tmp/ (tmpfs = RAM) em kernels antigos. Isso elimina
+  dependência de scripts externos e simplifica a instalação para
+  `sudo make install` + `sudo cosca <comando>`.
+evidence:
+  - "2026-07-29: Kernel L15 — 'Scripts externos são um ponto único de falha — se o script some, a proteção some. Colocar a jaula DENTRO do binário elimina essa dependência.'"
+  - "2026-07-29: Kernel L15 — 'memfd_create (MFD_CLOEXEC desligado) é o mecanismo correto para criar um arquivo executável que só existe na RAM'"
+  - "2026-07-29: Kernel L15 — 'A remoção dos scripts jaula-cosca.sh e protect-cosca.sh simplifica a instalação'"
+  - "2026-07-29: pkg/cosca/jail.go — ReexecInJail() implementado com memfd_create + bwrap + propagação de sinais"
+action: "Para proteção de runtime: embutir no binário, não depender de scripts externos. Usar memfd_create para execução em RAM. Garantir propagação de sinais (Ctrl+C → bwrap). Fornecer fallback para kernels antigos."
+related: [H-005, H-006, H-001]
+tags: [security, auto-jail, memfd-create, bubblewrap, binary-protection, pattern, runtime]
+confidence: 0.90
+created: 2026-07-29

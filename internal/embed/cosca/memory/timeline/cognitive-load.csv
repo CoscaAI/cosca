@@ -1,0 +1,17 @@
+timestamp,task_id,agent,value,threshold,alert,task_type,tokens,time_sec,agents,raw_load
+2026-07-30T17:43:53Z,F0-cosca-chat,cosca-backend,12.4,50.0,false,complex,14200,245,3,14448
+2026-07-30T18:07:28Z,F1-provider-layer,cosca-chat,18.7,50.0,false,complex,22300,380,4,22684
+2026-07-30T18:30:22Z,F2-tool-system,cosca-chat,22.3,50.0,false,complex,28600,420,5,29025
+2026-07-30T18:39:53Z,F3-agent-engine,cosca-backend,31.5,50.0,false,complex,38400,510,6,38916
+2026-07-30T18:55:41Z,F3.5-4-engine-tests,cosca-testing,38.2,50.0,false,complex,45800,580,7,46387
+2026-07-30T19:07:25Z,F5-cli-commands,cosca-cli,15.8,50.0,false,moderate,18900,310,3,19213
+2026-07-30T19:10:00Z,F4.5-memory-integration,cosca-backend,8.2,50.0,false,moderate,9800,180,2,9982
+2026-07-30T19:21:49Z,F6-extensibility,cosca-chat,25.6,50.0,false,complex,32100,440,5,32545
+2026-07-30T19:43:06Z,F6-mcp-tests,cosca-testing,19.4,50.0,false,complex,24100,350,4,24454
+2026-07-30T19:43:06Z,F6-mcp-deadlock-fix,cosca-backend,7.1,25.0,false,simple,8100,120,2,8222
+2026-07-30T19:45:31Z,F6-mcp-plugin-cli,cosca-cli,6.8,25.0,false,simple,7200,140,1,7341
+2026-07-30T19:48:17Z,F6-agent-skill-cli,cosca-cli,7.3,25.0,false,simple,8400,150,1,8551
+2026-07-30T19:50:19Z,F6-session-cli,cosca-cli,6.1,25.0,false,simple,6900,130,1,7031
+2026-07-30T19:52:19Z,F6-completion-config-cli,cosca-cli,5.8,25.0,false,simple,6200,110,1,6311
+2026-07-30T19:54:00Z,F6-config-tests,cosca-testing,4.2,25.0,false,simple,4800,90,1,4891
+2026-07-30T20:33:38Z,F7-memorize-workflow,cosca-kernel,45.7,50.0,false,complex,51200,620,5,51825

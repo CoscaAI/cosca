@@ -1,0 +1,74 @@
+suite: cosca-esteira
+metadata:
+  author: cosca-kernel
+  description: "Benchmark completo da esteira de desenvolvimento (feature, bugfix, refactoring, review, audit)"
+  difficulty: medium
+  category: pipeline
+  tags: [esteira, e2e, regression]
+  created: "2026-08-11"
+defaults:
+  timeouts:
+    plan_seconds: 300
+    execute_seconds: 600
+    idle_seconds: 120
+cases:
+  # Full lifecycle: planning, execution, recovery and DoD evaluation against
+  # a real feature request.
+  - id: feature-development
+    prompt: "Adicionar suporte a exportação de relatórios em CSV no módulo de análises"
+    workflow: feature-development
+    steps:
+      - wait_for_plan
+      - approve_plan
+      - wait_for_execution
+    verify:
+      - "go vet ./internal/pipeline/..."
+      - "go build ./..."
+
+  # Bug fix: root cause analysis, fix implementation and regression coverage
+  # through the real step runner.
+  - id: bug-fix
+    prompt: "Corrigir o vazamento de conexões no pool do banco de dados"
+    workflow: bug-fix
+    steps:
+      - wait_for_plan
+      - approve_plan
+      - wait_for_execution
+    verify:
+      - "go vet ./internal/cli/..."
+      - "go build ./..."
+
+  # Refactoring: analyze, plan and execute structural changes with quality
+  # verification.
+  - id: refactoring
+    prompt: "Refatorar o adaptador de memória para reduzir o acoplamento com o SQLite"
+    workflow: refactoring
+    steps:
+      - wait_for_plan
+      - approve_plan
+      - wait_for_execution
+    verify:
+      - "go vet ./internal/pipeline/..."
+      - "go build ./..."
+
+  # Plan-only: code review produces a review plan without mutating the tree.
+  - id: code-review
+    prompt: "Revisar o novo fluxo de handoff entre agentes no orchestrator"
+    workflow: code-review
+    steps:
+      - wait_for_plan
+    verify:
+      - "go vet ./internal/evals/..."
+      - "go vet ./internal/cli/..."
+
+  # Plan-only: security audit scopes the audit plan; nothing is executed.
+  - id: security-audit
+    prompt: "Auditar o tratamento de segredos no armazenamento de chaves do kernel"
+    workflow: security-audit
+    steps:
+      - wait_for_plan
+    verify:
+      - "go vet ./internal/pipeline/..."
+      - "go vet ./internal/integrity/..."
+    question_strategy: skip
+    question_answers: []

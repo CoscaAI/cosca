@@ -1,0 +1,18 @@
+[Unit]
+Description=Cosca — Voz always-on (STT faster-whisper + TTS Kokoro)
+After=network-online.target cosca-serve.service ollama.service
+Wants=network-online.target cosca-serve.service ollama.service
+
+[Service]
+Type=simple
+ExecStart=%h/Documents/cosca/scripts/voice/venv/bin/python3 %h/Documents/cosca/scripts/voice/voice_conversation.py --service --venv-python %h/Documents/cosca/scripts/voice/venv/bin/python3
+Restart=always
+RestartSec=5
+WorkingDirectory=%h/Documents/cosca
+Environment=HOME=%h
+Environment=XDG_RUNTIME_DIR=%t
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

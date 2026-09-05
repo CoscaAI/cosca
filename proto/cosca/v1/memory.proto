@@ -1,0 +1,68 @@
+syntax = "proto3";
+package cosca.v1;
+option go_package = "github.com/CoscaAI/cosca/api/grpc/pb;cospb";
+
+service MemoryService {
+  rpc Store(StoreRequest) returns (StoreResponse);
+  rpc Search(MemorySearchRequest) returns (MemorySearchResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Promote(PromoteRequest) returns (PromoteResponse);
+  rpc Stats(MemoryStatsRequest) returns (MemoryStatsResponse);
+}
+
+message StoreRequest {
+  string type = 1;
+  string layer = 2;
+  string scope = 3;
+  string content = 4;
+  int32 priority = 5;
+  string ttl = 6;
+  map<string, string> metadata = 7;
+}
+
+message StoreResponse {
+  string id = 1;
+  string created_at = 2;
+}
+
+message MemorySearchRequest {
+  string query = 1;
+  repeated string types = 2;
+  repeated string layers = 3;
+  int32 limit = 4;
+}
+
+message MemorySearchResponse {
+  repeated MemoryRecord records = 1;
+  int32 total = 2;
+}
+
+message MemoryRecord {
+  string id = 1;
+  string type = 2;
+  string layer = 3;
+  string content = 4;
+  int32 priority = 5;
+  string created_at = 6;
+  map<string, string> metadata = 7;
+}
+
+message GetRequest { string id = 1; string layer = 2; }
+message GetResponse { MemoryRecord record = 1; }
+
+message DeleteRequest { string id = 1; string layer = 2; }
+message DeleteResponse { bool success = 1; }
+
+message PromoteRequest { string id = 1; string from_layer = 2; string to_layer = 3; }
+message PromoteResponse { MemoryRecord record = 1; }
+
+message MemoryStatsRequest {}
+message MemoryStatsResponse {
+  map<string, LayerStats> layers = 1;
+}
+
+message LayerStats {
+  int32 record_count = 1;
+  int64 size_bytes = 2;
+}

@@ -1,0 +1,25 @@
+# heuristics/H-012-bug-registry-underestimates.yaml
+id: H-012
+title: "Bug registry formal subestima bugs reais — auditar código fonte para completude"
+domain: governance
+type: anti-pattern
+severity: high
+source_agents: [cosca-qa, cosca-technical-debt, cosca-critic, cosca-performance]
+description: >
+  O bug registry documentava 5 bugs, mas a auditoria de QA encontrou 8 bugs
+  totais após code-to-docs cross-validation. Os 3 bugs adicionais estavam nos
+  learnings do cosca-runtime e nos testes de integração — não no INDEX.
+  O semantic index também tinha imprecisões: GAP-06 referenciava bug-005 como
+  "slow dashboard query" quando o arquivo real tratava de SQLite migration panic.
+  O critic flagou que todos os 5 bugs estavam marcados "Fixed" mas o semantic
+  index descrevia 3 como abertos. Registry staleness cria single-point-of-failure.
+evidence:
+  - "2026-07-28: QA agent — 'Bug registry formal subestimava bugs reais: 5 documentados vs 8 existentes (3 encontrados via code-to-docs cross-validation)'"
+  - "2026-07-28: Technical-debt — 'Semantic index inaccuracies: GAP-06 references bug-005 incorrectly'"
+  - "2026-07-28: Critic — 'Bug registry staleness creates a hidden single-point-of-failure'"
+  - "2026-07-28: Critic — 'All 5 bugs marked Fixed but Semantic Index describes 3 as open'"
+action: "Auditar bug registry contra código fonte e agent learnings periodicamente. Criar script qa-audit.sh que automatize cross-validation. Todo bug fix deve atualizar o registry e o semantic index simultaneamente."
+related: [H-009, H-013, H-018]
+tags: [governance, bugs, registry, staleness, cross-validation, anti-pattern, qa]
+confidence: 0.87
+created: 2026-07-29

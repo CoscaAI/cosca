@@ -1,0 +1,33 @@
+# Cosca Project State Tracking
+# Auto-generated: do not edit manually
+# Purpose: Track project evolution, agent activity, and knowledge growth
+
+version: "1.0"
+
+tracking:
+  sessions: 0
+  learnings: 0
+  patterns: 0
+  failures: 0
+  decisions: 0
+  last_session: null
+  last_evolution: null
+
+agents_active: []
+skills_used: []
+
+knowledge:
+  patterns_indexed: 0
+  laws_promoted: 0
+  vector_count: 0
+
+quality:
+  tests_total: 0
+  tests_passing: 0
+  coverage_pct: 0
+  gates_passed: 0
+
+health:
+  status: "initialized"
+  warnings: []
+  last_check: null
