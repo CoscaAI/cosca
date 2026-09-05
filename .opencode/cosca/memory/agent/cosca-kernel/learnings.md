@@ -1494,3 +1494,39 @@ FIX (internal/knowledge/knowledge.go ~416): manter OpenDataSources para LEITURA 
 VALIDACAO: go build ./internal/knowledge/ = 0; binario corrigido; knowledge index da mina -> documents 1965->1998 (+33 docs da mina); busca semantica acha a mina (8 resultados).
 LICAO ARQUITETURAL: O corte ADR-013 separa LEITURA (vectoragg ATTACH modules read-only) de ESCRITA (monolito fonte -> db build sincroniza). O WithQualifier na escrita era uma OTIMIZACAO que quebrou porque faltou ATTACH. Regra: NUNCA ativar qualifier de tabela se o database da conexao nao tem o modulo ATTACHado. Ingestao funciona via monolito; db build propaga.
 IMPACTO: beneficia QUALQUER ingestao via knowledge index (nao so a mina) - o indice estava todo quebrado na escrita desde o corte ativado.
+
+## 2026-09-05 — SEQUENCIA DE FECHAMENTO/RECUPERACAO (eternizar para NAO errar mais)
+
+OBJETIVO: sequencia canonica de 5 passos para fechar um ciclo de mudanca (fix/feature/docs) SEM deixar o sistema quebrado. Ordem do Don: "registra na memoria essa sequencia pra nao erra mais".
+
+### A SEQUENCIA (1→5, sempre nesta ordem)
+1. **RE-ASSINAR A CHAIN** (qualquer mudanca de HEAD quebra a chain git-anchored -> BREACH). cosca-check --sign-auto. Validar: cosca-check = "Chain valid".
+2. **RECOMPILAR O BINARIO** com o fix/feature (go vet + go build -o bin/cosca.exe ./cmd/cosca). SEM recompilar, o fix fica "no papel" e o serve usa o binario antigo.
+3. **LIMPAR LIXO** do working tree (pastas _test, temporarios) - REMOVER PARA NAO COMMITAR.
+4. **COMMIT** dos entregaveis (codigo-fonte, docs, learnings). NAO commitar runtime/derivados (.gguf, .env, knowledge.db, family_chain.dat, *.db).
+5. **RE-ASSINAR CHAIN DE NOVO** + **SUBIR O SERVE** (o commit mudou o HEAD -> chain quebra -> re-assinar -> subir). Validar health 200 + ready ok.
+
+### O CICLO DA CHAIN (a raiz do loop de morte)
+- QUALQUER git commit muda o HEAD -> a chain git-anchored (que ancora em hash de commit) QUEBRA -> BREACH -> "serve nao sobe".
+- O padrao e: **commit primeiro -> re-assinar DEPOIS**. Se re-assinar antes do commit, quebra de novo (commit muda HEAD).
+- Por isso a sequencia e: commit (passo 4) -> re-assinar (passo 5).
+
+### REGRAS QUEIMADAS (NAO VIOLAR)
+- **NUNCA** rodar knowledge index sem o fix do bug do corte (a escrita estava quebrada - core.documents sem ATTACH). Com o fix, o index escreve no monolito (knowledge.db, fonte) e o db build sincroniza.
+- **NUNCA** ativar qualifier de tabela se o database da conexao nao tem o modulo ATTACHado (o corte ADR-013 separa LEITURA via vectoragg ATTACH de ESCRITA no monolito).
+- **NUNCA** deixar lixo de teste no working tree (_mina_test) - limpar antes do commit.
+- **NUNCA** commitar runtime/derivados: .gguf (gitignored), .env (segredo), knowledge.db, family_chain.dat, *.db-wal/shm.
+- **SEMPRE** recompilar o binario depois de mudar codigo (fix so vale no binario, nao no codigo-fonte isolado).
+
+### CHECKLIST RAPIDO (auto-check antes de declarar "pronto")
+[x] chain valid? (cosca-check)
+[x] binario recompilado? (go build)
+[x] lixo limpo? (git status sem _test/)
+[x] commit feito? (entregaveis, sem runtime/derivados)
+[x] serve health 200? (apos re-assinar chain do novo HEAD)
+[x] buscar semantica? (knowledge search retorna)
+
+### QUANDO USAR
+- Depois de qualquer ciclo de mudanca que envolva: codigo-fonte, docs, fix, ingestao.
+- Sempre que o serve "nao sobe" (checar chain > jwt > allow_no_root > binario).
+- Sempre que o "knowledge index" nao gravar (o bug ja esta corrigido, mas verificar documents aumenta).
