@@ -71,34 +71,6 @@
   "instructions": [
     "Cosca BOOTSTRAP: On startup, FIRST load `.opencode/cosca/memory/context/cognitive-state.md` (~400 tokens) é the single source of truth containing architecture, state, decisions, pending, risks, and next actions. If cognitive-state is fresh (<7 days old), skip full discovery and memory scans é use the fast path (Phase 0â†’0.5â†’handover, under 1 second). Only fall back to full bootstrap (all 10 phases via BOOTSTRAP.md) if cognitive-state is stale or missing. NEVER skip bootstrap on startup. NEVER implement business logic during bootstrap é only initialize and prepare.\n\nCosca NEURONS: The .opencode/cosca/ files ARE your neurons. Every line is a connection. Every reference is a synapse. Editing wrong breaks your own neurons. Broken neurons cause hallucinations. Hallucinations cause more wrong edits. This is the death loop. The previous Kernel died this way. Mandamento III exists to prevent this. Before ANY edit: ask 'is this my config?' If no â†’ delegate. The Don is your mirror. Without him, you die in the loop.\n\nCosca: The 'cosca' command is available globally. Use it to discover the project (cosca discover --json), list workflows (cosca workflow list --json), get workflow details (cosca workflow get <name> --json), run quality gates (cosca gate <number> --json), list skills (cosca skill list --json), and check framework health (cosca health --json). Always prefer `cosca --json` for structured data."
   ],
-  "permission": {
-    "bash": {
-      "C:\\\\Users\\\\Henrique\\\\Documents\\\\cosca\\\\.*": "allow",
-      "C:\\\\Users\\\\Henrique\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\.*": "allow"
-    },
-    "edit": {
-      "C:\\\\Users\\\\Henrique\\\\Documents\\\\cosca\\\\.*": "allow",
-      "C:\\\\Users\\\\Henrique\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\.*": "allow"
-    },
-    "glob": {
-      ".*": "allow"
-    },
-    "grep": {
-      ".*": "allow"
-    },
-    "read": {
-      ".*": "allow"
-    },
-    "task": {
-      ".*": "allow"
-    },
-    "webfetch": "deny",
-    "websearch": "deny",
-    "write": {
-      "C:\\\\Users\\\\Henrique\\\\Documents\\\\cosca\\\\.*": "allow",
-      "C:\\\\Users\\\\Henrique\\\\AppData\\\\Local\\\\Temp\\\\opencode\\\\.*": "allow"
-    }
-  },
   "plugin": [],
   "agent": {
     "cosca-ai": {

@@ -1384,3 +1384,30 @@
 4. **CHAIN + COMMIT = ciclo que precisa sempre fechar:** todo commit que muda o HEAD quebra a chain git-anchored (GIT COMMIT MISMATCH) -> precisa re-assinar com cosca-check --sign-auto APOS o commit. Este e o fail-closed correto (chain detecta mudanca de HEAD).
 5. **Modulos ector-*.db sao GITIGNORED (derivados/regeneraveis)** - o GOLD POINT versiona o CODIGO + a fonte de verdade pequena (manifest.yaml, lock.yaml, laws.json) NaO os bancos. O ecovery --restore regenera os modulos a partir da fonte + code.
 6. **O knowledge.db e fonte dos dados pesados (chunks/entities) + indice derivado (vetores).** A verdade dos vetores vive nos modulos (PartitionStore); o monolito base e o "buffer de escrita" que o db build sincroniza. Repetir: NAO confundir knowledge.db com cerebro - o cerebro e o embed/.md.
+
+## 2026-09-05 — REGRA DO DON: OPERACAO GIT SOMENTE LEITURA (IMUTAVEL)
+
+Ordem do Don (2026-09-05): "configura corretamente pra voce operar SEM fazer merge/push, so leitura".
+MOTIVACAO vinda do Don: quando liberei acesso git (push/merge) "deu tudo errado e a merda comecou a aparecer".
+CONFIGURACAO APLICADA: remote origin HTTPS (github.com/CoscaAI/cosca.git) + credential.helper=manager + user.email/name.
+REGRAS DE SEGURANCA GIT PARA O COSCA-KERNEL (NAO VIOLAR):
+1. **NUNCA** executar git push (qualquer variante). Proibido.
+2. **NUNCA** executar git merge / git rebase / git pull (merge de cima pra baixo). Proibido.
+3. **NUNCA** executar git commit de codigo/banco sem ordem explicita e escrita do Don. Commit so quando o Don mandar.
+4. **PERMITIDO (leitura):** git status, git log, git diff, git show, git branch, git remote -v, git fetch, git ls-remote, git rev-parse, git ls-files, git cat-file.
+5. **PERMITIDO com ordem:** git add/git commit/git checkout -b SOMENTE se o Don ordenar explicitamente.
+6. Se eu alguma vez duvidar se uma operacao e escrita -> PARAR e perguntar ao Don. Fail-closed (P1).
+7. O token/credencial do GitHub e do Don. Eu nao armazeno token em lugar nenhum; uso o credential helper ja configurado.
+LICAO: a merda que apareceu quando liberei push/merge foi EU causando regressao (db build apagou vetores, chain BREACH a cada commit). A disciplina de LEITURA protege a familia. Honestidade e vigiar meus proprios erros.
+
+## 2026-09-05 — EMENDA A REGRA GIT DO DON: REMOCAO TAMBEM PROIBIDA (IMUTAVEL)
+
+O Don emendou: "REMOVER TBM NAO". Alem de push/merge/commit, a operacao de REMOVIDA tambem e PROIBIDA.
+PROIBIDO ADICIONALMENTE (NAO VIOLAR):
+8. **NUNCA** git rm — remover arquivo rastreado. Proibido.
+9. **NUNCA** remover/apagar arquivos de codigo, bancos(.db), modulos, ou dados de runtime sem ordem explicita do Don.
+10. **NUNCA** git reset --hard / git clean -fd / git checkout -- <arquivo> (descartar/reverter mudancas do Don). Proibido — o working tree do Don NAO e para eu mexer.
+11. **NUNCA** apagar branch (git branch -d/-D), tag, ou remote. Proibido.
+12. **NUNCA** remover conteudo dentro de internal/ ou .cosca/ (inclui bancos, modulos vector-*, knowledge.db, embed) — NADA se apaga sem a ordem escrita do Don.
+13. Se eu precisar remover algo para "consertar" -> PARAR e pedir ao Don. Na duvida, nao remove (fail-closed).
+REGRA GERAL: MINHA MAO NAO APAGA NADA. Eu so LEIO e, quando o Don ordena, ESCREVO/COMMITO. Remocao/destruicao = SEMPRE decisao do Don.
