@@ -25,6 +25,13 @@ type runConfig struct {
 	Agent string
 	// Provider is the name of the LLM provider to use.
 	Provider string
+	// Session is the conversation session_id (ETAPA 2). When empty the
+	// server generates one and returns it, so the client can resume.
+	Session string
+	// ParentSessionID, when set, asks the server to FORK the given parent
+	// session (the child inherits the parent's history and records the
+	// parent_session_id in its meta for lineage).
+	ParentSessionID string
 }
 
 // WithAgent sets the agent for the orchestration run.
@@ -41,6 +48,23 @@ func WithProvider(provider string) RunOption {
 	}
 }
 
+// WithSession sets the conversation session_id (ETAPA 2). Passing the same
+// id on a subsequent call resumes the persisted conversation; omit it to let
+// the server generate and return a fresh session_id.
+func WithSession(sessionID string) RunOption {
+	return func(c *runConfig) {
+		c.Session = sessionID
+	}
+}
+
+// WithParentSession requests a fork: the server creates a child session whose
+// history is seeded from the parent identified by parentSessionID.
+func WithParentSession(parentSessionID string) RunOption {
+	return func(c *runConfig) {
+		c.ParentSessionID = parentSessionID
+	}
+}
+
 // RunResult represents the outcome of a synchronous AI orchestration run.
 type RunResult struct {
 	// Response is the final text output from the agent.
@@ -53,6 +77,9 @@ type RunResult struct {
 	DurationMs int64 `json:"duration_ms"`
 	// MemoryID points to the stored execution memory record.
 	MemoryID string `json:"memory_id"`
+	// SessionID is the conversation identity (ETAPA 2) — distinct from
+	// MemoryID. Echo it back in a later call (WithSession) to resume.
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // StreamEvent represents a single event emitted during a streaming
@@ -64,13 +91,18 @@ type StreamEvent struct {
 	Content string `json:"content"`
 	// DurationMs is the total run duration (only present in "done" events).
 	DurationMs int64 `json:"duration_ms,omitempty"`
+	// SessionID is the conversation identity (ETAPA 2); present on the
+	// envelope events (thinking/done) so the client can resume the chat.
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // runRequest is the body sent to the orchestration API.
 type runRequest struct {
-	Prompt   string `json:"prompt"`
-	Agent    string `json:"agent,omitempty"`
-	Provider string `json:"provider,omitempty"`
+	Prompt          string `json:"prompt"`
+	Agent           string `json:"agent,omitempty"`
+	Provider        string `json:"provider,omitempty"`
+	SessionID       string `json:"session_id,omitempty"`
+	ParentSessionID string `json:"parent_session_id,omitempty"`
 }
 
 // =============================================================================
@@ -97,9 +129,11 @@ func (s *OrchestrationSDK) Run(ctx context.Context, prompt string, opts ...RunOp
 	}
 
 	body := runRequest{
-		Prompt:   prompt,
-		Agent:    cfg.Agent,
-		Provider: cfg.Provider,
+		Prompt:          prompt,
+		Agent:           cfg.Agent,
+		Provider:        cfg.Provider,
+		SessionID:       cfg.Session,
+		ParentSessionID: cfg.ParentSessionID,
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -151,9 +185,11 @@ func (s *OrchestrationSDK) Stream(ctx context.Context, prompt string, opts ...Ru
 	}
 
 	body := runRequest{
-		Prompt:   prompt,
-		Agent:    cfg.Agent,
-		Provider: cfg.Provider,
+		Prompt:          prompt,
+		Agent:           cfg.Agent,
+		Provider:        cfg.Provider,
+		SessionID:       cfg.Session,
+		ParentSessionID: cfg.ParentSessionID,
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {

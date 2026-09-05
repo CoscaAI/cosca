@@ -300,10 +300,7 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	}
 
 	// 4. Build the message list.
-	messages := []chat.Message{
-		{Role: chat.RoleSystem, Content: systemContent},
-		{Role: chat.RoleUser, Content: augmentedPrompt},
-	}
+	messages := e.buildMessages(systemContent, augmentedPrompt, pc.Data)
 
 	// 5. Build ChatOptions with tools derived from agent capabilities.
 	opts := e.buildChatOptions(ctx, pc.Data)
@@ -576,10 +573,7 @@ func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventC
 	systemContent := e.buildSystemPrompt(agentName, agentRole, agentDept, agentDesc, pc.Data)
 
 	// 4. Build the message list.
-	messages := []chat.Message{
-		{Role: chat.RoleSystem, Content: systemContent},
-		{Role: chat.RoleUser, Content: augmentedPrompt},
-	}
+	messages := e.buildMessages(systemContent, augmentedPrompt, pc.Data)
 
 	// 5. Build ChatOptions with stream=true.
 	opts := e.buildChatOptions(ctx, pc.Data)
@@ -907,6 +901,25 @@ func (e *Executor) buildChatOptions(ctx context.Context, data PipelineData) chat
 	}
 
 	return opts
+}
+
+// buildMessages assembles the chat message list for a single LLM call.
+//
+// Conversation history (session resume, ETAPA 2) is prepended between the
+// system prompt and the current user turn when the pipeline carried one in
+// data.Extra["history"] (set by the /v1/run family from the persisted
+// session — see api/rest/handler/run.go). Aditivo e reversível: quando o
+// histórico está ausente, a lista é exatamente system+user de sempre
+// (nenhuma regressão nos caminhos atuais).
+func (e *Executor) buildMessages(systemContent, augmentedPrompt string, data PipelineData) []chat.Message {
+	messages := []chat.Message{
+		{Role: chat.RoleSystem, Content: systemContent},
+	}
+	if history, ok := data.Extra["history"].([]chat.Message); ok && len(history) > 0 {
+		messages = append(messages, history...)
+	}
+	messages = append(messages, chat.Message{Role: chat.RoleUser, Content: augmentedPrompt})
+	return messages
 }
 
 // deriveTools produces tool definitions based on agent role and skills.

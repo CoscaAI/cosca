@@ -71,6 +71,14 @@ func (a *OrchAdapter) Run(ctx context.Context, req RunRequest) (*RunResult, erro
 	if req.IntentType != "" {
 		orchReq.Context["intent"] = req.IntentType
 	}
+	// Histórico de conversa (ETAPA 2 — resume): quando o RunRequest carrega
+	// History, ele flui via Context["history"] ([]chat.Message) até o
+	// executor.buildMessages, que o prepende entre system e o turno do usuário.
+	// Aditivo: History vazio => Context["history"] ausente => comportamento
+	// exatamente como hoje.
+	if len(req.History) > 0 {
+		orchReq.Context["history"] = messagesToChat(req.History)
+	}
 
 	result, err := a.engine.Execute(ctx, orchReq)
 	if err != nil {

@@ -62,7 +62,7 @@ func NewSessionManagerDefault() *SessionManager {
 // the provided model and agent identifiers. The session is stored in memory
 // but NOT written to disk until SaveSession is called.
 func (sm *SessionManager) CreateSession(model, agent string) *Session {
-	return sm.newSession(newUUID(), model, agent)
+	return sm.newSession(newUUID(), model, agent, "")
 }
 
 // CreateSessionWithID creates a new session with a caller-supplied ID instead
@@ -70,23 +70,34 @@ func (sm *SessionManager) CreateSession(model, agent string) *Session {
 // voice wrapper's "cosca-voice" — where the session file must be named after a
 // stable identifier so conversation memory persists across invocations.
 func (sm *SessionManager) CreateSessionWithID(id, model, agent string) *Session {
-	return sm.newSession(id, model, agent)
+	return sm.newSession(id, model, agent, "")
+}
+
+// CreateSessionWithParent creates a session with a caller-supplied ID whose
+// meta records parentID as its parent_session_id (fork/lineage). Used by the
+// /v1/run family to support session fork: the child session's history is
+// seeded from the parent and its meta links back to it so sessionindex's
+// SessionLineage can traverse the fork. The session is stored in memory but
+// NOT written to disk until SaveSession is called.
+func (sm *SessionManager) CreateSessionWithParent(id, model, agent, parentID string) *Session {
+	return sm.newSession(id, model, agent, parentID)
 }
 
 // newSession builds a Session with the given ID, model, and agent, and caches
 // it in memory under that ID. It is the shared constructor used by both
 // CreateSession (random UUID) and CreateSessionWithID (fixed ID). The session
 // is stored in memory but NOT written to disk until SaveSession is called.
-func (sm *SessionManager) newSession(id, model, agent string) *Session {
+func (sm *SessionManager) newSession(id, model, agent, parentID string) *Session {
 	now := time.Now().UTC()
 	s := &Session{
-		ID:        id,
-		Model:     model,
-		Agent:     agent,
-		Messages:  make([]chat.Message, 0),
-		CreatedAt: now,
-		UpdatedAt: now,
-		Metadata:  make(map[string]string),
+		ID:              id,
+		Model:           model,
+		Agent:           agent,
+		ParentSessionID: parentID,
+		Messages:        make([]chat.Message, 0),
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		Metadata:        make(map[string]string),
 	}
 
 	sm.mu.Lock()
@@ -159,6 +170,7 @@ func (sm *SessionManager) SaveSession(sessionID string) error {
 	id := s.ID
 	model := s.Model
 	agent := s.Agent
+	parentID := s.ParentSessionID
 	createdAt := s.CreatedAt
 	updatedAt := s.UpdatedAt
 	usage := s.TokenUsage
@@ -188,14 +200,15 @@ func (sm *SessionManager) SaveSession(sessionID string) error {
 
 	// ── Line 1: meta ────────────────────────────────────────────────────────
 	meta := jsonlLine{
-		Type:      "meta",
-		ID:        id,
-		Model:     model,
-		Agent:     agent,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-		Usage:     usage,
-		Metadata:  metadata,
+		Type:            "meta",
+		ID:              id,
+		Model:           model,
+		Agent:           agent,
+		ParentSessionID: parentID,
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		Usage:           usage,
+		Metadata:        metadata,
 	}
 	if err := enc.Encode(meta); err != nil {
 		return fmt.Errorf("encode meta line: %w", err)
@@ -274,6 +287,7 @@ func (sm *SessionManager) LoadSession(sessionID string) (*Session, error) {
 			s.ID = parsed.ID
 			s.Model = parsed.Model
 			s.Agent = parsed.Agent
+			s.ParentSessionID = parsed.ParentSessionID
 			s.CreatedAt = parsed.CreatedAt
 			s.UpdatedAt = parsed.UpdatedAt
 			s.TokenUsage = parsed.Usage
@@ -375,13 +389,14 @@ type jsonlLine struct {
 	Type string `json:"type"` // "meta", "message", "usage"
 
 	// ── Meta fields ─────────────────────────────────────────────────────
-	ID        string            `json:"id,omitempty"`
-	Model     string            `json:"model,omitempty"`
-	Agent     string            `json:"agent,omitempty"`
-	CreatedAt time.Time         `json:"created_at,omitempty"`
-	UpdatedAt time.Time         `json:"updated_at,omitempty"`
-	Usage     chat.Usage        `json:"token_usage,omitempty"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
+	ID              string            `json:"id,omitempty"`
+	Model           string            `json:"model,omitempty"`
+	Agent           string            `json:"agent,omitempty"`
+	ParentSessionID string            `json:"parent_session_id,omitempty"`
+	CreatedAt       time.Time         `json:"created_at,omitempty"`
+	UpdatedAt       time.Time         `json:"updated_at,omitempty"`
+	Usage           chat.Usage        `json:"token_usage,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
 
 	// ── Message fields ──────────────────────────────────────────────────
 	Role         chat.Role          `json:"role,omitempty"`

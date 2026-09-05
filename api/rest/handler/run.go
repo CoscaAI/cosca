@@ -19,6 +19,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/audit"
 	"github.com/CoscaAI/cosca/internal/chat"
 	chatprovider "github.com/CoscaAI/cosca/internal/chat/provider"
+	"github.com/CoscaAI/cosca/internal/engine"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/oracle"
@@ -83,6 +84,14 @@ type RunHandler struct {
 	// (ADR-032). Zero-value (never set) is fail-closed: Enabled=false
 	// preserves the legacy path exactly.
 	deliberateConfig orchestration.DeliberateConfig
+
+	// sessionDir é o diretório de persistência de sessões de conversa
+	// (.cosca/sessions). Quando vazio (default, ex.: em testes), a
+	// persistência de sessão é DISABLED — o handler ainda gera/devolve
+	// session_id, mas não grava nem injeta histórico em disco. Produção liga
+	// via SetSessionsDir (server.go). REUSE do engine.SessionManager — NUNCA
+	// um store paralelo.
+	sessionDir string
 }
 
 // NewRunHandler creates a new RunHandler.
@@ -124,6 +133,14 @@ func (h *RunHandler) SetSkillsManager(mgr *skills.Manager) {
 // called, the stage stays disabled and the legacy path is preserved.
 func (h *RunHandler) SetDeliberateConfig(cfg orchestration.DeliberateConfig) {
 	h.deliberateConfig = cfg
+}
+
+// SetSessionsDir wires the conversation-session persistence directory
+// (ETAPA 2). Default (never called) leaves session persistence disabled;
+// production (server.go) calls this with <coscaDir>/sessions. The directory
+// is consumed by engine.SessionManager — the SAME writer the CLI uses.
+func (h *RunHandler) SetSessionsDir(dir string) {
+	h.sessionDir = dir
 }
 
 // SetMemoryEngine wires the memory engine into the orchestration engine's
@@ -215,6 +232,19 @@ type runRequest struct {
 	Agent    string `json:"agent,omitempty"`
 	Provider string `json:"provider,omitempty"`
 	Stream   bool   `json:"stream,omitempty"`
+
+	// SessionID é a identidade da CONVERSA (ETAPA 2). Quando presente, o
+	// handler carrega o histórico persistido (.cosca/sessions/{id}.jsonl) e
+	// retoma a conversa (resume). Quando ausente, o handler gera um UUID e o
+	// devolve no primeiro evento / na resposta — o papel de `session_id` é
+	// distinto de `memory_id` (memória/execStore, ADR memória).
+	SessionID string `json:"session_id,omitempty"`
+
+	// ParentSessionID, quando presente (e diferente de SessionID), cria um
+	// FORK: uma nova sessão (filha) é criada cujo meta carrega
+	// parent_session_id e cujo histórico é semeado a partir do pai
+	// (SessionLineage do índice atravessa o fork).
+	ParentSessionID string `json:"parent_session_id,omitempty"`
 }
 
 // runResponse is the JSON response for POST /v1/run.
@@ -224,6 +254,10 @@ type runResponse struct {
 	SkillsUsed []string `json:"skills_used,omitempty"`
 	DurationMs int64    `json:"duration_ms"`
 	MemoryID   string   `json:"memory_id"`
+	// SessionID é a identidade da conversa (ETAPA 2). Aditivo — consumidores
+	// existentes de `/v1/run` (que leem response/agent/duration_ms/memory_id)
+	// continuam intactos.
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // promptPreviewLength caps how much of a user prompt is persisted in audit
@@ -299,6 +333,126 @@ func (h *RunHandler) resolveRegistry(ctx context.Context, req runRequest) (*chat
 		reg = chat.GetRegistry()
 	}
 	return reg, nil
+}
+
+// ── Session (ETAPA 2) ─────────────────────────────────────────────────────────
+//
+// REUSE do engine.SessionManager (internal/engine/session.go) — o MESMO
+// escritor utilizado por `cosca exec` e pelo terminal. Não criamos um store
+// paralelo. `session_id` é a identidade da CONVERSA; `memoryID` continua
+// sendo a identidade do subsistema de memória/execStore (papéis distintos).
+
+// sessionManager returns a SessionManager bound to the configured sessions
+// dir, or nil when persistence is disabled (default: sessionDir == ""). The
+// SAME writer the CLI uses; the directory is created lazily on first write.
+func (h *RunHandler) sessionManager() *engine.SessionManager {
+	if h.sessionDir == "" {
+		return nil
+	}
+	return engine.NewSessionManager(h.sessionDir)
+}
+
+// resolveSession determines the conversation session_id and the persisted
+// history to inject as prior turns. It is best-effort: any session error is
+// downgraded to a warning and the request proceeds with a fresh/empty
+// session (never fails a request on session bookkeeping).
+//
+// Fork semantics (req.ParentSessionID != "" and != req.SessionID): a child
+// session is created via CreateSessionWithParent whose meta carries
+// parent_session_id and whose Messages are seeded from the parent (so
+// sessionindex.SessionLineage traverses the fork). When req.SessionID is
+// empty on a fork, a child UUID is generated.
+func (h *RunHandler) resolveSession(req runRequest, model, agent string) (sessionID string, history []chat.Message, sm *engine.SessionManager) {
+	sm = h.sessionManager()
+
+	// Determine the conversation identity.
+	switch {
+	case req.ParentSessionID != "" && req.ParentSessionID != req.SessionID:
+		// FORK.
+		childID := req.SessionID
+		if childID == "" {
+			childID = uuid.New().String()
+		}
+		sessionID = childID
+		if sm == nil {
+			return sessionID, nil, nil
+		}
+
+		// Se o filho já existe (resume de um fork anterior), reutiliza-o.
+		var sess *engine.Session
+		if existing, err := sm.LoadSession(childID); err == nil {
+			sess = existing
+		} else {
+			// Semeia o histórico a partir do pai (se existir).
+			var seed []chat.Message
+			if parent, perr := sm.LoadSession(req.ParentSessionID); perr == nil && parent != nil {
+				seed = parent.Messages
+			}
+			sess = sm.CreateSessionWithParent(childID, model, agent, req.ParentSessionID)
+			sess.Messages = append([]chat.Message(nil), seed...)
+		}
+		return sessionID, sess.Messages, sm
+
+	case req.SessionID != "":
+		// RESUME (ou continuação) de uma sessão existente.
+		sessionID = req.SessionID
+		if sm == nil {
+			return sessionID, nil, nil
+		}
+		var sess *engine.Session
+		if existing, err := sm.LoadSession(sessionID); err == nil {
+			sess = existing
+		} else {
+			sess = sm.CreateSessionWithID(sessionID, model, agent)
+		}
+		return sessionID, sess.Messages, sm
+
+	default:
+		// Fresh conversation — handler gera o session_id e devolve (o
+		// cliente o ecoa no próximo request para resumir).
+		sessionID = uuid.New().String()
+		if sm == nil {
+			return sessionID, nil, nil
+		}
+		_ = sm.CreateSessionWithID(sessionID, model, agent)
+		return sessionID, nil, sm
+	}
+}
+
+// persistSession appends the user+assistant turn to the session and saves it
+// to disk. Best-effort: on any session error the response is unaffected
+// (the execution is already complete); failures are logged at debug level.
+func (h *RunHandler) persistSession(sm *engine.SessionManager, sessionID, userContent, assistantContent string, responseModel string) {
+	if sm == nil || sessionID == "" {
+		return
+	}
+	if err := sm.AppendMessage(sessionID, chat.Message{Role: chat.RoleUser, Content: userContent}); err != nil {
+		return
+	}
+	if err := sm.AppendMessage(sessionID, chat.Message{Role: chat.RoleAssistant, Content: assistantContent}); err != nil {
+		return
+	}
+	// Best-effort token usage bookkeeping.
+	if s, err := sm.GetSession(sessionID); err == nil && s != nil && responseModel != "" {
+		s.TokenUsage.TotalTokens += len([]rune(userContent)) + len([]rune(assistantContent))
+		s.Model = responseModel
+	}
+	_ = sm.SaveSession(sessionID)
+}
+
+// chatToPipeMessages adapts the persisted conversation history (chat.Message)
+// into the pipeline.Message slice consumed by RunRequest.History. It is the
+// inverse of pipeline.messagesToChat and only carries role+content, which is
+// all the resumed conversation needs.
+func chatToPipeMessages(msgs []chat.Message) []pipeline.Message {
+	if len(msgs) == 0 {
+		return nil
+	}
+	out := make([]pipeline.Message, len(msgs))
+	for i, m := range msgs {
+		out[i] = pipeline.Message{Role: string(m.Role), Content: m.Content}
+	}
+	return out
 }
 
 // Execute handles POST /v1/run — executes a prompt through the SAME AI
@@ -378,6 +532,9 @@ func (h *RunHandler) Execute(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.requestCtx(r)
 	defer cancel()
 
+	// ── Session (ETAPA 2): identidade da conversa + histórico para resume ──
+	sessionID, history, sessMgr := h.resolveSession(req, registry.Model(), req.Agent)
+
 	// Build the orchestration engine with the request-scoped registry so a
 	// provider override never leaks into other requests.
 	engine := h.buildEngine(registry)
@@ -389,6 +546,7 @@ func (h *RunHandler) Execute(w http.ResponseWriter, r *http.Request) {
 		Prompt:  req.Prompt,
 		Agent:   req.Agent,
 		Options: pipeline.RunOptions{},
+		History: chatToPipeMessages(history),
 	}
 
 	// Execute through unified Runner.
@@ -416,6 +574,9 @@ func (h *RunHandler) Execute(w http.ResponseWriter, r *http.Request) {
 		memoryID = uuid.New().String()
 	}
 
+	// Persist the turn (best-effort) into the session store.
+	h.persistSession(sessMgr, sessionID, req.Prompt, result.Response, registry.Model())
+
 	// Store execution in history.
 	h.execStore.StoreExecution(
 		claimsSubject(r), req.Prompt, result.Response, agentName, registry.Name(),
@@ -434,6 +595,7 @@ func (h *RunHandler) Execute(w http.ResponseWriter, r *http.Request) {
 		SkillsUsed: result.SkillsUsed,
 		DurationMs: duration.Milliseconds(),
 		MemoryID:   memoryID,
+		SessionID:  sessionID,
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -453,6 +615,10 @@ func (h *RunHandler) executeWithPipeline(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusServiceUnavailable, "no chat provider configured — use 'cosca provider set' to configure one")
 		return
 	}
+
+	// ── Session (ETAPA 2): identidade da conversa (histórico não é injetado
+	// no pipeline autônomo por request — limite documentado; ver gaps). ──
+	sessionID, _, sessMgr := h.resolveSession(req, registry.Model(), req.Agent)
 
 	startTime := time.Now()
 
@@ -583,6 +749,9 @@ func (h *RunHandler) executeWithPipeline(w http.ResponseWriter, r *http.Request,
 	duration := time.Since(startTime)
 	providerName := registry.Name()
 
+	// Persist the turn (best-effort) into the session store.
+	h.persistSession(sessMgr, sessionID, req.Prompt, response, registry.Model())
+
 	// Store execution in history.
 	h.execStore.StoreExecution(
 		claimsSubject(r), req.Prompt, response, finalAgent, providerName,
@@ -603,6 +772,7 @@ func (h *RunHandler) executeWithPipeline(w http.ResponseWriter, r *http.Request,
 		SkillsUsed: skillsUsed,
 		DurationMs: duration.Milliseconds(),
 		MemoryID:   memoryID,
+		SessionID:  sessionID,
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -793,6 +963,9 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		agentName = "COSCA KERNEL"
 	}
 
+	// ── Session (ETAPA 2): identidade da conversa + histórico p/ resume ──
+	sessionID, history, sessMgr := h.resolveSession(req, registry.Model(), agentName)
+
 	// Set up SSE writer and headers.
 	sw, err := stream.NewSSEWriter(w)
 	if err != nil {
@@ -809,8 +982,10 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Send initial "thinking" event.
-	_ = sw.WriteEvent(stream.EventThinking, "Analyzing request and preparing response...")
+	// Send initial "thinking" event — carrega o session_id no PRIMEIRO evento
+	// para o cliente continuar (o formato {"type":"response",...} dos chunks é
+	// preservado; session_id só entra aqui e no done — aditivo).
+	_ = sw.WriteEvent(stream.EventThinking, sseSessionPayload("Analyzing request and preparing response...", sessionID))
 
 	// Execute (Kernel-First).
 	startTime := time.Now()
@@ -829,6 +1004,10 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Agent != "" {
 		orchReq.Context["agent"] = req.Agent
+	}
+	// Histórico da sessão (resume) flui ao executor via Context["history"].
+	if len(history) > 0 {
+		orchReq.Context["history"] = history
 	}
 
 	events, err := engine.ExecuteStream(ctx, orchReq)
@@ -898,6 +1077,9 @@ streamLoop:
 
 	duration := time.Since(startTime)
 
+	// Persist the turn (best-effort) into the session store.
+	h.persistSession(sessMgr, sessionID, req.Prompt, fullResponse.String(), model)
+
 	// Store execution in history.
 	memoryID := uuid.New().String()
 	h.execStore.StoreExecution(
@@ -911,8 +1093,12 @@ streamLoop:
 			"agent": agentName, "provider": registry.Name(),
 		}, req.Prompt)), "success")
 
-	// Send final "done" event.
-	_ = sw.WriteDoneWithDuration(duration.Milliseconds())
+	// Send final "done" event — inclui o session_id (aditivo; o contrato
+	// {"type":"done","duration_ms":N} é preservado).
+	_ = sw.WriteEvent(stream.EventDone, map[string]interface{}{
+		"duration_ms": duration.Milliseconds(),
+		"session_id":  sessionID,
+	})
 
 	// Broadcast chat ended event to WebSocket subscribers.
 	if h.hub != nil {
@@ -930,4 +1116,18 @@ streamLoop:
 func deriveSkillsFromRequest(prompt, agentName, systemContent string) []string {
 	agentTexts := []string{agentName, systemContent}
 	return orchestration.DeriveSkills(prompt, agentTexts)
+
+}
+
+// sseSessionPayload builds a structured SSE data payload that carries an
+// optional session_id alongside a human-readable content string. It is used
+// ONLY for the envelope events (thinking/done) so the response-chunk events
+// keep the legacy string format {"type":"response","content":"..."} untouched.
+// Aditivo: clientes que não conhecem session_id ignoram o campo (JSON lax).
+func sseSessionPayload(content, sessionID string) map[string]interface{} {
+	m := map[string]interface{}{"content": content}
+	if sessionID != "" {
+		m["session_id"] = sessionID
+	}
+	return m
 }

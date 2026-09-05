@@ -496,6 +496,10 @@ func (s *Server) registerRoutes(k *knowledge.Engine, m *memory.MemoryEngine, rt 
 	runH := handler.NewRunHandler(s.agentsManager, chat.GetRegistry(), s.auditStore)
 	runH.SetHub(s.wsHub)
 	runH.SetSkillsManager(s.skillsManager)
+	// ETAPA 2 (sessão): liga a persistência de conversa em .cosca/sessions
+	// (reuse do engine.SessionManager). Default do handler é OFF — produção
+	// liga aqui; os testes do handler mantêm sesão off (não poluem o repo).
+	runH.SetSessionsDir(filepath.Join(".", ".cosca", "sessions"))
 	// ADR-032: opt-in via server config. Zero-value is fail-closed — the
 	// /v1/run engine stays on the legacy path unless explicitly enabled.
 	runH.SetDeliberateConfig(s.config.DeliberateConfig)

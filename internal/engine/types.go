@@ -33,6 +33,12 @@ type Session struct {
 	// Agent is the primary agent name for this session.
 	Agent string `json:"agent,omitempty"`
 
+	// ParentSessionID, when non-empty, links this session to a parent
+	// (fork/lineage). It is persisted in the JSONL meta line and picked up
+	// by internal/sessionindex for the SessionLineage traversal. Empty means
+	// a root session with no parent.
+	ParentSessionID string `json:"parent_session_id,omitempty"`
+
 	// Messages is the full conversation history.
 	Messages []chat.Message `json:"messages"`
 
