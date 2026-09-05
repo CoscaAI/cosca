@@ -976,6 +976,15 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	// ── Session (ETAPA 2): identidade da conversa + histórico p/ resume ──
 	sessionID, history, sessMgr := h.resolveSession(req, registry.Model(), agentName)
 
+	// ── ETAPA 4 — Mapper centralizado engine→wire ──
+	// O contrato canônico (thinking/response/done/error/cancelled +
+	// progress/metadata/status aditivos) resolve o mapeamento AQUI, no mapper
+	// (api/stream/mapper.go), NÃO espalhado no loop do handler. Campos
+	// request-scoped (session/model/provider/agent) enriquecem os envelopes.
+	providerName := registry.Name()
+	model := registry.Model()
+	wireMapper := stream.NewEngineMapper(sessionID, model, providerName, agentName)
+
 	// Set up SSE writer and headers.
 	sw, err := stream.NewSSEWriter(w)
 	if err != nil {
@@ -994,8 +1003,14 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial "thinking" event — carrega o session_id no PRIMEIRO evento
 	// para o cliente continuar (o formato {"type":"response",...} dos chunks é
-	// preservado; session_id só entra aqui e no done — aditivo).
-	_ = sw.WriteEvent(stream.EventThinking, sseSessionPayload("Analyzing request and preparing response...", sessionID))
+	// preservado; session_id só entra aqui e no done — aditivo). O mapper
+	// adiciona model/provider/agent ao envelope (aditivo, header do Desktop).
+	_ = sw.WriteEvent(stream.EventThinking, wireMapper.ThinkingPayload("Analyzing request and preparing response..."))
+
+	// ETAPA 4 — status:processing: fase de abertura (aditivo). A sequência
+	// coerente é: thinking → status:processing → progress* → response* →
+	// metadata → status:done → done.
+	_ = sw.WriteEvent(stream.EventStatus, wireMapper.StatusPayload(stream.StatusProcessing))
 
 	// Execute (Kernel-First).
 	startTime := time.Now()
@@ -1031,9 +1046,6 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fullResponse strings.Builder
-	// Model do provider que efetivamente serve o stream (o selected do
-	// registry) — exatamente o "Model() do provider" (prova B).
-	model := registry.Model()
 	skillsUsed := deriveSkillsFromRequest(req.Prompt, agentName, systemContent)
 
 streamLoop:
@@ -1049,26 +1061,39 @@ streamLoop:
 			// runStreamingPipeline/readStream veem o MESMO ctx.Done() e fecham
 			// o eventCh — não há nada a drenar, o canal encerra sozinho.
 			h.writeStreamTermination(sw, ctx.Err())
-			h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
+			h.streamCancellationLog(r, agentName, providerName, req.Prompt, ctx.Err())
 			return
 		case ev, ok := <-events:
 			if !ok {
 				break streamLoop
 			}
-			switch ev.Type {
-			case orchestration.StreamEventChunk:
-				if ev.Content != "" {
-					fullResponse.WriteString(ev.Content)
-					_ = sw.WriteEvent(stream.EventResponse, ev.Content)
+			// ETAPA 4 — mapeamento engine→wire CENTRALIZADO: o handler não
+			// decide os tipos do engine; o mapper (api/stream/mapper.go) é a
+			// fonte única de verdade (chunk→response, progress/stage_transition
+			// →progress, error→error, cancelled→cancelled).
+			wire := wireMapper.Map(ev)
+			if wire == nil {
+				// Tipo desconhecido do engine — conservador: não quebra o stream.
+				continue
+			}
+			switch wire.Type {
+			case stream.EventResponse:
+				// chunk → response: shape legado {"type":"response","content":"..."}.
+				if s, ok := wire.Data.(string); ok && s != "" {
+					fullResponse.WriteString(s)
+					_ = sw.WriteEvent(wire.Type, wire.Data)
 				}
-			case orchestration.StreamEventCancelled:
+			case stream.EventProgress:
+				// progress/stage_transition → progress (aditivo; antes engolido).
+				_ = sw.WriteEvent(wire.Type, wire.Data)
+			case stream.EventCancelled:
 				// O engine detectou o cancelamento no meio da leitura do
 				// provider (ctx.Done() ou Recv que retornou context.Canceled).
 				// Estado final: "cancelled" (aditivo), nunca "error".
 				h.writeStreamTermination(sw, ctx.Err())
-				h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
+				h.streamCancellationLog(r, agentName, providerName, req.Prompt, ctx.Err())
 				return
-			case orchestration.StreamEventError:
+			case stream.EventError:
 				// Erro sanitizado (safe-error): NÃO vaza texto do provider
 				// (o caminho direto vazava "chat stream failed: %v"). O engine
 				// já mascarou o erro original no Content/Metadata.
@@ -1078,7 +1103,7 @@ streamLoop:
 				// CANCELLING — mapeia para "cancelled" em vez de "error".
 				if ctx.Err() != nil {
 					h.writeStreamTermination(sw, ctx.Err())
-					h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
+					h.streamCancellationLog(r, agentName, providerName, req.Prompt, ctx.Err())
 					return
 				}
 				msg := ev.Content
@@ -1087,16 +1112,11 @@ streamLoop:
 				}
 				LogEvent(h.auditStore, r, "orchestration.stream", "orchestration",
 					audit.DetailsJSON(withPromptAuditInfo(map[string]string{
-						"agent": agentName, "provider": registry.Name(), "error": msg,
+						"agent": agentName, "provider": providerName, "error": msg,
 					}, req.Prompt)), "error")
 				_ = sw.WriteError(fmt.Errorf("%s", msg))
 				// Erro em banda: não armazena execução nem envia "done".
 				return
-			case orchestration.StreamEventProgress, orchestration.StreamEventStageTransition:
-				// Contrato SSE (/v1/run/stream): thinking/response/done/cancelled.
-				// Os eventos de progresso do engine são observáveis mas não fazem
-				// parte do wire contract — são ignorados (não quebram
-				// pkg/cosca.Stream / cosca-desktop).
 			}
 		}
 	}
@@ -1109,22 +1129,31 @@ streamLoop:
 	// Store execution in history.
 	memoryID := uuid.New().String()
 	h.execStore.StoreExecution(
-		claimsSubject(r), req.Prompt, fullResponse.String(), agentName, registry.Name(),
+		claimsSubject(r), req.Prompt, fullResponse.String(), agentName, providerName,
 		model, string(orchestration.ExecutionStatusSuccess),
 		duration.Milliseconds(), skillsUsed, memoryID,
 	)
 
 	LogEvent(h.auditStore, r, "orchestration.stream", "orchestration",
 		audit.DetailsJSON(withPromptAuditInfo(map[string]string{
-			"agent": agentName, "provider": registry.Name(),
+			"agent": agentName, "provider": providerName,
 		}, req.Prompt)), "success")
 
-	// Send final "done" event — inclui o session_id (aditivo; o contrato
-	// {"type":"done","duration_ms":N} é preservado).
-	_ = sw.WriteEvent(stream.EventDone, map[string]interface{}{
-		"duration_ms": duration.Milliseconds(),
-		"session_id":  sessionID,
-	})
+	// ── ETAPA 4 — sequência coerente de encerramento (aditiva) ──
+	// metadata (session/model/provider/agent + duração + token usage) →
+	// status:done → done. Nenhum destes campos altera o shape legado do
+	// "done" ({"type":"done","duration_ms":N,"session_id":"..."}), lido por
+	// pkg/cosca + cosca-desktop; os eventos novos são ignorados (JSON lax).
+	tokenUsage := stream.TokenUsage{
+		InputTokens:  stream.EstimateTokens(req.Prompt),
+		OutputTokens: stream.EstimateTokens(fullResponse.String()),
+	}
+	tokenUsage.TotalTokens = tokenUsage.InputTokens + tokenUsage.OutputTokens
+	_ = sw.WriteEvent(stream.EventMetadata, wireMapper.MetadataPayload(duration.Milliseconds(), tokenUsage))
+	_ = sw.WriteEvent(stream.EventStatus, wireMapper.StatusPayload(stream.StatusDone))
+
+	// Send final "done" event — shape legado preservado (duration_ms + session_id).
+	_ = sw.WriteEvent(stream.EventDone, wireMapper.DonePayload(duration.Milliseconds()))
 
 	// Broadcast chat ended event to WebSocket subscribers.
 	if h.hub != nil {
@@ -1180,18 +1209,4 @@ func (h *RunHandler) streamCancellationLog(r *http.Request, agentName, provider,
 func deriveSkillsFromRequest(prompt, agentName, systemContent string) []string {
 	agentTexts := []string{agentName, systemContent}
 	return orchestration.DeriveSkills(prompt, agentTexts)
-
-}
-
-// sseSessionPayload builds a structured SSE data payload that carries an
-// optional session_id alongside a human-readable content string. It is used
-// ONLY for the envelope events (thinking/done) so the response-chunk events
-// keep the legacy string format {"type":"response","content":"..."} untouched.
-// Aditivo: clientes que não conhecem session_id ignoram o campo (JSON lax).
-func sseSessionPayload(content, sessionID string) map[string]interface{} {
-	m := map[string]interface{}{"content": content}
-	if sessionID != "" {
-		m["session_id"] = sessionID
-	}
-	return m
 }

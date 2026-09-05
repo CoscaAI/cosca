@@ -58,15 +58,21 @@ type RunEvent struct {
 type RunEventType string
 
 const (
-	EventContent    RunEventType = "content"
-	EventToolStart  RunEventType = "tool_start"
-	EventToolResult RunEventType = "tool_result"
-	EventBuildStart RunEventType = "build_start"
-	EventBuildEnd   RunEventType = "build_end"
-	EventTestStart  RunEventType = "test_start"
-	EventTestEnd    RunEventType = "test_end"
-	EventError      RunEventType = "error"
-	EventDone       RunEventType = "done"
+	EventContent     RunEventType = "content"
+	EventToolStart   RunEventType = "tool_start"
+	EventToolResult  RunEventType = "tool_result"
+	EventBuildStart  RunEventType = "build_start"
+	EventBuildEnd    RunEventType = "build_end"
+	EventTestStart   RunEventType = "test_start"
+	EventTestEnd     RunEventType = "test_end"
+	EventError       RunEventType = "error"
+	EventDone        RunEventType = "done"
+	// EventCancelled is ADDITIVE: it signals that the run was cancelled (client
+	// disconnect / explicit cancel / request-context cancelled), a FINAL state
+	// DISTINCT from EventError (provider failure). Consumers that already branch
+	// on the known types are unaffected — a new type falls to their default
+	// case (no output, no panic).
+	EventCancelled RunEventType = "cancelled"
 )
 
 type Message struct {

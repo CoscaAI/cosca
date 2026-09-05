@@ -301,6 +301,11 @@ func convertStreamEvent(ev orchestration.StreamEvent) RunEvent {
 		return RunEvent{Type: EventContent, Data: ev.Content}
 	case orchestration.StreamEventError:
 		return RunEvent{Type: EventError, Data: ev.Content}
+	case orchestration.StreamEventCancelled:
+		// ETAPA 4: cancelamento é um estado final DISTINTO de erro. ADDITIVO —
+		// consumidores que só conhecem content/tool_start/error/done ignoram o
+		// novo tipo (fall-through ao default do switch no CLI, sem output).
+		return RunEvent{Type: EventCancelled, Data: ev.Content}
 	case orchestration.StreamEventProgress, orchestration.StreamEventStageTransition:
 		return RunEvent{Type: EventToolStart, Data: ev.Content}
 	default:
