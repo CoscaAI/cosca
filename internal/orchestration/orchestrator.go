@@ -711,6 +711,31 @@ func (e *Engine) runStreamingPipeline(ctx context.Context, req *Request, pc Pipe
 	}
 
 	// 4. Executor streaming — hands off to the executor's internal goroutine.
+	// CANCELAMENTO (ETAPA 3): se o contexto foi cancelado durante os estágios
+	// pré-LLM (MAG/context/router/deliberação), o cancelamento tem prioridade:
+	// emitimos "cancelled" (aditivo) e fechamos o canal — nunca abrimos uma
+	// ChatStream num contexto já cancelado (evita goroutine pendurada).
+	//
+	// IMPORTANTE: NÃO usamos o closure `emit` aqui. De dentro de um select com
+	// `case <-ctx.Done()`, o `emit` (que também tem um `case <-ctx.Done()`) pode
+	// escolher RANDOMICAMENTE o ramo de cancelamento e DESCARTAR o evento final —
+	// fechando o canal sem emitir "cancelled". O estado final deve ser enviado
+	// de forma CONFIÁVEL (envio direto não-bloqueante, como o emitEvent do
+	// executor), e só então fechar.
+	select {
+	case <-ctx.Done():
+		select {
+		case eventCh <- StreamEvent{
+			Type:    StreamEventCancelled,
+			Content: safeErrorMessage("stream_cancelled"), Metadata: safeErrorEvent("stream_cancelled", ctx.Err()),
+		}:
+		default:
+		}
+		close(eventCh)
+		return
+	default:
+	}
+
 	if e.executor != nil {
 		_, err := e.executor.ExecuteStream(ctx, pc, eventCh)
 		if err != nil {

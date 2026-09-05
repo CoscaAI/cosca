@@ -140,6 +140,31 @@ func (s *SSEWriter) WriteError(err error) error {
 	return s.WriteEvent(EventError, err.Error())
 }
 
+// WriteCancelled sends a [cancelled] event final state signal, indicating
+// that the stream was aborted by the client (SSE disconnect) or by an
+// explicit cancel, NOT by a provider error. This is ADDITIVE to the legacy
+// wire contract (thinking/response/done/error): consumers that only know the
+// legacy types ignore the new type (JSON lax), while aware consumers can
+// distinguish "cancelled" from "error" (a provider failure) and from "done"
+// (a successful completion).
+//
+//	data: {"type":"cancelled"}\n\n
+func (s *SSEWriter) WriteCancelled() error {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return errors.New("SSEWriter: write on closed writer")
+	}
+	s.mu.Unlock()
+
+	_, err := fmt.Fprintf(s.w, "data: {\"type\":\"cancelled\"}\n\n")
+	if err != nil {
+		return err
+	}
+	s.flusher.Flush()
+	return nil
+}
+
 // Flush flushes any buffered data to the client. Normally you do not need
 // to call this directly — WriteEvent, WriteDone, and WriteError all flush
 // automatically. Use Flush after writing raw data to the underlying writer.

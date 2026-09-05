@@ -533,6 +533,15 @@ const (
 
 	// StreamEventError carries a non-fatal error encountered during streaming.
 	StreamEventError StreamEventType = "error"
+
+	// StreamEventCancelled signals that the stream was cancelled — the request
+	// context was cancelled (client SSE disconnect or explicit cancel) and the
+	// pipeline stopped. It is a FINAL, distinct state from StreamEventError
+	// (provider failure) and from the absence of a terminal event (the stream
+	// simply finished). Consumers translate this to the wire "cancelled" SSE
+	// event. Additive: existing consumers that only branch on
+	// progress/chunk/stage_transition/error are unaffected.
+	StreamEventCancelled StreamEventType = "cancelled"
 )
 
 // StreamEvent is a lightweight message emitted on the streaming channel

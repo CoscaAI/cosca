@@ -654,7 +654,16 @@ func (e *Executor) ExecuteStream(ctx context.Context, pc PipelineContext, eventC
 
 // readStream reads chunks from the ChatStream and forwards them as
 // StreamEvent values on eventCh. It handles stage transitions, accumulates
-// the full response, and closes eventCh when the stream ends.
+// the full response, and closes eventCh when the stream ends (success,
+// provider error, or cancellation).
+//
+// CANCELAMENTO (ETAPA 3): readStream honra ctx.Done() entre reads e trata
+// `errors.Is(err, context.Canceled)` como cancelamento — em ambos os casos
+// emite StreamEventCancelled (estado final DISTINTO de erro) e RETORNA, com o
+// defer fechando o stream (Close) e o eventCh. Nenhuma goroutine fica
+// pendurada, desde que o ChatStream honre o ctx que recebeu em ChatStream:
+// um provider cujo Recv bloqueia indefinidamente e ignora o ctx do chamador
+// é uma violação do contrato do provider (não do framework).
 func (e *Executor) readStream(ctx context.Context, stream chat.ChatStream, eventCh chan<- StreamEvent, logger zerolog.Logger) {
 	defer func() {
 		if err := stream.Close(); err != nil {
@@ -673,11 +682,16 @@ func (e *Executor) readStream(ctx context.Context, stream chat.ChatStream, event
 	)
 
 	for {
-		// Check context cancellation before blocking on Recv.
+		// Check context cancellation before blocking on Recv. Cancelamento é
+		// prioridade: o pipeline para e o canal encerra (defer fecha o stream
+		// e o eventCh) — exatamente o "sem goroutine pendurada".
 		select {
 		case <-ctx.Done():
+			// ETAPA 3 — Cancelamento: estado final DISTINTO de erro. O cliente
+			// desconectou (SSE) ou cancelou explicitamente; NÃO é falha do
+			// provider. Emitimos "cancelled" (aditivo) em vez de "error".
 			e.emitEvent(eventCh, StreamEvent{
-				Type:    StreamEventError,
+				Type:    StreamEventCancelled,
 				Content: safeErrorMessage("stream_cancelled"), Metadata: safeErrorEvent("stream_cancelled", ctx.Err()),
 			})
 			return
@@ -686,7 +700,18 @@ func (e *Executor) readStream(ctx context.Context, stream chat.ChatStream, event
 
 		chunk, err := stream.Recv()
 		if err != nil {
-			// Stream exhausted or broken.
+			// Um Recv cancelado (o provider honra o ctx encerrando o corpo HTTP
+			// / fechando o canal de eventos) é CANCELLING, não um erro real:
+			// ambos os casos (ctx.Done()+Recv error de contexto) desembocam em
+			// "cancelled". Qualquer outro erro é falha de stream (legado).
+			if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+				e.emitEvent(eventCh, StreamEvent{
+					Type:    StreamEventCancelled,
+					Content: safeErrorMessage("stream_cancelled"), Metadata: safeErrorEvent("stream_cancelled", err),
+				})
+				return
+			}
+			// Stream exhausted or broken (falha real).
 			e.emitEvent(eventCh, StreamEvent{
 				Type:    StreamEventError,
 				Content: safeErrorMessage("stream_read_failed"), Metadata: safeErrorEvent("stream_read_failed", err),

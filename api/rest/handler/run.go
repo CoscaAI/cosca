@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -895,6 +896,15 @@ func buildAgentSystemPrompt(agent *agents.Agent) string {
 // engine (progress/chunk/stage_transition/error) são traduzidos para as MESMAS
 // chaves (type/content/duration_ms). Nenhum caminho de deliberação paralelo
 // foi criado — apenas reusado (ADR-015/ADR-032).
+//
+// ETAPA 3 — Cancelamento: o cancelamento é REAL e REUSA o context.Context do
+// request. Quando o cliente desconecta o SSE (r.Context().Done()) OU cancela
+// explicitamente, o mesmo ctx (com cancel) alcança o engine
+// (ExecuteStream → runStreamingPipeline → readStream), que respeita ctx.Done()
+// e fecha o eventCh sem goroutine pendurada. O handler emite um estado final
+// ADITIVO {"type":"cancelled"} (distinto de "done"=sucesso e "error"=falha do
+// provider). Timeout do request (DeadlineExceeded) mantém o contrato legado
+// {type:"error","content":"request cancelled or timed out"}.
 func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	var req runRequest
 	limitBody(w, r, bodyLimitLarge)
@@ -1028,18 +1038,18 @@ func (h *RunHandler) Stream(w http.ResponseWriter, r *http.Request) {
 
 streamLoop:
 	for {
-		// Não-bloqueante: garante que o cancelamento do request seja tratado
-		// de forma determinística (como no caminho direto legado).
 		select {
 		case <-ctx.Done():
-			_ = sw.WriteError(fmt.Errorf("request cancelled or timed out"))
-			return
-		default:
-		}
-
-		select {
-		case <-ctx.Done():
-			_ = sw.WriteError(fmt.Errorf("request cancelled or timed out"))
+			// ETAPA 3 — Cancelamento: o cliente desconectou o SSE (ou o
+			// request foi cancelado). PRIORIDADE: encerrar o SSEWriter com o
+			// estado final consistente e parar SEM deixar goroutine pendurada.
+			// Distinguimos cancelamento (context.Canceled → "cancelled",
+			// ADITIVO) de deadline (context.DeadlineExceeded → "error",
+			// contrato legado). O cancelamento do request propaga ao engine:
+			// runStreamingPipeline/readStream veem o MESMO ctx.Done() e fecham
+			// o eventCh — não há nada a drenar, o canal encerra sozinho.
+			h.writeStreamTermination(sw, ctx.Err())
+			h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
 			return
 		case ev, ok := <-events:
 			if !ok {
@@ -1051,10 +1061,26 @@ streamLoop:
 					fullResponse.WriteString(ev.Content)
 					_ = sw.WriteEvent(stream.EventResponse, ev.Content)
 				}
+			case orchestration.StreamEventCancelled:
+				// O engine detectou o cancelamento no meio da leitura do
+				// provider (ctx.Done() ou Recv que retornou context.Canceled).
+				// Estado final: "cancelled" (aditivo), nunca "error".
+				h.writeStreamTermination(sw, ctx.Err())
+				h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
+				return
 			case orchestration.StreamEventError:
 				// Erro sanitizado (safe-error): NÃO vaza texto do provider
 				// (o caminho direto vazava "chat stream failed: %v"). O engine
 				// já mascarou o erro original no Content/Metadata.
+				//
+				// ETAPA 3: se o request foi cancelado em PARALELO (o engine
+				// marcou um Recv cancelado), o "erro" é na verdade
+				// CANCELLING — mapeia para "cancelled" em vez de "error".
+				if ctx.Err() != nil {
+					h.writeStreamTermination(sw, ctx.Err())
+					h.streamCancellationLog(r, agentName, registry.Name(), req.Prompt, ctx.Err())
+					return
+				}
 				msg := ev.Content
 				if msg == "" {
 					msg = "The operation could not be completed."
@@ -1067,8 +1093,8 @@ streamLoop:
 				// Erro em banda: não armazena execução nem envia "done".
 				return
 			case orchestration.StreamEventProgress, orchestration.StreamEventStageTransition:
-				// Contrato SSE (/v1/run/stream): thinking/response/done. Os
-				// eventos de progresso do engine são observáveis mas não fazem
+				// Contrato SSE (/v1/run/stream): thinking/response/done/cancelled.
+				// Os eventos de progresso do engine são observáveis mas não fazem
 				// parte do wire contract — são ignorados (não quebram
 				// pkg/cosca.Stream / cosca-desktop).
 			}
@@ -1109,6 +1135,44 @@ streamLoop:
 			"duration_ms": fmt.Sprintf("%d", duration.Milliseconds()),
 		})
 	}
+}
+
+// writeStreamTermination encerra o SSE com o estado final CONSISTENTE de
+// acordo com a CAUSA da terminação. É ADITIVO e não-quebrante: consumidores
+// legados (pkg/cosca.Stream, cosca-desktop) que só conhecem
+// thinking/response/done/error continuam intactos.
+//
+//   - Canceled (ou nil — cliente desconectou o SSE / cancel explícito):
+//     {"type":"cancelled"} — estado NOVO de terminação, ignorado por
+//     consumidores legados (JSON lax).
+//   - DeadlineExceeded (timeout do request): {"type":"error","content":
+//     "request cancelled or timed out"} — PRESERVA o contrato legado
+//     (TestStreamTimeout espera o par error + "request cancelled or timed out").
+//
+// NENHUM caminho de cancelamento emite "done": cancelamento é um estado final
+// distinto de conclusão bem-sucedida.
+func (h *RunHandler) writeStreamTermination(sw *stream.SSEWriter, cause error) {
+	if errors.Is(cause, context.DeadlineExceeded) {
+		// Timeout do request (server-side deadline) — mantém o contrato legado.
+		_ = sw.WriteEvent(stream.EventError, "request cancelled or timed out")
+		return
+	}
+	// Cancelamento REAL (client SSE disconnect / cancel explícito).
+	_ = sw.WriteCancelled()
+}
+
+// streamCancellationLog registra a terminação por cancelamento no audit
+// (best-effort; o auditStore pode ser nil em testes/embed). Distingue a causa
+// no payload para observabilidade ("client_disconnected" vs "timeout").
+func (h *RunHandler) streamCancellationLog(r *http.Request, agentName, provider, prompt string, cause error) {
+	reason := "client_disconnected"
+	if errors.Is(cause, context.DeadlineExceeded) {
+		reason = "timeout"
+	}
+	LogEvent(h.auditStore, r, "orchestration.stream", "orchestration",
+		audit.DetailsJSON(withPromptAuditInfo(map[string]string{
+			"agent": agentName, "provider": provider, "reason": reason,
+		}, prompt)), "warn")
 }
 
 // deriveSkillsFromRequest derives skill names from the prompt and agent

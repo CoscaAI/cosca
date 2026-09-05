@@ -17,7 +17,8 @@ const (
 	EventThinking = "thinking" // Agent is thinking/analyzing before responding
 	EventResponse = "response" // LLM token response content (streaming tokens)
 	EventToken    = "response" // Alias for EventResponse
-	EventDone     = "done"     // Stream completed successfully
-	EventError    = "error"    // Stream error (in-band, does not change HTTP status)
-	EventProgress = "progress" // Progress update (sync, workflows, etc. — future use)
+	EventDone      = "done"      // Stream completed successfully
+	EventError     = "error"     // Stream error (in-band, does not change HTTP status)
+	EventProgress  = "progress"  // Progress update (sync, workflows, etc. — future use)
+	EventCancelled = "cancelled" // Stream cancelled (client disconnect or explicit cancel) — FINAL state; additive
 )
