@@ -26,10 +26,10 @@ db:
     backup_interval: 1h0m0s
 provider:
     name: ollama
-    model: qwen2.5-coder:latest
+    model: cosca-qwen3-4b-lora-001:latest
     context_window: 131072
     api_key: ""
-    base_url: ""
+    base_url: http://localhost:11434
     max_tokens: 16384
     temperature: 0.8
     timeout: 30s
@@ -112,9 +112,65 @@ features:
     plugin_system: false
     shell_completion: true
     experimental: false
+vision:
+    enabled: false
+perception:
+    enabled: false
+    mode: normal
+    interval: 2s
+    max_interval: 30s
+    capture: screen
+    change_detection:
+        enabled: true
+        threshold: 0.02
+    audio:
+        enabled: false
+        window: 5s
+        tolerance: 300ms
+        sample_rate: 16000
+        chunk_ms: 100
+        stt:
+            provider: sherpa
+            model_dir: C:\Users\Henrique\.cosca\models\stt-zipformer-pt-kroko
+            model_type: transducer
+            sample_rate: 16000
+            num_threads: 2
+            device: cpu
+            decoding_method: greedy_search
+            enable_endpoint: true
+            max_segment_duration: 30s
+        mic:
+            enabled: true
+            device: 0
+            sample_rate: 16000
+            channels: 1
+            chunk_ms: 100
+        tts:
+            provider: sherpa
+            model_dir: C:\Users\Henrique\.cosca\models\tts-vits-piper-pt_BR-edresson-low
+            model_type: vits
+            sample_rate: 16000
+            num_threads: 2
+            device: cpu
+            speed: 1
+            sid: 0
+    episodic:
+        enabled: false
+        ttl: 720h0m0s
+        max_records: 5000
+    knowledge_cache: true
 pipeline:
     enabled: false
     auto_fix: false
+orchestration:
+    deliberation:
+        enabled: false
+        shadow_mode: true
+        emit_threshold: 0.7
+        reservation_threshold: 0.5
+        max_evidence: 5
+        max_chars_per_evidence: 300
+        min_score: 0.5
 plugins:
     enabled: false
     dir: C:\Users\Henrique\.config\cosca\plugins
@@ -139,43 +195,3 @@ timeouts:
     request: 30s
     graceful_shutdown: 10s
     health_check: 30s
-
-orchestration:
-    deliberation:
-        # Cognitive Shadow Mode (ADR-033): o COSCA pensa/mede mas NÃO
-        # interfere na resposta. Fail-closed: só registra observação.
-        enabled: false
-        shadow_mode: true
-        emit_threshold: 0.70
-        reservation_threshold: 0.50
-        max_evidence: 5
-        max_chars_per_evidence: 300
-        min_score: 0.50
-
-perception:
-  enabled: false
-  mode: normal
-  episodic:
-    enabled: false
-  audio:
-    mic:
-      enabled: true
-      device: 0
-      sample_rate: 16000
-      channels: 1
-      chunk_ms: 100
-    stt:
-      provider: sherpa
-      model_dir: C:\Users\Henrique\.cosca\models\stt-zipformer-pt-kroko
-      model_type: transducer
-      sample_rate: 16000
-      num_threads: 2
-      device: cpu
-      enable_endpoint: true
-    tts:
-      provider: sherpa
-      model_dir: C:\Users\Henrique\.cosca\models\tts-vits-piper-pt_BR-edresson-low
-      model_type: vits
-      sample_rate: 16000
-      speed: 1.0
-      sid: 0

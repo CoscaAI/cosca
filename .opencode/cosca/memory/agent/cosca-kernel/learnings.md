@@ -1411,3 +1411,62 @@ PROIBIDO ADICIONALMENTE (NAO VIOLAR):
 12. **NUNCA** remover conteudo dentro de internal/ ou .cosca/ (inclui bancos, modulos vector-*, knowledge.db, embed) — NADA se apaga sem a ordem escrita do Don.
 13. Se eu precisar remover algo para "consertar" -> PARAR e pedir ao Don. Na duvida, nao remove (fail-closed).
 REGRA GERAL: MINHA MAO NAO APAGA NADA. Eu so LEIO e, quando o Don ordena, ESCREVO/COMMITO. Remocao/destruicao = SEMPRE decisao do Don.
+
+## 2026-09-05 — RUNBOOK DE RECUPERACAO ETERNO (a licao que custou caro)
+
+ORDEM DO DON: "faz um check up e coloca na memoria tudo que aprendeu pra eternizar, pra caso der problema de novo se seguir o passo a passo corretamente."
+DOCUMENTO-MESTRE CRIADO: docs/reports/cosca-recovery-runbook-2026-09-05.md (o passo a passo completo).
+CONTEXTO (verificado): o commit "fix" (f31ff7f) do Don mudou o HEAD -> chain BREACH (comportamento correto do fail-closed). Re-assinei (Block 7) -> chain valid. NAO foi erro do Don - e o ciclo esperado.
+
+### O ESTADO GOLD (meta - que esta funcionando):
+- Runtime serve sobe (HTTP 200) em 127.0.0.1:14120
+- Family chain VALID (sem BREACH)
+- Modulos semanticos vector-*.db populados (15773 vetores)
+- Split ADR-013 integro (db verify)
+- Todos os bancos < 100MB (ADR-013 Decisao 1)
+- GOLD POINT (commit marcado) + GOLD DB (bancos versionados)
+
+### O PASSO-A-PASSO (eternizado - nao esquecer):
+1. DIAGNOSTICO (5 comandos leitura): cosca-check / cosca serve / contar vetores / db verify / db check --gate
+2. CHAIN QUEBROU (causa n1 de nao-sobe) -> cosca-check --sign-auto (re-assina no HEAD atual)
+3. SERVE NAO SOBE sem 3 coisas: chain valida + COSCA_ALLOW_NO_ROOT=1 + COSCA_JWT_SECRET (dev mode)
+4. MODULOS SEMANTICOS (fluxo correto): vectors-backfill (escreve NO knowledge.db base) -> db build (SINCRONIZA pros modulos) -> db verify
+5. GOLD POINT: commit com "GOLD POINT" na msg -> re-assinar chain DEPOIS (commit muda HEAD)
+6. GOLD DB: git add -f dos bancos (gitignored, sem WAL/SHM)
+7. CHECK-UP FINAL: cosca-check valid + db check --gate + db verify integro + knowledge search 10 results + cosca recovery + health 200
+
+### AS 7 LICOES ETERNAS (NAO VIOLAR):
+1. NUNCA db build SEM antes vectors-backfill (apaga vetores dos modulos - erro que custou).
+2. NUNCA re-assinar chain ANTES do commit (commit muda HEAD e quebra de novo).
+3. NUNCA rebase/squash/reescrever historico compartilhado (quebra chain REWRITTEN/REBASED).
+4. NUNCA remover/commit sem ordem do Don (regra imutavel).
+5. knowledge.db NAO e o cerebro (fonte+buffer de escrita); cerebro = .opencode/cosca .md. Vetores verdade = vector-*.db.
+6. Doc desatualiza - P2: codigo e a verdade (agent list/skill status/workflow list).
+7. Fail-closed e amigo: quando nao sobe, e um portao de seguranca avisando que algo mudou. Diagnosticar (log), nao contornar.
+
+### REGRA GIT DO DON (imutavel, em vigor):
+- kernel opera SOMENTE LEITURA: fetch/log/diff/status. NUNCA push/merge/commit/remover/rebase.
+- remotes: origin (escrita/vscode/com revisao) + origin-readonly (leitura/minha).
+- escrita java sob ordem explicita do Don.
+## 2026-09-05 — Auditoria de redundancia .opencode/cosca (cerebro)
+
+AUDITORIA READ-ONLY + correcoes de integridade, por ordem do Don.
+METODO: 975 .md, 1968 links markdown verificados, neurons soltos por INDEX.
+HALACH: (1) detectar links quebrados via script que RESOLVE relativo ao arquivo de origem (nao por nome); (2) distinguir placeholder didatico (../path) de bug real; (3) solto = nao referenciado por INDEX nem por nome global.
+RESULTADO:
+- LINKS: 6 placeholders didaticos (CORRETOS), 3 resolvem p/ arquivo existente (CORRETOS), 2 referencias em backtick a .github/workflows/ AUSENTES (infra de CI nao criada - nao sao links md 404). NENHUM bug de link md real.
+- NEURONIOS SOLTOS: 12 candidatos -> 2 ja OK via INDEX (enterprise-prompt-governance, hello-world-plugin); CONECTADOS ao INDEX: memory/long/audit-findings.md, memory/short/session-2026-07-12.md. Restam 8 sem INDEX proprio (shared/, skills/cli, skills/sdk, workflows, bootstrap/validators, cli/) - documentos uteis mas sem indice, decisao do Don conectar ou deixar.
+- OPENCODE.JSON corrigido (identidade): kernel prompt "51 agents/71 skills/404 files/52 agents" -> "61/88/496/61"; specialists "Go 1.25"->"Go 1.26"; backend-api "36+ endpoints"->"115 endpoints". JSON VALIDO apos edicao.
+LICAO: audit de links solto exige RESOLUCAO RELATIVA ao arquivo, nao match por nome; e distinguir placeholder didatico de bug. Numeros de identidade no prompt do kernel sao o mais impactante (distorce a percepcao da familia). NADA COMMITADO (regra read/obediencia). Link quebrado p/ infra ausente = marcar, NAO inventar caminho.
+## 2026-09-05 — Troca do modelo da esteira (cosca-qwen3-4b-lora-001)
+
+ORDEM DO DON: "coloca ele pra rodar na esteira" - o modelo cosca-qwen3-4b-lora-001 respondeu MELHOR nos testes do Don mas NAO estava em lugar nenhum.
+CAUSA RAIZ (2 coisas que travavam): (1) Ollama estava PARADO (porta 11434 sem resposta - o modelo nao era servido); (2) configurao GLOBAL ~/.config/cosca/config.yaml ainda apontava qwen2.5-coder:14b-128k (nao existia) e SOBREPUNHA a config do projeto.
+PASSO A PASSO (para trocar modelo da esteira - aplicavel a qualquer modelo):
+1. Subir ollama serve (se parado) - valida http://localhost:11434/api/tags.
+2. Confirmar modelo existe no ollama (cosca model via import GGUF).
+3. CORRIGIR config GLOBAL (~/.config/cosca/config.yaml) - causa raiz - provider.model = <novo>. Backup antes (.bak).
+4. CORRIGIR config do PROJETO (.cosca/config.yaml): provider.name=ollama, provider.model=<novo>, provider.base_url=http://localhost:11434.
+5. Registrar no Model Registry (se quiser q apareca): cosca model add <id> --provider ollama --version <v> --task text_generation --format gguf --quantization int4. ATENCAO: tarefa valida e 'text_generation' (nao 'chat'); quant valida int4/fp16 (nao 'q4_k_m').
+6. Subir/reiniciar serve; validar cosca run (sem --model) responde com o novo.
+LICOES: (a) config GLOBAL sobrepoe a do projeto - verificar AS DUAS; (b) GPU/ollama parado = modelo 'nao esta em lugar nenhum' mas existe; (c) GGUF e gitignored (2,3GB nao vai pro git) - so o index.yaml do registry e versionavel. Fazer backup do config antes de editar (base da seguranca).

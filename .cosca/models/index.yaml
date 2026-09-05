@@ -1,0 +1,11 @@
+- id: cosca-qwen3-4b-lora-001
+  provider: ollama
+  version: latest
+  format: gguf
+  quantization: int4
+  vram: 0
+  capabilities:
+    - text_generation
+  kind: local
+  license: CoscaAI
+  added_at: "2026-09-05T21:25:52Z"

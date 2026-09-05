@@ -11,8 +11,9 @@
 
 | Item | Número |
 |------|-------:|
-| Comandos top-level registrados em `cmd/cosca/root.go` | **112** |
-| Comandos top-level que respondem `--help` sem erro | **110** |
+| Comandos top-level registrados em `cmd/cosca/root.go` | **112** (no momento da auditoria) |
+| Comandos top-level que respondem `--help` sem erro | **110** (na auditoria) |
+| **Comandos verificados reais (2026-09-05, pós-atualização)** | **123** |
 | Grupos com subárvore implementada | ~60 |
 | **Stubs de adapter encontrados** (código) | **10** (em 7 arquivos) |
 | Comandos públicos verificados por execução | todos os 110 top-level + ~150 subcomandos |
@@ -28,7 +29,8 @@ O README e a documentação histórica **subdimensionam** o sistema. A árvore r
 | Fonte | Comandos | Agents | Skills | Observação |
 |-------|---------:|-------:|-------:|-----------|
 | `README.md` badge | ~46 | 53 | 29 | **Desatualizado** — subdimensionado |
-| `cmd/cosca/root.go` (código real) | **112** | — | — | **Autoridade (P2 — código executado)** |
+| `cmd/cosca/root.go` (código real, na auditoria) | **112** | — | — | Snapshot do momento |
+| **Binário real `cosca --help` (2026-09-05, pós-atualização)** | **123** | — | — | **Autoridade (P2 — código executado)** |
 | `cosca agent list` (binário) | — | **61** | — | Medido |
 | `cosca skill status` (binário) | — | — | **88** | Medido |
 
@@ -124,6 +126,10 @@ Set COSCA_ALLOW_NO_ROOT=1 to accept this risk (OPT-IN); without it the process i
 | **P3** | Povoar Model Registry (`cosca model add`) | Reflte o modelo ativo |
 
 > **Nota:** não implementei nada — esta é a auditoria read-only que você pediu. Toda a verificação foi por leitura de código e execução do binário. Nenhum arquivo foi modificado nesta sessão de auditoria.
+
+---
+
+> **Reconciliação (2026-09-05, pós-atualização):** este documento é um **snapshot** do momento (112 comandos). Após as mudanças deste ciclo, o binário real expõe **123 comandos** (`cosca --help`). Para o estado atual, ver o `docs/MANUAL_COSCA.md` (fonte viva, números medidos). O "112" aqui reflete a contagem no momento da auditoria.
 
 ---
 

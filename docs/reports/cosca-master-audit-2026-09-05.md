@@ -103,7 +103,7 @@ O Don citou explicitamente: **visão, áudio, científico, 3D, unreal, blender, 
 
 | Componente | #src | Veredito |
 |-----------|-----:|----------|
-| `internal/knowledge` | — | ✅ Real — 17.738 entries, 50.014 vetores, busca híbrida |
+| `internal/knowledge` | — | ✅ Real — 17.738 entries, busca híbrida (vetores nos módulos) |
 | `internal/memory` | — | ✅ Real — 6 camadas |
 | `internal/orchestration` | 18 src / 25 test | ✅ Real — multi-stage pipeline |
 | `internal/engine` | 13 src / 16 test | ✅ Real — agent loop |
@@ -140,7 +140,7 @@ O Don citou explicitamente: **visão, áudio, científico, 3D, unreal, blender, 
 - **`go.mod:241`** → `replace sherpa-onnx-go-windows` aponta para diretório inexistente. **STT/TTS sherpa não compila** (só noop).
 - **Subprocessos Python de percepção** (`spatial`, `vfx`, `destruction`, `simulation`) → scripts **não existem** no repo → falham em runtime.
 - **Plugin Unreal** (`UCoscaWorldSubsystem`) → **não está no repo** (só mock).
-- **README desatualizado** → diz ~46 comandos / 53 agents / 29 skills; o real é **112 comandos / 61 agents / 88 skills** (gap 2.4×).
+- **README desatualizado** → diz ~46 comandos / 53 agents / 29 skills; o real é **123 comandos / 61 agents / 88 skills** (gap >2×).
 - **`plugin search`** → `pluginsAdapter.Search()` retorna `nil,nil` (stub) → sempre "No plugins found".
 
 ---
