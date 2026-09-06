@@ -1379,3 +1379,18 @@ PASSO A PASSO "SERVE WINDOWS" (o que funciona):
 6. Duas fontes de COSCA_JWT_SECRET existiam (serve.env global + .env local) — o .env local sobrepOE o global via LoadDefault(overwrite=true). ROTACIONADO no .env.
 
 LICAO (patterns): a family chain e o sistema imune da familia. Sempre rodar cosca-check --sign-auto apos mexer no embed. Se serve nao sobe, checar chain primeiro. A chain orafa de repo reconstruido eh lixo — nao eh bug, eh proprio do recovery.
+## 2026-09-06 — INSTALADOR ENTERPRISE + README/AGENTS.md
+
+ORDEM DO DON: fechar pendentes (docs + instalador).
+
+CRIADO:
+- scripts/installer-enterprise.ps1 — instalador enterprise autonomo (Windows/PowerShell 5.1).
+  Banner ASCII + spinner + cores. Modos: -Help, -Check (só diagnostico), default (install idempotente).
+  Checagem: serve 14120/14121/14122, /health, ollama 11434, modelo chat+embed, binario v1.5.0, chain, git.
+  Config: COSCA_ALLOW_NO_ROOT (opt-in), COSCA_PROVIDER=ollama, COSCA_OLLAMA_MODEL (cosca-qwen3-4b-lora), COSCA_JWT_SECRET (gera, NUNCA expoe).
+  Install: ollama pull se faltar, build se faltar. Nao altera codigo-fonte. Idempotente. Fail-closed.
+  VALIDADO: -Check veredito OPERACIONAL, detectou serve/ollama/modelo. Banner fix (aqui-string, nao concat).
+- README.md atualizado: estado real (53 agents/29 skills/30 workflows, branch cosca-database, serve Windows, chain renovada, Go 1.26.7).
+- AGENTS.md criado: guia de bootstrap do kernel (hierarquia, contrato de seguranca, fluxo, comandos, serve, memoria, gap build).
+
+LICAO (patterns): instalador idempotente + fail-closed na seguranca. Banner ASCII: usar aqui-string unico, nao conct com \ (quebra escape no PS 5.1).
