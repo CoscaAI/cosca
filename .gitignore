@@ -186,6 +186,15 @@ tmp/
 .cosca/tasks.db
 .cosca/trace.db
 .cosca/serve-update.log
+# Runtime SENSÍVEL do agente — vault de segredos, tokens de auth e config local. NUNCA versionar.
+.cosca/secrets.db
+.cosca/auth_tokens.db
+.cosca/config.yaml
+# Outros DBs de runtime do agente (auditoria, bugs, departamentos) e constraints locais — dados de execução, não código.
+.cosca/audit.db
+.cosca/bug.db
+.cosca/department.db
+.cosca/constraints.yaml
 # Traços de planos/workflows (history + checkpoints), relatórios de eval, eventos duráveis,
 # install/jobs/trash, logs de vigia — todos derivados/transitórios (fonte real: config/knowledge/estado).
 .cosca/history/
