@@ -196,3 +196,9 @@ tmp/
 .cosca/_trash/
 .cosca/audit/memory-watch.log
 .cosca/campaign-002-package.zip
+
+.cosca/family_chain.dat
+
+.cosca/family_chain.dat.*
+
+.cosca/config.yaml

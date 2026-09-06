@@ -22,6 +22,14 @@ import (
 // selected by findBwrap(), so this reports false (never shadows bwrap).
 func nativeSandboxAvailable() bool { return false }
 
+// execNative satisfaz a referencia de tipo no gate.go:121 (Executar) para o
+// build Linux. Nunca e chamado em runtime — findBwrap() ja cobre o caminho
+// Linux e nativeSandboxAvailable() retorna false — mas o Go exige o metodo no
+// tipo. Estubo que retorna erro para nunca esconder uma execucao nao-isolada.
+func (g *Gate) execNative(ctx context.Context, _ chat.Command, _ chat.SandboxMode) (*chat.SandboxResult, error) {
+	return nil, fmt.Errorf("sandbox: native sandbox backend not available on Linux")
+}
+
 // envSandboxMemoryMB controls the maximum virtual address space (RLIMIT_AS)
 // and data segment (RLIMIT_DATA) granted to processes inside the bwrap jail,
 // in megabytes. Default 6144 (6 GiB): enough for real Go builds/tests inside
