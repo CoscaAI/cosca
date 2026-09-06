@@ -1,8 +1,3 @@
----
-name: unit-testing
-description: Use when the user asks to write unit tests following the AAA (Arrange-Act-Assert) pattern with meaningful, deterministic coverage.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Testing Chief | **Last Updated**: 2026-07-23
 > 
 > # UNIT TESTING SKILL

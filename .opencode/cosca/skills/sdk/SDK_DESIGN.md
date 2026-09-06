@@ -1,8 +1,3 @@
----
-name: sdk-design
-description: Use when the user asks to design the public SDK API surface for a Go or TypeScript client.
----
-
 # SDK Design
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: SDK Chief | **Last Updated**: 2026-07-27

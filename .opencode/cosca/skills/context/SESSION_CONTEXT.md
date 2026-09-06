@@ -1,8 +1,3 @@
----
-name: session-context
-description: Use when the user asks to build, restore, or load session/project context for an agent conversation.
----
-
 # Session Context
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Context Chief | **Last Updated**: 2026-07-27

@@ -1,8 +1,3 @@
----
-name: disaster-recovery
-description: Use when the user asks to plan or test disaster recovery, including backup strategy, RPO/RTO, failover, and recovery procedures.
----
-
 # DISASTER RECOVERY — Cosca
 
 > **Version**: 2.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-26

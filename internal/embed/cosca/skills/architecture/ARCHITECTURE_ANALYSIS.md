@@ -1,8 +1,3 @@
----
-name: architecture-analysis
-description: Use when the user asks to analyze system architecture, detect patterns, and find violations or architectural drift.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Architecture Chief | **Last Updated**: 2026-07-23
 > 
 > # ARCHITECTURE ANALYSIS SKILL

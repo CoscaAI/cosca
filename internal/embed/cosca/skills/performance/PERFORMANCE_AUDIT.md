@@ -1,8 +1,3 @@
----
-name: performance-audit
-description: Use when the user asks to audit end-to-end performance and identify system-wide bottlenecks.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-23
 > 
 > # PERFORMANCE AUDIT SKILL

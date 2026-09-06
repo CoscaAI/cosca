@@ -1,8 +1,3 @@
----
-name: component-testing
-description: Use when the user asks to write component or unit tests for frontend UI components.
----
-
 # Component Testing
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Frontend Chief | **Last Updated**: 2026-07-27

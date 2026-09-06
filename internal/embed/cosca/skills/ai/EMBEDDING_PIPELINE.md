@@ -1,8 +1,3 @@
----
-name: embedding-pipeline
-description: Use when the user asks to design, build, or optimize an embedding pipeline for semantic search or RAG.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-07-23
 
 # EMBEDDING PIPELINE SKILL

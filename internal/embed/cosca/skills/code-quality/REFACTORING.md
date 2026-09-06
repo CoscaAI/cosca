@@ -1,8 +1,3 @@
----
-name: refactoring
-description: Use when the user asks to refactor code systematically without changing behavior, using safe incremental steps.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Technical Debt Chief | **Last Updated**: 2026-07-23
 > 
 > # REFACTORING SKILL

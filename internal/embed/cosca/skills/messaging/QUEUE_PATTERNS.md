@@ -1,8 +1,3 @@
----
-name: queue-patterns
-description: Use when the user asks to design message or queue patterns such as pub/sub, retries, dead-letter, and ordering.
----
-
 # Queue Patterns
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Messaging Chief | **Last Updated**: 2026-07-27

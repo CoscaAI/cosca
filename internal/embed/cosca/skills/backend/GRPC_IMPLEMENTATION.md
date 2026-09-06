@@ -1,8 +1,3 @@
----
-name: grpc-implementation
-description: Use when the user asks to implement a production-grade gRPC server or client in Go with interceptors, retries, and streaming.
----
-
 # GRPC IMPLEMENTATION — Enterprise Grade
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Backend Chief | **Last Updated**: 2026-07-27

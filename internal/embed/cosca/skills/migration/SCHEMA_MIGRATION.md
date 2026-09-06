@@ -1,8 +1,3 @@
----
-name: schema-migration
-description: Use when the user asks to write or run a schema migration (DDL, versioning, rollback) for a database.
----
-
 # Schema Migration
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Migration Chief | **Last Updated**: 2026-07-27

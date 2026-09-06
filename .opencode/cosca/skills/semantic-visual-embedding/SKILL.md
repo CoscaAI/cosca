@@ -1,8 +1,3 @@
----
-name: semantic-visual-embedding
-description: Use when the user asks to convert a visual reference or concept into a vector representation (SVG, drawable, paths) while preserving semantic identity.
----
-
 # VECTOR REPRESENTATION PROTOCOL — Representação Vetorial Semântica
 
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Kernel / Semantic Memory | **Last Updated**: 2026-08-26

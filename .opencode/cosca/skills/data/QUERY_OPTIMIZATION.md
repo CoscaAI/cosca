@@ -1,8 +1,3 @@
----
-name: query-optimization
-description: Use when the user asks to analyze and optimize database queries, including plans, indexes, and rewrites.
----
-
 # QUERY OPTIMIZATION
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Database Chief | **Last Updated**: 2026-07-27

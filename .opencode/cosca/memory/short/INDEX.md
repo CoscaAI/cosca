@@ -8,7 +8,6 @@
 | [session-enterprise-evolution](session-enterprise-evolution.md) | 2026-07-23 | Chief AI Platform Architect | active |
 | [session-api-governance](session-api-governance.md) | 2026-07-23 | API Chief | active |
 | [session-security-audit](session-security-audit.md) | 2026-07-23 | Security Chief | active |
-| [session-2026-07-12](session-2026-07-12.md) | 2026-07-12 | Cosca Kernel | active |
 
 ## Usage
 Short memory stores active session context. Cleared at session end. Important entries promoted to long memory.

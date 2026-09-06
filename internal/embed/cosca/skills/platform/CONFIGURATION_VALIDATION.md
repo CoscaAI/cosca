@@ -1,8 +1,3 @@
----
-name: configuration-validation
-description: Use when the user asks to validate configuration files for correctness, consistency, security, and conformance to standards.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Platform Chief | **Last Updated**: 2026-07-23
 
 # CONFIGURATION VALIDATION SKILL

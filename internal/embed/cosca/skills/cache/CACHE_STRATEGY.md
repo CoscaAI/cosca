@@ -1,8 +1,3 @@
----
-name: cache-strategy
-description: Use when the user asks to design or select a caching strategy (Redis, in-memory, CDN) and its invalidation policy.
----
-
 # Cache Strategy
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cache Chief | **Last Updated**: 2026-07-27

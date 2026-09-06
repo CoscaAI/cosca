@@ -13,7 +13,6 @@ import (
 	"github.com/CoscaAI/cosca/internal/agents"
 	"github.com/CoscaAI/cosca/internal/chat"
 	chatprovider "github.com/CoscaAI/cosca/internal/chat/provider"
-	"github.com/CoscaAI/cosca/internal/compute"
 	"github.com/CoscaAI/cosca/internal/config"
 	"github.com/CoscaAI/cosca/internal/diagnostics"
 	"github.com/CoscaAI/cosca/internal/knowledge"
@@ -169,19 +168,8 @@ func buildPipelineWiring(dir string) (*pipelineWiring, error) {
 		Config:          orchConfig,
 	})
 
-	orchRunner := pipeline.NewOrchAdapter(engine)
-	orchRunner.SetWorkDir(dir)
-
-	// Wire do compute fabric no caminho durável multi-step (Teste 2 do Google):
-	// o fabric enfileira cada passo no worker pool "agent" (observável via
-	// `cosca fabric`), com circuit breaker, rate limiter e backpressure. Se o
-	// fabric falhar, o wrapper degrada limpo para a chamada direta — nunca
-	// bloqueia a execução do passo.
-	fab := compute.NewFabric(compute.LoadFabricConfig())
-	if fab != nil {
-		_ = fab.Start(context.Background())
-	}
-	var runner pipeline.Runner = newFabricRunner(orchRunner, fab)
+	runner := pipeline.NewOrchAdapter(engine)
+	runner.SetWorkDir(dir)
 
 	planner := pipeline.NewPlanner(knowledgeSearcher, agentResolver)
 

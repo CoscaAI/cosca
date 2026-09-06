@@ -1,8 +1,3 @@
----
-name: complexity-analysis
-description: Use when the user asks to analyze code complexity metrics (cyclomatic, cognitive, cohesion) to flag hotspots for refactoring.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Technical Debt Chief | **Last Updated**: 2026-07-23
 > 
 > # COMPLEXITY ANALYSIS SKILL

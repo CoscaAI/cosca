@@ -1,8 +1,3 @@
----
-name: code-review
-description: Use when the user asks to perform a multi-dimensional code review across security, correctness, performance, and style.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Review Chief | **Last Updated**: 2026-07-23
 > 
 > # CODE REVIEW SKILL

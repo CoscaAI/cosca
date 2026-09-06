@@ -1,8 +1,3 @@
----
-name: architecture-validation
-description: Use when the user asks to validate code against architectural rules, ADRs, and layered/module boundaries.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Architecture Chief | **Last Updated**: 2026-07-23
 > 
 > # ARCHITECTURE VALIDATION SKILL

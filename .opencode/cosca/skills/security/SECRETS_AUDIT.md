@@ -1,8 +1,3 @@
----
-name: secrets-audit
-description: Use when the user asks to scan code, config, git history, or infrastructure manifests for hardcoded secrets and credentials.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Security Chief | **Last Updated**: 2026-07-23
 
 # SECRETS AUDIT SKILL

@@ -1,8 +1,3 @@
----
-name: plugin-security
-description: Use when the user asks to review or secure a plugin against sandbox escapes, unsafe permissions, and supply-chain risks.
----
-
 # Plugin Security
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Plugin Chief | **Last Updated**: 2026-07-27

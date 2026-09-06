@@ -1,8 +1,3 @@
----
-name: data-migration-planning
-description: Use when the user asks to plan a data migration, covering source mapping, cutover, validation, and rollback.
----
-
 # DATA MIGRATION PLANNING
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Database Chief | **Last Updated**: 2026-07-27

@@ -1,8 +1,3 @@
----
-name: metrics-dashboard
-description: Use when the user asks to build or review a metrics dashboard, including KPIs and observability panels.
----
-
 # Metrics Dashboard
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Analytics Chief | **Last Updated**: 2026-07-27

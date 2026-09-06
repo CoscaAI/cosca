@@ -1,8 +1,3 @@
----
-name: provider-discovery
-description: Use when the user asks to discover, evaluate, or compare AI providers (LLM, embedding, image, audio) for a use case.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Provider Chief | **Last Updated**: 2026-07-23
 
 # PROVIDER DISCOVERY SKILL

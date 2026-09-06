@@ -1,8 +1,3 @@
----
-name: project-bootstrap
-description: Use when the user asks to bootstrap or initialize a new project following Cosca conventions and scaffolding.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Platform Chief | **Last Updated**: 2026-07-23
 > 
 > # PROJECT BOOTSTRAP SKILL

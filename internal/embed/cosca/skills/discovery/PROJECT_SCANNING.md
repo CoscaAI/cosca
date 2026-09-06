@@ -1,8 +1,3 @@
----
-name: project-scanning
-description: Use when the user asks to scan or discover a workspace, detecting stack, framework, language, and architecture.
----
-
 # Project Scanning
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Discovery Chief | **Last Updated**: 2026-07-27

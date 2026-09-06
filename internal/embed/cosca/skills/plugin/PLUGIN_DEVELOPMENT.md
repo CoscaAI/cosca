@@ -1,8 +1,3 @@
----
-name: plugin-development
-description: Use when the user asks to develop an Agent/Cosca plugin following the plugin SDK and manifest conventions.
----
-
 # Plugin Development
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Plugin Chief | **Last Updated**: 2026-07-27

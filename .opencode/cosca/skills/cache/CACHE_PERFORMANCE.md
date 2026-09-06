@@ -1,8 +1,3 @@
----
-name: cache-performance
-description: Use when the user asks to profile and optimize cache performance, including hit ratio, eviction, and latency.
----
-
 # Cache Performance
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cache Chief | **Last Updated**: 2026-07-27

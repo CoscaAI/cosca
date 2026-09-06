@@ -1,8 +1,3 @@
----
-name: api-client-generation
-description: Use when the user asks to generate a typed API client library or SDK in Go or TypeScript from an OpenAPI/schema spec.
----
-
 # API Client Generation
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: SDK Chief | **Last Updated**: 2026-07-27

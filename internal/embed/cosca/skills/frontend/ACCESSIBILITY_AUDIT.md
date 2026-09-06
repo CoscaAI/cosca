@@ -1,8 +1,3 @@
----
-name: accessibility-audit
-description: Use when the user asks to audit a frontend/UI for accessibility (a11y) issues such as contrast, ARIA, keyboard navigation, and screen-reader semantics.
----
-
 # Accessibility Audit
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Frontend Chief | **Last Updated**: 2026-07-27

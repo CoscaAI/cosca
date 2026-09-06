@@ -1,8 +1,3 @@
----
-name: helm-deployment
-description: Use when the user asks to deploy to Kubernetes using Helm charts, including chart structure, values, environments, and CI/CD.
----
-
 # HELM DEPLOYMENT — Cosca Enterprise
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-27

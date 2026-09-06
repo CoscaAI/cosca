@@ -1,8 +1,3 @@
----
-name: api-documentation
-description: Use when the user asks to generate API documentation from OpenAPI specs, code annotations, or contract definitions.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Documentation Chief | **Last Updated**: 2026-07-23
 
 # API DOCUMENTATION SKILL

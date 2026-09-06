@@ -177,12 +177,6 @@ type Executor struct {
 	toolRunner       ToolRunner // optional: executes tool calls returned by LLMs (executor canônico via adapter)
 	lastAttemptCount int64      // atomic: number of attempts used by last chatWithRetry
 
-	// fallbackProviders, quando não-vazio, são providers ALTERNATIVOS usados se
-	// o provider primário esgotar os retries por erro transiente (resiliência de
-	// produção — fallback em vez de falha). Cada um é tentado em ordem até um
-	// ter sucesso. Nil = comportamento histórico (sem fallback, falha após retries).
-	fallbackProviders []chat.ChatProvider
-
 	// stalls optionally records provider stall/retry events so a run can be
 	// compared with a healthy one (timeouts, retries, recoveries). May be nil.
 	stalls *stallwatch.Collector
@@ -199,16 +193,6 @@ func (e *Executor) haltBlocked() bool {
 // used to record provider stalls and retries during chat calls.
 func (e *Executor) SetStallCollector(c *stallwatch.Collector) {
 	e.stalls = c
-}
-
-// SetFallbackProviders attaches a list of ALTERNATIVE providers used when the
-// primary provider exhausts retries on transient errors. Providers are tried in
-// order until one succeeds. Calling with nil/empty clears the fallback (legacy
-// behaviour — fail after retries). This is the production resilience layer:
-// if the primary LLM provider stalls, Cosca falls back to another instead of
-// failing the whole run.
-func (e *Executor) SetFallbackProviders(providers []chat.ChatProvider) {
-	e.fallbackProviders = providers
 }
 
 // recordStall writes a single stall/retry/recovery event when a collector is
@@ -1057,26 +1041,6 @@ func (e *Executor) runChatAttempt(attemptCtx, parentCtx context.Context, message
 	}
 }
 
-// runChatAttemptWithProvider é a variante do runChatAttempt que executa a
-// chamada em um provider ESPECÍFICO (usado no fallback de provider — gap #6).
-// Semântica idêntica ao runChatAttempt, mas usa `p` em vez de e.provider.
-func (e *Executor) runChatAttemptWithProvider(attemptCtx, parentCtx context.Context, messages []chat.Message, opts chat.ChatOptions, p chat.ChatProvider) (*chat.ChatResponse, error) {
-	done := make(chan chatAttemptResult, 1)
-	go func() {
-		resp, err := p.Chat(attemptCtx, messages, opts)
-		done <- chatAttemptResult{resp: resp, err: err}
-	}()
-
-	select {
-	case r := <-done:
-		return r.resp, r.err
-	case <-attemptCtx.Done():
-		return nil, stallwatch.ErrAttemptTimedOut
-	case <-parentCtx.Done():
-		return nil, parentCtx.Err()
-	}
-}
-
 // chatWithRetry calls provider.Chat with exponential backoff retry on
 // transient errors. It respects the configured MaxRetries, RetryDelay, and
 // the context deadline.
@@ -1180,37 +1144,7 @@ func (e *Executor) chatWithRetry(ctx context.Context, messages []chat.Message, o
 	if e.stalls != nil {
 		e.recordStall(stallwatch.WatchSpec{Name: "llm.chat", Provider: e.provider.Name(), Model: e.provider.Model(), Timeout: e.config.Timeout}, stallwatch.ActionFailed, 0, int(attemptCount-1), "chat retries exhausted")
 	}
-	// FALLBACK DE PROVIDER (resiliência de produção, gap #6): esgotou os
-	// retries no provider primário por erro transiente → tenta os providers
-	// alternativos em ordem, até um ter sucesso. Se todos falharem, retorna o
-	// último erro. A ordem de precedência é: o provider setado (primário) →
-	// fallbackProviders[0] → [1] → ... (nunca volta ao primário depois).
-	if lastErr != nil && len(e.fallbackProviders) > 0 {
-		for _, fb := range e.fallbackProviders {
-			response, fbErr := e.tryFallbackProvider(ctx, messages, opts, fb)
-			if fbErr == nil {
-				if e.stalls != nil {
-					e.recordStall(stallwatch.WatchSpec{Name: "llm.chat", Provider: fb.Name(), Model: fb.Model(), Timeout: e.config.Timeout}, stallwatch.ActionFallback, 0, 0, "")
-				}
-				return response, nil
-			}
-			lastErr = fbErr
-		}
-	}
 	return nil, safeContextError("chat_completion_failed", lastErr)
-}
-
-// tryFallbackProvider tenta executar uma única chat attempt no provider
-// alternativo, com o mesmo timeout do config. Retorna (response, nil) em
-// sucesso ou (nil, err) em falha — o chamador decide se tenta o próximo.
-func (e *Executor) tryFallbackProvider(ctx context.Context, messages []chat.Message, opts chat.ChatOptions, fb chat.ChatProvider) (*chat.ChatResponse, error) {
-	attemptCtx, cancel := context.WithTimeout(ctx, e.config.Timeout)
-	defer cancel()
-	response, err := e.runChatAttemptWithProvider(attemptCtx, ctx, messages, opts, fb)
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
 }
 
 // isTransientError returns true when the error is likely recoverable with a

@@ -1,8 +1,3 @@
----
-name: api-audit
-description: Use when the user asks to audit an API contract or its implementation for consistency, correctness, and standard compliance.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: API Chief | **Last Updated**: 2026-07-23
 > 
 > # API AUDIT SKILL

@@ -1,8 +1,3 @@
----
-name: event-tracking
-description: Use when the user asks to implement event tracking or analytics instrumentation across product flows.
----
-
 # Event Tracking
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Analytics Chief | **Last Updated**: 2026-07-27

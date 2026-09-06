@@ -1,8 +1,3 @@
----
-name: architecture-documentation
-description: Use when the user asks to generate architecture documentation (overviews, module diagrams, dependency maps) from codebase analysis.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Architecture Chief | **Last Updated**: 2026-07-23
 
 # ARCHITECTURE DOCUMENTATION SKILL

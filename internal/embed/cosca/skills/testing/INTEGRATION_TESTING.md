@@ -1,8 +1,3 @@
----
-name: integration-testing
-description: Use when the user asks to write integration tests validating interactions between components, services, databases, and external systems.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Testing Chief | **Last Updated**: 2026-07-23
 
 # INTEGRATION TESTING SKILL

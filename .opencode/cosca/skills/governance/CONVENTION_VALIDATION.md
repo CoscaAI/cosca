@@ -1,8 +1,3 @@
----
-name: convention-validation
-description: Use when the user asks to validate deliverables against Cosca project conventions and standards.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Governance Chief | **Last Updated**: 2026-07-23
 > 
 > # CONVENTION VALIDATION SKILL

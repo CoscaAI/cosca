@@ -1,8 +1,3 @@
----
-name: scaffolding
-description: Use when the user asks to scaffold a new module, service, or component following project templates.
----
-
 # Project Scaffolding
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Automation Chief | **Last Updated**: 2026-07-27

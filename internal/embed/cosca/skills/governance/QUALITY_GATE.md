@@ -1,8 +1,3 @@
----
-name: quality-gate
-description: Use when the user asks to run quality gate checks (Gate 0-4) on a deliverable before acceptance.
----
-
 > **Version**: 1.0.0 | **Status**: active | **Owner**: QA Chief | **Last Updated**: 2026-07-23
 
 # QUALITY GATE SKILL

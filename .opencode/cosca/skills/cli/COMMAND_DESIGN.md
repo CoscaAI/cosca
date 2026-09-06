@@ -1,8 +1,3 @@
----
-name: command-design
-description: Use when the user asks to design or extend a Cobra CLI command, its command UX, flags, and shell completion.
----
-
 # Command Design
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: CLI Chief | **Last Updated**: 2026-07-27
