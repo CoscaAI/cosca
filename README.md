@@ -1,19 +1,16 @@
 # Cosca — Enterprise AI Orchestration System
 
 <p align="center">
-  <strong>53 Agents · 29 Skills · 34 Engines · 30 Workflows · Semantic Auto-Evolution Memory</strong>
+  <strong>53 Agents · 29 Skills · 30 Workflows · Semantic Auto-Evolution Memory</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go" alt="Go Version">
+  <img src="https://img.shields.io/badge/Go-1.26.7-00ADD8?logo=go" alt="Go Version">
   <img src="https://img.shields.io/badge/version-1.5.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build">
   <img src="https://img.shields.io/badge/agents-53-blue" alt="Agents">
   <img src="https://img.shields.io/badge/skills-29-purple" alt="Skills">
-  <img src="https://img.shields.io/badge/engines-34-green" alt="Engines">
   <img src="https://img.shields.io/badge/workflows-30-orange" alt="Workflows">
-  <img src="https://img.shields.io/badge/vetores_modulares-55.453-brightgreen" alt="Modular Vectors">
-  <img src="https://img.shields.io/badge/conhecimento-ADR--013-brightgreen" alt="Modular Knowledge">
   <img src="https://img.shields.io/badge/security-nohigh%2Fnocritical-brightgreen" alt="Security">
   <img src="https://img.shields.io/badge/platform-linux_|_macOS_|_Windows-blue" alt="Platform">
 </p>
@@ -74,21 +71,15 @@ cosca propose → cosca plan → cosca approve → cosca delegate → cosca run/
 
 ## Fluxo de Branches (GitHub · CoscaAI/cosca)
 
-O projeto usa um modelo de integração em três faixas + ponto de restauração:
+O projeto opera com **uma branch de trabalho ativa** e o histórico consolidado:
 
 | Branch | Papel | Estado |
 |---|---|---|
-| `main` | **Estável** — sem o fix do CLI vetorial | baseline |
-| `develop` | **Integração/teste** — contém o fix do CLI vetorial + fix de segurança | 🟢 atual |
-| `gold-modular` | **Ponto de restauração congelado** (marca d'água do banco modular) | 🟡 snapshot |
+| `cosca-database` | **Branch de trabalho ativa** — desenvolvimento e integração | 🟢 atual |
+| `master` | **Espelho do estado consolidado** — reflete `cosca-database` | 🟡 sincronizada |
 
-**Tag `gold-modular-2026-09-04`:** snapshot dos 11 módulos do banco (~292 MB,
-cada um < 100 MB), **sem segredos** — `secrets.db`, `auth_tokens.db` e o
-monólito `knowledge.db` (585 MB) ficaram de fora. Serve para restauração
-determinística do estado de conhecimento.
-
-> O auto-update (post-commit) é **agnóstico de branch**: dispara igual em
-> `main`, `develop` ou qualquer outra — desde que o diff toque código.
+> O auto-update (post-commit) é **agnóstico de branch**: dispara em qualquer
+> branch — desde que o diff toque código.
 
 ---
 
@@ -122,6 +113,19 @@ cosca serve                 # REST API + Web Console, escuta SÓ loopback
 
 > **No Linux/WSL2:** o serve roda via systemd (`cosca-serve`, user `cosca`).
 > Para subir manualmente: `wsl.exe -d Ubuntu-24.04 -u cosca -- systemctl --user start cosca-serve`.
+
+> **No Windows:** o serve precisa das envs no ambiente do processo. A forma
+> confiável é um `.bat`:
+> ```bat
+> @echo off
+> set "COSCA_ALLOW_NO_ROOT=1"
+> set "COSCA_PROVIDER=ollama"
+> set "COSCA_OLLAMA_MODEL=cosca-qwen3-4b-lora-001:latest"
+> cd /d C:\Users\Henrique\Documents\cosca
+> bin\cosca.exe serve
+> ```
+> O aviso de jail é informativo (opt-in); portas reais: **14120** (REST) /
+> **14121** (metrics) / **14122** (gRPC).
 
 ---
 
@@ -248,9 +252,9 @@ cérebro), **DEVE re-assinar** a chain. Senão o serve **não sobe** (fail-close
 - `cosca-check --sign` — **autoridade do Don** (chave Ed25519 + gate TTY/nonce).
 - `cosca-check --sign-auto` — âncora git, **sem** autoridade do Don.
 
-> **Estado atual:** chain com **30 blocks**. No `develop`, o hook re-assina
-> automaticamente (`--sign-auto`) a cada commit que avança o HEAD — o fail-closed
-> do serve jamais dispara por desalinhamento benigno.
+> **Estado atual (2026-09-06):** chain renovada + **ativa** no Windows (blocos
+> git-anchored). Após QUALQUER commit que toque `internal/embed/cosca/`, re-assine
+> com `cosca-check --sign-auto`.
 
 ---
 
@@ -359,18 +363,13 @@ reportar um superset — embutido + fallback + registrados).
 |---|---|
 | Agentes (framework) | **53** |
 | Skills (framework) | **29** |
-| Engines (framework) | **34** |
 | Workflows (framework) | **30** |
-| Agentes (registry runtime) | 61 |
-| Skills (registry runtime) | 88 |
-| Workflows (registry runtime) | 39 |
-| Go packages | 181 |
-| Go version | **1.26.5** |
+| Go version | **1.26.7** |
 | Cosca versão | **1.5.0** |
-| Vetores modulares (fix CLI) | **55.453** |
-| Knowledge entries / graph nodes | 26.640 / 241.639 |
-| Módulos vetoriais | 8 (`vector-*.db`, total 223.8 MB, máx. 46.5 MB) |
-| Deps segurança | grpc 1.83.2 · x/crypto 0.56.0 |
+| Knowledge (fonte da verdade) | `knowledge.db` (índice) |
+| Provider LLM | Ollama (`cosca-qwen3-4b-lora-001:latest`) |
+| Serve | Windows (14120 REST / 14121 metrics / 14122 gRPC) · WSL2 (systemd) |
+| Deps segurança | sem HIGH/CRITICAL |
 
 ---
 
