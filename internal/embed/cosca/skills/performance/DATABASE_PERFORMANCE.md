@@ -1,3 +1,8 @@
+---
+name: database-performance
+description: Use when the user asks to optimize database performance at the system level (connection pooling, throughput, index health, and vacuum).
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-23
 
 # DATABASE PERFORMANCE SKILL

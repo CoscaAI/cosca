@@ -1,3 +1,8 @@
+---
+name: event-schema-design
+description: Use when the user asks to design an event schema and message contract for an event-driven system.
+---
+
 # Event Schema Design
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Messaging Chief | **Last Updated**: 2026-07-27

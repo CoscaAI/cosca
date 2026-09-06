@@ -1,3 +1,8 @@
+---
+name: incident-response
+description: Use when the user asks to respond to an incident following detection, triage, containment, resolution, and post-mortem.
+---
+
 # INCIDENT RESPONSE — Enterprise Grade
 
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Monitoring Chief | **Last Updated**: 2026-07-26

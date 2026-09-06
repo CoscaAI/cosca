@@ -1,3 +1,8 @@
+---
+name: kubernetes-validation
+description: Use when the user asks to validate Kubernetes manifests (Deployment, Service, Ingress, ConfigMap) for best practices and security.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-23
 
 # KUBERNETES VALIDATION SKILL

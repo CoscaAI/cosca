@@ -1,3 +1,8 @@
+---
+name: compliance-validation
+description: Use when the user asks to validate codebases, configurations, and processes against compliance standards such as GDPR, SOC2, HIPAA, or PCI-DSS.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Compliance Chief | **Last Updated**: 2026-07-23
 
 # COMPLIANCE VALIDATION SKILL

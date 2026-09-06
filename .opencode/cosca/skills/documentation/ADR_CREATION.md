@@ -1,3 +1,8 @@
+---
+name: adr-creation
+description: Use when the user asks to create an Architecture Decision Record (ADR) capturing decision context, drivers, considered alternatives, and the chosen outcome.
+---
+
 > **Version**: 1.0.0 | **Status**: active (canonical — supersedes architecture/ADR_GENERATION) | **Owner**: Documentation Chief | **Last Updated**: 2026-07-23
 
 # ADR CREATION SKILL

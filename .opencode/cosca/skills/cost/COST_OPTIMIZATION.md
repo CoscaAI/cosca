@@ -1,3 +1,8 @@
+---
+name: cost-optimization
+description: Use when the user asks to analyze and reduce cloud or infrastructure cost across compute, storage, and data transfer.
+---
+
 # Cost Optimization
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Platform Chief | **Last Updated**: 2026-07-27

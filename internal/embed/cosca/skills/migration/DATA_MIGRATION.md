@@ -1,3 +1,8 @@
+---
+name: data-migration
+description: Use when the user asks to execute a data migration between systems or schemas, with integrity checks and rollback.
+---
+
 # Data Migration
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Migration Chief | **Last Updated**: 2026-07-27

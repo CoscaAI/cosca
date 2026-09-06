@@ -1,3 +1,8 @@
+---
+name: docker-validation
+description: Use when the user asks to validate Dockerfiles and Compose files against best practices, security, and efficiency standards.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-23
 
 # DOCKER VALIDATION SKILL

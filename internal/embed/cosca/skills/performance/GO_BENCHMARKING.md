@@ -1,3 +1,8 @@
+---
+name: go-benchmarking
+description: Use when the user asks to write Go benchmarks and profile with pprof, trace, or benchstat.
+---
+
 # GO BENCHMARKING & PROFILING — Enterprise Grade
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-27

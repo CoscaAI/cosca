@@ -1,3 +1,8 @@
+---
+name: script-generation
+description: Use when the user asks to generate a reusable automation script (shell, PowerShell, or CLI) for a developer task.
+---
+
 # Script Generation
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Automation Chief | **Last Updated**: 2026-07-27

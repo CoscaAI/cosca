@@ -1,3 +1,8 @@
+---
+name: contract-testing
+description: Use when the user asks to implement API contract tests (Pact, Spring Cloud Contract) between a provider and its consumers.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Testing Chief | **Last Updated**: 2026-07-23
 
 # CONTRACT TESTING SKILL

@@ -1,3 +1,8 @@
+---
+name: documentation-update
+description: Use when the user asks to update project documentation to match the current codebase and conventions.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Documentation Chief | **Last Updated**: 2026-07-23
 > 
 > # DOCUMENTATION UPDATE SKILL

@@ -1,3 +1,8 @@
+---
+name: react-native-audit
+description: Use when the user asks to audit a React Native app for performance, native/build settings, and best practices.
+---
+
 # React Native Audit
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Mobile Chief | **Last Updated**: 2026-07-27

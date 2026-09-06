@@ -1,3 +1,8 @@
+---
+name: load-testing
+description: Use when the user asks to plan, design, and execute load tests to validate system performance under expected and peak traffic.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-23
 
 # LOAD TESTING SKILL

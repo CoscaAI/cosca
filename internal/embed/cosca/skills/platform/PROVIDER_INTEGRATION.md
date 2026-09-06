@@ -1,3 +1,8 @@
+---
+name: provider-integration
+description: Use when the user asks to integrate a new AI, cloud, or third-party provider following standardized patterns.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Platform Chief | **Last Updated**: 2026-07-23
 
 # PROVIDER INTEGRATION SKILL

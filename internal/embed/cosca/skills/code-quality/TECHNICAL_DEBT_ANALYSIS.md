@@ -1,3 +1,8 @@
+---
+name: technical-debt-analysis
+description: Use when the user asks to identify, measure, categorize, and prioritize technical debt across a codebase.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Technical Debt Chief | **Last Updated**: 2026-07-23
 
 # TECHNICAL DEBT ANALYSIS SKILL

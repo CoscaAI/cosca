@@ -1,3 +1,8 @@
+---
+name: api-design-review
+description: Use when the user asks to review an API design before implementation for consistency, organizational standards, and backward compatibility.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: API Chief | **Last Updated**: 2026-07-23
 
 # API DESIGN REVIEW SKILL

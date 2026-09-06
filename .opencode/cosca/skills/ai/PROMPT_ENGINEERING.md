@@ -1,3 +1,8 @@
+---
+name: prompt-engineering
+description: Use when the user asks to design, iterate, or optimize an AI prompt for a model's capability.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: AI Chief | **Last Updated**: 2026-07-23
 > 
 > # PROMPT ENGINEERING SKILL

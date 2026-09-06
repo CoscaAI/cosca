@@ -1,3 +1,8 @@
+---
+name: e2e-testing
+description: Use when the user asks to plan, implement, and execute end-to-end tests validating complete user workflows across all system components.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Testing Chief | **Last Updated**: 2026-07-23
 
 # E2E TESTING SKILL

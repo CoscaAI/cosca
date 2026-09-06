@@ -1,3 +1,8 @@
+---
+name: database-audit
+description: Use when the user asks to audit a database schema and query usage for correctness, security, and performance.
+---
+
 # DATABASE AUDIT
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Database Chief | **Last Updated**: 2026-07-27

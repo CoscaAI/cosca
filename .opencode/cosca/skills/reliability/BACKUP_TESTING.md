@@ -1,3 +1,8 @@
+---
+name: backup-testing
+description: Use when the user asks to plan or execute backup and restore testing to verify recovery integrity and meet RPO/RTO goals.
+---
+
 # Backup Testing
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-27

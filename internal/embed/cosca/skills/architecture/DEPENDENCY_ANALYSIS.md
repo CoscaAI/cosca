@@ -1,3 +1,8 @@
+---
+name: dependency-analysis
+description: Use when the user asks to analyze a dependency graph for cycles, drift, and licensing issues.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Architecture Chief | **Last Updated**: 2026-07-23
 > 
 > # DEPENDENCY ANALYSIS SKILL

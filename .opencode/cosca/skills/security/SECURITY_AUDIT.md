@@ -1,3 +1,8 @@
+---
+name: security-audit
+description: Use when the user asks to perform a comprehensive security audit across code, dependencies, infrastructure, and configuration.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Security Chief | **Last Updated**: 2026-07-23
 > 
 > # SECURITY AUDIT SKILL

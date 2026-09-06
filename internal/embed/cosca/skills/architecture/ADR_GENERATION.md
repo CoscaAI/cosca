@@ -1,3 +1,8 @@
+---
+name: adr-generation
+description: Use when the user asks to generate an Architecture Decision Record (ADR) from a decision or change in the codebase.
+---
+
 > **Version**: 1.0.0 | **Status**: deprecated — use [documentation/ADR_CREATION](../documentation/ADR_CREATION.md) instead | **Owner**: Architecture Chief | **Last Updated**: 2026-07-23
 > 
 > # ADR GENERATION SKILL

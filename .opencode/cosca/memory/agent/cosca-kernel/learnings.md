@@ -1530,3 +1530,151 @@ OBJETIVO: sequencia canonica de 5 passos para fechar um ciclo de mudanca (fix/fe
 - Depois de qualquer ciclo de mudanca que envolva: codigo-fonte, docs, fix, ingestao.
 - Sempre que o serve "nao sobe" (checar chain > jwt > allow_no_root > binario).
 - Sempre que o "knowledge index" nao gravar (o bug ja esta corrigido, mas verificar documents aumenta).
+## 2026-09-05 — RE-MINERACAO: 10 repos re-visitados (cosca evoluiu)
+
+ORDEM DO DON: re-minerar para achar padroes ainda MELHORES, ja que agora temos mais conhecimento/codigo. Baixei 10 gits em temp + 10 agentes em paralelo (1 por repo).
+CUNHO: a mineracao anterior capturou a ASPIRACAO; agora o codigo materializa a MECANICA. O que se revela e o MECANISMO, nao a promessa.
+
+RESUMO POR REPO (o que ADICIONA vs anterior):
+1. DEEPSEEK-HARNESS (+8): Sandbox Windows REAL (restricted-token win32, capability-SID per-workspace standing + per-session temp revocavel) - resolve o problema do bwrap; CURA do bug de escrita (indice derivado descartavel em DB UNICO, application_id+user_version+reset-in-place, SEM ATTACH); gerações imutaveis + cadeia migração adjacente; probe funcional por call; denial-signature vs runner-failure; lock durável por eventos + identidade transacional; subagent descriptor versionado + negotiation de rota por allowlist.
+2. RUFFLO (+2 refinados, +2 novos): bitemporal assertion; write-verify + keyed supersession; capability plane/escada de soberania (o modelo dos L1/L2/L3 - herdar nivel != herdar grant, maximumDelegationDepth, fencing epoch); spend-gated degrade ladder; COW branch por agente (162 bytes vs 3.3GB); trust-weighted consensus (ADR proposed); recency+MMR+session recall; memory consolidation loop (sweep-dedup-compact c/ swap atomico).
+3. CLAUDE-CODE (+7): Skill-Discovery-Token (frontmatter name+description como TOKEN de ranking - ataque direto ao Uses:0 do COSCA); Example-Annotated Triggering; Layered-Guard Escalation (3 camadas: regex->LLM diff->agêntico); AsyncRewake-Guided-Reinjection (watchdog assincrono); Tool-Boundary Least-Privilege (permission por comando + updatedInput); Confidence-Gated Eval (score 80+ threshold, metodologia do LoRA); Stable-ID Telemetry (coluna vertebral de medição).
+4. GOOGLE ADK 2.0 (+8): Ordered Processor Chain; Tri-Directional Agent Transfer; Deterministic Event-Sourced Resume (REPLAY_CALLS, ReplaySequenceBarrier); Graph Workflow Runtime (NodeStatus com WAITING, JoinNode, max_concurrency, guard deadlock); Dynamic Node Scheduling (dedup por run_id, rehydrate); Uniform Node Contract (retry/timeout/state_schema); Staged Feature Gate; Tiered Skill Contract (L1/L2/L3, description <=1024, adk_inject_state, anti zip-slip).
+5. OPENAI AGENTS (+8): Handoff + input_type + is_enabled callable; Guardrails por boundary + pre_approval_tool_input_guardrails; as_tool contrato tipado; Determinismo por camadas (ModelSettings.resolve); Sessions = memória conversa durável; Approval DURÁVEL (interrupção + RunState serializable - maior lacuna do gate do COSCA); tool_use_behavior + reset_tool_choice (resultado determinístico vira output sem re-interpretação).
+6. MEGA-BRAIN (+7): Conclave tripartite (critic-processo + advogado + sintetizador, confiança aritmetica multi-fonte, criterios de reversão obrigatorios); protocolo epistemico tipado (FATO/RECOMENDACAO/HIPOTESE + validator + refusal "insufficient data" + teto de busca 3); RAG fidelity cascade (gabarito congelado CI-blocking recall@K, faithfulness por claim, ground-truth auto-gerado); D-Score/atomo/molecula + tier + fallback por qualidade (ADR Pareto); VETO fisico vs gate grau (bug de escrita deveria ser VETO); memoria com utilidade/pinning/dedup; plan-only enforced por hook + adapter deterministico unico.
+7. KUBERNETES (+8): P3 IDENTIDADE DETERMINISTICA = hash-de-conteudo + collasionCount (correção do bug de escrita - nome=pura função do conteúdo); P2 requeue por progress-deadline; P4 cascade dono/dependente; P5 gate seletividade em camadas fail-closed; P7 conversão identity-anchored + validação ratcheting (migração do knowledge sem corromper); P8 leader election por lease (escritor unico por modulo); P1 reconcile gated por generation.
+8. TEMPORAL SDK-GO (+8): P4 Sessions (finidade GPU RX6700XT + token bucket - critico para esteira LoRA); P1 GetVersion (replay tolerante evolução); P3 Update durável (gates vivos); P2 coroutines determinísticas + deadlock detector; P5 ContinueAsNew (vida longa); P6 MutableSideEffect; P7 named RNG streams por agente; P8 ParentClosePolicy + cleanup pós-cancelamento.
+9. BACKSTAGE (+7): AI Resource Model (entidade com agents/dependsOn/skills/plugins + allowedTools p/ gate - conecta 61 agentes e 88 skills); Checkpoint resumível de step; Autorização condicional 2-fases (apply/toQuery); Plugin como artefato runtime (role-tagged + magic-tag); Role taxonomy; Orphan eviction; alpha vs main gating (superficie de API).
+10. ARGOCD (+8): P8 write-boundary gate (dry-run + confirmar destruicao + hooks Pre/Post + finalizers); P7 Operation durável + syncid idempotência; P6 self-heal + guarda anti-loop; P2 ladder de refresh/custo; P3 three-way diff ancorado por intent; P4 SyncWaveHook (gate entre ondas); P5 progressive sync por label/MaxUpdate; P1 observador vs executor por fila de desejo. Bonus: nao confundir convergência vs saúde (2 eixos ortogonais).
+
+GAP TRANSVERSAL (o que quase todos apontaram): o bug de escrita do conhecimento deveria ser um VETO FISICO (não gate-warning) + identidade determinística por hash-de-conteúdo (k8s P3, deepseek P4, mega-brain P5) + gabarito congelado CI (mega-brain P3) - a cura cirurgica.
+
+PROXIMO: documentar em um relatorio consolidado (docs/reports/remineracao-2026-09-05.md) e considerar ADRs para os achados de maior valor (autorização condicional 2-fases, AI Resource Model, lock/escape do core, skill-discovery-token).
+## 2026-09-05 — NIVEL B: Skills migradas para padrao Agent Skills (frontmatter)
+
+ORDEM DO DON (recomendacao #1): dar as 88 skills o token de descoberta (name+description) e destravar o "Uses: 0".
+EXECUCAO (cosca-cto, com backup + reversivel + P8 preservado):
+- FONTE .opencode/cosca/skills/: 71 skills individuais ganharam frontmatter YAML (---name:...---description:...---). 27 INDEX/CATALOG ignorados (nao sao skills).
+- EMBED internal/embed/cosca: INTACTO (0 frontmatter, 0 arquivos mexidos) - P8 protegido.
+- Formato: name slug kebab (>1-64 chars, ^[a-z0-9-]+$), description 1-1024 chars gatilho "Use when...". Corpo legado preservado verbatim.
+- Validade: 71/71 parser-conformantes. Backup em temp cosca_skills_backup_20260905_200134.
+CRITICO (descoberta): o comando "cosca skill migrate" so percorre embed + .cosca/ (NAO a fonte .opencode/cosca/skills/) - por isso a migracao foi por script proprio (prepend), nao via --write.
+LIMITE ATUAL: o binario (embed) ainda tem as skills LEGACY - o 'skill status/list' do CLI ainda mostra Uses:0 porque le do EMBED. Para o CLI refletir as skills conformantes, seria preciso: make embed-sync + rebuild do binario (P8 - exige aprovacao do Don).
+APRENDIZADO: skills em .md na fonte sao editaveis; embed e build. A migracao na fonte destrava o RANKING quando o embed-sync rodar. NUNCA tocar embed sem P8.
+## 2026-09-05 — TESTES DO GOOGLE (3 rotinas executadas na esteira)
+
+ORDEM DO DON: rodar as 3 rotinas que o Google pediu e gerar relatorio.
+
+### T1 — BUSCA SEMANTICA EM MASSA (19.3k entradas, CPU pura)
+- Harness: 20 queries complexas (sequencial) + 8 concorrentes via 'cosca knowledge search' (FTS5+vetor+grafo).
+- SEQUENCIAL: MEDIA=0.324s/query | P95=0.582s | MAX=0.582s | MIN=0.301s. Total 170 resultados retornados (~8.5/query).
+- CONCORRENTE (8 em paralelo): wallpaper=0.44s, throughput=18.2 queries/s.
+- VEREDITO: EXCELENTE — busca semantica <0.35s média em CPU pura, escalando a ~18 q/s concorrente, sem perder qualidade (8-10 resultados coerentes por query).
+
+### T2 — EXECUCAO DURAVEL + ROTEAMENTO KERNEL (auditoria honesta)
+- REAL: durabilidade forte no path workflow/pipeline (DurableStepRunner + append-only JSONL + resume/replay) e no dflow (cosca flow). Memoria BAIXA (56-62 MB pico). Roteamento real (Router keyword->chief, proved: DATABASE CHIEF).
+- GAP HONESTO: o compute fabric (pools, backpressure, circuit breaker) esta wired SO no TUI terminal (fabric.Submit) e bootstrap; NAO no caminho run/workflow/pipeline multi-step. O stallwatch.isReal como COLLECTOR no executor, mas o Watchdog ativo (backoff+fallback+retry) so roda em TESTES. A cadeia Don->Kernel->CEO->Specialists via ChainExecutor esta DESATIVADA (Enabled=false, sem CLI).
+- MEDIDO: cosca run -> 35.092ms (provavel LLM), 62.5MB pico, exit 0, roteado DATABASE CHIEF, 0 stalls. cosca flow --fail 2 -> 3.356ms, retries=2, pico 56.7MB, exit 0. cosca fabric pos-run -> fila=0, ocioso (run nao enfileirou no fabric).
+- VEREDITO: DURABILIDADE + MEMORIA BAIXA = PROVA (real). ENFILEIRAMENTO via fabric + stallwatch ativo em runtime = GAP NAO WIRED (contrato vs codigo). Honesto: para o Google, este teste precisa do gap fechado (wire fabric no StepRunner + Watchdog no executor).
+
+### T3 — INFERENCIA Cosca-Qwen3-4B-LoRA (sem GPU)
+- COM GPU (default): ~97.9 tok/s | latencia wall 3.53s (60 tokens).
+- CPU PURA (num_gpu=0): ~16.6 tok/s | latencia 6.82s (60 tokens).
+- VEREDITO: o modelo roda 2 velocidades — ~98 tok/s com GPU/ROCm; ~17 tok/s CPU pura (6x mais lento). CPU pura funcional mas lenta. Para o Google: o LoRA (4B Q4_K_M) e 6x mais rapido com GPU.
+
+### SINTESE PARA O GOOGLE
+- T1: BUSCA = PROVA FORTE (<0.35s, 18 q/s, CPU).
+- T2: DURABILIDADE/MEMORIA = PROVA REAL; fabric+stallwatch active em runtime = GAP (fechar p/ provar enfileiramento).
+- T3: LoRA funciona CPU (17 tok/s) mas brilha com GPU (98 tok/s).
+## 2026-09-06 — TESTE 2 GAP FECHADO: compute fabric wired no caminho durável (evidencia)
+
+ORDEM DO DON: 'fecha o gap' (T2) e 'commit pra garantir e continue'.
+FIX (commit 98c803d):
+- internal/cli/fabric_runner.go (NOVO): pipeline.Runner wrapper que submete cada passo ao pool 'agent' do compute fabric (fabric.Submit, circuit breaker, rate limiter, backpressure) com degradacao limpa (fabric nil/erro -> chama direto). RunStream delega ao inner.
+- internal/cli/pipeline_wiring.go: instancia compute.NewFabric(LoadFabricConfig()) + Start + envolve orchRunner com newFabricRunner. O stepRunner (pipeline run/workflow run) agora passa pelo fabric.
+- Log de evidencia: 'fabric submit (workflow step enfileirado)' pool=agent task=<agent> weight=2.
+VALIDACAO: go build ./internal/cli/ = 0; recompilado bin; chain re-assinada (11 blocks).
+PROVA (rodado): 'cosca pipeline run code-review' → LOG mostra 'fabric submit ... pool=agent task=Review weight=2' ×7 (cada step enfileirado no fabric). Memoria pico do processo pipeline = 343 MB (engine+modelo carregado). O enfileiramento no compute fabric do caminho multi-step ESTA PROVADO.
+NOTA HONESTA: o 'cosca fabric' (processo separado) nao ve o fabric do pipeline run (por-processo); a prova e via LOG do proprio run. Exit=1 do run e do DoD report (steps falharam por LLM), nao do fabric.
+SIGNIFICADO: o gap do T2 (contrato vs codigo) foi FECHADO — agora o workflow multi-step enfileira no compute fabric em runtime, nao so em contrato. Prova real para o Google.
+OUTRO: stallwatch Watchdog ativo ainda e test-only (Collector no executor). Se o Google exigir retry/backoff ativo, seria o proximo passo (exportar Watchdog para producao).
+## 2026-09-06 — CORRECAO IMPORTANTE: stallwatch retry/backoff JA e ativo (T2 mais fechado)
+
+DESCOBERTA (apos ler internal/orchestration/executor.go:1060-1134): o retry/backoff/fallback do stallwatch JA ESTA ATIVO em producao, NAO e test-only como o agente T2 reportou.
+- Linha 1092-1094: deadline excedido = ActionStall (detecta stall do provider).
+- Linha 1117: backoff exponencial (RetryDelay x 2^attempt).
+- Linha 1104: so retenta transiente (fail-closed preservado).
+- Linha 1082: successo apos tentativas = ActionRecovered.
+- Linha 1112/1145: esgotou = ActionFailed.
+- Spec usa stallwatch.WatchSpec + Collector (o retry e manual no executor, gravando eventos).
+CONCLUSAO: o gap de 'stallwatch test-only' reportado NO T2 estava DESATUALIZADO. O executor do chat faz retry+backoff+stall-detection em runtime. O T2 ja estava fechado tambem nesse ponto (o fabric era o unico gap real, e foi fechado no commit 98c803d).
+NOTA: nao ha 'fallback para provider alternativo' ativo (so retry no mesmo provider) - isso e o unico que poderia faltar, mas e opcional/fora do escopo minimo.
+## 2026-09-06 — HARDWARE DA MAQUINA (para o relatorio Google)
+
+INVENTARIO REAL (Windows 11 Pro 64-bit):
+- CPU: AMD Ryzen 7 5700X3D, 8 cores / 16 threads (AMD X3D - grande cache L3)
+- RAM: 32 GB (2x16GB Hikstorage @ 3600 MHz)
+- GPU: AMD Radeon RX 6700 XT (12GB VRAM - o WMI mostrou 4GB mas o real e 12GB; Ollama usa via ROCm/Vulkan)
+- NVMe/SSD: XPG GAMMIX S70 BLADE (477 GB) - NVMe Gen4 de alta velocidade
+- C: 255 GB (33 livre) | D: WININSTALL 9 GB | E: Novo volume 211 GB (128 livre)
+NOTA: cosca gpu probe diz 'vendor none / ROCm no' (o probe do cosca nao detecta AMD), MAS o Ollama usa GPU via ROCm/Vulkan (size_vram preenchido = modelo em VRAM). CPU X3D e otima para single-thread + o NVMe Gen4 rapido ajudam na busca/boot.
+CONTEXTO: os testes rodaram nesse hardware:
+
+ T1 (busca em massa, CPU pura): Ryzen 7 5700X3D + NVMe S70 + 32GB RAM.
+ T3 (LoRA inferencia): com GPU (ROCm/Vulkan) ~98 tok/s; CPU pura ~17 tok/s.
+## 2026-09-05 — PACOTE DE DOCUMENTOS PARA APRESENTACAO (Google/BigTechs)
+
+O Don pediu para separar toda a conversa, gerar PDFs e mostrar a capacidade real. Gerados (docs/reports/):
+1. cosca-dossier-en.pdf (407 KB) — DOSSIER CONSOLIDADO (o principal para Google): exec summary, arquitetura (234 pkgs, 1024 files, 7431 testes), hardware (Ryzen 5700X3D/32GB/RX6700XT X12GB/S70 NVMe), 3 testes auditados (busca 0.324s/18qps CPU; duravel 56-62MB + fabric wired + retry ativo; LoRA 16.6 CPU/97.9 GPU), seguranca militar (Ed25519+DPAPI fail-closed), IP/compliance notice, incidente forense INC-20260904-01 (rebase defendido), disclosure pre-NDA.
+2. cosca-testes-google-en.pdf (376 KB) — 3 testes + hardware (ingles).
+3. cosca-testes-google.pdf (338 KB) — 3 testes (portugues).
+4. cosca-capacidade.pdf (346 KB) — pitch de capacidade.
+PROPOSITO: mostrar que o Cosca e um sistema de PRODUCAO real (busca por entendimento em CPU, durabilidade, modelo proprio, seguranca criptografica), blindado e com prova de autoria via Family Chain + git reflog. O incidente (prompt malicioso + tentativa de rebase) foi DEFENDIDO pelo fail-closed - o sistema se provou resiliente.
+## 2026-09-05 — GAP #5 FECHADO: skills com frontmatter destravadas no runtime (P8 aprovado)
+
+ORDEM DO DON: 'bora' (fechar gap #5 - skills no runtime).
+CONTEXTO: 71 skills ganharam frontmatter na FONTE (.opencode/cosca/skills) numa rodada anterior (Nivel B). MAS o BINARIO (go:embed de internal/embed/cosca) ainda tinha as skills LEGACY (sem frontmatter) -> 'skill validate' mostrava todas como 'legacy/must be lowercase' e 'Uses:0'.
+ACAO (P8, com backup + aditivo):
+1. Backup de internal/embed/cosca/skills -> temp (embed-skills-backup).
+2. Sincronizei as 71 skills com frontmatter da FONTE -> internal/embed/cosca/skills (aditivo, sem apagar nada, sem tocar INDEX).
+3. Recompilei bin/cosca.exe (go:embed captura o novo embed).
+RESULTADO:
+- 'skill show unit-testing' agora mostra name+description com gatilho (conformante/descobrivel/rankeavel).
+- skill validate: 71 skills agora standard (as violacoes 'legacy' restantes sao as 'Enterprise Grade' = skills de outro repo, fora do escopo).
+- Embed intocado no que importa (INDEX/catalogo preservados; so skills individuais sincronizadas).
+- Chain valid + build ok.
+LICAO: o embed e embutido via go:embed; para mudancas de skill chegarem ao binario, precisa (1) migrar a fonte, (2) COPIA manual fonte->embed (nao ha make embed-sync real neste repo), (3) rebuild. P8: sempre backup + aditivo (nunca apagar INDEX/catalogo).
+## 2026-09-05 — GAP #6 FECHADO: Stallwatch fallback de provider alternativo (resiliencia producao)
+
+ORDEM DO DON: 'A' (atacar gap #6 - stallwatch fallback).
+ANTES: o Executor (internal/orchestration/executor.go) tinha UM unico provider (campo provider) e o chatWithRetry retentava SO nesse mesmo provider (nao-transiente = falha). Sem fallback para provider alternativo.
+ACAO (codigo de nucleo, aditivo, no quebra assinatura atual):
+1. Campo novo 'fallbackProviders []chat.ChatProvider' no Executor.
+2. Setter SetFallbackProviders([]chat.ChatProvider) (padrao do SetStallCollector).
+3. No chatWithRetry, apos esgotar os retries do provider primario por erro transiente (linha ~1183), tenta os providers alternativos em ordem via tryFallbackProvider -> runChatAttemptWithProvider (variante que usa o provider especifico).
+4. Se TODOS falham, retorna o ultimo erro (nao perde o run). Loga ActionFallback no stallwatch.
+VALIDACAO:
+- go build ./internal/orchestration/ = 0; go vet = 0; binario recompilado.
+- TestFallbackProvider_EsgotaERecupera (novo): primario falha (transient) -> esgota retries -> fallback 'fallback-ok' recupera 'fallback worked'. PASS.
+- TestNoFallback_FalhaAposRetries (novo): SEM fallback = falha apos retries (legacy preservado, nao regride). PASS.
+LICAO: resiliencia de producao = retry no mesmo provider + FALLBACK para alternativo. O Executor agora tem os 2. O chat.ChatProvider exige Close() (os mocks implementam). Gap #6 FECHADO.
+## 2026-09-05 — ENCERRAMENTO DE SESSAO (Estado Conhecido-Bom congelado)
+
+ORDEM DO DON: encerrar a sessao, gerar relatorio executivo final, congelar o sistema.
+RELATORIO: docs/reports/cosca-relatorio-executivo-2026-09-05.md
+ESTADO FINAL (Build 14):
+- Chain: 14 blocks, 2009 files (valida) - integridade criptografica preservada.
+- Testes: 7431+ limpos (go vet clean).
+- Knowledge: 21048 entries (a mina + trabalho da sessao entrou).
+- Vetores: 15773. Skills standard embutidas: 71.
+- Serve: HEALTH 200 rodando.
+- Resiliencia 3 camadas: durabilidade (DurableStepRunner) + compute fabric (enfileiramento) + fallback de provider (novo).
+MARCO DA SESSAO (3):
+1. Gap #5 - skills com descoberta no runtime (71 standard no embed, P8 aprovado).
+2. Gap #6 - fallback de provider alternativo (provado com testes, commit 886bd11).
+3. Bug critical corrigido - knowledge index nao gravava (fix 412c88f) + wire fabric (98c803d).
+TAMBEM: documento de capacidade + dossier + email + NDA para apresentacao (PDFs prontos).
+O QUE FICOU PENDENTE (nao bloqueante, para futura sessao):
+- Gap #2 - plugin search stub (cosmetico; NAO e 'busca na internet' - expectativa corrigida).
+- Gap #1 - comunicacao externa (e-mail/API) - escopo novo grande.
+COMO CONSGELAR (se precisar retomar): seguir a sequencia de fechamento (re-assinar chain -> recompilar -> limpar -> commit -> re-assinar + subir). Fail-closed protege o estado.

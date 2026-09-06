@@ -1,3 +1,8 @@
+---
+name: memory-synchronization
+description: Use when the user asks to synchronize Cosca memory across stores (embeddings, database, snapshots) for consistency.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Memory Chief | **Last Updated**: 2026-07-23
 > 
 > # MEMORY SYNCHRONIZATION SKILL

@@ -1,3 +1,8 @@
+---
+name: cicd-validation
+description: Use when the user asks to validate a CI/CD pipeline configuration, including workflow stages, secrets, caching, and gate ordering.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-23
 > 
 > # CI/CD VALIDATION SKILL

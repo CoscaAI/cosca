@@ -1,3 +1,8 @@
+---
+name: alert-configuration
+description: Use when the user asks to configure, tune, or review monitoring alerts and alerting rules for latency, errors, and saturation.
+---
+
 # Alert Configuration
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Monitoring Chief | **Last Updated**: 2026-07-27

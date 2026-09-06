@@ -1,3 +1,8 @@
+---
+name: openapi-validation
+description: Use when the user asks to validate an OpenAPI/Swagger specification against OpenAPI 3.x standards and conventions.
+---
+
 > **Version**: 1.0.0 | **Status**: active | **Owner**: API Chief | **Last Updated**: 2026-07-23
 
 # OPENAPI VALIDATION SKILL
