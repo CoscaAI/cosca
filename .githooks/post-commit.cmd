@@ -131,15 +131,15 @@ for /f "usebackq delims=" %%f in (`git diff --name-only HEAD~1 HEAD 2^>nul`) do 
         if /i "!EXT5!"==".yaml" set "CHANGED=1"
     )
 )
-if not defined CHANGED exit /b 0
-
-if not exist "%COSCA_BIN%" exit /b 0
-
 rem --- ORDEM SAGRADA em codigo: re-assina a chain em TODO commit ---
 rem Motivo: QUALQUER commit avanca o HEAD e desalinha o anchor do ultimo bloco
 rem (o git-anchor opera por GIT_COMMIT = HEAD). Para a chain estar SEMPRE alinhada
-rem ao HEAD, o sign-auto roda sempre que o repo avanca. Assim o fail-closed do
-rem serve nunca dispara por desalinhamento benigno.
+rem ao HEAD, o sign-auto roda SEMPRE que o repo avanca — nao apenas quando o embed
+rem muda. CORRECAO (2026-09-07): o `if not defined CHANGED exit /b 0` anterior
+rem bloqueava a re-assinacao em commits que NAO tocavam internal/embed/cosca,
+rem deixando a chain desalinhada do HEAD e o despertar com "CHAIN INVALIDA".
+rem Agora o sign-auto roda incondicionalmente em todo commit; o CHANGED so e
+rem usado para o re-index do embed (que so faz sentido quando o embed mudou).
 rem O cosca-check e um binario separado (bin\cosca-check.exe), nao subcomando.
 set "CSCA_CHECK=%REPO_ROOT%\bin\cosca-check.exe"
 if not exist "%CSCA_CHECK%" set "CSCA_CHECK=%REPO_ROOT%\bin\cosca-check"

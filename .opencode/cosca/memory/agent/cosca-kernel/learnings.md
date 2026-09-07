@@ -8,7 +8,24 @@
 > Conhecimento do projeto vai para: `docs/` + `.cosca/provenance.yaml` (ledger) + `.cosca/knowledge/` (knowledge index).
 > Os 558 registros abaixo permanecem como proveniência — NÃO apagar.
 
-## Session: 2026-09-07 — Incidente corrupção do banco (causa raiz ORC)
+## Session: 2026-09-07 — Preparação robusta para reboot (chain auto-re-assina + tasks limpas)
+
+### 2026-09-07 — Ligar o despertar estável: chain auto-re-assina em TODO commit
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Don: "quero saber como ta inicializacao do despertar, verifica tudo, pq toda hora fica diferente. Vou reiniciar o PC; se voltar o problema, formato tudo." |
+| **Technique** | Diagnóstico do despertar (determinístico vs variável) + fix do .githooks + saneamento de tasks agendadas do Windows. |
+| **Level** | 4 |
+| **Outcome** | success — despertar estável, chain auto-re-assina, 1 task agendada correta, banco 44MB/768/integrity ok, serve 14120=200. |
+| **Confidence** | 0.92 |
+| **Tags** | #despertar #chain #auto-re-assinatura #githooks #reboot #estabilidade |
+| **Learned** | 1) O `despertar` é determinístico (GUARD PACT/lei do cofre/horizontal são CONSTANTES). A única seção que varia é **RAÍZES (chain)** — oscila entre ✅/❌ conforme a chain está alinhada ao HEAD. 2) **Causa raiz da oscilação**: o `.githooks/post-commit.cmd` tinha `if not defined CHANGED exit /b 0` → só re-assinava a chain se `internal/embed/cosca/` MUDOU. Mas o `integrity.Check` valida contra o HEAD INTEIRO, então QUALQUER commit (código/docs/config) avançava o HEAD e desalinhava a chain, e o hook NÃO re-assinava (pois o embed não mudou) → despertar mostrava ❌ CHAIN INVÁLIDA. **Contradição interna**: comentário dizia "re-assina em todo commit" mas código só deixava se embed mudou. 3) **Correção**: remover o `exit /b 0` de `CHANGED` no bloco de re-assinação (linha 134); re-assinar roda INCONDICIONALMENTE em todo commit; `CHANGED` agora só decide o re-index do embed. 4) `cosca-check --sign-auto` funciona SEM `COSCA_ALLOW_NO_ROOT` (o check de assinatura não usa jail — diferente do serve). 5) **Duas tasks agendadas competiam** (`cosca-serve` sem env → fail-closed não sobe; `CoscaServe` com env → sobe). Desativei `cosca-serve`, deixei `CoscaServe` (binário correto `cosca.exe` com fix ORC copiado para `go\bin`). 6) **2 binários cosca.exe** no sistema causam ambiguidade — unificar. 7) Para reboot limpo: 1 task ativa correta + chain auto-re-assina + ORC read-only + banco 768 intacto. |
+| **Next** | Após reboot: validar que serve sobe via task e despertar mostra ✅ estável. Considerar tornar `checkChain()` do despertar determinístico (usar integrity.Check direto, sem parse de stdout) — melhoria futura. |
+
+---
+
+## Session: 2026-09-07 — Corrupção do banco (causa raiz ORC) + resolução
 
 ### 2026-09-07 — Diagnóstico + correção do ORC destrutivo (config do home + dimensão 768)
 | Field | Value |
