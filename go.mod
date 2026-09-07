@@ -42,6 +42,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
+	golang.org/x/image v0.45.0 // indirect
 )
 
 require (
@@ -238,4 +239,4 @@ require (
 //
 // Only imported behind the `stt_sherpa` build tag (internal/worldmodel/audio/stt),
 // so the default build never pulls cgo/mingw and CI without a C toolchain stays green.
-replace github.com/k2-fsa/sherpa-onnx-go-windows => C:/Users/Henrique/AppData/Local/Temp/opencode/sherpa-onnx-go-windows
+replace github.com/k2-fsa/sherpa-onnx-go-windows => C:/Users/Henrique/go/pkg/mod/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.6

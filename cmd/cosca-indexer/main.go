@@ -99,18 +99,17 @@ func main() {
 	// Collect all files to index
 	var files []fileEntry
 
-	// 1. Fontes de agente. A fonte VIVA de projeto (.opencode/cosca/memory/
-	// agent/**) é ingerida como origem de projeto; a fonte embarcada legada
-	// (.cosca/fallback/memory/agent/**) continua como origem embarcada — NÃO
-	// substitui a viva. AMBAS passam pelo CLASSIFICADOR: só o que for
-	// persistente é indexado (não indexar cegamente tudo em agent/, excluindo
-	// session/**/logs/gold-test/etc).
+	// 1. Fonte de agente. A fonte VIVA de projeto (.opencode/cosca/memory/
+	// agent/**) é ingerida como origem de projeto. A cópia legada em
+	// .cosca/fallback/memory/agent é resquício do sync morto (derivada do
+	// embed canônico) — NÃO é ingerida para evitar indexação duplicada e
+	// conflitante do mesmo agente (o canônico diverge do fallback).
+	// Passa pelo CLASSIFICADOR: só o que for persistente é indexado.
 	agentRoots := []struct {
 		dir    string
 		origin string
 	}{
 		{filepath.Join(projectRoot, ".opencode", "cosca", "memory", "agent"), "opencode"},
-		{filepath.Join(projectRoot, ".cosca", "fallback", "memory", "agent"), "fallback"},
 	}
 	for _, ar := range agentRoots {
 		entries, err := os.ReadDir(ar.dir)

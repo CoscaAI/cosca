@@ -92,6 +92,27 @@ dist/
 *.env
 !.env.example
 
+# Runtime / segredos da maquina — NUNCA versionar (AGENTS.md §5)
+.cosca/auth_tokens.db
+.cosca/secrets.db
+.cosca/activity.jsonl
+# Bancos de runtime derivados (regeneraveis via cosca db build)
+.cosca/audit.db
+.cosca/bug.db
+.cosca/department.db
+.cosca/tasks.db
+.cosca/cosca.pid
+# Framework/fallback do cérebro — derivados do embed canônico (regeneraveis via cosca init)
+.cosca/fallback/
+.cosca/framework/
+# Runtime transitorio
+.cosca/logs/
+.cosca/cache/
+.cosca/backups/
+.cosca/history/
+.cosca/quarantine/
+.cosca/_trash/
+
 # OS
 .DS_Store
 

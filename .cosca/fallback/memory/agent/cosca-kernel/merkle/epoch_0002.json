@@ -1,9 +1,0 @@
-{
-  "epoch": 2,
-  "start_block": 64,
-  "end_block": 95,
-  "block_count": 32,
-  "merkle_root": "f3aaf159e17a58a0ec341392fbaf23da3821186dbbc94cf1f6b4907632431f75",
-  "first_block": "4c846d86f5a3a07812fa0cbf62317dbd998adc6c6eba5474925e750b111517cf",
-  "last_block": "0b47f425fad6c8a8f13fa25b85ff63c2bc6d813e0c086044814d55467e4dcad1"
-}

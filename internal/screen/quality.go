@@ -1,6 +1,10 @@
 package screen
 
-import "image"
+import (
+	"image"
+
+	"golang.org/x/image/draw"
+)
 
 // qualityScore avalia a "suficiência" de uma leitura de OCR, combinando:
 //   - quantidade de texto (total de caracteres lidos),
@@ -48,23 +52,19 @@ func qualityScore(lines []ocrLine, regions []Region) float64 {
 	return clamp01(0.5*textScore + 0.3*sizeScore + 0.2*coverScore)
 }
 
-// upscaleImage redimensiona a imagem por um fator inteiro (2x, 4x). Preserva o
-// conteúdo — só aumenta a representação espacial dos pixels existentes, não
-// cria detalhe novo. Usa interpolação por vizinho mais próximo (bom o bastante
-// para OCR).
+// upscaleImage redimensiona a imagem por um fator inteiro (2x, 4x) usando
+// interpolação BICUBIC (Catmull-Rom). Ao contrário do nearest-neighbor (que
+// apenas duplica pixels e pode deixar bordas serrilhadas), o bicubic suaviza e
+// realça as transições — o que melhora significativamente a leitura de texto
+// pequeno/mínusculo pelo OCR. É o "zoom" de qualidade da percepção de texto.
 func upscaleImage(src image.Image, factor int) image.Image {
 	if factor <= 1 {
 		return src
 	}
 	b := src.Bounds()
-	w, h := b.Dx()*factor, b.Dy()*factor
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		sy := b.Min.Y + y/factor
-		for x := 0; x < w; x++ {
-			sx := b.Min.X + x/factor
-			dst.Set(x, y, src.At(sx, sy))
-		}
-	}
+	dst := image.NewRGBA(image.Rect(0, 0, b.Dx()*factor, b.Dy()*factor))
+	// CatmullRom interpola (bicubic); põe o src no canto superior esquerdo.
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Over, nil)
 	return dst
 }
+
