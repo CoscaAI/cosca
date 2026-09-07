@@ -39,9 +39,18 @@ type sherpaEngine struct {
 // load the model and create the recognizer. In this build a real engine is
 // always returned (modulo config validation); the "disabled" path lives in
 // stt.go for the default (non-cgo) build.
+//
+// The nemo_ctc model type dispatches to the OFFLINE engine
+// (stt_offline_sherpa.go): the PT-BR NeMo fastconformer models we target are
+// offline (non-streaming), so they are served by OfflineRecognizer. All other
+// model types (transducer/paraformer/zipformer2_ctc) use the streaming online
+// engine.
 func New(cfg Config) (Engine, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
+	}
+	if cfg.resolveModelType() == ModelTypeNemoCtc {
+		return newOfflineEngine(cfg)
 	}
 	return &sherpaEngine{cfg: cfg}, nil
 }

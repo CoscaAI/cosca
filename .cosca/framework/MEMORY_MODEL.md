@@ -1,6 +1,6 @@
 # MEMORY MODEL — Canonical Memory Taxonomy
 
-> **Version**: 1.4.0-dev | **Status**: active | **Owner**: Memory Chief
+> **Version**: 4.0.0 | **Status**: active | **Owner**: Memory Chief
 
 ## Purpose
 Single source of truth for all memory types, schemas, storage locations, and lifecycle policies. Referenced by KERNEL.md, Memory Engine, Memory Chief, Context Engine, and Learning Engine.
@@ -16,6 +16,8 @@ Layer 3: System     (System-scoped)  → .cosca/memory/architecture/, .cosca/mem
 Layer 4: Wisdom     (Cross-project)  → ${MEMORY_GLOBAL}/pattern/, ${MEMORY_GLOBAL}/bug/
 Layer 5: Agent      (Cross-project)  → ${MEMORY_GLOBAL}/agent/
 ```
+
+> **PRINCÍPIO DO CÉREBRO LEVE (ordem do Don, 2026-08-27):** a memória é **armazenada em bulk** (indexada), mas **nunca carregada em bulk** no contexto do agente. O load padrão entrega **índices/referências** (caminho, tipo, tags, resumo). O **conteúdo completo** é recuperado **sob demanda**, via busca semântica por significado (`cosca knowledge search`), apenas quando o domínio da tarefa exige. Isso mantém o cérebro enxuto e saudável, evita poluição de tokens e impede ação baseada em informação irrelevante ou obsoleta.
 
 ---
 
@@ -163,8 +165,8 @@ metric_type: performance | preference | learning
 | Operation | Description | Trigger |
 |-----------|-------------|---------|
 | **Store** | Write record to appropriate store | Auto (decisions, bugs, patterns) or manual (agents) |
-| **Retrieve** | Read records by key, tags, or time range | Session start, context loading |
-| **Search** | Full-text search across stores | Agent queries, pattern matching |
+| **Retrieve** | Read **index/reference** (path, type, tags, summary) of records by key, tags, or time range — NOT bulk content | Session start, context loading |
+| **Search** | **Content on-demand** — semantic (meaning-first) or full-text search across stores, pulled only when the task domain requires it | Agent queries, pattern matching |
 | **Index** | Rebuild search metadata | After batch writes |
 | **Prune** | Archive old/irrelevant records | Periodic (Evolution Engine) |
 | **Promote** | Move record from short to long memory | Session end |
@@ -231,7 +233,7 @@ Each agent maintains a self-evolving semantic memory that grows with experience.
 
 ### Architecture
 ```
-internal/embed/cosca/memory/agent/{agent-name}/
+.opencode/cosca/memory/agent/{agent-name}/
 ├── learnings.md    ← Semantic journal (FTS5-indexed, vector-searchable)
 ├── evolution.md    ← Capability level tracking
 ├── patterns.md     ← Reusable solution patterns
@@ -255,7 +257,7 @@ internal/embed/cosca/memory/agent/{agent-name}/
 | 5 | Master | 20 successful L4 tasks | Contributing new OWASP techniques, training other agents |
 
 ### Cross-Agent Learning
-All learnings are indexed in the knowledge engine (SQLite FTS5 + vector embeddings). The Knowledge Engine indexes internal/embed/cosca/memory/agent/ recursively. Agent A's security pattern can be semantically retrieved by Agent B when facing a related task.
+All learnings are indexed in the knowledge engine (SQLite FTS5 + vector embeddings). The Knowledge Engine indexes .opencode/cosca/memory/agent/ recursively. Agent A's security pattern can be semantically retrieved by Agent B when facing a related task.
 
 ### Semantic Search
 Before any task, agents execute: `cosca knowledge search "#security #xss"` to find relevant learnings. Results ranked by: level (higher = better), recency (fresher = more relevant), outcome (success > partial > failure).

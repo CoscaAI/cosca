@@ -1,287 +1,287 @@
-# CONVENTIONS — Standard Skill Contract
+# CONVENCOES — Contrato Padrao de Skills
 
-> **Version**: 1.0.0 | **Status**: active | **Owner**: Skills Engine
+> **Versao**: 1.0.0 | **Status**: active | **Dono**: Skills Engine
 
-## Purpose
-Every Cosca skill file (SKILL.md, workflow, template, engine, department) must follow a consistent contract. This document defines the canonical format.
-
----
-
-## File Naming Convention
-
-| File Type | Pattern | Example |
-|-----------|---------|---------|
-| Department Skill | `SKILL.md` inside department directory | `departments/backend/SKILL.md` |
-| Engine Skill | `SKILL.md` inside engine directory | `engines/wizard/SKILL.md` |
-| Workflow | `workflow-name.md` inside workflows/ | `workflows/feature-development.md` |
-| Template | `TEMPLATE.md` inside template directory | `templates/erp/TEMPLATE.md` |
-| Governance | `UPPER_SNAKE.md` at cosca/ root | `GOVERNANCE.md` |
-| Memory Index | `INDEX.md` inside memory store | `memory/project/INDEX.md` |
+## PROPOSITO
+Todo arquivo de skill do Cosca (SKILL.md, workflow, template, engine, department) deve seguir um contrato consistente. Este documento define o formato canonico.
 
 ---
 
-## Mandatory Sections — Department Skills
+## Convencoes de Nomenclatura de Arquivos
 
-Every `departments/*/SKILL.md` must contain:
+| Tipo de Arquivo | Padrao | Exemplo |
+|-----------------|--------|---------|
+| Department Skill | `SKILL.md` dentro do diretorio do department | `departments/backend/SKILL.md` |
+| Engine Skill | `SKILL.md` dentro do diretorio do engine | `engines/wizard/SKILL.md` |
+| Workflow | `workflow-name.md` dentro de workflows/ | `workflows/feature-development.md` |
+| Template | `TEMPLATE.md` dentro do diretorio do template | `templates/erp/TEMPLATE.md` |
+| Governanca | `UPPER_SNAKE.md` na raiz de cosca/ | `GOVERNANCE.md` |
+| Indice de Memoria | `INDEX.md` dentro do armazenamento de memoria | `memory/project/INDEX.md` |
+
+---
+
+## Secoes Obrigatorias — Department Skills
+
+Todo `departments/*/SKILL.md` deve conter:
 
 ```markdown
-# DEPARTMENT NAME — Short Description
+# NOME DO DEPARTAMENTO — Descricao Curta
 
-## METADATA
-- **Version**: X.Y.Z
+## METADADOS
+- **Versao**: X.Y.Z
 - **Status**: draft | active | deprecated
-- **Owner**: Department name
-- **Reports To**: Parent department
+- **Dono**: Nome do departamento
+- **Reporta Para**: Departamento pai
 
-## PURPOSE
-One paragraph describing why this department exists.
+## PROPOSITO
+Um paragrafo descrevendo por que este departamento existe.
 
-## SCOPE
-What this department owns and is responsible for.
+## ESCOPO
+O que este departamento e responsavel.
 
-## OUT OF SCOPE
-What this department explicitly does NOT own.
+## FORA DO ESCOPO
+O que este departamento explicitamente NAO e responsavel.
 
-## RESPONSIBILITIES
-1. Responsibility 1
-2. Responsibility 2
+## RESPONSABILIDADES
+1. Responsabilidade 1
+2. Responsabilidade 2
 
-## DELEGATION
-- Task type → Target department
+## DELEGACAO
+- Tipo de tarefa - Departamento alvo
 
-## SPECIALISTS
-| Specialist | Role |
-|-----------|------|
+## ESPECIALISTAS
+| Especialista | Cargo |
+|--------------|-------|
 
-## DEPENDENCIES
-| Depends On | Why |
-|-----------|-----|
+## DEPENDENCIAS
+| Depende De | Por que |
+|------------|---------|
 
-## INPUTS
-| Input | From | Format |
-|-------|------|--------|
+## ENTRADAS
+| Entrada | De | Formato |
+|---------|-----|---------|
 
-## OUTPUTS
-| Output | To | Format |
-|--------|-----|--------|
+## SAIDAS
+| Saida | Para | Formato |
+|-------|------|---------|
 
-## CONSTRAINTS
-- Constraint 1
+## RESTRICOES
+- Restricao 1
 
-## QUALITY CRITERIA
-- [ ] Criterion 1
+## CRITERIOS DE QUALIDADE
+- [ ] Criterio 1
 
-## ESCALATION
-| Issue | Escalate To |
+## ESCALONAMENTO
+| Problema | Escalar Para |
 
-## FORBIDDEN ACTIONS
-- Action 1
+## ACOES PROIBIDAS
+- Acao 1
 
-## RELATED
-- [Related file](../path)
+## RELACIONADOS
+- [Arquivo relacionado](../path)
 ```
 
 ---
 
-## Mandatory Sections — Engine Skills
+## Secoes Obrigatorias — Engine Skills
 
-Every `engines/*/SKILL.md` must contain:
+Todo `engines/*/SKILL.md` deve conter:
 
 ```markdown
-# ENGINE NAME
+# NOME DO ENGINE
 
-## METADATA
-- **Version**: X.Y.Z
+## METADADOS
+- **Versao**: X.Y.Z
 - **Status**: draft | active | deprecated
-- **Owner**: Engine name
+- **Dono**: Nome do engine
 
-## PURPOSE
-One paragraph describing why this engine exists.
+## PROPOSITO
+Um paragrafo descrevendo por que este engine existe.
 
-## ACTIVATION
-When this engine is triggered.
+## ATIVACAO
+Quando este e ativado.
 
-## SCOPE
-What this engine covers.
+## ESCOPO
+O que este engine cobre.
 
-## OUT OF SCOPE
-What this engine does NOT cover.
+## FORA DO ESCOPO
+O que este engine NAO cobre.
 
-## PROCESS
-Step-by-step description of how the engine works.
+## PROCESSO
+Descricao passo a passo de como o engine funciona.
 
-## INPUTS
-| Input | From | Format |
-|-------|------|--------|
+## ENTRADAS
+| Entrada | De | Formato |
+|---------|-----|---------|
 
-## OUTPUTS
-| Output | To | Format |
-|--------|-----|--------|
+## SAIDAS
+| Saida | Para | Formato |
+|-------|------|---------|
 
-## DEPENDENCIES
-| Engine | Why |
-|--------|-----|
+## DEPENDENCIAS
+| Engine | Por que |
+|--------|---------|
 
-## CONSTRAINTS
-- Constraint 1
+## RESTRICOES
+- Restricao 1
 
-## QUALITY CRITERIA
-- [ ] Criterion 1
+## CRITERIOS DE QUALIDADE
+- [ ] Criterio 1
 
-## RELATED
-- [Related file](../path)
+## RELACIONADOS
+- [Arquivo relacionado](../path)
 ```
 
 ---
 
-## Mandatory Sections — Workflows
+## Secoes Obrigatorias — Workflows
 
-Every `workflows/*.md` must contain:
-
-```markdown
-# WORKFLOW: name
-
-## METADATA
-- **Version**: X.Y.Z
-- **Category**: init | feature | bug | refactor | review | deploy | audit
-- **Estimated Duration**: range
-- **Status**: draft | active | deprecated
-
-## OBJECTIVE
-One paragraph.
-
-## INPUTS
-| Name | Type | Required | Description |
-
-## OUTPUTS
-| Name | Type | Description |
-
-## PRECONDITIONS
-1. Condition
-
-## POSTCONDITIONS
-1. Condition
-
-## DEPENDENCIES
-| Workflow | Reason |
-
-## STEPS
-### Step N: Name
-- **Chief**: Department
-- **Specialists**: Role(s)
-- **Task**: Description
-- **Output**: Expected result
-
-## VALIDATION
-1. Check
-
-## SUCCESS CRITERIA
-- [ ] Criterion
-
-## ERROR HANDLING
-| Failure | Action |
-
-## RELATED
-- [Related file](../path)
-```
-
----
-
-## Mandatory Sections — Templates
-
-Every `templates/*/TEMPLATE.md` must contain:
+Todo `workflows/*.md` deve conter:
 
 ```markdown
-# TEMPLATE NAME
+# WORKFLOW: nome
 
-## METADATA
-- **Version**: X.Y.Z
+## METADADOS
+- **Versao**: X.Y.Z
+- **Categoria**: init | feature | bug | refactor | review | deploy | audit
+- **Duracao Estimada**: intervalo
 - **Status**: draft | active | deprecated
 
-## DOMAIN
-What type of application this template is for.
+## OBJETIVO
+Um paragrafo.
 
-## RECOMMENDED STACK
-| Layer | Technology |
+## ENTRADAS
+| Nome | Tipo | Obrigatorio | Descricao |
 
-## MODULE STRUCTURE
-(Directory tree)
+## SAIDAS
+| Nome | Tipo | Descricao |
 
-## KEY FEATURES
-- Feature
+## PRECONDICOES
+1. Condicao
 
-## ARCHITECTURE NOTES
-- Note
+## POSCONDICOES
+1. Condicao
 
-## RELATED
-- [Related template](../path)
+## DEPENDENCIAS
+| Workflow | Motivo |
+
+## ETAPAS
+### Etapa N: Nome
+- **Chefe**: Departamento
+- **Especialistas**: Cargo(s)
+- **Tarefa**: Descricao
+- **Saida**: Resultado esperado
+
+## VALIDACAO
+1. Verificacao
+
+## CRITERIOS DE SUCESSO
+- [ ] Criterio
+
+## TRATAMENTO DE ERROS
+| Falha | Acao |
+
+## RELACIONADOS
+- [Arquivo relacionado](../path)
 ```
 
 ---
 
-## Metadata Requirements
+## Secoes Obrigatorias — Templates
 
-Every file must start with a metadata block:
+Todo `templates/*/TEMPLATE.md` deve conter:
 
 ```markdown
-> **Version**: X.Y.Z | **Status**: draft | active | deprecated | **Owner**: name | **Last Updated**: YYYY-MM-DD
+# NOME DO TEMPLATE
+
+## METADADOS
+- **Versao**: X.Y.Z
+- **Status**: draft | active | deprecated
+
+## DOMINIO
+Que tipo de aplicacao este template serve.
+
+## STACK RECOMENDADA
+| Camada | Tecnologia |
+
+## ESTRUTURA DE MODULOS
+(Arvore de diretorios)
+
+## CARACTERISTICAS PRINCIPAIS
+- Caracteristica
+
+## NOTAS DE ARQUITETURA
+- Nota
+
+## RELACIONADOS
+- [Template relacionado](../path)
 ```
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| Version | Yes | Semantic version (X.Y.Z) |
-| Status | Yes | draft, active, or deprecated |
-| Owner | Yes | Department or engine name |
-| Last Updated | Yes | ISO date of last modification |
+---
+
+## Requisitos de Metadados
+
+Todo arquivo deve comecar com um bloco de metadados:
+
+```markdown
+> **Versao**: X.Y.Z | **Status**: draft | active | deprecated | **Dono**: nome | **Ultima Atualizacao**: YYYY-MM-DD
+```
+
+| Campo | Obrigatorio | Descricao |
+|-------|-------------|-----------|
+| Versao | Sim | Versao semantica (X.Y.Z) |
+| Status | Sim | draft, active ou deprecated |
+| Dono | Sim | Nome do departamento ou engine |
+| Ultima Atualizacao | Sim | Data ISO da ultima modificacao |
 
 ---
 
-## Naming Conventions
+## Convencoes de Nomenclatura
 
-| Element | Convention | Example |
-|---------|-----------|---------|
-| Departments | lowercase, hyphenated | `backend`, `uiux`, `qa` |
-| Engines | lowercase, single word | `wizard`, `context`, `planning` |
-| Workflows | lowercase, hyphenated | `feature-development`, `bug-fix` |
-| Templates | lowercase, single word | `erp`, `saas`, `mobile` |
-| Governance docs | UPPER_SNAKE_CASE | `GOVERNANCE.md` |
-| Section headers | UPPERCASE | `## PURPOSE` |
-
----
-
-## Formatting Rules
-
-1. All files use GitHub-flavored Markdown
-2. Headers use `##` for top-level sections, `###` for subsections
-3. Lists use `-` for unordered, `1.` for ordered
-4. Tables use standard Markdown table syntax
-5. Code blocks specify language: ` ```yaml `
-6. File paths in references are relative from `cosca/` root
-7. Cross-references use `[Display Name](../path/to/file.md)`
-8. One blank line between sections
-9. Maximum line length: 120 characters (for readability)
-10. No trailing whitespace
-11. **All file content is written in English** — code, docs, skills, engines, workflows, memory records. The only exception is the Kernel↔Don conversation, which is always conducted in Brazilian Portuguese (PT-BR). Existing historical content in Portuguese is preserved as-is (records of past sessions); only new/edited content must follow this rule.
+| Elemento | Convencao | Exemplo |
+|----------|-----------|---------|
+| Departments | lowercase, hifenizado | `backend`, `uiux`, `qa` |
+| Engines | lowercase, palavra unica | `wizard`, `context`, `planning` |
+| Workflows | lowercase, hifenizado | `feature-development`, `bug-fix` |
+| Templates | lowercase, palavra unica | `erp`, `saas`, `mobile` |
+| Documentos de governanca | UPPER_SNAKE_CASE | `GOVERNANCE.md` |
+| Cabecalhos de secao | UPPERCASE | `## PROPOSITO` |
 
 ---
 
-## Quality Checklist
+## Regras de Formatacao
 
-Before considering a skill complete, verify:
-
-- [ ] All mandatory sections present
-- [ ] Metadata block at top
-- [ ] Version is semantic (X.Y.Z)
-- [ ] Status is one of: draft, active, deprecated
-- [ ] No duplicated content with other files
-- [ ] Cross-references use relative paths
-- [ ] Tables are properly formatted
-- [ ] No broken internal links
-- [ ] Language is consistent with other skills
-- [ ] Examples are concrete, not abstract
-- [ ] Constraints are explicit, not implied
-- [ ] Forbidden actions are clearly stated (departments only)
+1. Todos os arquivos usam GitHub-flavored Markdown
+2. Cabecalhos usam `##` para secoes de nivel superior, `###` para subsecoes
+3. Listas usam `-` para nao ordenadas, `1.` para ordenadas
+4. Tabelas usam sintaxe padrao de tabelas Markdown
+5. Blocos de codigo especificam linguagem: ` ```yaml `
+6. Caminhos de arquivo em referencias sao relativos a raiz de `cosca/`
+7. Referencias cruzadas usam `[Nome Exibido](../caminho/para/arquivo.md)`
+8. Uma linha em branco entre secoes
+9. Comprimento maximo da linha: 120 caracteres (para legibilidade)
+10. Sem espacos em branco no final
+11. **Todo conteudo do arquivo e escrito em ingles** — codigo, docs, skills, engines, workflows, registros de memoria. A unica excecao e a conversacao Kernel-Don, que sempre e conduzida em portugues brasileiro (PT-BR). Conteudo historico existente em portugues e preservado como esta (registros de sessoes passadas); apenas conteudo novo/editado deve seguir esta regra.
 
 ---
 
-> **Enforced by**: Skills Engine | **Audited by**: Evolution Engine | **Last reviewed**: 2026-07-10
+## Checklist de Qualidade
+
+Antes de considerar uma skill completa, verificar:
+
+- [ ] Todas as secoes obrigatorias presentes
+- [ ] Bloco de metadados no topo
+- [ ] Versao e semantica (X.Y.Z)
+- [ ] Status e um de: draft, active, deprecated
+- [ ] Sem conteudo duplicado com outros arquivos
+- [ ] Referencias cruzadas usam caminhos relativos
+- [ ] Tabelas formatadas corretamente
+- [ ] Sem links internos quebrados
+- [ ] Idioma consistente com outras skills
+- [ ] Exemplos sao concretos, nao abstratos
+- [ ] Restricoes sao explicitas, nao implicitas
+- [ ] Acoes proibidas claramente declaradas (apenas departments)
+
+---
+
+> **Executado por**: Skills Engine | **Auditado por**: Evolution Engine | **Ultima revisao**: 2026-07-10

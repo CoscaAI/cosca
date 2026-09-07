@@ -32,6 +32,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/zeebo/blake3 v0.2.4
 	golang.org/x/crypto v0.56.0
+	golang.org/x/image v0.45.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 	nhooyr.io/websocket v1.8.17
@@ -42,7 +43,6 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
-	golang.org/x/image v0.45.0 // indirect
 )
 
 require (
