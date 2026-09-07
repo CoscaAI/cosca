@@ -223,3 +223,8 @@ tmp/
 .cosca/family_chain.dat.*
 
 .cosca/config.yaml
+
+# Artefatos de debug/percepcao
+.cosca/tela.png
+.cosca/teste-fala.wav
+cosca/tela.png
