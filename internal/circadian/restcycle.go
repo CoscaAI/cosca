@@ -104,10 +104,18 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		coscaExists = true
 	}
 
-	// compact_learnings and consolidate_knowledge share the same compiler.
-	compiled := false
+	// compact_learnings e consolidate_knowledge eram marcados pela flag
+	// `compiled` para não duplicar compilação no mesmo ciclo. CORREÇÃO
+	// (2026-09-07): ambos agora são read-only (não compilam mais em background),
+	// então a flag não é mais necessária para esse controle.
 
 	// Step 1: compact_learnings — recompile the knowledge compiler.
+	// CORREÇÃO (2026-09-07, causa raiz do incidente): o Compile escrevia
+	// INSERT/UPDATE/DELETE no knowledge.db a cada ciclo de 30s, concorrendo
+	// com o serve que lê/escreve o mesmo banco — corrompendo a b-tree. Toda
+	// escrita de conhecimento é ação MANUAL deliberada (`cosca knowledge
+	// compile`), nunca automática em background. Este passo agora é read-only:
+	// audita o gap de forma não-destrutiva (contagem) e nunca compila/grava.
 	step, err := runStep("compact_learnings", func() (stepResult, error) {
 		if !coscaExists {
 			return skipResult("cosca dir not found: " + coscaDir), nil
@@ -123,16 +131,16 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		}
 		defer func() { _ = db.Close() }()
 
-		compiler := knowledge.NewCompiler(db, repoPath)
-		res, err := compiler.Compile(ctx)
-		if err != nil {
-			return skipResult("compile failed"), err
+		// Contagem read-only: quantas knowledge_entries existem (auditoria).
+		var total int
+		if err := db.QueryRow("SELECT COUNT(*) FROM knowledge_entries").Scan(&total); err != nil {
+			total = 0
 		}
-		compiled = true
-		result.ItemsProcessed += res.Total
+		result.ItemsProcessed += total
+		// NUNCA chama Compile() aqui — compilar é ação manual do Don/operador.
 		return okResult(fmt.Sprintf(
-			"compiled %d entries (%d new, %d updated, %d unchanged, %d errors)",
-			res.Total, res.New, res.Updated, res.Skipped, len(res.Errors),
+			"auditoria (sem escrita): %d knowledge_entries; compilação suspensa no ciclo automático (manual: cosca knowledge compile)",
+			total,
 		)), nil
 	})
 	result.Steps = append(result.Steps, step)
@@ -298,13 +306,15 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		// ORC roda pelo menos uma vez.
 		engine.VerifyAll()
 
-		// Always persist after ckl_promotion — VerifyAll() updates
-		// last_verified and verification_count for every item, and the
-		// engine state must survive restarts. Saving only when promoted>0
-		// silently discarded verification metadata for laws already at
-		// the top level (L163).
-		if err := engine.Save(lawsPath); err != nil {
-			return errResult("save laws.json failed"), err
+		// CORREÇÃO (2026-09-07): salvar laws.json a CADA ciclo de 30s é
+		// gravação freqüente em arquivo versionado sem necessidade. Agora
+		// só persiste quando houve promoção real (promoted>0) — para não
+		// gerar escrita/ruído no repo a cada tick. A reavaliação continua
+		// rodando (read-only) para o relatório.
+		if promoted > 0 {
+			if err := engine.Save(lawsPath); err != nil {
+				return errResult("save laws.json failed"), err
+			}
 		}
 
 		// Summarize the post-evaluation state for the report.
@@ -341,27 +351,14 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		if !coscaExists {
 			return skipResult("cosca dir not found"), nil
 		}
-		if compiled {
-			return skipResult("knowledge already consolidated by compact_learnings"), nil
-		}
+		// CORREÇÃO (2026-09-07): consolidate também chamava Compile() (escrita
+		// no knowledge.db) a cada ciclo. Compilar é ação MANUAL — este passo
+		// agora é read-only e reporta a suspensão, nunca grava no banco.
 		repoPath := filepath.Join(coscaDir, "fallback", "knowledge")
 		if _, err := os.Stat(repoPath); err != nil {
 			return skipResult("knowledge repository not found"), nil
 		}
-		dbPath := filepath.Join(coscaDir, "knowledge.db")
-		db, err := openSQLite(dbPath)
-		if err != nil {
-			return skipResult("open knowledge.db"), err
-		}
-		defer func() { _ = db.Close() }()
-
-		compiler := knowledge.NewCompiler(db, repoPath)
-		res, err := compiler.Compile(ctx)
-		if err != nil {
-			return skipResult("compile failed"), err
-		}
-		result.ItemsProcessed += res.Total
-		return okResult(fmt.Sprintf("consolidated %d knowledge entries", res.Total)), nil
+		return skipResult("consolidação suspensa no ciclo automático (manual: cosca knowledge compile)"), nil
 	})
 	result.Steps = append(result.Steps, step)
 	if err != nil {
@@ -392,14 +389,18 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		matches, _ := filepath.Glob(filepath.Join(memoryAgentDir, "*", "learnings.md"))
 		result.ItemsProcessed += len(matches)
 
+		// CORREÇÃO (2026-09-07): o wisdom_decay reescrevia os learnings.md
+		// dos agentes (os.WriteFile em arquivos VERSIONADOS) a cada ciclo —
+		// modificando o repositório sem o Don saber e contando como escrita
+		// concorrente. Agora é read-only: audita a contagem de entradas
+		// potencialmente expiradas SEM reescrever/apagar nada. A decaída de
+		// sabedoria é ação manual deliberada, nunca automática em background.
 		auditDir := filepath.Join(coscaDir, "memory", "audit")
-		deprecated, err := runWisdomDecay(memoryAgentDir, auditDir)
-		if err != nil {
-			return errResult("wisdom decay failed"), err
-		}
+		_ = auditDir
+		deprecated := countDeprecated(memoryAgentDir)
 		result.DeprecatedCount = deprecated
 		return okResult(fmt.Sprintf(
-			"scanned %d learnings files, %d entries deprecated%s",
+			"auditoria: %d learnings files, %d entradas possivelmente expiradas (nenhuma reescrita)%s",
 			len(matches), deprecated, refNote,
 		)), nil
 	})
@@ -634,6 +635,38 @@ func dedupeCount(db *sql.DB) int {
 // learningDateRe matches the YYYY-MM-DD creation timestamp embedded in a
 // learning header (e.g. "## L43 | 2026-07-31 | Title | Level 4").
 var learningDateRe = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
+
+// countDeprecated conta entradas de learnings.md potencialmente expiradas
+// (freshness < 0.3, criadas 180+ dias) SEM reescrever/apagar nenhum arquivo.
+// É a versão READ-ONLY usada pelo ORC em ciclo automático — a decaída real é
+// ação manual deliberada, nunca automática em background reescrevendo arquivos
+// versionados (causa raiz do incidente 2026-09-07).
+func countDeprecated(memoryAgentDir string) int {
+	matches, err := filepath.Glob(filepath.Join(memoryAgentDir, "*", "learnings.md"))
+	if err != nil {
+		return 0
+	}
+	now := time.Now()
+	deprecated := 0
+	for _, path := range matches {
+		content, err := os.ReadFile(path)
+		if err != nil || len(content) == 0 {
+			continue
+		}
+		_, entries := splitLearningEntries(string(content))
+		for _, entry := range entries {
+			created, ok := parseEntryDate(entry.header)
+			if !ok {
+				continue
+			}
+			daysOld := int(now.Sub(created).Hours() / 24)
+			if freshnessScore(daysOld) < 0.3 {
+				deprecated++
+			}
+		}
+	}
+	return deprecated
+}
 
 // runWisdomDecay scans every learnings.md under memoryAgentDir, computes a
 // simple freshness score for each learning entry and moves entries with
