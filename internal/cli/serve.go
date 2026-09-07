@@ -1465,6 +1465,15 @@ func workspaceDir() string {
 // is empty, it defaults to .cosca in the current working directory.
 func resolveDataDir(dataDir string) (string, error) {
 	if dataDir == "" {
+		// Prefer the ABSOLUTE project path from config (sovereign) over the
+		// fragile CWD. Using os.Getwd() here is a bug: a command run from a
+		// nested dir (e.g. internal/memory) resolves a relative ".cosca" and
+		// the downstream filepath.Join(dataDir, "memory", layer) duplicates
+		// the segment (internal/memory/memory/...). Fall back to CWD only if
+		// config is unavailable.
+		if cfg, err := config.Load(); err == nil && cfg.Paths.Project != "" {
+			return filepath.Join(cfg.Paths.Project, ".cosca"), nil
+		}
 		cwd, err := os.Getwd()
 		if err != nil {
 			return "", fmt.Errorf("get working directory: %w", err)
