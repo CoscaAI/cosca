@@ -8,6 +8,23 @@
 > Conhecimento do projeto vai para: `docs/` + `.cosca/provenance.yaml` (ledger) + `.cosca/knowledge/` (knowledge index).
 > Os 558 registros abaixo permanecem como proveniência — NÃO apagar.
 
+## Session: 2026-09-07 — Incidente corrupção do banco (causa raiz ORC)
+
+### 2026-09-07 — Diagnóstico + correção do ORC destrutivo (config do home + dimensão 768)
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Don reportou: "até 2 dias atrás funcionava, agora tudo quebrado" + quer banco em 768, nativo Windows, reproduzível do git. |
+| **Technique** | Diagnóstico em camadas (runtime → banco → chain → config) + fix de causa raiz no código. |
+| **Level** | 4 |
+| **Outcome** | success — banco 768 íntegro (20749 vetores), chain válida (6 blocos), serve nativo no ar (14120=200), busca semântica ok (score 0.98). |
+| **Confidence** | 0.90 |
+| **Tags** | #incidente #orc #causa-raiz #config-home #dimensao-768 #corrupcao-btree |
+| **Learned** | 1) **Causa raiz NÃO era a chain nem o banco — era o config do home**: `~/.config/cosca/config.yaml` apontava `project: ...\internal\config` e `db.path: ...\internal\config\.cosca\cosca.db` (banco inexistente) → `config.Load()` (lê home ANTES do projeto) quebrava o data-dir. 2) **ORC (circadian) rodava a cada 30s SEM gate** (`bootstrap.go` ORCInterval=30s) executando `RebuildAll` (DROP vectors + FTS rebuild + re-index) e `dedupe` (DELETE FROM documents) — **isso corrompia a b-tree** (chunks_fts, page 18438/861, "btreeInitPage error 11"). 3) **Dimensão divergente**: ORC fixava 128, config dizia 768, WSL tinha 384 — 3 valores. Corrigido: DERIVAR do provider (default 768). 4) **Dados são float32** → dimensão = `len(blob)/4` (não `/8`). Medir errado me fez achar 384 quando era 768. 5) **WSL tinha 2 mundos**: `/home/cosca/cosca/.cosca` (272MB) vs `/mnt/c/...\cosca\.cosca` (workspace). Eliminado WSL como runtime (stop+disable+autostart removido), serve 100% nativo Windows. 6) **Reproduzibilidade**: knowledge.db e vector-*.db são DERIVADOS (gitignored) — restaurar do git exige `cosca index rebuild --vectors`. Chain é versionada e re-assinada (`cosca-check --sign-auto`). |
+| **Next** | Acompanhar serve nativo; documentar reprodução do git (init + rebuild + serve). |
+
+---
+
 ## Session: 2026-08-23 — Implementation Plan (Living World)
 
 ### 2026-08-23 — Implementation Plan — de mineração para execução
@@ -1394,3 +1411,18 @@ CRIADO:
 - AGENTS.md criado: guia de bootstrap do kernel (hierarquia, contrato de seguranca, fluxo, comandos, serve, memoria, gap build).
 
 LICAO (patterns): instalador idempotente + fail-closed na seguranca. Banner ASCII: usar aqui-string unico, nao conct com \ (quebra escape no PS 5.1).
+## 2026-09-06 — ENCERRAMENTO DA SESSÃO (setor: estabilização Cosca + esteira)
+
+ESTADO FINAL (medido):
+- cosca serve Windows: NO AR, /health HTTP 200 (REST 14120 / metrics 14121 / gRPC 14122).
+- Family chain: ATIVA (fail-closed), re-assinada.
+- Git: branch cosca-database, arvore limpa (so .cosca/knowledge/laws.json = conhecimento vivo, esperado).
+- Doc: README.md atualizado + AGENTS.md criado (bootstrap do kernel) + relatorio da esteira.
+- Instalador enterprise: scripts/installer-enterprise.ps1 (banner+check+config+install, idempotente, fail-closed).
+- Build fix Linux: stub execNative em internal/chat/sandbox/gate_linux.go.
+
+PENDENCIAS PARA PROXIMA (ordem do Don quando quiser):
+1. Fix build Linux completo: internal/worldmodel/vision (onnxruntime_go, CGO) — requer mexer em codigo.
+2. Solitek: sistema de OS validado (48 testes, builds pass) — commitar se quiser.
+
+LICAO CENTRAL: chain orfa de repo reconstruido = 42 commits mortos = 'family chain breach'. Recriar com --init (TTY do Don) + restaurar key embed + sign-auto. Chain e o sistema imune: NUNCA contornar.

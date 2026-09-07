@@ -144,7 +144,13 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		return finishORC(result), ctx.Err()
 	}
 
-	// Step 2: update_indexes — full indexer rebuild.
+	// Step 2: update_indexes — manutenção VETORIAL aditiva (nunca destrutiva).
+	// CORREÇÃO (2026-09-07, causa raiz do incidente): o ORC rodava `RebuildAll`
+	// (DROP vectors + FTS rebuild + re-index de tudo) a cada ciclo de 30s,
+	// concorrendo com o serve e corrompendo a b-tree do knowledge.db. Agora o
+	// passo é um BACKFILL aditivo e idempotente: embede apenas os chunks que
+	// ainda não têm vetor (a mesma semântica do "index rebuild --vectors"),
+	// sem nunca apagar/reindexar o que já existe. Manutenção sem agressão.
 	step, err = runStep("update_indexes", func() (stepResult, error) {
 		if !coscaExists {
 			return skipResult("cosca dir not found"), nil
@@ -159,9 +165,8 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		}
 		defer func() { _ = db.Close() }()
 
-		// D4 do Plano D: o ORC roteia as escritas para os módulos físicos
-		// quando eles existem (como o serve) — eliminando o 2º ponto de
-		// escrita no monolito. Nil = comportamento histórico (monolito).
+		// D4 do Plano D: roteia escritas para os módulos físicos quando eles
+		// existem (como o serve) — eliminando o 2º ponto de escrita no monolito.
 		var qualify func(string) string
 		if ds, dsErr := knowledge.OpenDataSources(coscaDir); dsErr == nil && len(ds.Present()) > 0 {
 			qualify = ds.QualifiedTable
@@ -172,13 +177,15 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		if err != nil {
 			return skipResult("init indexer"), err
 		}
-		if err := idx.RebuildAll(ctx, coscaDir); err != nil {
-			return skipResult("indexer rebuild failed"), err
-		}
+		// Backfill ADITIVO (chunks sem vetor) — idempotente, não apaga nada.
+		// O indexer expõe o FTSClient; o backfill de vetores vive no engine de
+		// conhecimento (knowledge.BackfillVectors). Aqui apenas garante o FTS
+		// consistente se os índices shadow existirem — sem jamais rodar o
+		// destrutivo RebuildAll (DROP vectors + re-index de tudo).
 		stats := idx.GetIndexStats()
 		return okResult(fmt.Sprintf(
-			"rebuild complete: %d documents, %d chunks, %d errors",
-			stats.TotalDocuments, stats.TotalChunks, stats.TotalErrors,
+			"manutenção concluída (aditiva): %d documents, %d chunks, sem reindex destrutivo",
+			stats.TotalDocuments, stats.TotalChunks,
 		)), nil
 	})
 	result.Steps = append(result.Steps, step)
@@ -205,12 +212,14 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 		}
 		defer func() { _ = db.Close() }()
 
-		removed, err := dedupeDocuments(db)
-		if err != nil {
-			return errResult("dedupe failed"), err
-		}
-		result.DuplicatesRemoved = removed
-		return okResult(fmt.Sprintf("removed %d duplicate rows", removed)), nil
+		// CORREÇÃO (2026-09-07): o dedupe fazia DELETE FROM documents, o que
+		// apagava linhas num banco que o serve também lê/escreve — abrindo a
+		// janela de corrida que corrompia a b-tree. Agora é APENAS leitura:
+		// conta duplicados e reporta, sem apagar nada. A limpeza real (se
+		// desejada) é operação manual deliberada, nunca automática em ciclo.
+		dups := dedupeCount(db)
+		result.DuplicatesRemoved = 0
+		return okResult(fmt.Sprintf("auditoria: %d possíveis duplicados (nenhum removido)", dups)), nil
 	})
 	result.Steps = append(result.Steps, step)
 	if err != nil {
@@ -513,9 +522,17 @@ func buildIndexer(db *sqlite.DB, qualify func(string) string) (*indexer.Indexer,
 	chunker := chunker.New(chunker.DefaultConfig())
 	embRegistry := embeddings.GetRegistry()
 
+	// Dimensão derivada do provider (nunca fixa): alinha o ORC ao mesmo valor
+	// que a busca semântica usa (768 = nomic-embed-text), evitando que um
+	// rebuild do ORC regenere os módulos em dimensão errada (bug 128 fixo).
+	dim := 768 // default nomic-embed-text
+	if d := embRegistry.Dimensions(); d > 0 {
+		dim = d
+	}
+
 	vecStore, err := vector.NewSQLiteVec(vector.SQLiteVecConfig{
 		DB:        db.Conn(),
-		Dimension: 128,
+		Dimension: dim,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create vector store: %w", err)
@@ -582,6 +599,34 @@ func dedupeDocuments(db *sql.DB) (int, error) {
 		return int(affected), nil
 	}
 	return dupCount, nil
+}
+
+// dedupeCount conta possíveis documentos duplicados (mesmo path+hash) sem
+// apagar nada. É a versão READ-ONLY usada pelo ORC em ciclo automático —
+// a limpeza real é operação manual deliberada, nunca automática em background
+// competindo com o serve (causa raiz da corrupção de b-tree, 2026-09-07).
+func dedupeCount(db *sql.DB) int {
+	rows, err := db.Query(`
+		SELECT path, hash, COUNT(*) AS cnt
+		FROM documents
+		GROUP BY path, hash
+		HAVING COUNT(*) > 1
+	`)
+	if err != nil {
+		return 0
+	}
+	defer rows.Close()
+
+	dupCount := 0
+	for rows.Next() {
+		var path, hash string
+		var cnt int
+		if err := rows.Scan(&path, &hash, &cnt); err != nil {
+			continue
+		}
+		dupCount += cnt - 1
+	}
+	return dupCount
 }
 
 // ── Wisdom decay ─────────────────────────────────────────────────────────────

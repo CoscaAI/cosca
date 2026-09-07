@@ -1,0 +1,76 @@
+# =============================================================================
+# config.example.yaml — Referência de configuração do Cosca (PORTÁVEL)
+#
+# Copie este arquivo para o diretório de config do projeto:
+#   Windows:  <projeto>\.cosca\config.yaml
+#   ou:       ~\.config\cosca\config.yaml   (user-level, tem precedência)
+#
+# IMORTANTE (correção 2026-09-07):
+#   - O path do projeto e do banco DEVEM apontar para o diretório real do Cosca.
+#     Um path apontando para um banco inexistente quebra o boot e corrompe a
+#     busca semântica. Use caminhos absolutos reais ou variáveis de ambiente.
+#   - A dimensão de embedding é 768 (nomic-embed-text). Um `db build`/rebuild
+#     DERIVA a dimensão do provider — nunca fixe um valor errado (bug 128).
+#
+# Placeholders a substituir:  {{COSCA_PROJECT}} = caminho do projeto cosca.
+# =============================================================================
+version: "1.0"
+profile: default
+mode: development
+verbose: false
+paths:
+    home: ~/.config/cosca
+    project: {{COSCA_PROJECT}}
+    runtime: ~/.config/cosca/runtime
+    data: ~/.config/cosca/data
+    cache: ~/.config/cosca/cache
+    logs: ~/.config/cosca/logs
+    temp: ~/.config/cosca/tmp
+    plugins: ~/.config/cosca/plugins
+    backups: ~/.config/cosca/backups
+db:
+    path: {{COSCA_PROJECT}}/.cosca/knowledge.db
+    wal_mode: true
+    page_size: 4096
+    cache_size_kb: 65536
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 30m0s
+    conn_max_idle_time: 5m0s
+    enable_fts5: true
+    enable_vector_ext: false
+    backup_interval: 1h0m0s
+provider:
+    name: ollama
+    model: qwen2.5-coder:latest
+    context_window: 131072
+    api_key: ""
+    base_url: ""
+    max_tokens: 16384
+    temperature: 0.8
+    timeout: 30s
+    max_retries: 3
+    rate_limit_per_min: 60
+embedding:
+    model: nomic-embed-text
+    dimensions: 768
+    batch_size: 100
+    provider: ollama
+    base_url: ""
+    api_key: ""
+server:
+    host: 127.0.0.1
+    api_port: 14120
+    metrics_port: 14121
+    rpc_port: 14122
+    tls: false
+log:
+    level: info
+    format: console
+    max_size_mb: 100
+    max_backups: 5
+    max_age_days: 30
+orchestration:
+    deliberation:
+        enabled: false
+        shadow_mode: false
