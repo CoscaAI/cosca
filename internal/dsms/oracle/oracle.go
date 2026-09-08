@@ -140,6 +140,9 @@ type Classification struct {
 	Agent      string  `json:"agent"`
 	Confidence float64 `json:"confidence"`
 	Reason     string  `json:"reason"`
+	Ambiguous  bool    `json:"ambiguous"`
+	AltDomain  string  `json:"alt_domain,omitempty"`
+	AltAgent   string  `json:"alt_agent,omitempty"`
 }
 
 // PreFlight is the result of pre-delegation analysis.
@@ -272,20 +275,37 @@ func classifyByKeywords(lower string) *Classification {
 
 	// Pick highest signal count; tie-break by confidence
 	best := scores[0]
+	second := domainScore{} // second-best for ambiguity detection
 	for _, s := range scores[1:] {
 		if s.signals > best.signals ||
 			(s.signals == best.signals && s.rule.conf > best.rule.conf) {
+			second = best
 			best = s
+		} else if second.signals == 0 ||
+			s.signals > second.signals ||
+			(s.signals == second.signals && s.rule.conf > second.rule.conf) {
+			second = s
 		}
 	}
 
-	return &Classification{
+	cls := &Classification{
 		Type:       best.rule.domain + "_task",
 		Domain:     best.rule.domain,
 		Agent:      best.rule.agent,
 		Confidence: best.rule.conf,
 		Reason:     fmt.Sprintf("%d signal(s), keyword: %s", best.signals, best.matched),
 	}
+
+	// Mark ambiguity when two domains are close (within 1 signal)
+	if second.signals > 0 &&
+		(best.signals-second.signals) <= 1 {
+		cls.Ambiguous = true
+		cls.AltDomain = second.rule.domain
+		cls.AltAgent = second.rule.agent
+		cls.Reason += fmt.Sprintf("; ambíguo com %s (%d sinais)", second.rule.domain, second.signals)
+	}
+
+	return cls
 }
 
 // normalizeText lowercases and strips accents/diacritics.

@@ -45,6 +45,10 @@ func AskCmd() *cobra.Command {
 				fmt.Printf("  Agente: %s\n", cls.Agent)
 				fmt.Printf("  Confiança: %.0f%%\n", cls.Confidence*100)
 				fmt.Printf("  Motivo: %s\n", cls.Reason)
+				if cls.Ambiguous {
+					fmt.Printf("  ⚠️  AMBÍGUO — alternativa: %s (%s)\n", cls.AltAgent, cls.AltDomain)
+					fmt.Printf("  → Kernel deve desambiguar com contexto\n")
+				}
 				return nil
 			}
 
