@@ -72,6 +72,7 @@ Subcomandos:
 	cmd.AddCommand(NewDBBuildCommand())
 	cmd.AddCommand(NewDBVerifyCommand())
 	cmd.AddCommand(NewDBMigrateCommand())
+	cmd.AddCommand(NewDBRepairCommand())
 	return cmd
 }
 
@@ -441,4 +442,5 @@ var (
 	_ *cobra.Command = NewDBCommand()
 	_ *cobra.Command = NewDBCheckCommand()
 	_ *cobra.Command = NewDBMirrorCommand()
+	_ *cobra.Command = NewDBRepairCommand()
 )

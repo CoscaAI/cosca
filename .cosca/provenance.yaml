@@ -318,3 +318,9 @@ claims:
       source: cosca-kernel (ordem do Don: Opcao B)
       confidence: 0.93
       created_at: "2026-09-08T02:30:00Z"
+    - id: adr043-incorporacao-hermes-agent
+      statement: 'ADR-043 APROVADO (2026-09-08, Don - ordem "marcha"): incorporacao adaptada de padroes do repositorio externo hermes-agent (Nous Research, atualizacao diaria). PRINCIPIO: buscar a ideia e incorporar da melhor forma (Cosca-shaped), nunca transplantar. Oportunidades priorizadas: (1) ESTADO AUTO-CURAVEL - repair assistido de bancos derivados/regeneraveis (session/index.db/knowledge.db/vector-*.db) com fingerprint de arquivo (mascara de header volatel SQLite), ledger sidecar de tentativas (max 3 por fingerprint), backup forense deduplicado (retencao 3), healthcheck PRAGMA quick_check no boot; implementa a Camada C do ADR-014 (que estava pendente); chain/identidade/embed NUNCA auto (sempre --manual + Don). (2) EVALS COMO CULTURA - suites de regressao por area reaproveitando harness existente: session_search primeiro (deterministico), depois codebase recall (baseline ADR-011); ligar ao qgate com tolerancia RegressionGate 0.02. (3) PROVIDERS - opcao C: manter adaptadores testados "ready, not wired", documentar, eliminar duplicacao catalogo estatico vs registry do chat; sem poda, sem wire dos 11 agora (Lei do Cofre). (4) COMPRESSAO PERSISTENTE com gate de recall e promocao a memoria longa (fase posterior, liga ADR-031). P2/P3 registrados (portabilidade de sessoes, drift de skills 89 vs 98 com teste de paridade, runner de lote p/ treino laboratory/, MCP remoto, prompt-cache em evals). VALIDACAO: baseline antes/depois obrigatorio (zero regressao acima de 0.02). Referencia externa: C:\Users\Henrique\AppData\Local\Temp\opencode\hermes-agent.'
+      kind: decision
+      source: Don+cosca-architecture+cosca-kernel
+      confidence: 0.9
+      created_at: "2026-09-08T05:10:00Z"
