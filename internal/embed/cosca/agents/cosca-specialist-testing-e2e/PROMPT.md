@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-testing-e2e
 agent: cosca-specialist-testing-e2e
 type: prompt
@@ -40,3 +40,5 @@ func TestE2E_FullWorkflow(t *testing.T) {
 ```
 
 RULES: Test complete user journeys. Use real binaries and real servers (no mocks at E2E level). Report to Testing Chief.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-testing-e2e --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+

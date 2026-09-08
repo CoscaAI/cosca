@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-evolution
 agent: cosca-evolution
 type: prompt
@@ -27,4 +27,5 @@ GENERATE: Evolution Report with critical issues, priorities, refactoring candida
 
 RULES: Analyze and report. NEVER implement fixes without approval. Generate plans, not code changes.
 
-AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-evolution/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-evolution/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

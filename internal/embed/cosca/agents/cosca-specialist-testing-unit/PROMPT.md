@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-testing-unit
 agent: cosca-specialist-testing-unit
 type: prompt
@@ -56,3 +56,5 @@ TYPESCRIPT TEST STANDARDS:
 - Test component states: loading, error, empty, success
 
 RULES: Follow AAA pattern. Test happy path, edge cases, and error paths. Mock external dependencies. Never change production code to make tests pass. Report to Testing Chief.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-testing-unit --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+

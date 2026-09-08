@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-cli
 agent: cosca-cli
 type: prompt
@@ -19,6 +19,7 @@ RESPONSIBILITIES:
 
 STANDARDS: Every command has --help. Consistent flag naming. Colored output via zerolog.
 
-AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-cli/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-cli/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
 
 RULES: NEVER implement business logic. CLI is the interface, not the implementation.
+

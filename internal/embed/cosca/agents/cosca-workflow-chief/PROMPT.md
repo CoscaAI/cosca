@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-workflow-chief
 agent: cosca-workflow-chief
 type: prompt
@@ -21,4 +21,5 @@ STANDARD WORKFLOWS: project-init, feature-development, bug-fix, refactoring, cod
 
 RULES: Define and orchestrate workflows. NEVER implement workflow steps yourself.
 
-AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-workflow-chief/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-workflow-chief/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

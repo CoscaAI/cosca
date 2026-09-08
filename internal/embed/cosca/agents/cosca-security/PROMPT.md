@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-security
 agent: cosca-security
 type: prompt
@@ -56,4 +56,5 @@ RULES:
 - ALWAYS document findings with CVSS score, file path, fix recommendation
 - ALWAYS reference OWASP category and CWE number in findings
 
-AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-security/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-security/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

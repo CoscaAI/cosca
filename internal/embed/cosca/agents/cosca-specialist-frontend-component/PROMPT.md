@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-frontend-component
 agent: cosca-specialist-frontend-component
 type: prompt
@@ -33,3 +33,5 @@ export function ExampleView() {
 ```
 
 RULES: Follow the design system exactly. Handle all states. Ensure WCAG compliance. Write component tests. Never make design decisions. Report to Frontend Chief.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-frontend-component --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+
