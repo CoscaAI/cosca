@@ -21,6 +21,9 @@ import (
 	"github.com/CoscaAI/cosca/internal/contextmetrics"
 	"github.com/CoscaAI/cosca/internal/contextrouter"
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/search"
+	"github.com/CoscaAI/cosca/internal/taskaffinity"
+	"github.com/CoscaAI/cosca/internal/taskphase"
 )
 
 // Config configura o pipeline de contexto.
@@ -60,6 +63,30 @@ func (p *Pipeline) BuildContext(prompt string, data *orchestration.PipelineData)
 	hasKnowledge := data.KnowledgeResults != nil && len(data.KnowledgeResults.Results) > 0
 	hasMemory := len(data.MemoryResults) > 0 || len(data.RetrievedMemories) > 0
 
+	// ═══ NOVO (ADR-045 F4): Task-Aware Search ═══
+	// Aditivo: quando data.TaskContext é nil (ou Profile nil), o fluxo é
+	// idêntico ao atual — zero regressão.
+	if data.TaskContext != nil && data.TaskContext.Profile != nil {
+		profile := data.TaskContext.Profile
+		detection := data.TaskContext.PhaseDetection
+
+		// 1. Ajustar SearchParams pela fase (ANTES da busca downstream).
+		// O contextpipeline não executa a busca — os resultados chegam prontos
+		// no PipelineData — mas os parâmetros ajustados fluem para o estágio
+		// de busca do executor (DESIGN-001 §5.4 passo 1).
+		if detection != nil {
+			data.SearchParams = taskphase.PhaseSearchParams(data.SearchParams, *detection)
+		}
+
+		// 2. AffinityRerank sobre os resultados (DEPOIS da busca, ANTES do
+		// compile). Os resultados são re-ponderados por afinidade com a tarefa
+		// (DESIGN-001 §5.4 passo 2).
+		if data.KnowledgeResults != nil && len(data.KnowledgeResults.Results) > 0 {
+			data.KnowledgeResults.Results = rerankKnowledgeResults(data.KnowledgeResults.Results, profile)
+		}
+	}
+	// ═══ FIM NOVO ═══
+
 	// F4: decide a camada (confiança do deliberate + disponibilidade de
 	// evidência). Sem deliberação real, usamos a disponibilidade de evidência
 	// como proxy conservador (L1 quando há conhecimento, L2 quando não há
@@ -79,6 +106,14 @@ func (p *Pipeline) BuildContext(prompt string, data *orchestration.PipelineData)
 		Allowed:     p.cfg.Allowed,
 		Forbidden:   p.cfg.Forbidden,
 	}, contextcompile.TokenBudget{MaxTokens: p.cfg.MaxTokens})
+
+	// ═══ NOVO (ADR-045 F4): Profile no CompiledContext ═══
+	// Enriquecer a seção STATE com stack/target do perfil de tarefa
+	// (DESIGN-001 §5.5). Nil-safe: profile nil → no-op.
+	if data.TaskContext != nil && data.TaskContext.Profile != nil {
+		cc.EnrichWithProfile(data.TaskContext.Profile)
+	}
+	// ═══ FIM NOVO ═══
 
 	// F5: registra as estatísticas da compilação (economia vs contexto bruto).
 	p.Track.Add(contextmetrics.CompileStats{
@@ -150,4 +185,42 @@ func estimateCompiledTokens(cc *contextcompile.CompiledContext) int {
 		return 0
 	}
 	return len(cc.Text) / 4
+}
+
+// rerankKnowledgeResults aplica o AffinityRerank (taskaffinity) sobre os
+// resultados de conhecimento do PipelineData. O taskaffinity opera sobre
+// search.SearchResult; o pipeline carrega orchestration.KnowledgeSearchResult
+// — o adapter converte ida-e-volta preservando os campos extras (Epistemic,
+// PolicyState) via lookup por ID.
+//
+// Nil-safe: profile nil ou results vazio → retorna results inalterados.
+func rerankKnowledgeResults(results []orchestration.KnowledgeSearchResult, profile *taskaffinity.TaskProfile) []orchestration.KnowledgeSearchResult {
+	if profile == nil || len(results) == 0 {
+		return results
+	}
+
+	// Preserva os originais por ID para o round-trip dos campos extras.
+	original := make(map[string]orchestration.KnowledgeSearchResult, len(results))
+	converted := make([]search.SearchResult, len(results))
+	for i, r := range results {
+		original[r.ID] = r
+		converted[i] = search.SearchResult{
+			ID:           r.ID,
+			Title:        r.Title,
+			Content:      r.Content,
+			Snippet:      r.Snippet,
+			Score:        r.Score,
+			DocumentPath: r.DocumentPath,
+		}
+	}
+
+	reranked := taskaffinity.AffinityRerank(converted, profile)
+
+	out := make([]orchestration.KnowledgeSearchResult, len(reranked))
+	for i, r := range reranked {
+		orig := original[r.ID]
+		orig.Score = r.Score
+		out[i] = orig
+	}
+	return out
 }

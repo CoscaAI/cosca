@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/CoscaAI/cosca/internal/orchestration"
+	"github.com/CoscaAI/cosca/internal/taskaffinity"
 )
 
 // Section é uma seção do contexto compilado, com o percentual de orçamento
@@ -237,4 +238,38 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "…"
+}
+
+// EnrichWithProfile enriquece o contexto compilado com informações do perfil
+// de tarefa (ADR-045 §5.5). Adiciona à seção STATE o stack e o target
+// detectados pelo Task-Aware Search, e remonta o texto (o texto é derivado
+// das seções — modificar a seção sem remontar deixaria o texto desatualizado).
+//
+// Nil-safe: profile nil ou cc nil → no-op (retrocompatível).
+func (cc *CompiledContext) EnrichWithProfile(profile *taskaffinity.TaskProfile) {
+	if cc == nil || profile == nil {
+		return
+	}
+
+	// Encontrar a seção STATE e anexar os extras do perfil.
+	for i := range cc.Sections {
+		if cc.Sections[i].Name != "STATE" {
+			continue
+		}
+		var extras []string
+		if profile.HasStack() {
+			extras = append(extras, "stack="+strings.Join(profile.Stack, "+"))
+		}
+		if profile.HasTarget() {
+			extras = append(extras, "target="+profile.Target)
+		}
+		if len(extras) > 0 {
+			cc.Sections[i].Content += " · " + strings.Join(extras, " · ")
+		}
+		break
+	}
+
+	// Remonta o texto a partir das seções atualizadas (o texto é derivado das
+	// seções — sem isso, a modificação acima não reflete no contexto entregue).
+	cc.Text = renderText(cc.Sections)
 }

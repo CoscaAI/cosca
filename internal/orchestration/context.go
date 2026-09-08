@@ -84,6 +84,23 @@ func (cb *ContextBuilder) BuildKnowledge(ctx context.Context, pc PipelineContext
 		Limit: maxResults,
 	}
 
+	// ── ADR-045 F4: Task-Aware Search ─────────────────────────────
+	// Quando o contextpipeline ajustou os SearchParams pela fase detectada
+	// (DESIGN-001 §5.4), o estágio de busca os consome aqui. Aditivo:
+	// SearchParams zero-value → comportamento atual (retrocompatível).
+	if sp := pc.Data.SearchParams; sp.Limit > 0 || sp.MinScore > 0 || sp.Path != "" || len(sp.Types) > 0 {
+		if sp.Limit > 0 {
+			params.Limit = sp.Limit
+		}
+		params.MinScore = sp.MinScore
+		if sp.Path != "" {
+			params.Path = sp.Path
+		}
+		if len(sp.Types) > 0 {
+			params.Types = sp.Types
+		}
+	}
+
 	// ── Awakening query ──────────────────────────────────────────────
 	// When the prompt is a greeting (the family's "oi"), the oracle is
 	// waking up. Search for IDENTITY + STATE, not the raw greeting —

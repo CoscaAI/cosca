@@ -3,6 +3,9 @@ package orchestration
 import (
 	"context"
 	"time"
+
+	"github.com/CoscaAI/cosca/internal/search"
+	"github.com/CoscaAI/cosca/internal/taskaffinity"
 )
 
 // ─── Request ─────────────────────────────────────────────────────────────────
@@ -107,6 +110,16 @@ type PipelineData struct {
 	// stage (ADR-032). It is populated only when DeliberateConfig.Enabled is
 	// true; otherwise it stays zero-valued (fail-closed).
 	DeliberationTrace *DeliberationTrace
+
+	// TaskContext é o contexto de tarefa do Task-Aware Search (ADR-045 F4).
+	// Opcional: quando nil, o pipeline ignora TAS completamente (retrocompatível).
+	TaskContext *taskaffinity.TaskContext `json:"task_context,omitempty"`
+
+	// SearchParams são os parâmetros de busca ajustados pela fase detectada
+	// (ADR-045 F4, DESIGN-001 §5.4). O contextpipeline ajusta este campo a
+	// partir do TaskContext; o estágio de busca downstream o consome quando
+	// não-zero. Zero-value = comportamento atual (retrocompatível).
+	SearchParams search.SearchParams `json:"search_params,omitempty"`
 
 	// Metrics
 	StageTimings map[string]time.Duration // per-stage timing

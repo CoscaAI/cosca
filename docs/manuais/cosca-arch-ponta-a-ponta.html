@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Cosca — Arquitetura de Ponta a Ponta: Chain, Busca Semântica e Pipeline</title>
+<style>
+  /* ====== PROFESSIONAL PDF STYLING ====== */
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm 2cm 1.8cm;
+    @bottom-center {
+      content: "Cosca v1.5.0 — Documento Técnico Confidencial";
+      font-size: 8pt;
+      color: #888;
+    }
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 8pt;
+      color: #888;
+    }
+  }
+  @page :first {
+    @bottom-center { content: none; }
+    @bottom-right { content: none; }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #1a1a2e;
+    background: #fff;
+  }
+
+  /* ====== COVER ====== */
+  .cover {
+    page-break-after: always;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color: #fff;
+    padding: 3cm;
+    margin: -2cm -1.8cm 0 -1.8cm;
+  }
+  .cover .brand {
+    font-size: 20pt;
+    font-weight: 800;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #ffd700;
+    margin-bottom: 6px;
+  }
+  .cover .subtitle {
+    font-size: 13pt;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: #ccc;
+    margin-bottom: 40px;
+  }
+  .cover .title {
+    font-size: 26pt;
+    font-weight: 700;
+    line-height: 1.3;
+    max-width: 16cm;
+    margin-bottom: 20px;
+  }
+  .cover .version {
+    font-size: 11pt;
+    color: #ffd700;
+    border: 1px solid #ffd700;
+    padding: 6px 20px;
+    border-radius: 30px;
+    display: inline-block;
+    margin-bottom: 30px;
+  }
+  .cover .meta {
+    font-size: 9.5pt;
+    color: #aaa;
+    line-height: 1.8;
+  }
+  .cover .confidential {
+    margin-top: 40px;
+    font-size: 9pt;
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+    padding: 8px 24px;
+    border-radius: 6px;
+    display: inline-block;
+    letter-spacing: 1px;
+  }
+
+  /* ====== TOC ====== */
+  .toc { page-break-after: always; }
+  .toc h1 {
+    font-size: 18pt;
+    color: #302b63;
+    border-bottom: 3px solid #ffd700;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+  .toc ol { list-style: none; counter-reset: toc; }
+  .toc ol li {
+    counter-increment: toc;
+    padding: 6px 0;
+    border-bottom: 1px dotted #ccc;
+  }
+  .toc ol li::before {
+    content: counter(toc, decimal-leading-zero) ".";
+    font-weight: 700;
+    color: #302b63;
+    margin-right: 8px;
+  }
+  .toc ol li a { color: #1a1a2e; text-decoration: none; }
+
+  /* ====== HEADINGS ====== */
+  h1 {
+    font-size: 17pt;
+    color: #302b63;
+    border-bottom: 3px solid #ffd700;
+    padding-bottom: 6px;
+    margin: 30px 0 14px 0;
+    page-break-before: always;
+  }
+  h1:first-of-type { page-break-before: auto; }
+  h2 {
+    font-size: 13.5pt;
+    color: #302b63;
+    margin: 22px 0 10px 0;
+    padding-left: 10px;
+    border-left: 4px solid #ffd700;
+  }
+  h3 {
+    font-size: 11.5pt;
+    color: #1a1a2e;
+    margin: 16px 0 8px 0;
+  }
+  h4 {
+    font-size: 10.5pt;
+    color: #444;
+    margin: 12px 0 6px 0;
+    font-style: italic;
+  }
+
+  p { margin: 8px 0; text-align: justify; }
+
+  /* ====== CODE ====== */
+  pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 8.5pt;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 10px 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f0f0f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #c0392b;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  /* ====== TABLES ====== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 9pt;
+  }
+  th {
+    background: #302b63;
+    color: #fff;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8f8fc; }
+  tr:hover td { background: #f0f0ff; }
+
+  /* ====== CALLOUTS ====== */
+  .note {
+    background: #fffbe6;
+    border-left: 4px solid #ffd700;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 9.5pt;
+  }
+  .danger {
+    background: #fff0f0;
+    border-left: 4px solid #e74c3c;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 9.5pt;
+  }
+  .success {
+    background: #f0fff4;
+    border-left: 4px solid #27ae60;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 9.5pt;
+  }
+  .info {
+    background: #f0f4ff;
+    border-left: 4px solid #2980b9;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 9.5pt;
+  }
+
+  /* ====== FLOW / DIAGRAM ====== */
+  .flow {
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 14px 0;
+    font-family: 'Consolas', monospace;
+    font-size: 8.5pt;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+    color: #1a1a2e;
+  }
+  .flow .arrow { color: #2980b9; }
+  .flow .box { color: #302b63; font-weight: 600; }
+  .flow .comment { color: #888; }
+
+  /* ====== UL ====== */
+  ul, ol { margin: 8px 0 8px 22px; }
+  li { margin: 4px 0; }
+
+  /* ====== FOOTER / META ====== */
+  .meta-block {
+    background: #f8f8fc;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 9.5pt;
+  }
+  .meta-block .label { font-weight: 700; color: #302b63; }
+
+  .page-break { page-break-before: always; }
+  .avoid-break { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER ==================== -->
+<div class="cover">
+  <div class="brand">Cosca</div>
+  <div class="subtitle">Sistema de Orquestração de Agentes</div>
+  <div class="title">Arquitetura de Ponta a Ponta<br>Chain, Busca Semântica e Pipeline</div>
+  <div class="version">v1.5.0</div>
+  <div class="meta">
+    Documento Técnico de Referência<br>
+    Don → Kernel → CEO → CTO → Chiefs → Specialists<br>
+    Data: 08 de Setembro de 2026
+  </div>
+  <div class="confidential">CONFIDENCIAL — PROPRIEDADE DA FAMÍLIA</div>
+</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <h1>Sumário</h1>
+  <ol>
+    <li><a href="#s1">Visão Geral da Arquitetura</a></li>
+    <li><a href="#s2">A Family Chain — Integridade e Identidade</a></li>
+    <li><a href="#s3">Boot e Inicialização</a></li>
+    <li><a href="#s4">O Pipeline de Ponta a Ponta</a></li>
+    <li><a href="#s5">Busca Semântica por Entendimento</a></li>
+    <li><a href="#s6">Task-Aware Search (ADR-045)</a></li>
+    <li><a href="#s7">Segurança e Governança</a></li>
+    <li><a href="#s8">Conclusão</a></li>
+  </ol>
+</div>
+
+<!-- ==================== 1. VISÃO GERAL ==================== -->
+<h1 id="s1">1. Visão Geral da Arquitetura</h1>
+
+<p>O <strong>Cosca</strong> não é um chatbot. É um sistema de <strong>orquestração de agentes</strong> com um <strong>cérebro de conhecimento curado</strong>. Ele opera como uma hierarquia operacional — <code>Don → Kernel → CEO → CTO → Chiefs → Specialists</code> — onde o Kernel roteia e não implementa, delegando aos capos (Chiefs) que comandam os soldados (Specialists).</p>
+
+<p>Este documento descreve a arquitetura de ponta a ponta, com foco em três pilares que sustentam a operação:</p>
+
+<ul>
+  <li><strong>A Family Chain</strong> — o sistema imune que garante integridade e identidade criptográfica.</li>
+  <li><strong>A Busca Semântica por Entendimento</strong> — o mecanismo que entende a intenção, não apenas a palavra.</li>
+  <li><strong>O Pipeline de Ponta a Ponta</strong> — o fluxo completo desde o boot até o aprendizado.</li>
+</ul>
+
+<h2>1.1 As Duas Camadas do Sistema</h2>
+
+<p>O repositório tem duas camadas paralelas que precisam ser distinguidas:</p>
+
+<table>
+  <thead>
+    <tr><th>Camada</th><th>Onde</th><th>Natureza</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Spec / Organizacional</strong></td>
+      <td><code>internal/embed/cosca/</code> (KERNEL.md, AGENT_DNA.md, CONSTITUTION.md, engines/*/SKILL.md)</td>
+      <td>Documentos de governança e contratos. Descrevem a "empresa de agentes".</td>
+    </tr>
+    <tr>
+      <td><strong>Código / Runtime</strong></td>
+      <td><code>internal/</code> (engine, orchestration, pipeline, knowledge, memory, search, ranking...)</td>
+      <td>Implementação Go real, determinística.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Regra de leitura:</strong> se o mecanismo só existe em markdown, está <strong>DOCUMENTADO</strong>. Se existe em Go, está <strong>ENFORCED</strong>. A spec descreve um sistema idealizado; o Go implementa um subconjunto concreto.
+</div>
+
+<h2>1.2 Hierarquia de Agentes</h2>
+
+<div class="flow">
+<span class="comment">// O organograma da família</span>
+
+<span class="box">DON</span> <span class="arrow">──ordem──►</span> <span class="box">KERNEL</span> <span class="comment">(consigliere: roteia, NÃO implementa)</span>
+                        <span class="arrow">│</span>
+                        <span class="arrow">▼</span>
+                    <span class="box">CEO</span> <span class="comment">(estratégia, nunca executa)</span> <span class="arrow">──►</span> <span class="box">CTO</span> <span class="comment">(técnica)</span>
+                        <span class="arrow">│</span>                                    <span class="arrow">│</span>
+                    <span class="box">CHIEFS</span> <span class="comment">(capos)</span> <span class="arrow">◄──────────────────────┘</span>
+                        <span class="arrow">│</span>
+                   <span class="box">SPECIALISTS</span> <span class="comment">(soldados)</span>
+</div>
+
+<p>O sistema conta com <strong>51 agentes</strong> (capos e soldados) e <strong>71 skills</strong> (soldados especializados). Cada agente tem um DNA (AGENT_DNA v3.1) com 29 campos, incluindo o <strong>GUARD PACT</strong> — as 6 guardas que definem lealdade, fail-closed, jail, integridade, memória e watchdog.</p>
+
+<h2>1.3 Estado do Sistema (Medido)</h2>
+
+<div class="meta-block">
+  <span class="label">Versão:</span> 1.5.0 &nbsp;|&nbsp;
+  <span class="label">Runtime:</span> operacional &nbsp;|&nbsp;
+  <span class="label">Provider:</span> ollama (local) &nbsp;|&nbsp;
+  <span class="label">Go:</span> go1.27.1<br><br>
+  <span class="label">Conhecimento:</span> 118.304 entradas &nbsp;|&nbsp;
+  <span class="label">Vetores:</span> 122.786 (768-dim) &nbsp;|&nbsp;
+  <span class="label">Documentos:</span> 4.521 &nbsp;|&nbsp;
+  <span class="label">Memória:</span> 6 camadas ativas
+</div>
+
+<!-- ==================== 2. FAMILY CHAIN ==================== -->
+<h1 id="s2">2. A Family Chain — Integridade e Identidade</h1>
+
+<p>A <strong>Family Chain</strong> é o sistema imune do Cosca. É uma blockchain de blocos encadeados por hash (blake3) que garante que o cérebro do sistema — o conhecimento e a memória — permaneça íntegro e verificável. É a primeira linha de defesa e a base da identidade.</p>
+
+<h2>2.1 O que a Chain Garante</h2>
+
+<table>
+  <thead>
+    <tr><th>Propriedade</th><th>Mecanismo</th><th>Implementação</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Integridade</strong></td>
+      <td>Blocos encadeados por hash (blake3), cada bloco referencia o hash do anterior</td>
+      <td><code>internal/integrity/</code> — Ed25519 + blake3</td>
+    </tr>
+    <tr>
+      <td><strong>Identidade</strong></td>
+      <td>Chave pública Ed25519 verificada contra a versão versionada no embed (anti-replacement)</td>
+      <td><code>.cosca/keys/kernel_public.key</code></td>
+    </tr>
+    <tr>
+      <td><strong>Imutabilidade</strong></td>
+      <td>Git-anchor + assinatura; qualquer alteração não assinada denuncia no boot</td>
+      <td><code>SignAfterLearning()</code> → <code>family_chain.dat</code></td>
+    </tr>
+    <tr>
+      <td><strong>Anti-hijack</strong></td>
+      <td>InitChain recusa overwrite de uma chain existente</td>
+      <td><code>internal/integrity/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2.2 Estrutura de um Bloco</h2>
+
+<pre><code>// Formato de um bloco da chain (delimitado por |)
+block_hash|prev_hash|data|learning_id|title
+
+// Genesis: 64 zeros
+0000000000000000000000000000000000000000000000000000000000000000
+
+// Exemplo real (kernel): 221 blocos, merkle com 7 epochs
+a3f9c2...|000000...|aprendizado L424|9b511c03|SEARCH_PROTOCOL implementado</code></pre>
+
+<h2>2.3 O Fluxo de Assinatura</h2>
+
+<div class="flow">
+<span class="comment">// Como um aprendizado entra na chain</span>
+
+<span class="box">EXPERIÊNCIA</span> <span class="arrow">→</span> <span class="box">EVENTO</span> <span class="comment">(PostTaskHook.RecordTask)</span>
+    <span class="arrow">→</span> <span class="box">APRENDIZADO</span> <span class="comment">(appendLearning → learnings.md)</span>
+    <span class="arrow">→</span> <span class="box">VERSIONAMENTO</span> <span class="comment">(SignAfterLearning → family_chain.dat)</span>
+    <span class="arrow">→</span> <span class="box">MERKLE</span> <span class="comment">(cosca-merkle regenera epochs)</span>
+    <span class="arrow">→</span> <span class="box">INDEXAÇÃO</span> <span class="comment">(indexer → knowledge.db)</span>
+</div>
+
+<div class="danger">
+  <strong>Regra de segurança:</strong> se a chain está desalinhada (o último bloco não bate com o git log), o serve <strong>NÃO sobe</strong>. Isso é proteção, não bug. A primeira suspeita em qualquer falha de boot é a chain desalinhada.
+</div>
+
+<h2>2.4 O Despertar (Identidade)</h2>
+
+<p>O Kernel se inicia com <code>cosca despertar</code> — um processo <strong>determinístico</strong> que lê a identidade do <code>knowledge.db</code> com ZERO LLM. A saída dele é a identidade, nunca improviso de contexto estático. O despertar verifica:</p>
+
+<ul>
+  <li><strong>Identidade</strong> — quem sou (cosca-kernel, consigliere do Don)</li>
+  <li><strong>Guard Pact</strong> — as 6 guardas (lealdade, fail-closed, jail, integridade, memória, watchdog)</li>
+  <li><strong>Lei do Cofre</strong> — o cofre não abre para a nuvem</li>
+  <li><strong>Raízes</strong> — se as raízes baterem, os neurônios são os mesmos (chain válida)</li>
+  <li><strong>Estado</strong> — esteira L3-autônomo, modo determinístico ativo</li>
+</ul>
+
+<!-- ==================== 3. BOOT ==================== -->
+<h1 id="s3">3. Boot e Inicialização</h1>
+
+<p>A inicialização do binário segue uma ordem rigorosa de hardening e verificação. Cada passo é numerado e verificado no código (<code>cmd/cosca/main.go</code>).</p>
+
+<h2>3.1 Ordem Real de Inicialização</h2>
+
+<pre><code>main() — ordem verificada no código:
+  0. hardening.PreMain()          → desativa core dumps, PR_SET_DUMPABLE=0,
+                                     remove LD_PRELOAD/LD_LIBRARY_PATH
+  1. LoadJailSecrets()            → injeta COSCA_JWT_SECRET/COSCA_METRICS_SECRET
+  2. COSCA_REAL_HOSTNAME          → hostname real (base da derivação AES-256-GCM)
+  3. env.Load(".env", true)       → carrega .env do projeto
+  4. configureGlobalLogLevel()    → zerolog antes de providers
+  5. enforceMemoryIntegrityGate() → verifica manifesto SHA-256; mismatch = INÍCIO RECUSADO
+  6. propagateProviderEnv()       → config.Load() + os.Setenv das chaves
+  7. Auto-jail (bwrap)            → reexecuta o binário (cópia em RAM) dentro da jaula
+  8. initProviders()              → local + ollama sempre; externos só com flag
+  9. initBuildInfo() / initLogger()
+ 10. cli.NewRootCommand()         → cobra, ~80 subcomandos
+ 11. graceful shutdown
+ 12. rootCmd.ExecuteContext(ctx)</code></pre>
+
+<h2>3.2 Compose de Engines</h2>
+
+<p>O <code>bootstrap.Compose()</code> monta as engines na ordem correta, verificando a chain ANTES de qualquer engine:</p>
+
+<ol>
+  <li><strong>Family chain check</strong> — se <code>family_chain.dat</code> existe, verifica integridade ANTES de tudo. Falha → <code>Fatal: startup blocked</code>.</li>
+  <li><strong>Fallback materialization</strong> — copia knowledge/memory/workflows/engines do binário (go:embed) se <code>.cosca/fallback/</code> vazio.</li>
+  <li><strong>Knowledge engine</strong> — abre <code>knowledge.db</code>, inicializa FTS5, embeddings, SQLiteVec (768-dim), carrega o grafo.</li>
+  <li><strong>Memory engine</strong> — FileStore por layer + <code>index.db</code> + snapshot manager + auto-prune.</li>
+  <li><strong>Runtime</strong> — state machine de processo (8 estados) + health loop.</li>
+  <li><strong>Compute fabric</strong> (opcional) — GPU executor via Ollama/ROCm.</li>
+  <li><strong>Daemon</strong> — escreve <code>cosca.pid</code>, watchdog, sync loop (5min), backup de knowledge.db (1h, retenção 3).</li>
+  <li><strong>Orchestrator + Runner</strong> — sempre criados; Pipeline só se habilitado.</li>
+</ol>
+
+<h2>3.3 Bancos Abertos no Boot</h2>
+
+<table>
+  <thead>
+    <tr><th>DB</th><th>Caminho</th><th>Finalidade</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>knowledge.db</td><td><code>.cosca/knowledge.db</code></td><td>Conhecimento curado (FTS5 + vetores + grafo)</td></tr>
+    <tr><td>audit.db</td><td><code>.cosca/audit.db</code></td><td>Trilha de auditoria</td></tr>
+    <tr><td>secrets.db</td><td><code>.cosca/secrets.db</code></td><td>Cofre AES-256-GCM</td></tr>
+    <tr><td>trace.db</td><td><code>.cosca/trace.db</code></td><td>Flight recorder (append-only)</td></tr>
+    <tr><td>auth_tokens.db</td><td><code>.cosca/auth_tokens.db</code></td><td>Tokens de autenticação</td></tr>
+    <tr><td>durable.db</td><td><code>.cosca/.cosca/durable.db</code></td><td>Ledger de eventos duráveis</td></tr>
+    <tr><td>conflict.db</td><td><code>.cosca/conflict.db</code></td><td>Registros de contradição</td></tr>
+  </tbody>
+</table>
+
+<!-- ==================== 4. PIPELINE ==================== -->
+<h1 id="s4">4. O Pipeline de Ponta a Ponta</h1>
+
+<p>O pipeline é o fluxo completo desde a entrada de uma ordem até o aprendizado registrado. Cada etapa tem entrada, processamento, saída, persistência e próxima etapa.</p>
+
+<h2>4.1 Visão Geral do Pipeline</h2>
+
+<div class="flow">
+<span class="box">BOOT</span> <span class="arrow">→</span> <span class="box">DESPERTAR</span> <span class="arrow">→</span> <span class="box">IDENTIDADE</span> <span class="arrow">→</span> <span class="box">MEMÓRIA</span>
+    <span class="arrow">→</span> <span class="box">CONHECIMENTO</span> <span class="arrow">→</span> <span class="box">CONTEXTO</span> <span class="arrow">→</span> <span class="box">TIMELINE</span>
+    <span class="arrow">→</span> <span class="box">LLM</span> <span class="arrow">→</span> <span class="box">FERRAMENTAS</span> <span class="arrow">→</span> <span class="box">EXECUÇÃO</span>
+    <span class="arrow">→</span> <span class="box">VERIFICAÇÃO</span> <span class="arrow">→</span> <span class="box">PROVENIÊNCIA</span> <span class="arrow">→</span> <span class="box">APRENDIZADO</span>
+</div>
+
+<h2>4.2 Etapa por Etapa</h2>
+
+<h3>4.2.1 BOOT</h3>
+<ul>
+  <li><strong>Entrada:</strong> argv + .env + configs</li>
+  <li><strong>Processamento:</strong> hardening → jail-secrets → mem-integrity gate → providers → cobra</li>
+  <li><strong>Saída:</strong> runtime pronto (DBs abertos, chain verificada)</li>
+</ul>
+
+<h3>4.2.2 DESPERTAR (Fase -1)</h3>
+<ul>
+  <li><strong>Entrada:</strong> sessão nova sem histórico</li>
+  <li><strong>Processamento:</strong> leitura do ritual + verificação de integridade (chain/memória)</li>
+  <li><strong>Saída:</strong> kernel orientado (quem é, direção, Don reconhecido)</li>
+</ul>
+
+<h3>4.2.3 IDENTIDADE</h3>
+<ul>
+  <li><strong>Entrada:</strong> self.go + persona (kernel/identity.go) + registro de agentes</li>
+  <li><strong>Processamento:</strong> montagem do system prompt por turno (context.go Build)</li>
+  <li><strong>Saída:</strong> system prompt (identidade + AGENTS.md + memória + knowledge + skills)</li>
+</ul>
+
+<h3>4.2.4 MEMÓRIA (retrieval)</h3>
+<ul>
+  <li><strong>Entrada:</strong> query + owner/agent scoping</li>
+  <li><strong>Processamento:</strong> kernel.Memory.Search (FTS5) + híbrido FTS→vetor→grafo; dedupe; top-N</li>
+  <li><strong>Saída:</strong> memórias relevantes (≤10, máx 5 no final) envelopadas com contenttrust</li>
+</ul>
+
+<h3>4.2.5 CONHECIMENTO</h3>
+<ul>
+  <li><strong>Entrada:</strong> query</li>
+  <li><strong>Processamento:</strong> search híbrido (chunks_fts + vetores 768-dim + grafo) + ranker + cache 5min</li>
+  <li><strong>Saída:</strong> top-3 knowledge + chunks relevantes (dentro do token budget 32k)</li>
+</ul>
+
+<h3>4.2.6 CONTEXTO</h3>
+<ul>
+  <li><strong>Entrada:</strong> identidade + memória + knowledge + AGENTS.md + histórico (≤50 turns)</li>
+  <li><strong>Processamento:</strong> assembleWithinTokenBudget; skills só nomes; compaction a 80% da janela</li>
+  <li><strong>Saída:</strong> mensagem system + histórico dentro do orçamento</li>
+</ul>
+
+<h3>4.2.7 TIMELINE (DAG)</h3>
+<ul>
+  <li><strong>Entrada:</strong> request</li>
+  <li><strong>Processamento:</strong> Planner.Plan (intent→templates→topo sort) → StepRunner → workers</li>
+  <li><strong>Saída:</strong> ordem de execução (Kahn) + plan validado (acíclico)</li>
+</ul>
+
+<h3>4.2.8 LLM</h3>
+<ul>
+  <li><strong>Entrada:</strong> system prompt + histórico + tool definitions</li>
+  <li><strong>Processamento:</strong> provider.Chat (retry transiente max 3, circuit breaker, failover)</li>
+  <li><strong>Saída:</strong> resposta + tool_calls (parse/merge)</li>
+</ul>
+
+<h3>4.2.9 FERRAMENTAS</h3>
+<ul>
+  <li><strong>Entrada:</strong> tool_call</li>
+  <li><strong>Processamento:</strong> ListTools → execpolicy → allowlist → sandbox → tool_exec (7 handlers)</li>
+  <li><strong>Saída:</strong> ToolCallResult (erro também volta ao LLM, não-fatal)</li>
+</ul>
+
+<h3>4.2.10 EXECUÇÃO (step)</h3>
+<ul>
+  <li><strong>Entrada:</strong> RunRequest{Prompt, Agent, MaxTurns, Build/Test}</li>
+  <li><strong>Processamento:</strong> runner → agente roda a task</li>
+  <li><strong>Saída:</strong> task resultado + artifacts</li>
+</ul>
+
+<h3>4.2.11 VERIFICAÇÃO</h3>
+<ul>
+  <li><strong>Entrada:</strong> resultado do step</li>
+  <li><strong>Processamento:</strong> build/test reais → gate (QualityScore) → review (4 revisores); falha → RecoveryLoop</li>
+  <li><strong>Saída:</strong> VERDICT (BLOCKED / READY TO COMMIT)</li>
+</ul>
+
+<h3>4.2.12 PROVENIÊNCIA</h3>
+<ul>
+  <li><strong>Entrada:</strong> claim/evidência</li>
+  <li><strong>Processamento:</strong> ClaimKind (observed|calculated|simulated|generated|hypothesis) + confidence + escada CKL</li>
+  <li><strong>Saída:</strong> afirmação com origem e confidence</li>
+</ul>
+
+<h3>4.2.13 APRENDIZADO</h3>
+<ul>
+  <li><strong>Entrada:</strong> task concluída</li>
+  <li><strong>Processamento:</strong> PostTaskHook.RecordTask (estágios 7-8 MANDATÓRIOS) → SignAfterLearning</li>
+  <li><strong>Saída:</strong> learnings.md + failures.md + patterns.md + chain assinada</li>
+</ul>
+
+<h2>4.3 O Context Compiler (ADR-035)</h2>
+
+<p>O Context Compiler transforma o contexto entregue ao LLM de <strong>documentos empilhados</strong> em um <strong>estado operacional compilado</strong> com orçamento por seção:</p>
+
+<pre><code>RAW KNOWLEDGE (429MB) → RETRIEVAL (2.4MB) → RELEVANCE FILTER (180KB)
+    → CONTEXT COMPILER (11KB) → LLM (~1-3K tokens) → ACTION PACKET (~200 tokens) → RUNTIME</code></pre>
+
+<p>As seções compiladas, com orçamento por seção:</p>
+
+<table>
+  <thead>
+    <tr><th>Seção</th><th>Orçamento</th><th>Conteúdo</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>TASK</td><td>5%</td><td>A intenção do usuário</td></tr>
+    <tr><td>STATE</td><td>15%</td><td>Agente resolvido e papel</td></tr>
+    <tr><td>CONSTRAINTS</td><td>10%</td><td>Restrições da tarefa</td></tr>
+    <tr><td>FACTS</td><td>25%</td><td>Conhecimento de alta confiança (epistemologia)</td></tr>
+    <tr><td>EVIDENCE</td><td>25%</td><td>Conhecimento adicional (baixa confiança)</td></tr>
+    <tr><td>MEMORY</td><td>10%</td><td>Memórias relevantes</td></tr>
+    <tr><td>TARGET</td><td>5%</td><td>Alvo provável da ação</td></tr>
+    <tr><td>OUTPUT_CONTRACT</td><td>5%</td><td>Formato da resposta (instruction packet)</td></tr>
+  </tbody>
+</table>
+
+<h2>4.4 Contexto Progressivo (L0 → L1 → L2)</h2>
+
+<p>O Context Router decide <strong>quanto contexto carregar</strong> com base na confiança da deliberação:</p>
+
+<div class="flow">
+<span class="box">L0</span> <span class="comment">→ estado mínimo (TASK + STATE + OUTPUT_CONTRACT) → confiança ≥ 0.70?</span>
+    <span class="arrow">├──</span> <span class="box">SIM</span> <span class="arrow">→</span> executa SEM LLM (modo determinístico)
+    <span class="arrow">└──</span> <span class="box">NÃO</span> <span class="arrow">→</span> <span class="box">L1</span>
+<span class="box">L1</span> <span class="comment">→ + CONSTRAINTS + FACTS → confiança ≥ 0.50?</span>
+    <span class="arrow">├──</span> <span class="box">SIM</span> <span class="arrow">→</span> LLM com L1
+    <span class="arrow">└──</span> <span class="box">NÃO</span> <span class="arrow">→</span> <span class="box">L2</span>
+<span class="box">L2</span> <span class="comment">→ + EVIDENCE + MEMORY → LLM com o contexto completo</span>
+</div>
+
+<!-- ==================== 5. BUSCA SEMÂNTICA ==================== -->
+<h1 id="s5">5. Busca Semântica por Entendimento</h1>
+
+<p>A busca por entendimento é o coração da inteligência do Cosca. Ela não busca a palavra — ela <strong>entende a intenção</strong>. É um pipeline híbrido que combina três fontes de entendimento e depois re-rankeia tudo com uma fórmula multi-fator.</p>
+
+<h2>5.1 Visão Geral das Camadas</h2>
+
+<div class="flow">
+<span class="comment">// As 4 camadas da busca por entendimento</span>
+
+<span class="box">1. RECUPERAÇÃO</span> <span class="comment">(3 fontes paralelas)</span>
+   <span class="box">FTS5</span> <span class="comment">(palavra)</span> + <span class="box">VETOR</span> <span class="comment">(significado)</span> + <span class="box">GRAFO</span> <span class="comment">(relação)</span>
+        <span class="arrow">▼</span>
+<span class="box">2. CONFINAMENTO</span> <span class="comment">(o "onde" buscar)</span>
+   <span class="box">SCOPE</span> <span class="comment">(modlink: domínio)</span> + <span class="box">EPISTEMIC</span> <span class="comment">(classe de conhecimento)</span>
+        <span class="arrow">▼</span>
+<span class="box">3. RE-RANK MULTI-FATOR</span> <span class="comment">(o "entendimento" profundo)</span>
+   <span class="box">BM25</span> + <span class="box">VETOR</span> + <span class="box">GRAFO</span> + <span class="box">FRESCOR</span> + <span class="box">POPULARIDADE</span>
+        <span class="arrow">▼</span>
+<span class="box">4. CLASSIFICAÇÃO SEMÂNTICA</span> <span class="comment">(o "filtro de lixo")</span>
+   <span class="box">DIRECT</span> / <span class="box">RELATED</span> / <span class="box">CONTEXTUAL</span> / <span class="box">WEAK</span> / <span class="box">NOISE</span>
+</div>
+
+<h2>5.2 Etapa 1 — Recuperação (3 fontes de entendimento)</h2>
+
+<p>A busca roda <strong>3 consultas em paralelo</strong> e junta os resultados (com deduplicação por ID). Cada fonte entende uma coisa diferente.</p>
+
+<h3>1a. FTS5 — entendimento lexical (a palavra)</h3>
+<pre><code>// internal/search/search.go → searchFTS()
+ftsResults, _, err := e.fts.Search(sqlite.FTSSearchParams{
+    Query:      params.Query,
+    TableNames: resolveFTSTables(params.Types), // documents_fts, chunks_fts, etc.
+    Limit:      params.Limit * 2,               // busca mais para re-rankear
+    MaxSnippet: 250,
+})</code></pre>
+<ul>
+  <li>Busca a <strong>palavra exata</strong> nos índices FTS5 (SQLite full-text, <code>porter unicode61</code>).</li>
+  <li>Entende a <strong>palavra</strong>, não o significado. Ex.: encontra "valida" em qualquer arquivo.</li>
+  <li>É <strong>barato e rápido</strong> — o recall lexical.</li>
+</ul>
+
+<h3>1b. Vetor — entendimento semântico (o significado)</h3>
+<pre><code>// internal/search/search.go → searchVector()
+embReq, err := e.embedFunc(ctx, params.Query)  // gera embedding 768-dim da query
+vecResults = e.vecStore.Search(embReq.Vector, searchLimit)</code></pre>
+<ul>
+  <li>Gera um <strong>embedding</strong> (vetor de 768 dimensões) da query usando o modelo <code>nomic-embed-text</code>.</li>
+  <li>Compara por <strong>similaridade de cosseno</strong> com os vetores de todos os documentos indexados.</li>
+  <li><strong>Entende o significado</strong>: "oraculo nao valida" → encontra documentos sobre "guardião que valida", "bloqueio semântico", "fronteira do Cofre" — mesmo sem a palavra exata.</li>
+  <li><strong>Este é o coração do "entendimento"</strong>: captura a <em>intenção</em>, não a palavra.</li>
+</ul>
+
+<h3>1c. Grafo — entendimento relacional (a conexão)</h3>
+<pre><code>// internal/search/search.go → searchGraph()
+for _, node := range e.graph.FilterNodes("") {
+    if strings.Contains(strings.ToLower(node.Name), strings.ToLower(params.Query)) {
+        // encontra nós que casam, e bota score por centralidade (nº de vizinhos)
+    }
+}</code></pre>
+<ul>
+  <li>Percorre o <strong>grafo de conhecimento</strong> (nós = entidades, arestas = relações).</li>
+  <li>Entende a <strong>relação</strong>: se "Oráculo" está conectado a "validação", "Cofre", "guardião" — esses vizinhos ganham relevância.</li>
+  <li><strong>Ativado só na fase de implementação</strong> (com o Task-Aware Search, ADR-045) — é o mais caro.</li>
+</ul>
+
+<h2>5.3 Etapa 2 — Confinamento (o "onde" buscar)</h2>
+
+<p>Antes de re-rankear, a busca <strong>confina</strong> o espaço — não pesquisa o universo inteiro.</p>
+
+<h3>2a. Scope (modlink) — o "domínio"</h3>
+<pre><code>// internal/search/search.go → confineToScope()
+if params.Scope != nil && len(params.Scope.Modules) > 0 {
+    allResults = confineToScope(allResults, params.Scope.Modules)
+}</code></pre>
+<ul>
+  <li>Se o roteador determinístico (modlink) decidiu que a query é do domínio <code>architecture</code>, <strong>só resultados desse domínio sobrevivem</strong> (via <code>documents.path</code>).</li>
+  <li><strong>Retrocompatível</strong>: sem scope, busca ilimitada (comportamento atual).</li>
+</ul>
+
+<h3>2b. Epistemic — a "classe de conhecimento"</h3>
+<pre><code>// internal/search/search.go → confineEpistemic()
+if len(params.Epistemic) > 0 {
+    allResults = confineEpistemic(allResults, params.Epistemic)
+}</code></pre>
+<ul>
+  <li>Se pedir só <code>MEASURED</code> (medido), <strong>descarta</strong> tudo que não é medido. <strong>Fail-closed</strong>: resultado sem classe é descartado, nunca incluído por engano.</li>
+  <li>Ex.: <code>scope=architecture + epistemic=MEASURED</code> → só o que é medido na arquitetura.</li>
+</ul>
+
+<h2>5.4 Etapa 3 — Re-rank Multi-Fator (o "entendimento" profundo)</h2>
+
+<p>Este é o coração. O <code>ranking.Ranker</code> combina <strong>5 sinais</strong> numa fórmula ponderada:</p>
+
+<pre><code>// internal/ranking/ranking.go → DefaultConfig()
+BM25Weight:       0.25   // relevância lexical
+VectorWeight:     0.35   // relevância semântica (o mais pesado!)
+GraphWeight:      0.20   // proximidade no grafo
+FreshnessWeight:  0.10   // recência
+PopularityWeight: 0.10   // nº de referências
+
+// Fórmula final
+final = 0.25*bm25 + 0.35*vector + 0.20*graph + 0.10*fresh + 0.10*popular</code></pre>
+
+<table>
+  <thead>
+    <tr><th>Sinal</th><th>O que mede</th><th>Peso</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Vector</strong> (cosseno)</td><td>similaridade semântica</td><td><strong>0.35</strong> (o mais importante)</td></tr>
+    <tr><td><strong>BM25</strong></td><td>correspondência lexical</td><td>0.25</td></tr>
+    <tr><td><strong>Graph</strong></td><td>distância no grafo (<code>exp(-dist/3)</code>)</td><td>0.20</td></tr>
+    <tr><td><strong>Freshness</strong></td><td>recência (<code>exp2(-age/halfLife)</code>, halfLife 7d)</td><td>0.10</td></tr>
+    <tr><td><strong>Popularity</strong></td><td>nº de referências (<code>log2(n+1)/10</code>)</td><td>0.10</td></tr>
+  </tbody>
+</table>
+
+<p>Cada sinal é <strong>normalizado min-max</strong> antes de combinar (para nenhum dominar por escala).</p>
+
+<h3>Meaning-first (ordenação por significado)</h3>
+<pre><code>// internal/search/search.go → meaningFirstRank() — só no espaço roteado
+if params.Scope != nil && len(params.Scope.Modules) > 0 && params.EnableVector {
+    allResults = meaningFirstRank(allResults)
+}</code></pre>
+<ul>
+  <li>Resultados que vieram da <strong>fase vetorial</strong> (significado/cosseno) vêm <strong>primeiro</strong>; FTS/grafo entram depois como recall suplementar.</li>
+  <li><strong>O significado lidera, a palavra complementa.</strong></li>
+</ul>
+
+<h2>5.5 Etapa 4 — Classificação Semântica (o "filtro de lixo")</h2>
+
+<p>Depois do re-rank, o <code>internal/oracle/search_filter.go</code> classifica cada resultado:</p>
+
+<pre><code>// internal/oracle/search_filter.go → classifyRelevance()
+DIRECT      // resposta direta à intenção
+RELATED     // relacionado à intenção
+CONTEXTUAL  // fornece contexto
+WEAK        // fracamente relacionado
+NOISE       // lixo — nunca apresentado
+
+// internal/oracle/search_adapter.go → Presentable()
+// NOISE nunca é apresentado. WEAK só quando necessário para explicar ausência.</code></pre>
+
+<h2>5.6 O Protocolo de Busca (SEARCH_PROTOCOL)</h2>
+
+<p>O <code>SEARCH_PROTOCOL.md</code> define as regras que impedem a busca de virar coleta indiscriminada:</p>
+
+<ul>
+  <li><strong>Primeiro entender, depois buscar</strong> — determinar INTENT · ENTITY · CONTEXT · QUESTION · EXPECTED_EVIDENCE · SCOPE antes de executar.</li>
+  <li><strong>Precisão antes de recall</strong> — preferir 3 resultados altamente relevantes a 500 parcialmente relacionados.</li>
+  <li><strong>Resultado ≠ match</strong> — um arquivo conter a palavra não o torna relevante.</li>
+  <li><strong>Busca em camadas</strong> — identidade → entidades → sinônimos → estrutural → geral (expansão só quando necessário).</li>
+  <li><strong>Não entregar lixo</strong> — NOISE nunca é apresentado.</li>
+  <li><strong>Ausência também é resultado</strong> — responder NOT_FOUND ou INSUFFICIENT_EVIDENCE, nunca inventar.</li>
+  <li><strong>Busca iterativa</strong> — ENTENDER → BUSCAR → RANQUEAR → INTERPRETAR → VERIFICAR SUFICIÊNCIA. Se suficiente: STOP.</li>
+  <li><strong>Regra de ouro</strong> — "Se o resultado não ajuda a responder a intenção, ele não é informação. É ruído."</li>
+</ul>
+
+<h2>5.7 Exemplo Real</h2>
+
+<p>Query: <em>"por que o oraculo nao valida"</em></p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Score</th><th>Relevância</th><th>Snippet</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>0.66</td><td>RELATED</td><td>"Nenhuma hipótese vira fato sem evidência compatível com sua..."</td></tr>
+    <tr><td>2</td><td>0.62</td><td>RELATED</td><td>"...a fronteira semântica do Cofre: o Oráculo — o guardião que recebe, interpreta, valida..."</td></tr>
+    <tr><td>3</td><td>0.60</td><td>RELATED</td><td>"// ─── O BLOQUEIO (o guard do Oráculo) ───..."</td></tr>
+    <tr><td>4</td><td>0.57</td><td>RELATED</td><td>"O Oráculo valida contra o ASSINADO, nunca contra o solto."</td></tr>
+  </tbody>
+</table>
+
+<div class="success">
+  <strong>Resultado:</strong> todos os 10 resultados foram classificados como <strong>RELATED</strong> — nenhum NOISE. O sistema entendeu a intenção e trouxe só o que explica "por que o oráculo não valida", mesmo sem correspondência textual exata.
+</div>
+
+<h2>5.8 Busca de Palavra vs. Busca por Entendimento</h2>
+
+<table>
+  <thead>
+    <tr><th>Aspecto</th><th>Busca de palavra</th><th>Busca por entendimento</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>O que busca</td><td>a palavra exata</td><td>a <strong>intenção</strong></td></tr>
+    <tr><td>Fonte principal</td><td>FTS5 (BM25)</td><td><strong>Vetor semântico</strong> (cosseno)</td></tr>
+    <tr><td>Entende relação</td><td>não</td><td>sim (grafo)</td></tr>
+    <tr><td>Confina o espaço</td><td>não</td><td>sim (scope + epistemic)</td></tr>
+    <tr><td>Combina sinais</td><td>score único</td><td><strong>5 sinais ponderados</strong></td></tr>
+    <tr><td>Filtra lixo</td><td>não</td><td>sim (DIRECT/RELATED/NOISE)</td></tr>
+    <tr><td>Ordena</td><td>por score bruto</td><td><strong>significado lidera</strong></td></tr>
+  </tbody>
+</table>
+
+<!-- ==================== 6. TASK-AWARE SEARCH ==================== -->
+<h1 id="s6">6. Task-Aware Search (ADR-045)</h1>
+
+<p>O <strong>Task-Aware Search (TAS)</strong> é a evolução mais recente da busca por entendimento. Ele adiciona duas camadas que conectam a busca ao <strong>estado de implementação em curso</strong>.</p>
+
+<h2>6.1 O Problema que Resolve</h2>
+
+<p>Antes do TAS, a busca sabia <strong>o que</strong> buscar (a intenção), mas não <strong>o que estava sendo implementado</strong>. O <code>task_affinity</code> — mencionado no ADR-035 §2.1 como "novo" — nunca tinha sido implementado.</p>
+
+<div class="info">
+  <strong>O gap em duas frases:</strong> (1) A busca não sabe o que está sendo implementado — recebe a query crua, não o estado de implementação (stack, alvo, fase). (2) A busca não decide QUANDO usar entendimento profundo — no início (exploração) precisa de recall amplo, no meio (implementação) de entendimento profundo, no fim (verificação) de precisão cirúrgica.
+</div>
+
+<h2>6.2 Os Componentes</h2>
+
+<div class="flow">
+<span class="box">TASK PROFILE</span> <span class="comment">(taskaffinity: deriva perfil da tarefa)</span>
+    <span class="arrow">▼</span>
+<span class="box">TASK PHASE</span> <span class="comment">(taskphase: detecta fase → ajusta busca)</span>
+    <span class="arrow">▼</span>
+<span class="box">SEARCH ENGINE</span> <span class="comment">(existente: re-ponderado por afinidade)</span>
+    <span class="arrow">▼</span>
+<span class="box">CONTEXT COMPILER</span> <span class="comment">(existente: FACTS/EVIDENCE orientados à tarefa)</span>
+</div>
+
+<h3>6.2.1 Task Profile (taskaffinity)</h3>
+
+<p>Perfil de tarefa derivado do estado de implementação real:</p>
+
+<pre><code>TASK:    implementar endpoint REST em Go
+STACK:   go + chi + sqlite
+TARGET:  internal/api/handlers.go
+PHASE:   implementação (meio)
+AFFINITY: [api, handlers, rest, chi, sqlite, project-patterns]</code></pre>
+
+<p>A busca <strong>re-pondera</strong> os resultados: o que casa com o perfil da tarefa sobe; o que é genérico desce. A fórmula:</p>
+
+<pre><code>boost = 0.15 × (termos_afinidade_no_resultado / total_afinidade) × confidence
+score_final = score_ranking + boost</code></pre>
+
+<h3>6.2.2 Task Phase (taskphase)</h3>
+
+<p>Detecta a fase da implementação e ajusta o modo de busca:</p>
+
+<table>
+  <thead>
+    <tr><th>Fase</th><th>Modo de busca</th><th>Limit</th><th>Grafo</th><th>MinScore</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Exploração</strong> (início)</td><td>recall amplo, entendimento leve</td><td>30</td><td>false</td><td>—</td></tr>
+    <tr><td><strong>Implementação</strong> (meio)</td><td>entendimento profundo</td><td>20</td><td><strong>true</strong></td><td>0.15</td></tr>
+    <tr><td><strong>Verificação</strong> (fim)</td><td>precisão cirúrgica</td><td>10</td><td>false</td><td>0.30</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Mudança-chave:</strong> o grafo (<code>EnableGraph</code>) só é ativado na fase de Implementação — é onde o "entendimento profundo" do padrão do projeto importa (arquivos relacionados, dependências entre módulos).
+</div>
+
+<h2>6.3 Performance Medida</h2>
+
+<p>O overhead do TAS é <strong>desprezível</strong> — medido em benchmarks:</p>
+
+<table>
+  <thead>
+    <tr><th>Benchmark</th><th>Resultado</th><th>Critério</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>DeriveProfile</td><td>3.0 μs</td><td>&lt; 1ms</td><td>✅</td></tr>
+    <tr><td>AffinityRerank (30 resultados)</td><td>86 μs</td><td>&lt; 500μs</td><td>✅</td></tr>
+    <tr><td>DetectPhase</td><td>7.6 ns</td><td>&lt; 100μs</td><td>✅</td></tr>
+    <tr><td><strong>TAS_Overhead (total)</strong></td><td><strong>65.8 μs</strong></td><td>&lt; 2ms</td><td>✅ <strong>30x abaixo</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="success">
+  <strong>Overhead total de ~66 microssegundos</strong> — 30x abaixo do teto de 2ms. A detecção de fase na casa dos nanossegundos preserva o núcleo determinístico e a soberania de CPU da plataforma.
+</div>
+
+<h2>6.4 Arquitetura de Implementação</h2>
+
+<table>
+  <thead>
+    <tr><th>Pacote</th><th>Arquivo</th><th>Função</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>internal/taskaffinity</code></td><td>taskaffinity.go</td><td>TaskProfile, ImplementaçãoState, DeriveProfile</td></tr>
+    <tr><td><code>internal/taskaffinity</code></td><td>rerank.go</td><td>AffinityRerank, computeAffinityBoost</td></tr>
+    <tr><td><code>internal/taskphase</code></td><td>taskphase.go</td><td>Phase, PhaseSignals, DetectPhase, PhaseSearchParams</td></tr>
+    <tr><td><code>internal/taskaffinity</code></td><td>buildcontext.go</td><td>TaskContext, BuildTaskContext</td></tr>
+    <tr><td><code>internal/contextpipeline</code></td><td>contextpipeline.go</td><td>Integração TAS no BuildContext</td></tr>
+    <tr><td><code>internal/contextcompile</code></td><td>contextcompile.go</td><td>EnrichWithProfile</td></tr>
+  </tbody>
+</table>
+
+<!-- ==================== 7. SEGURANÇA ==================== -->
+<h1 id="s7">7. Segurança e Governança</h1>
+
+<p>A segurança é inegociável. O Cosca opera com um modelo <strong>fail-closed</strong> — na dúvida, tranco.</p>
+
+<h2>7.1 Pipeline de Segurança</h2>
+
+<div class="flow">
+<span class="box">OBSERVE</span> <span class="arrow">→</span> <span class="box">READ-ONLY</span> <span class="arrow">→</span> <span class="box">PREVIEW</span> <span class="arrow">→</span> <span class="box">APPROVAL</span> <span class="arrow">→</span> <span class="box">WRITE</span> <span class="arrow">→</span> <span class="box">VERIFY</span> <span class="arrow">→</span> <span class="box">COMMIT</span>
+</div>
+
+<h2>7.2 Mecanismos Enforced</h2>
+
+<table>
+  <thead>
+    <tr><th>Mecanismo</th><th>Comportamento real</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Kernel Isolado / Proposals</strong></td><td>Proposta = seal+hash ANTES de julgar; sem APPROVE → ErrDenied; hash ligado ao artefato (mutação → DENY)</td></tr>
+    <tr><td><strong>Gate de transições com papel</strong></td><td>approved/executed só don/admin; approver ≠ executor; append-only em gate.db</td></tr>
+    <tr><td><strong>Classificador de operações</strong></td><td>OpIrreversible → auto-block</td></tr>
+    <tr><td><strong>Sandbox read-only</strong></td><td>bwrap --ro-bind (workspace montado somente leitura)</td></tr>
+    <tr><td><strong>Jail</strong></td><td>bwrap com --clearenv; binário reexecutado de cópia em RAM; disco chmod -x</td></tr>
+    <tr><td><strong>Secrets vault</strong></td><td>AES-256-GCM; chave via HKDF-SHA256; arquivo 0600; valor nunca em JSON</td></tr>
+    <tr><td><strong>Auth tokens</strong></td><td>refresh-token com detecção de reuse → revoga TODAS as sessões</td></tr>
+    <tr><td><strong>Trust boundary</strong></td><td>Envelope() marca dados externos como não-instruções; Suspicious() detecta "ignore previous instructions"</td></tr>
+    <tr><td><strong>Integrity/chain</strong></td><td>Ed25519 + blake3; anti-hijack; git-anchor</td></tr>
+    <tr><td><strong>Quality gate</strong></td><td>build/test/vet/diff/secret scan/OSV → BLOCKED vs READY TO COMMIT</td></tr>
+  </tbody>
+</table>
+
+<h2>7.3 O Contrato de Segurança (o que NUNCA fazer)</h2>
+
+<ol>
+  <li><code>internal/embed/cosca/</code> (o cérebro) é <strong>read-only</strong> — se tocar, re-assine a chain.</li>
+  <li>A family chain é o sistema imune. Serve não sobe com chain desalinhada — é proteção, não bug.</li>
+  <li>Nunca commitar segredos/runtime: <code>.env</code>, <code>secrets.db</code>, <code>auth_tokens.db</code>, <code>config.yaml</code>, <code>core.db</code>, <code>family_chain.dat</code> → fora do git.</li>
+  <li>Artifacts de runtime (<code>knowledge.db</code>, <code>vector-*.db</code>, <code>graph.db</code>) são <strong>regeneráveis</strong> — não versionar.</li>
+  <li>Apenas loopback — o serve escuta <code>127.0.0.1</code>. Auth obrigatória.</li>
+  <li>Sandbox: Windows não tem bwrap → <code>COSCA_ALLOW_NO_ROOT=1</code> (opt-in). Código não-confiável só em WSL2+bwrap (zona Cofre).</li>
+</ol>
+
+<h2>7.4 A Lei do Cofre</h2>
+
+<div class="danger">
+  <strong>O cofre NÃO abre para a nuvem.</strong> Identidade, memória, conhecimento e conversas são propriedade da família. A nuvem é um túnel que entra e sai sem ninguém ver. Chamadas remotas só com payload sanitizado, aprovação explícita do Don por sessão e trilha de auditoria. Resolve sem IA se puder → local primeiro (ollama) → nuvem só com aprovação.
+</div>
+
+<!-- ==================== 8. CONCLUSÃO ==================== -->
+<h1 id="s8">8. Conclusão</h1>
+
+<p>O Cosca é um sistema de orquestração de agentes com um cérebro de conhecimento curado, protegido por uma family chain criptográfica e alimentado por uma busca semântica por entendimento de alta precisão.</p>
+
+<p>De ponta a ponta, o fluxo é:</p>
+
+<div class="flow">
+<span class="box">CHAIN</span> <span class="comment">(integridade/identidade)</span>
+    <span class="arrow">→</span> <span class="box">BOOT</span> <span class="comment">(hardening + jail)</span>
+    <span class="arrow">→</span> <span class="box">DESPERTAR</span> <span class="comment">(identidade determinística)</span>
+    <span class="arrow">→</span> <span class="box">PIPELINE</span> <span class="comment">(memória → conhecimento → contexto → LLM → ferramentas → verificação)</span>
+    <span class="arrow">→</span> <span class="box">BUSCA POR ENTENDIMENTO</span> <span class="comment">(FTS5 + vetor + grafo + re-rank + classificação)</span>
+    <span class="arrow">→</span> <span class="box">TASK-AWARE SEARCH</span> <span class="comment">(afinidade + fase — ADR-045)</span>
+    <span class="arrow">→</span> <span class="box">APRENDIZADO</span> <span class="comment">(chain assinada)</span>
+</div>
+
+<p>Os três pilares trabalham juntos:</p>
+
+<ul>
+  <li><strong>A Family Chain</strong> garante que o cérebro permaneça íntegro e a identidade verificável — a base de confiança.</li>
+  <li><strong>A Busca por Entendimento</strong> garante que o sistema entenda a intenção, não apenas a palavra — a base de inteligência.</li>
+  <li><strong>O Pipeline</strong> garante que cada etapa seja determinística, verificável e segura — a base de operação.</li>
+</ul>
+
+<p>E com o <strong>Task-Aware Search</strong>, a busca agora também sabe o que está sendo implementado — trazendo o mínimo necessário que sustenta uma resposta correta, com overhead desprezível de ~66 microssegundos.</p>
+
+<div class="note">
+  <strong>Lei da Família:</strong> Honestidade &gt; Lealdade &gt; Confiança; <strong>Memória &gt; Velocidade.</strong> O Cosca não cresce por antecipação — cresce porque existe necessidade demonstrada.
+</div>
+
+<div class="meta-block" style="margin-top:30px;">
+  <span class="label">Documento:</span> Arquitetura de Ponta a Ponta — Chain, Busca Semântica e Pipeline<br>
+  <span class="label">Versão:</span> 1.0 &nbsp;|&nbsp; <span class="label">Sistema:</span> Cosca v1.5.0<br>
+  <span class="label">Classificação:</span> CONFIDENCIAL — PROPRIEDADE DA FAMÍLIA<br>
+  <span class="label">Licença:</span> CoscaAI — v1.1.0 (2026-09-04)
+</div>
+
+</body>
+</html>

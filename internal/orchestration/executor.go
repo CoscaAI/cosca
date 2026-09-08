@@ -20,6 +20,7 @@ import (
 	"github.com/CoscaAI/cosca/internal/pending"
 	"github.com/CoscaAI/cosca/internal/middleware"
 	"github.com/CoscaAI/cosca/internal/stallwatch"
+	"github.com/CoscaAI/cosca/internal/taskaffinity"
 )
 
 // ─── Executor Configuration ──────────────────────────────────────────────────
@@ -76,6 +77,18 @@ type ExecutorConfig struct {
 	// antes da chamada LLM, e decodifica a resposta como instruction packet.
 	// Nil = comportamento atual (sem compilação de contexto).
 	ContextPipeline ContextPipeline
+
+	// EnableTAS ativa o Task-Aware Search (ADR-045) de ponta a ponta. Quando
+	// true E o ContextPipeline está configurado, o executor deriva o perfil de
+	// tarefa (taskaffinity.BuildTaskContext) a partir do estado de implementação
+	// disponível (Prompt + metadados do Request.Context via PipelineData.Extra)
+	// e o injeta no PipelineData.TaskContext ANTES do BuildContext — re-ponderando
+	// a busca por afinidade com a tarefa e ajustando-a por fase.
+	//
+	// Aditivo e fail-closed: default false. Quando false (ou quando o
+	// PipelineData.TaskContext já veio preenchido pelo chamador), o executor se
+	// comporta EXATAMENTE como antes — zero regressão.
+	EnableTAS bool
 
 	// PendingResolver é a Pending Resolution (decisão do Don + professor,
 	// 2026-09-01): quando o loop de tool-calls termina por limite com trabalho
@@ -167,6 +180,59 @@ func DefaultExecutorConfig() ExecutorConfig {
 }
 
 // ─── Executor ────────────────────────────────────────────────────────────────
+
+// tasTaskContextFrom constrói o TaskContext do Task-Aware Search (ADR-045) a
+// partir do estado de implementação disponível no PipelineData. É o wiring do
+// executor → taskaffinity.
+//
+// O executor NÃO tem acesso direto aos arquivos abertos no editor (isso é do
+// lado do opencode, não do runtime Go). O que ele consegue alimentar:
+//   - Prompt: do PipelineData (a intenção do usuário)
+//   - WorkingDir / OpenFiles / RecentFiles / TargetHint / GoModExists:
+//     metadados que o editor/Request.Context injetou via PipelineData.Extra
+//     sob as chaves "tas.working_dir", "tas.open_files", "tas.recent_files",
+//     "tas.target_hint", "tas.go_mod" (todas opcionais).
+//
+// Fail-closed: se o estado não permite derivar um perfil confiável (Prompt
+// vazio e nenhum metadado), retorna nil — o pipeline segue idêntico ao atual.
+func tasTaskContextFrom(data PipelineData) *taskaffinity.TaskContext {
+	state := &taskaffinity.ImplementaçãoState{
+		Prompt: data.AugmentedPrompt,
+	}
+	if state.Prompt == "" {
+		state.Prompt = data.GetExtraString("prompt")
+	}
+
+	// Metadados opcionais injetados pelo editor via Request.Context →
+	// PipelineData.Extra. Todos nil-safe (ausência = campo vazio).
+	if wd := data.GetExtraString("tas.working_dir"); wd != "" {
+		state.WorkingDir = wd
+	}
+	if of, ok := data.Extra["tas.open_files"].([]string); ok {
+		state.OpenFiles = of
+	}
+	if rf, ok := data.Extra["tas.recent_files"].([]string); ok {
+		state.RecentFiles = rf
+	}
+	if th := data.GetExtraString("tas.target_hint"); th != "" {
+		state.TargetHint = th
+	}
+	if data.GetExtraBool("tas.go_mod") {
+		state.GoModExists = true
+	}
+	if data.GetExtraBool("tas.package_json") {
+		state.PackageJSONExists = true
+	}
+
+	// Fail-closed: sem prompt e sem nenhum sinal de stack/alvo, não há como
+	// derivar um perfil confiável — retorna nil (pipeline segue como antes).
+	if state.Prompt == "" && len(state.OpenFiles) == 0 && len(state.RecentFiles) == 0 &&
+		!state.GoModExists && !state.PackageJSONExists && state.TargetHint == "" {
+		return nil
+	}
+
+	return taskaffinity.BuildTaskContext(state)
+}
 
 // Executor runs agents against LLM providers. It handles prompt construction,
 // retry with exponential backoff, tool-call detection, and both synchronous
@@ -292,6 +358,19 @@ func (e *Executor) Execute(ctx context.Context, pc PipelineContext) (PipelineCon
 	// atual. O contexto compilado é injetado no system prompt; a camada
 	// decidida (L0/L1/L2) fica registrada no PipelineContext.
 	if e.config.ContextPipeline != nil {
+		// 3.5.1 ── TASK-AWARE SEARCH (ADR-045, opt-in via EnableTAS) ──
+		// Quando habilitado e o TaskContext ainda não veio preenchido pelo
+		// chamador, deriva o perfil de tarefa a partir do estado de
+		// implementação disponível no executor (o Prompt + metadados que o
+		// editor/Request.Context injetou via PipelineData.Extra). O perfil
+		// re-pondera a busca por afinidade e ajusta-a por fase DENTRO do
+		// BuildContext (contextpipeline). Aditivo e fail-closed: se o estado
+		// não permite derivar um perfil confiável, BuildTaskContext retorna nil
+		// e o fluxo segue idêntico ao atual.
+		if e.config.EnableTAS && pc.Data.TaskContext == nil {
+			pc.Data.TaskContext = tasTaskContextFrom(pc.Data)
+		}
+
 		compiled, level := e.config.ContextPipeline.BuildContext(pc.Prompt, &pc.Data)
 		if compiled != "" {
 			systemContent += "\n\n" + compiled
