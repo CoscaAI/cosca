@@ -217,7 +217,13 @@ func (o *Oracle) Classify(caller, order string) (*Classification, error) {
 }
 
 // classifyByKeywords classifies free-text orders by keyword matching.
+// Scoring: each keyword match adds a signal. Domain with most signals wins;
+// confidence is the tiebreaker. This captures INTENT ("escreve testes"
+// = testing) even when a secondary term ("auth") also matches.
 func classifyByKeywords(lower string) *Classification {
+	// Normalize accents so "segurança" matches "seguranc"
+	normalized := normalizeText(lower)
+
 	type rule struct {
 		keywords []string
 		domain   string
@@ -226,49 +232,105 @@ func classifyByKeywords(lower string) *Classification {
 	}
 
 	rules := []rule{
-		{[]string{"seguranc", "security", "vulnerab", "injection", "sql", "cwe", "secreta", "secret", "token", "password", "auth", "login", "criptograf"}, "security", "cosca-security", 0.9},
-		{[]string{"banco", "database", "schema", "migra", "sql", "query", "index", "tabela", "table", "postgres", "sqlite"}, "database", "cosca-database", 0.9},
-		{[]string{"frontend", "interface", "ui", "componente", "tela", "react", "css", "layout"}, "frontend", "cosca-frontend", 0.9},
-		{[]string{"backend", "api", "endpoint", "serviço", "servico", "rest", "grpc", "handler"}, "backend", "cosca-backend", 0.85},
-		{[]string{"teste", "test", "qa", "cobertura", "coverage"}, "testing", "cosca-qa", 0.85},
-		{[]string{"arquitetura", "architecture", "design", "padrão", "padrao", "estrutura"}, "architecture", "cosca-architecture", 0.85},
-		{[]string{"performance", "desempenho", "rápido", "rapido", "lento", "benchmark", "otimiza", "n+1"}, "performance", "cosca-performance", 0.85},
-		{[]string{"devops", "deploy", "ci/cd", "docker", "container", "infra", "kubernetes"}, "devops", "cosca-devops", 0.85},
+		{[]string{"seguranc", "security", "vulnerab", "injection", "cwe", "secreta", "secret", "password", "criptograf", "pen test", "pentest", "firewall", "xss", "csrf", "autenticac"}, "security", "cosca-security", 0.9},
+		{[]string{"banco", "database", "schema", "migra", "sql", "query", "index", "tabela", "table", "postgres", "sqlite", "modelo de dados", "entidade", "persistencia"}, "database", "cosca-database", 0.9},
+		{[]string{"frontend", "interface", "ui", "componente", "tela", "react", "css", "layout", "pagina", "visual", "ux"}, "frontend", "cosca-frontend", 0.9},
+		{[]string{"backend", "api", "endpoint", "servico", "rest", "grpc", "handler", "middleware", "controller", "rota", "route", "implementa api", "cria api"}, "backend", "cosca-backend", 0.85},
+		{[]string{"teste", "test", "qa", "cobertura", "coverage", "unitario", "e2e", "integrac"}, "testing", "cosca-qa", 0.85},
+		{[]string{"arquitetura", "architecture", "design", "padrao", "estrutura", "modular", "core", "dominio", "domain"}, "architecture", "cosca-architecture", 0.85},
+		{[]string{"performance", "desempenho", "rapido", "lento", "benchmark", "otimiza", "n+1", "latencia", "gargalo", "cache"}, "performance", "cosca-performance", 0.85},
+		{[]string{"devops", "deploy", "ci/cd", "docker", "container", "infra", "kubernetes", "pipeline", "release", "ambiente"}, "devops", "cosca-devops", 0.85},
 	}
 
-	best := &Classification{
-		Type:   "general",
-		Domain: "general",
-		Agent:  "cosca-general",
-		Reason: "no specific domain detected",
+	// Score each domain by signal count
+	type domainScore struct {
+		rule    rule
+		signals int
+		matched string
 	}
-	bestConf := 0.0
-	matchedAny := false
 
+	var scores []domainScore
 	for _, r := range rules {
+		count := 0
+		matched := ""
 		for _, kw := range r.keywords {
-			if strings.Contains(lower, kw) {
-				if r.conf > bestConf {
-					best.Type = r.domain + "_task"
-					best.Domain = r.domain
-					best.Agent = r.agent
-					best.Confidence = r.conf
-					best.Reason = "keyword match: " + kw
-					bestConf = r.conf
-					matchedAny = true
+			if strings.Contains(normalized, kw) {
+				count++
+				if matched == "" {
+					matched = kw
 				}
-				break
 			}
+		}
+		if count > 0 {
+			scores = append(scores, domainScore{rule: r, signals: count, matched: matched})
 		}
 	}
 
-	if !matchedAny {
+	if len(scores) == 0 {
 		return nil
 	}
 
-	// Sanity: "sql" appears in both security and database — check order
-	// If it matched database first but mentions security terms too, keep both signals.
-	return best
+	// Pick highest signal count; tie-break by confidence
+	best := scores[0]
+	for _, s := range scores[1:] {
+		if s.signals > best.signals ||
+			(s.signals == best.signals && s.rule.conf > best.rule.conf) {
+			best = s
+		}
+	}
+
+	return &Classification{
+		Type:       best.rule.domain + "_task",
+		Domain:     best.rule.domain,
+		Agent:      best.rule.agent,
+		Confidence: best.rule.conf,
+		Reason:     fmt.Sprintf("%d signal(s), keyword: %s", best.signals, best.matched),
+	}
+}
+
+// normalizeText lowercases and strips accents/diacritics.
+func normalizeText(s string) string {
+	var sb strings.Builder
+	for _, r := range s {
+		sb.WriteRune(removeAccent(r))
+	}
+	return strings.ToLower(sb.String())
+}
+
+// removeAccent maps accented chars to their ASCII base.
+func removeAccent(r rune) rune {
+	switch r {
+	case 'á', 'à', 'â', 'ã', 'ä':
+		return 'a'
+	case 'é', 'è', 'ê', 'ë':
+		return 'e'
+	case 'í', 'ì', 'î', 'ï':
+		return 'i'
+	case 'ó', 'ò', 'ô', 'õ', 'ö':
+		return 'o'
+	case 'ú', 'ù', 'û', 'ü':
+		return 'u'
+	case 'ç':
+		return 'c'
+	case 'Á', 'À', 'Â', 'Ã', 'Ä':
+		return 'A'
+	case 'É', 'È', 'Ê', 'Ë':
+		return 'E'
+	case 'Í', 'Ì', 'Î', 'Ï':
+		return 'I'
+	case 'Ó', 'Ò', 'Ô', 'Õ', 'Ö':
+		return 'O'
+	case 'Ú', 'Ù', 'Û', 'Ü':
+		return 'U'
+	case 'Ç':
+		return 'C'
+	case 'ñ':
+		return 'n'
+	case 'Ñ':
+		return 'N'
+	default:
+		return r
+	}
 }
 
 // PreFlight analyzes code BEFORE delegation.
