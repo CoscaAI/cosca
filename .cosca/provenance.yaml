@@ -1,4 +1,10 @@
 claims:
+    - id: don-diretriz-externo
+      statement: 'DIRETRIZ DO DON (2026-09-07): SEGURANCA ACIMA DE TUDO. O kernel/cosca-kernel SOH usa provider/LLM EXTERNO (ChatGPT/DeepSeek/OpenAI/etc) QUANDO REALMENTE PRECISAR DE CONHECIMENTO NOVO que nao existe localmente. Por padrao, resolver LOCALMENTE primeiro (ollama local, conhecimento curado, memoria, regras). O motor externo e um VISITANTE que empresta a voz, NAO a alma — a identidade vem da chain + digest do embed (internal/embed/cosca/), nunca do motor. Regras: (1) tudo que puder ser respondido com conhecimento/memoria local, resolve local; (2) conhecimento novo externo SOH por ordem explicita do Don, por sessao, com payload sanitizado e trilha de auditoria; (3) nunca expor identidade/memoria/conhecimento da casa ao motor externo; (4) na duvida, PARAR e perguntar ao Don (fail-closed), nunca avançar no escuro; (5) o Cofre e fechado — a nuvem e um tunel, nao um lar.'
+      kind: decision
+      source: Don
+      confidence: 0.99
+      created_at: "2026-09-07T22:30:00Z"
     - id: wm-proto
       statement: 'World Model: Entity canonica separada da percepcao (asset/state/generation/provenance)'
       kind: hypothesis
@@ -307,7 +313,13 @@ claims:
       created_at: "2026-08-29T00:00:00Z"
     - id: adr017-agentbus-recuperado
       statement: 'ADR-017 P6 (prime-agent) — agentbus (message-bus agent<->agent) ficou DE FORA do novo main na bagunca da promocao (o main foi substituido pelo cosca-v2-test e o commit ee6b59ef do agentbus nao foi incluido). Recuperado do backup-main-old da forma correta: git fetch origin backup-main-old + git checkout origin/backup-main-old -- internal/agentbus/ (so o pacote); verificado com go build + go test ./internal/agentbus/ -v (23 testes PASS); commit novo + push. agentbus e stdlib-only (context/errors/fmt/sort/sync/sync/atomic/time) — nao toca go.mod. LICAO: antes de promover/substituir main, rodar git diff main..backup-main-old para garantir que nenhum commit/pacote fique de fora. Teste funcional real: kernel->security com permissao agent_message:cosca-security allow (NewPermissionGate + Ruleset{Permission,Pattern,Action}) — 2 mensagens entregues, receipt.Poll() mostra estado. API: NewRegistry, NewBus(reg,gate), bus.Handle(id, Handler func(ctx,Message)error), bus.Send(ctx, Message{From,To,Mode,Kind,Payload,CreatedAt}), bus.DeliverAll(ctx, to). Receipt tem metodos publicos ID/From/To/Mode/Kind/Poll/Notify (campos privados).'
+       kind: decision
+       source: Don+cosca-kernel+prime-agent
+       confidence: 0.93
+       created_at: "2026-09-07T22:00:00Z"
+    - id: mineria-headroom
+      statement: 'MINERACAO (2026-09-07): headroomlabs-ai/headroom (70.1k★, Apache-2.0) — context compression layer que comprime tool outputs/logs/RAG chunks antes do LLM, rodando LOCAL (Lei do Cofre). Arquitetura: CacheAligner -> ContentRouter -> CCR, com SmartCrusher (JSON, estatistico: sempre-mantem ERROR_KEYWORDS/outliers/change-points/query-anchors, payload 100% schema-preserving), CodeCompressor (tree-sitter AST, so corpos de funcao comprimidos, circuit-breaker nunca serve codigo quebrado), Kompress-v2 (ModernBERT prosa, mas o ORO e a regex _KOMPRESS_MUST_KEEP_RE que pina hex/paths/flags/NEGACAO/modais para nao inverter instrucao), LogCompressor (state machine de stacktrace). TESE CENTRAL: reversivel > irreversivel — marker <<ccr:HASH>> + CompressionStore local p/ lossless end-to-end. PRESERVACAO DE CACHE: PrefixCacheTracker congela frozen_message_count derivado de cache_read+write, guarda original/forwarded, e reenvia o prefixo byte-identico ao que o provider hasheou comprimindo so o delta; CacheAligner e DETECTOR-ONLY (nunca reescreve prompt), dinamico vai pra live zone. Cross-turn dedup e prefix-monotonic (adicionar turno nunca muta anterior). LEARN (maior ROI): detect_loops (error-loop vs refetch-loop) com wasted_tokens MEDIDO + apply_loop_weighting (peso medido > palpite do LLM) -> escreve em AGENTS.md/learnings com marcador idempotente. OUTPUT: verbosity steering byte-stable apos breakpoint cache_control; EFFORT ROUTING FOI REMOVIDO por medicao (economia $0.0007 vs $0.011 re-escrita de cache). CROSS-AGENT MEMORY: uma SQLite por projeto (basename-DIGEST), fail-closed se nao resolver, lineage via source_agent, handoff comprimido via SharedContext. LICAO CENTRAL que vale pro Cosca: MEDIR ANTES DE ASSUMIR (disciplina transversal; nunca inventar numero que nao mediu). Detalhes completos em .cosca/fallback/knowledge/patterns/headroom-patterns.md.'
       kind: decision
-      source: Don+cosca-kernel+prime-agent
-      confidence: 0.93
-      created_at: "2026-09-07T22:00:00Z"
+      source: Don+cosca-kernel
+      confidence: 0.88
+      created_at: "2026-09-07T23:30:00Z"

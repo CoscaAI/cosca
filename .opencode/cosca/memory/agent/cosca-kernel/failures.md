@@ -4,6 +4,21 @@
 
 ## Active Failures
 
+### 2026-09-07 — Token Bloat: Despejo de Output Grande no Contexto
+
+| Field | Value |
+|-------|-------|
+| **Agent** | cosca-kernel |
+| **Task** | Investigar memória (discrepância status vs list) + minerar headroom |
+| **Failed Approach** | Despejei saída integral no contexto: `memory list --json` (~992 linhas), listagem recursiva `.md` (~1.720 linhas), README (200 linhas), 5 relatórios de batedores (milhares de palavras cada). Nenhum teto de saída. |
+| **Root Cause** | Falta de disciplina de "ler só o necessário". Usava `--json` integral, `Out-String` sem truncamento, `read` sem `limit`, e não pedia retorno canônico (tampado) aos subagentes de pesquisa. |
+| **Consequence** | Gasto de tokens muito acima do necessário numa sessão de investigação. O Don sentiu o custo. A telemetria `cosca cost` NÃO captura o loop conversacional do editor — só execuções de agente — então o custo real passou invisível. |
+| **Lesson** | Regra dura: NUNCA despejar output integral no contexto. Todo comando com possível saída grande deve ir com teto (`Select-Object -First N` / `Select-String` / `--limit`); ler arquivo com `limit`; parsear `--json` projetando só os campos que preciso, jamais a linha bruta; subagentes de pesquisa retornam **resumo canônico curto** (o que resolve / como / onde / aplicação), não verbatim longo. |
+| **Confidence Impact** | -0.08 |
+| **Tags** | #token-bloat #output-discipline #context #leak #cost #self-awareness #conduta |
+| **Avoidance Pattern** | ANTES de cada comando: "essa saída pode passar de ~50 linhas?" → se sim, truncar/filtrar/projetar. ANTES de cada subagente de pesquisa: exigir retorno enxuto (max ~800 palavras) com o formato canônico. |
+| **Next** | Considerar com CTO um guarda-corpo sistêmico: teto de tokens/linhas no retorno de tool-output e subagente, pra ser padrão e não depender de disciplina individual. |
+
 ### 2026-08-22 — Chinese Text Hallucination
 
 | Field | Value |
