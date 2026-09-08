@@ -22,6 +22,22 @@
 # `cosca db build` — NUNCA versionados (a fonte é o knowledge.db).
 .cosca/vector-*.db
 
+# Runtime derivado do embed canônico (internal/embed/cosca/) — regenerável via
+# `cosca init` (materialize fallback/framework). A FONTE é o embed, nunca aqui.
+# Mantidos FORA do git para o master reconstruir do zero sem runtime da máquina.
+.cosca/framework/
+.cosca/fallback/
+.cosca/memory/
+.cosca/handoffs/
+.cosca/sessions/
+.cosca/durable-events/
+.cosca/cost/
+.cosca/jobs/
+.cosca/performance/
+.cosca/install/
+.cosca/models/
+.cosca/shadow/
+
 # Fase C ADR-030 — state CoW derivado do KnowledgeFS (reconstruível via
 # `cosca knowledge snapshot`, NÃO é fonte). manifest.yaml/lock.yaml (a fonte)
 # CONTINUAM versionados; só os artefatos derivados ficam fora.
