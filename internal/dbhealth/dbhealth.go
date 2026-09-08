@@ -1,11 +1,20 @@
-// Package dbhealth implementa o gate de tamanho por banco definido na
-// Decisão 1 do ADR-013 (limite de 100 MB por banco) — §2.2.1.
+// Package dbhealth implementa a medição de tamanho por banco da
+// Decisão 1 do ADR-013 (referência de 100 MB por banco) — §2.2.1.
 //
-// O gate é 100% READ-ONLY: ele apenas abre cada banco SQLite em modo somente
+// Desde 2026-09-08 (Decisão 1 alterada pelo Don) os bancos são DERIVADOS e
+// regeneráveis (cosca index rebuild / knowledge index / db build), não mais
+// versionados no git. Por isso o limite de tamanho deixou de ser uma regra de
+// enforcement default: a classificação ok | warn | fail usa o LIMITE EFETIVO,
+// e limite <= 0 significa "sem teto" (nenhum banco falha ou alerta por
+// tamanho — relatório informativo). O teto canônico de 100 MB
+// (DefaultLimitBytes / ReferenceCeiling) permanece como referência da métrica
+// percentual.
+//
+// A medição é 100% READ-ONLY: ela apenas abre cada banco SQLite em modo somente
 // leitura (`mode=ro`), calcula o tamanho on-disk real via `PRAGMA page_count *
 // PRAGMA page_size` (a métrica determinística prescrita pelo ADR) e classifica
-// o status de cada banco contra os limites (ok | warn | fail). NUNCA escreve,
-// NUNCA migra, NUNCA apaga.
+// o status de cada banco contra os limites efetivos (ok | warn | fail). NUNCA
+// escreve, NUNCA migra, NUNCA apaga.
 //
 // Escopo: mede os módulos alvo (knowledge.db, memory/index.db, core.db,
 // events.db e os derivados projetos projects/graph/vector/fts — mesmo quando
@@ -28,17 +37,20 @@ import (
 	_ "modernc.org/sqlite" // pure-Go SQLite driver — driver do gate
 )
 
-// ─── Constantes de referência (ADR-013 §2.2.1, Decisão 1) ───────────────────
+// ─── Constantes de referência (ADR-013 §2.2.1, Decisão 1 revisada) ──────────
 
 const (
-	// DefaultLimitBytes é o teto de 100 MB por banco (fonte da verdade + cada
-	// módulo). 100 MB = 100 * 1024 * 1024 bytes, a unidade binária usada pelo
-	// ADR (104857600 bytes).
+	// DefaultLimitBytes é o teto clássico de 100 MB por banco usado por
+	// DefaultLimits() (a configuração histórica do gate quando um limite
+	// default é armado em código). 100 MB = 100 * 1024 * 1024 bytes, a unidade
+	// binária usada pelo ADR (104857600 bytes). NÃO é aplicado automaticamente:
+	// limite <= 0 = "sem teto" (nenhum banco falha/alerta por tamanho).
 	DefaultLimitBytes int64 = 100 * 1024 * 1024
 
 	// ReferenceCeiling é a referência fixa de 104857600 bytes usada em
-	// `percent_of_100mb` — o "100 MB" canônico do ADR, independente do limite
-	// configurado via --limit-mb.
+	// `percent_of_100mb` — o "100 MB" canônico do ADR. Quando nenhum limite está
+	// armado (sem teto), `PercentOfLimit` também usa esta referência: a coluna
+	// "% do teto" permanece como métrica informativa.
 	ReferenceCeiling int64 = 100 * 1024 * 1024
 
 	// DefaultWarnRatio é o limiar de alerta: 80% do teto (~80 MB).
@@ -110,15 +122,20 @@ var DefaultTargets = []Target{
 
 // Limits configura o teto e os limiares do gate.
 type Limits struct {
-	// LimitBytes é o teto por banco (default: 100 MB).
+	// LimitBytes é o teto por banco. LimitBytes <= 0 = "sem teto": o gate de
+	// tamanho fica desarmado e nenhum banco pode falhar/alerta por tamanho
+	// (relatório informativo — Decisão 1 alterada em 2026-09-08).
 	LimitBytes int64
-	// WarnBytes é o limiar de alerta (default: 80% do teto).
+	// WarnBytes é o limiar de alerta (armado apenas com LimitBytes > 0).
 	WarnBytes int64
-	// FailBytes é o limiar de bloqueio (default: 100% do teto).
+	// FailBytes é o limiar de bloqueio (armado apenas com LimitBytes > 0).
 	FailBytes int64
 }
 
-// DefaultLimits devolve os limites padrão do gate: 100 MB / 80% / 100%.
+// DefaultLimits devolve a configuração clássica do gate quando um limite
+// default precisa ser armado em código: teto de 100 MB / alerta 80% / bloqueio
+// 100%. A CLI NÃO usa isto por default — o operador arma o teto via --limit-mb
+// (FromConfigMB); sem limite armado o relatório é apenas informativo.
 func DefaultLimits() Limits {
 	return Limits{
 		LimitBytes: DefaultLimitBytes,
@@ -128,13 +145,23 @@ func DefaultLimits() Limits {
 }
 
 // FromConfigMB constrói Limits a partir de um teto em MB e um alerta opcional
-// em MB (mebibytes, 1 MB = 1024*1024). warnMB <= 0 significa "automático =
-// 80% do teto". fail é sempre igual ao teto (exceder 100% = bloqueio), conforme
-// a Decisão 1.
+// em MB (mebibytes, 1 MB = 1024*1024).
+//
+// Semântica (Decisão 1 do ADR-013 alterada em 2026-09-08 — bancos derivados/
+// regeneráveis, não versionados):
+//
+//   - limitMB <= 0 → "sem teto": gate de tamanho DESARMADO. Nenhum banco pode
+//     falhar nem alertar por tamanho; warnMB é ignorado (sem limite armado não
+//     existe limiar de alerta por tamanho). O teto canônico de 100 MB
+//     (ReferenceCeiling) permanece apenas como referência da métrica
+//     percentual do relatório.
+//   - limitMB > 0  → comportamento histórico preservado: FailBytes = teto
+//     (exceder 100% bloqueia); WarnBytes = warnMB quando warnMB > 0, senão 80%
+//     do teto (DefaultWarnRatio).
 func FromConfigMB(limitMB, warnMB float64) Limits {
 	l := Limits{LimitBytes: int64(limitMB * mb)}
 	if l.LimitBytes <= 0 {
-		l.LimitBytes = DefaultLimitBytes
+		return Limits{} // sem teto: limite <= 0 = gate de tamanho desarmado
 	}
 	l.FailBytes = l.LimitBytes
 	if warnMB > 0 {
@@ -168,9 +195,11 @@ type Report struct {
 	// (db_size / 104857600), conforme prescrito no ADR (para 257 MB seria
 	// ≈ 2.57). Não é um percentual ×100 — é a razão exata.
 	PercentOf100MB float64 `json:"percent_of_100mb"`
-	// PercentOfLimit é a fração do tamanho sobre o teto configurado
-	// (db_size / limit_bytes). Com --limit-mb 100 é idêntico a
-	// PercentOf100MB; com outro limite, reflete o % do teto configurado.
+	// PercentOfLimit é a fração do tamanho sobre o teto efetivo
+	// (db_size / limit_bytes). Com --limit-mb 100 é idêntico a PercentOf100MB;
+	// com outro limite, reflete o % do teto configurado. Sem teto armado
+	// (limit_bytes == 0) cai na referência canônica de 100 MB (ReferenceCeiling)
+	// — métrica informativa.
 	PercentOfLimit float64 `json:"percent_of_limit"`
 	// Status é o estado do banco (ok | warn | fail | not_found).
 	Status Status `json:"status"`
@@ -182,17 +211,21 @@ type Report struct {
 type Result struct {
 	// CoscaDir é o diretório `.cosca` inspecionado.
 	CoscaDir string `json:"cosca_dir"`
-	// LimitBytes é o teto aplicado (100 MB por default).
+	// LimitBytes é o teto efetivo aplicado (0 = sem teto armado; > 0 = limite
+	// via --limit-mb / FromConfigMB).
 	LimitBytes int64 `json:"limit_bytes"`
-	// WarnBytes é o limiar de alerta aplicado.
+	// WarnBytes é o limiar de alerta efetivo aplicado (0 quando sem teto).
 	WarnBytes int64 `json:"warn_bytes"`
-	// FailBytes é o limiar de bloqueio aplicado.
+	// FailBytes é o limiar de bloqueio efetivo aplicado (0 quando sem teto).
 	FailBytes int64 `json:"fail_bytes"`
 	// Databases é a lista de relatórios por banco.
 	Databases []Report `json:"databases"`
-	// AnyWarn é true quando algum banco existente cruzou o alerta.
+	// AnyWarn é true quando algum banco existente cruzou o alerta (ou, sem teto
+	// armado, quando algum banco reportou problema de leitura/estado — nunca
+	// por tamanho).
 	AnyWarn bool `json:"any_warn"`
-	// AnyFail é true quando algum banco existente cruzou o teto.
+	// AnyFail é true quando algum banco existente cruzou o teto. Sem limite
+	// armado (LimitBytes <= 0) é sempre false: nenhum banco falha por tamanho.
 	AnyFail bool `json:"any_fail"`
 	// Passed é true quando nenhum banco cruzou o teto (gate aprovado).
 	Passed bool `json:"passed"`
@@ -207,7 +240,9 @@ type Options struct {
 	CoscaDir string
 	// Targets é a lista de módulos alvo; nil → DefaultTargets.
 	Targets []Target
-	// Limits são os limites do gate; zero → DefaultLimits.
+	// Limits são os limites do gate. zero (ou LimitBytes <= 0) = "sem teto":
+	// nenhum banco falha/alerta por tamanho (relatório informativo). Para armar
+	// um teto use DefaultLimits() ou FromConfigMB(N>0, ...).
 	Limits Limits
 	// IncludeAll indica se, além dos módulos alvo, o gate deve varrer todos
 	// os `*.db` encontrados recursivamente no `.cosca`. Default: true.
@@ -226,13 +261,18 @@ func Check(opts Options) (*Result, error) {
 	}
 	l := opts.Limits
 	if l.LimitBytes <= 0 {
-		l = DefaultLimits()
-	}
-	if l.WarnBytes <= 0 {
-		l.WarnBytes = int64(float64(l.LimitBytes) * DefaultWarnRatio)
-	}
-	if l.FailBytes <= 0 {
-		l.FailBytes = l.LimitBytes
+		// Sem teto armado (limite <= 0 = "sem teto", Decisão 1 alterada em
+		// 2026-09-08): nenhum banco pode falhar nem alertar por tamanho — o
+		// relatório é apenas informativo. Para armar o gate use DefaultLimits()
+		// ou FromConfigMB(N>0, ...).
+		l = Limits{}
+	} else {
+		if l.WarnBytes <= 0 {
+			l.WarnBytes = int64(float64(l.LimitBytes) * DefaultWarnRatio)
+		}
+		if l.FailBytes <= 0 {
+			l.FailBytes = l.LimitBytes
+		}
 	}
 
 	res := &Result{
@@ -396,8 +436,16 @@ func measure(absPath, name, coscaDir string, l Limits) Report {
 
 	rep.DBSizeBytes = rep.PageCount * rep.PageSize
 	rep.PercentOf100MB = float64(rep.DBSizeBytes) / float64(ReferenceCeiling)
-	rep.PercentOfLimit = float64(rep.DBSizeBytes) / float64(l.LimitBytes)
-	rep.Status = Classify(rep.DBSizeBytes, l.WarnBytes, l.FailBytes)
+	if l.LimitBytes > 0 {
+		rep.PercentOfLimit = float64(rep.DBSizeBytes) / float64(l.LimitBytes)
+		rep.Status = Classify(rep.DBSizeBytes, l.WarnBytes, l.FailBytes)
+		return rep
+	}
+	// Sem teto armado: nenhum banco falha/alerta por tamanho. A coluna
+	// "% do teto" usa a referência canônica de 100 MB (ReferenceCeiling) como
+	// métrica informativa.
+	rep.PercentOfLimit = rep.PercentOf100MB
+	rep.Status = StatusOK
 	return rep
 }
 

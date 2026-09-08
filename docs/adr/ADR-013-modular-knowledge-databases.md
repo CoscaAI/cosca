@@ -222,6 +222,23 @@ Estas **três** decisões do Don são **regras de arquitetura** que incorporam a
   - **bloquear (fail)** quando um módulo tenta **exceder** 100 MB (recusar a operação que estouraria, pedindo split/otimização antes).
   - Ao se aproximar do limite → **ação**: dividir/particionar ou otimizar (VACUUM, rebuild do índice derivado), nunca "deixar passar".
 
+> **Revisão da Decisão 1 — 2026-09-08 (Don):** com os bancos agora **derivados e
+> regeneráveis** (projeções reconstruídas por `cosca index rebuild` /
+> `knowledge index` / `db build`), o `knowledge.db` e os módulos **deixaram de
+> ser versionados** no git. A premissa original do teto rígido de 100 MB —
+> manter o commit do snapshot pequeno — **morreu**. Portanto o teto de 100 MB
+> **deixa de ser regra de enforcement default**: `cosca db check` continua
+> listando os tamanhos e o % da referência de 100 MB como **relatório
+> informativo** (exit 0), e `cosca db check --gate` **só falha por tamanho
+> quando o operador arma o limite explicitamente** com `--limit-mb N` (alerta
+> em ~80% de N; fail ao cruzar N; `--warn-mb` ajusta o limiar de alerta). A
+> referência canônica de 100 MB permanece **apenas como métrica informativa**
+> (coluna "% do teto"); sem `--limit-mb` armado (limite <= 0 = "sem teto")
+> nenhum banco falha nem alerta por tamanho. Particionar por responsabilidade
+> (§2.0) continua sendo a régua de design para bancos que crescem demais — mas a
+> decisão de quando bloquear por tamanho passou a ser do operador, não do
+> default.
+
 #### 2.2.2 Decisão 2 — ZERO REDUNDÂNCIA DE CONTEÚDO (Core → módulos)
 
 > "O gatilho imutável pro módulo tem redundância?" — **Resposta: NÃO DEVE TER.**

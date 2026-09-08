@@ -311,3 +311,10 @@ claims:
       source: Don+cosca-kernel+prime-agent
       confidence: 0.93
       created_at: "2026-09-07T22:00:00Z"
+
+    - id: incidente-integridade-memoria-2026-09-08
+      statement: 'INCIDENTE RECUPERADO (2026-09-08, ordem do Don: Opcao B): boot recusado pelo gate de integridade da memoria (alterados=0, ausentes=1042, novos=0). CAUSA: .cosca/fallback/ (memoria de agentes) e .cosca/framework/ sao derivados do embed canonico (gitignored, regeneraveis) e foram removidos DEPOIS da criacao do manifest (2026-09-07T20:42Z); o manifest ficou stale e o gate fail-closed travou todo comando nao-bypass. CEREBRO INTACTO: embed internal/embed/cosca/memory (1329 arquivos) + .opencode/cosca/memory (496). REMEDIACAO CIRURGICA (sem cosca init --force, que faria backup e recriaria o .cosca inteiro): materializei fallback (knowledge/memory/workflows/engines) + framework (11 arquivos nucleo) copiando do embed canonico em disco -> memory integrity init --force (manifest novo: 1045 protegidos) -> despertar OK. LICAO 1: o unico caminho oficial para materializar fallback/framework (cosca init) e destrutivo em projeto ja inicializado; a fonte canonica em disco (internal/embed/cosca) permite materializacao cirurgica identica. LICAO 2: checkChain() do despertar depende do binario cosca-check (procura cosca-check e ./bin/cosca-check) e do comando check no binario principal (que NAO existe) - faltando cosca-check o despertar acusa CHAIN INVALIDA mesmo com chain sadia; rebuild de bin/cosca.exe + bin/cosca-check.exe resolveu (Chain valida, 0 blocos). OPEN: (1) workspace sem .git (sem restauracao por historico, hook post-commit nao roda); (2) family_chain.dat ausente -> chain em estado first-run (0 blocos, validacao trivial); reativar exige cosca-check --init com presenca do Don.'
+      kind: observed
+      source: cosca-kernel (ordem do Don: Opcao B)
+      confidence: 0.93
+      created_at: "2026-09-08T02:30:00Z"

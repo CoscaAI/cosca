@@ -255,6 +255,7 @@ func TestPercentOfLimit_UsesConfiguredLimit(t *testing.T) {
 }
 
 func TestFromConfigMB(t *testing.T) {
+	// Teto positivo: comportamento histórico preservado.
 	if got := FromConfigMB(100, 0); got.LimitBytes != DefaultLimitBytes {
 		t.Errorf("FromConfigMB(100,0).LimitBytes = %d, esperava %d", got.LimitBytes, DefaultLimitBytes)
 	}
@@ -268,9 +269,65 @@ func TestFromConfigMB(t *testing.T) {
 	if got := FromConfigMB(100, 50); got.WarnBytes != 50*mb {
 		t.Errorf("FromConfigMB(100,50).WarnBytes = %d, esperava %d", got.WarnBytes, 50*mb)
 	}
-	// teto 0 → default.
-	if got := FromConfigMB(0, 0); got.LimitBytes != DefaultLimitBytes {
-		t.Errorf("FromConfigMB(0,0).LimitBytes = %d, esperava %d", got.LimitBytes, DefaultLimitBytes)
+	// teto 0 → sem teto (gate de tamanho desarmado): nenhum limite armado.
+	got := FromConfigMB(0, 0)
+	if got.LimitBytes != 0 || got.WarnBytes != 0 || got.FailBytes != 0 {
+		t.Errorf("FromConfigMB(0,0) = %+v, esperava sem teto (0/0/0)", got)
+	}
+	// teto negativo → sem teto.
+	if got := FromConfigMB(-10, 0); got.LimitBytes != 0 {
+		t.Errorf("FromConfigMB(-10,0).LimitBytes = %d, esperava 0 (sem teto)", got.LimitBytes)
+	}
+	// sem limite armado, warn explícito é ignorado (sem warn por tamanho).
+	if got := FromConfigMB(0, 50); got.WarnBytes != 0 {
+		t.Errorf("FromConfigMB(0,50).WarnBytes = %d, esperava 0 (sem teto ignora warn)", got.WarnBytes)
+	}
+}
+
+func TestCheck_NoLimit_NeverFailsBySize(t *testing.T) {
+	coscaDir := createEmptyCosca(t)
+	createTestDB(t, filepath.Join(coscaDir, "knowledge.db"))
+
+	// Limits zero (sem teto) → banco encontrado é sempre ok; nunca warn/fail
+	// por tamanho, mesmo com um banco real maior que o alerta padrão.
+	res, err := Check(Options{CoscaDir: coscaDir, IncludeAll: false, Limits: Limits{}})
+	if err != nil {
+		t.Fatalf("Check returned error: %v", err)
+	}
+	if res.LimitBytes != 0 || res.WarnBytes != 0 || res.FailBytes != 0 {
+		t.Fatalf("sem teto deveria reportar limites 0/0/0, got %d/%d/%d", res.LimitBytes, res.WarnBytes, res.FailBytes)
+	}
+	knowledge := byRel(t, res, "knowledge.db")
+	if knowledge.Status != StatusOK {
+		t.Errorf("esperava status ok sem teto armado, got %q (size=%d)", knowledge.Status, knowledge.DBSizeBytes)
+	}
+	if res.AnyWarn || res.AnyFail {
+		t.Errorf("esperava AnyWarn/AnyFail false sem teto, got warn=%v fail=%v", res.AnyWarn, res.AnyFail)
+	}
+	if !res.Passed {
+		t.Errorf("esperava Passed=true sem teto")
+	}
+}
+
+func TestMeasure_NoLimit_PercentUsesReferenceCeiling(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "knowledge.db")
+	createTestDB(t, dbPath)
+
+	rep := measure(dbPath, "knowledge", dir, Limits{})
+
+	if !rep.Found {
+		t.Fatalf("esperava Found=true, got %v", rep.Found)
+	}
+	if rep.Status != StatusOK {
+		t.Errorf("esperava status ok sem teto armado, got %q", rep.Status)
+	}
+	want := float64(rep.DBSizeBytes) / float64(ReferenceCeiling)
+	if rep.PercentOfLimit != want {
+		t.Errorf("PercentOfLimit = %v, esperava referência de 100 MB (%v)", rep.PercentOfLimit, want)
+	}
+	if rep.PercentOfLimit != rep.PercentOf100MB {
+		t.Errorf("sem teto, PercentOfLimit deveria ser idêntico a PercentOf100MB, got %v vs %v", rep.PercentOfLimit, rep.PercentOf100MB)
 	}
 }
 

@@ -1,18 +1,24 @@
 //
 // `cosca db` — inspeção e governança dos bancos de dados do Cosca.
 //
-// Implementa o gate de tamanho da Decisão 1 do ADR-013 (§2.2.1): TODO banco do
-// sistema (o Core/fonte da verdade e cada módulo) deve permanecer abaixo de
-// 100 MB. Este comando mede o tamanho on-disk real de cada banco SQLite via
-// `PRAGMA page_count * page_size` (a métrica determinística prescrita pelo ADR)
-// e reporta o % do teto + o status (ok | warn | fail).
+// Mede o tamanho on-disk real de cada banco SQLite via
+// `PRAGMA page_count * page_size` (a métrica determinística do ADR-013) e
+// reporta o % da referência de 100 MB + o status (ok | warn | fail).
+//
+// Desde 2026-09-08 (Decisão 1 do ADR-013 alterada pelo Don) os bancos são
+// DERIVADOS e regeneráveis (cosca index rebuild / knowledge index / db build),
+// não versionados no git — portanto o gate de tamanho NÃO falha por default:
+// `cosca db check` (mesmo com --gate) é um relatório informativo (exit 0) e o
+// bloqueio por tamanho só ocorre quando o operador arma um limite com
+// `--limit-mb N` (N > 0).
 //
 // Subcomandos:
 //   check                  Lista todos os bancos, tamanhos, % do teto e status.
-//   check --gate           Roda o mesmo cálculo MAS: warn ao cruzar ~80% do
-//                          teto; fail (exit != 0) quando algum banco cruza 100%.
+//   check --gate           Modo gate: exit != 0 SOMENTE quando um limite de
+//                          tamanho está armado (--limit-mb) e algum banco o
+//                          cruza. Sem --limit-mb é apenas relatório.
 //
-// O gate é 100% READ-ONLY: nunca escreve, nunca migra, nunca apaga. Apenas
+// O comando é 100% READ-ONLY: nunca escreve, nunca migra, nunca apaga. Apenas
 // mede e reporta.
 //
 
@@ -35,23 +41,30 @@ import (
 func NewDBCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "db",
-		Short: "Inspeção e governança dos bancos de dados do Cosca (gate de 100 MB — ADR-013)",
-		Long: `Governança do tamanho dos bancos de dados do Cosca (ADR-013, Decisão 1).
+		Short: "Inspeção e governança dos bancos de dados do Cosca (relatório de tamanho — ADR-013)",
+		Long: `Governança do tamanho dos bancos de dados do Cosca (ADR-013, Decisão 1,
+revisada em 2026-09-08).
 
-Cada banco do sistema — o Core (fonte da verdade) e cada módulo — deve manter-se
-abaixo de 100 MB. Este comando mede o tamanho on-disk real de cada banco SQLite
-(PRAGMA page_count * page_size, o padrão determinístico do ADR) e reporta o % do
-teto + status.
+Os bancos são derivados e regeneráveis (cosca index rebuild / knowledge index /
+db build), não mais versionados no git — por isso o teto de 100 MB deixou de
+ser uma regra de enforcement default. Este comando mede o tamanho on-disk real
+de cada banco SQLite (PRAGMA page_count * page_size) e reporta o % da
+referência de 100 MB + status como RELATÓRIO INFORMATIVO (exit 0) — o gate de
+tamanho é opt-in via --limit-mb.
 
-O gate é READ-ONLY: mede e reporta, nunca escreve, migra ou apaga.
+O comando é READ-ONLY: mede e reporta, nunca escreve, migra ou apaga.
 
 Subcomandos:
   check              Lista todos os bancos, tamanhos, % do teto e status.
-  check --gate       Warn ao cruzar ~80% do teto; fail (exit != 0) ao cruzar 100%.`,
+  check --gate       Gate de tamanho OPT-IN: com --limit-mb N (N > 0) alerta
+                     em ~80% de N e falha (exit != 0) quando um banco cruza N;
+                     sem --limit-mb é apenas relatório informativo (exit 0).`,
 		Example: `  cosca db check
   cosca db check --gate
   cosca db check --json
-  cosca db check --gate --limit-mb 0.001`,
+  cosca db check --gate --limit-mb 100
+  cosca db check --gate --limit-mb 100 --warn-mb 80
+  cosca db check --gate --limit-mb 0.001   # teto minúsculo: prova o fail`,
 	}
 
 	cmd.AddCommand(NewDBCheckCommand())
@@ -72,23 +85,29 @@ func NewDBCheckCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "check",
-		Short: "Mede o tamanho on-disk de cada banco e reporta o % do teto de 100 MB",
-		Long: `Mede o tamanho on-disk de cada banco de dados do Cosca e reporta o % do
-teto (ADR-013, Decisão 1). Lê .cosca/*.db (todos os bancos encontrados) e os
-módulos alvo (knowledge, memory/index, core, events, projects, graph, vector,
-fts — os ausentes são reportados como "não encontrado", sem quebrar).
+		Short: "Mede o tamanho on-disk de cada banco e reporta o % da referência de 100 MB",
+		Long: `Mede o tamanho on-disk de cada banco de dados do Cosca e reporta o % da
+referência de 100 MB (ADR-013, Decisão 1 — métrica informativa). Lê .cosca/*.db
+(todos os bancos encontrados) e os módulos alvo (knowledge, memory/index, core,
+events, projects, graph, vector, fts — os ausentes são reportados como
+"não encontrado", sem quebrar).
 
-Sem --gate, é apenas listagem (sempre exit 0).
-Com --gate:
-  • warn  quando algum banco cruza ~80% do teto (~80 MB por default);
-  • fail  (exit != 0) quando algum banco cruza 100% do teto.
+Sem --limit-mb, é apenas relatório informativo (sempre exit 0, mesmo com
+--gate): nenhum banco falha por tamanho (Decisão 1 alterada em 2026-09-08 —
+bancos derivados/regeneráveis, não versionados).
+Com --gate e --limit-mb N (N > 0), o gate de tamanho é armado:
+  • warn  quando algum banco cruza ~80% de N;
+  • fail  (exit != 0) quando algum banco cruza N.
+--warn-mb W ajusta o limiar de alerta (default: 80% do --limit-mb); sem
+--limit-mb armado, --warn-mb é ignorado.
 
-O gate é READ-ONLY: nunca escreve no banco, nunca migra, nunca apaga.`,
+O comando é READ-ONLY: nunca escreve no banco, nunca migra, nunca apaga.`,
 		Example: `  cosca db check
   cosca db check --gate
   cosca db check --json
-  cosca db check --gate --limit-mb 0.001
-  cosca db check --gate --warn-mb 0.001`,
+  cosca db check --gate --limit-mb 100
+  cosca db check --gate --limit-mb 100 --warn-mb 80
+  cosca db check --gate --limit-mb 0.001   # teto minúsculo: prova o fail`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			f := GetFormatter(cmd)
@@ -100,8 +119,11 @@ O gate é READ-ONLY: nunca escreve no banco, nunca migra, nunca apaga.`,
 			}
 			coscaDir := filepath.Join(cwd, ".cosca")
 
-			// Limites a partir das flags (MB binário). --warn-mb <= 0 → 80% do
-			// teto; --limit-mb <= 0 → 100 MB (default).
+			// Limites a partir das flags (MB binário). Semântica da Decisão 1
+			// alterada em 2026-09-08: --limit-mb <= 0 = "sem teto" (gate de
+			// tamanho desarmado — relatório informativo); --limit-mb N > 0
+			// arma o teto, com alerta automático (~80% de N) ou explícito via
+			// --warn-mb.
 			limits := dbhealth.FromConfigMB(limitMB, warnMB)
 
 			res, err := dbhealth.Check(dbhealth.Options{
@@ -120,8 +142,10 @@ O gate é READ-ONLY: nunca escreve no banco, nunca migra, nunca apaga.`,
 
 			printDBCheckText(f, res)
 
-			// Gate: só o fail (exceder 100%) bloqueia com exit != 0; o warn é
-			// apenas um alerta (exit 0), conforme a Decisão 1.
+			// Gate: o fail por tamanho só existe com um limite armado
+			// (--limit-mb N > 0) — exceder N bloqueia com exit != 0. Sem limite
+			// armado nenhum banco falha por tamanho (relatório informativo). O
+			// warn é apenas um alerta (exit 0).
 			if gate && res.AnyFail {
 				return ExitCodeError{Code: 1}
 			}
@@ -129,19 +153,23 @@ O gate é READ-ONLY: nunca escreve no banco, nunca migra, nunca apaga.`,
 		},
 	}
 
-	cmd.Flags().Float64Var(&limitMB, "limit-mb", 100, "teto (limite) por banco em MB (default 100)")
-	cmd.Flags().Float64Var(&warnMB, "warn-mb", 0, "limiar de alerta em MB (0 = automático: 80%% do --limit-mb)")
-	cmd.Flags().BoolVar(&gate, "gate", false, "modo gate: exit != 0 quando algum banco cruza 100% do teto")
+	cmd.Flags().Float64Var(&limitMB, "limit-mb", 0, "teto por banco em MB (0 = sem teto: relatório informativo; N > 0 arma o gate de tamanho)")
+	cmd.Flags().Float64Var(&warnMB, "warn-mb", 0, "limiar de alerta em MB (0 = automático: 80%% do --limit-mb; ignorado sem --limit-mb)")
+	cmd.Flags().BoolVar(&gate, "gate", false, "modo gate: exit != 0 quando algum banco cruza o teto armado via --limit-mb")
 
 	return cmd
 }
 
 // printDBCheckText renderiza o relatório do gate em texto (tabela + resumo).
 func printDBCheckText(f *OutputFormatter, res *dbhealth.Result) {
-	f.Header("DB Check — Tamanho por banco (ADR-013 · Decisão 1 · teto 100 MB)")
+	f.Header("DB Check — Tamanho por banco (ADR-013 · Decisão 1 · referência 100 MB)")
 	f.Printf("Diretório: %s\n", res.CoscaDir)
-	f.Printf("Teto: %s  ·  Alerta: %s  ·  Bloqueio: %s\n",
-		formatDBSize(res.LimitBytes), formatDBSize(res.WarnBytes), formatDBSize(res.FailBytes))
+	if res.LimitBytes > 0 {
+		f.Printf("Teto armado: %s  ·  Alerta: %s  ·  Bloqueio: %s\n",
+			formatDBSize(res.LimitBytes), formatDBSize(res.WarnBytes), formatDBSize(res.FailBytes))
+	} else {
+		f.Printf("Teto: nenhum armado — relatório informativo (gate de tamanho opt-in via --limit-mb; 100 MB é a referência da métrica)\n")
+	}
 	f.Println("")
 
 	rows := make([][]string, 0, len(res.Databases))
@@ -168,11 +196,19 @@ func printDBCheckText(f *OutputFormatter, res *dbhealth.Result) {
 			found, len(res.Databases)-found)
 	}
 
-	if res.AnyWarn {
-		f.Warning(fmt.Sprintf("Atenção: %d banco(s) cruzaram %s (%.0f%% do teto).", warnCount(res), formatDBSize(res.WarnBytes), percent(res.WarnBytes, res.LimitBytes)))
+	if res.LimitBytes > 0 {
+		if res.AnyWarn {
+			f.Warning(fmt.Sprintf("Atenção: %d banco(s) cruzaram o alerta de %s (%.0f%% do teto armado).", warnCount(res), formatDBSize(res.WarnBytes), percent(res.WarnBytes, res.LimitBytes)))
+		}
+		if res.AnyFail {
+			f.Error(fmt.Sprintf("BLOQUEIO: %d banco(s) cruzaram o teto de %s — o gate recusa (exit != 0).", failCount(res), formatDBSize(res.LimitBytes)))
+		}
+		return
 	}
-	if res.AnyFail {
-		f.Error(fmt.Sprintf("BLOQUEIO: %d banco(s) cruzaram o teto de %s — o gate recusa (exit != 0).", failCount(res), formatDBSize(res.LimitBytes)))
+	if res.AnyWarn {
+		// Sem teto armado, um status warn só reflete problema de leitura/estado
+		// do arquivo (nunca tamanho) — informativo, não bloqueia.
+		f.Warning(fmt.Sprintf("Atenção: %d banco(s) em estado de alerta (leitura/estado) — sem teto armado, nenhum bloqueio por tamanho.", warnCount(res)))
 	}
 }
 
@@ -306,10 +342,10 @@ nenhum migrate, nenhum drop.`,
 			}
 
 			type mirrorReport struct {
-				KnowledgeDB   string          `json:"knowledge_db"`
-				Modules       []string        `json:"modules"`
-				Counts        vectoragg.Counts `json:"counts"`
-				ReadOnly      bool            `json:"read_only"`
+				KnowledgeDB string           `json:"knowledge_db"`
+				Modules     []string         `json:"modules"`
+				Counts      vectoragg.Counts `json:"counts"`
+				ReadOnly    bool             `json:"read_only"`
 			}
 			rep := mirrorReport{
 				KnowledgeDB: kb,

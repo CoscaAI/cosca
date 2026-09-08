@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -59,6 +60,62 @@ func executeDBCheck(t *testing.T, args ...string) (string, error) {
 	root.SetArgs(append([]string{"db", "check"}, args...))
 	err := root.Execute()
 	return buf.String(), err
+}
+
+// growTestDB pads the SQLite file at absPath until page_count*page_size exceeds
+// sizeBytes, inserting filler rows in a single transaction. Used to simulate a
+// module larger than the 100 MB reference ceiling without seeding hundreds of
+// megabytes of real content.
+func growTestDB(t *testing.T, absPath string, sizeBytes int64) {
+	t.Helper()
+	db, err := sql.Open("sqlite", absPath)
+	if err != nil {
+		t.Fatalf("open db para crescer: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _dbcheck_filler (id INTEGER PRIMARY KEY, data BLOB)`); err != nil {
+		t.Fatalf("create filler table: %v", err)
+	}
+	var pageSize int64
+	if err := db.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+		t.Fatalf("page_size: %v", err)
+	}
+	if pageSize <= 0 {
+		t.Fatalf("page_size inválido: %d", pageSize)
+	}
+	const chunk = 1 << 20 // 1 MiB por linha de filler
+	payload := bytes.Repeat([]byte{0x41}, chunk)
+	// 1 MiB de payload ≈ 1 MiB + fração de página no arquivo; a margem extra
+	// cobre o arredondamento por página (garante que o arquivo cruza sizeBytes).
+	rows := int(sizeBytes/chunk) + 32
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin tx: %v", err)
+	}
+	stmt, err := tx.Prepare(`INSERT INTO _dbcheck_filler (data) VALUES (?)`)
+	if err != nil {
+		t.Fatalf("prepare filler insert: %v", err)
+	}
+	for i := 0; i < rows; i++ {
+		if _, err := stmt.Exec(payload); err != nil {
+			_ = stmt.Close()
+			_ = tx.Rollback()
+			t.Fatalf("insert filler: %v", err)
+		}
+	}
+	if err := stmt.Close(); err != nil {
+		t.Fatalf("close stmt: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit filler: %v", err)
+	}
+	var pageCount int64
+	if err := db.QueryRow(`PRAGMA page_count`).Scan(&pageCount); err != nil {
+		t.Fatalf("page_count: %v", err)
+	}
+	if pageCount*pageSize <= sizeBytes {
+		t.Fatalf("growTestDB não atingiu %d bytes (page_count*page_size = %d)", sizeBytes, pageCount*pageSize)
+	}
 }
 
 func TestDBCheck_ListText(t *testing.T) {
@@ -139,9 +196,10 @@ func TestDBCheck_Gate_Pass_ExitsZero(t *testing.T) {
 func TestDBCheck_Gate_Warn_ExitsZero(t *testing.T) {
 	setupDBCheckProject(t, true)
 
-	// Teto default 100 MB (fail), mas alerta baixíssimo (1 KiB): o knowledge.db
-	// real crusta o alerta mas NÃO o teto → warn (exit 0, não bloqueia).
-	out, err := executeDBCheck(t, "--gate", "--warn-mb", "0.001")
+	// Limite armado (1000 MB — fail distante) + alerta baixíssimo (1 KiB): o
+	// knowledge.db real cruza o alerta mas NÃO o teto → warn (exit 0, não
+	// bloqueia). Sem --limit-mb armado não existe warn/fail por tamanho.
+	out, err := executeDBCheck(t, "--gate", "--limit-mb", "1000", "--warn-mb", "0.001")
 	if err != nil {
 		t.Fatalf("esperava exit 0 (apenas warn), got error: %v\noutput:\n%s", err, out)
 	}
@@ -150,6 +208,42 @@ func TestDBCheck_Gate_Warn_ExitsZero(t *testing.T) {
 	}
 	if strings.Contains(out, "BLOQUEIO") {
 		t.Errorf("output não deveria conter BLOQUEIO (apenas warn); output:\n%s", out)
+	}
+}
+
+func TestDBCheck_Gate_NoLimit_WarnFlagIsIgnored(t *testing.T) {
+	setupDBCheckProject(t, true)
+
+	// --warn-mb SEM --limit-mb: sem teto armado não há warn/fail por tamanho
+	// (Decisão 1 alterada 2026-09-08) — exit 0 e nenhum alerta por tamanho.
+	out, err := executeDBCheck(t, "--gate", "--warn-mb", "0.001")
+	if err != nil {
+		t.Fatalf("esperava exit 0 sem limite armado, got error: %v\noutput:\n%s", err, out)
+	}
+	if strings.Contains(out, "Atenção") {
+		t.Errorf("sem teto armado não deveria alertar por tamanho; output:\n%s", out)
+	}
+	if strings.Contains(out, "BLOQUEIO") {
+		t.Errorf("sem teto armado não deveria bloquear; output:\n%s", out)
+	}
+}
+
+func TestDBCheck_Gate_NoLimitBigDB_Passes(t *testing.T) {
+	dir := setupDBCheckProject(t, true)
+	// knowledge.db real maior que a referência canônica de 100 MB.
+	growTestDB(t, filepath.Join(dir, ".cosca", "knowledge.db"), dbhealth.ReferenceCeiling)
+
+	// --gate SEM flags de limite: relatório informativo — nunca falha por
+	// tamanho, mesmo com um banco acima de 100 MB (exit 0).
+	out, err := executeDBCheck(t, "--gate")
+	if err != nil {
+		t.Fatalf("esperava exit 0 com banco > 100 MB e --gate sem --limit-mb, got: %v\noutput:\n%s", err, out)
+	}
+	if !strings.Contains(out, "DB Check") {
+		t.Errorf("output deveria conter o cabeçalho; output:\n%s", out)
+	}
+	if strings.Contains(out, "BLOQUEIO") {
+		t.Errorf("output não deveria conter BLOQUEIO (sem teto armado); output:\n%s", out)
 	}
 }
 
