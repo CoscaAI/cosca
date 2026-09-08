@@ -50,6 +50,22 @@ const (
 
 	// configSchema is the OpenCode config JSON schema.
 	configSchema = "https://opencode.ai/config.json"
+
+	// outputDisciplineInstruction is injected into the project-level
+	// "instructions" list so it applies to EVERY agent (Kernel + subagents),
+	// because OpenCode applies global instructions to all registered agents.
+	//
+	// WHY (redundancy layer — not a repair): the CLI output-guardrail
+	// (internal/cli, Phase 1 / commit 35e3a61a) truncates TOOL OUTPUT
+	// mechanically. But the Kernel previously burned tokens by dumping
+	// `memory list --json` (~992 linhas), recursive listings (~1.720 linhas),
+	// and `read` without `limit`, and subagents returned multi-thousand-word
+	// reports. That behavior is NOT fixable by the tool guard — only by the
+	// agent YOLO-ing past it. So this explicit instruction makes OUTPUT
+	// DISCIPLINE the behavioral default: every agent limits/filters/projects
+	// before anything lands in context. Reduces context ⇒ fewer tokens/cost
+	// (ADR-031 + ordem do Don).
+	outputDisciplineInstruction = "OUTPUT DISCIPLINE (economia de contexto — ADR-031 + ordem do Don): NUNCA despeje output integral de comando ou leitura no contexto. Sempre limite ou filtre ANTES: `... | Select-Object -First N` (N ~50-100) para PowerShell, ou `--limit N` para `read`/comandos que suportam. `read` de arquivo SEMPRE com `limit` — leia só o necessário, nunca 2000 linhas de uma vez. `--json` grande: projete SÓ os campos essenciais, nunca a linha bruta. Subagente de pesquisa retorna resumo canônico ENXUTO (o que resolve / como / onde / aplicação), máximo ~600 palavras — nunca o relatório integral. Contexto limpo = menos tokens/custo = decisão mais rápida para o Don."
 )
 
 // ConfigPath returns the project-level opencode.json path for the given
@@ -205,8 +221,12 @@ func (a *Adapter) Setup(config types.EditorConfig) error {
 		}
 	}
 
-	// instructions: merge the boot instruction into the existing list.
+	// instructions: merge the boot instruction AND the output-discipline
+	// rule into the existing list. The discipline is global — it applies to
+	// every agent (Kernel + subagents), not just the Kernel, and it is the
+	// behavioral redundancy layer on top of the CLI output-guardrail.
 	opencodeCfg["instructions"] = mergeInstructions(opencodeCfg["instructions"], bootInstr)
+	opencodeCfg["instructions"] = mergeInstructions(opencodeCfg["instructions"], outputDisciplineInstruction)
 
 	// agent: register the Cosca Kernel as the primary agent.
 	agents, _ := opencodeCfg["agent"].(map[string]interface{})
