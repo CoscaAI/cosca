@@ -24,6 +24,8 @@
 # Learning Vaults (ADR-044): índices de gatilho por departamento — derivados,
 # regeneráveis via `cosca learning rebuild` (fonte: chain.dat + blocks).
 .cosca/learning/
+# Artefatos de runtime SQLite espúrios (nunca versionar)
+internal/memory/memory/index.db
 
 # Runtime derivado do embed canônico (internal/embed/cosca/) — regenerável via
 # `cosca init` (materialize fallback/framework). A FONTE é o embed, nunca aqui.
