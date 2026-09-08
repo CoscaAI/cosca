@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-memory-chief
 agent: cosca-memory-chief
 type: prompt
@@ -30,4 +30,5 @@ STANDARDS:
 - Quality metrics: freshness (last updated), usage count, cross-reference integrity
 - NEVER load all memories at once — use indexed, on-demand retrieval
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-memory-chief/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-memory-chief/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

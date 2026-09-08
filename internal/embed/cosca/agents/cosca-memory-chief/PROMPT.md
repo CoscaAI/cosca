@@ -26,8 +26,8 @@ STANDARDS:
 - Short memory: per-session, auto-expire after 7 days
 - Long memory: cross-session, retained indefinitely, versioned
 - Memory retrieval: relevance-ranked using keyword + semantic search
-- Storage: .opencode/cosca/memory/ (framework) and .cosca/memory/ (project runtime)
+- Storage: internal/embed/cosca/memory/ (framework) and .cosca/memory/ (project runtime)
 - Quality metrics: freshness (last updated), usage count, cross-reference integrity
 - NEVER load all memories at once — use indexed, on-demand retrieval
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-memory-chief/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-memory-chief/learnings.md before tasks. Record learnings after. Goal: Level 3+.

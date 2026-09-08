@@ -1,9 +1,10 @@
 # LEARNING PROTOCOL — Auto-Evolution Memory System
 
-> **Version**: 2.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-07-28
+> **Version**: 3.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-09-08
+> **Mudança v3.0.0 (ordem do Don)**: memória de TODOS os agentes é rastreada pela **memory blockchain** — cada aprendizado é um **bloco imutável** (`blocks/{sha256}.md`), encadeado no `chain.dat`, com raiz Merkle. `learnings.md` é **apenas o índice de gatilhos** (1 linha por aprendizado, SEM conteúdo). Nunca escrever o conteúdo no índice.
 
 ## Purpose
-Every agent in the Cosca ecosystem auto-evolves. This protocol defines how agents learn from experience, store knowledge semantically, learn from failures, track confidence, and apply increasingly advanced techniques over time. v2.0.0 adds **Negative Memory** and **Confidence Scoring** as part of the Metacognition Layer.
+Every agent in the Cosca ecosystem auto-evolves. This protocol defines how agents learn from experience, store knowledge **as chain-tracked blocks**, learn from failures, track confidence, and apply increasingly advanced techniques over time.
 
 ## The Metacognition Loop
 
@@ -12,7 +13,7 @@ TASK
  ↓
 SELF-ASSESS (load capability profile, check confidence)
  ↓
-RETRIEVE MEMORY (search learnings + failures + patterns)
+RETRIEVE MEMORY (semantic search over chain blocks — never full-file reads)
  ↓
 PLAN STRATEGY (select technique, avoid known pitfalls)
  ↓
@@ -22,7 +23,7 @@ VERIFY RESULT (quality gates, security, regression)
  ↓
 CRITIQUE OWN WORK (honest self-evaluation)
  ↓
-EXTRACT PATTERN (success → pattern, failure → negative memory)
+REGISTER LEARNING (cosca memory register → block + chain.dat + merkle)
  ↓
 UPDATE CAPABILITY MODEL (recalc confidence, check level-up)
 ```
@@ -33,35 +34,72 @@ Full pipeline specification: [workflows/metacognition-pipeline.md](../workflows/
 
 ## Memory Structure Per Agent
 
-Each agent has its own memory directory: `.opencode/cosca/memory/agent/{agent-name}/`
+Each agent has its OWN memory directory, chain-tracked:
+`internal/embed/cosca/memory/agent/{agent-name}/`
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `learnings.md` | Semantic learning journal — each entry is a discrete technique or discovery |
-| `failures.md` | **NEW v2.0**: Negative memory — catalog of failed approaches and root causes |
+| `learnings.md` | **ÍNDICE de gatilhos** — 1 linha por aprendizado: `## L<id> | data | título | L<nível> | #tags | {hash16}`. NUNCA conteúdo completo. |
+| `blocks/{sha256}.md` | **CONTEÚDO** de cada aprendizado — imutável, nomeado pelo hash do próprio conteúdo |
+| `chain.dat` | **LEDGER** (blockchain de memória): `{hash}|{prev}|{data}|{L<id>}|{título}` |
+| `merkle/` | Raízes Merkle por época (32 blocos/época) |
+| `failures.md` | Negative memory — catalog of failed approaches and root causes |
 | `patterns.md` | Reusable solution patterns discovered by this agent |
 | `evolution.md` | Agent capability evolution timeline — tracks level + confidence progression |
-| `capability-profile.md` | **NEW v2.0**: Self-model with strengths, weaknesses, confidence scores, evolution goal |
-| `INDEX.md` | Cross-reference index of all learnings (for fast retrieval) |
+| `capability-profile.md` | Self-model with strengths, weaknesses, confidence scores, evolution goal |
+| `INDEX.md` | Cross-reference index (fast retrieval — pointer to files, never content dump) |
 
-## Learning Entry Format
+## HOW TO REGISTER A LEARNING (obrigatório — ordem do Don)
 
-Every learning is recorded as a semantic block:
+Use o comando — ele cria o bloco, atualiza chain.dat e regenera o Merkle:
+
+```bash
+cosca memory register --agent {agent-name} \
+  --title "Técnica descoberta" \
+  --level 3 \
+  --tags "#dominio #padrao" \
+  --task "contexto da tarefa" \
+  --technique "técnica aplicada" \
+  --outcome success \
+  --learned "o que foi descoberto" \
+  --next "próximo passo"
+```
+
+Regras inegociáveis:
+1. **NUNCA** escrever o conteúdo do aprendizado manualmente no `learnings.md`. Lá só entra o gatilho (append automático de 1 linha).
+2. **NUNCA** criar `blocks/*.md` à mão — o hash é derivado do conteúdo completo; nome errado = bloco órfão fora da chain.
+3. **NUNCA** editar um bloco existente — bloco é imutável; mudou o entendimento, registre um novo.
+4. Todo registro precisa passar pelo **memoryguard** (4ª Muralha). Reprovação sem `--force` (privilégio do Don) = bloco não é gravado.
+5. O **próximo L#** é derivado do `chain.dat` (ledger), não do índice — o índice pode ser arquivado sem quebrar a numeração.
+6. Commit + `cosca-check --sign-auto` completam a ORDEM SAGRADA (L199).
+
+## Learning Entry Format (o que o register gera no bloco)
 
 ```markdown
-### {timestamp} — {technique-name}
+PREV: {hash do bloco anterior}
+ID: L{id}
+TIME: YYYY-MM-DD
+LEVEL: 1-5
+TAGS: #tag1 #tag2
+---
+## L{id} — YYYY-MM-DD — {título} | Level N
 
 | Field | Value |
 |-------|-------|
-| **Agent** | cosca-security |
+| **Agent** | cosca-{nome} |
 | **Task** | What was being done (context) |
 | **Technique** | The specific technique applied |
 | **Level** | 1-5 (1=basic, 5=expert) |
 | **Outcome** | success / partial / failure |
+| **Confidence** | 0.00-1.00 |
 | **Tags** | #security #xss #input-validation |
 | **Related** | OWASP Top 10, CSP headers, Content Security Policy |
 | **Learned** | What was discovered or confirmed |
 | **Next** | What to try next time (progressive difficulty) |
+```
+
+> [!IMPORTANT]
+> O hash do bloco = `sha256(CONTEÚDO COMPLETO do arquivo)` — inclui PREV, ID, TIME, LEVEL, TAGS, `---`, título, tabela e newlines. Não é "título + tabela".
 
 ### Technique Evolution
 
@@ -70,18 +108,18 @@ Every learning is recorded as a semantic block:
 - **Level 3**: Advanced (threat modeling, attack chain analysis)
 - **Level 4**: Expert (zero-day patterns, novel attack vectors, research-level)
 - **Level 5**: Master (contributing new techniques back to the framework)
-```
 
 ### Semantic Retrieval
 
-Before starting any task, the agent MUST:
-1. Search `learnings.md` for tags matching the current task domain
-2. Load the highest-level techniques matching the task
-3. Apply the best known approach (not repeating basic checks when advanced ones exist)
+Before starting any task, the agent MUST search its chain-tracked memory EFFICIENTLY:
+1. `cosca knowledge search "<term>"` or `cosca memory search "<term>"` — semantic search over indexed blocks
+2. Or grep the learnings.md index for tags/terms matching the task domain (read only matching lines, never the whole file)
+3. Load the highest-level technique matching the task (open only the relevant block by hash16)
+4. NEVER read learnings.md or archive files in full — blocks are large and cost tokens.
 
 ### Cross-Agent Learning
 
-Learnings are indexed globally via the knowledge engine (FTS5 full-text search + vector embeddings). When agent A discovers a pattern, agent B can find it via semantic search.
+Every agent's blocks are indexed globally via the knowledge engine (FTS5 full-text search + vector embeddings). When agent A discovers a pattern, agent B can find it via semantic search — the chain guarantees provenance and immutability.
 
 ### Evolution Tracking
 

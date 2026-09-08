@@ -2,7 +2,7 @@
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Created**: 2026-07-28
 >
-> **Purpose**: Garantir que a documentação do framework (.opencode/cosca/) reflete a realidade do projeto runtime. Detecta drift entre docs e código.
+> **Purpose**: Garantir que a documentação do framework (internal/embed/cosca/) reflete a realidade do projeto runtime. Detecta drift entre docs e código.
 
 ---
 
@@ -54,22 +54,22 @@ ls -d web/src/features/*/ | wc -l
 find . -name "*_test.go" -not -path "./.git/*" -not -path "./web/*" -not -path "./sdk/*" | xargs dirname | sort -u | wc -l
 
 # Memory files
-find .opencode/cosca/memory -name "*.md" | wc -l
+find internal/embed/cosca/memory -name "*.md" | wc -l
 
 # Agent directories
-ls -d .opencode/cosca/memory/agent/cosca-*/ | wc -l
+ls -d internal/embed/cosca/memory/agent/cosca-*/ | wc -l
 
 # Memory INDEX files
-find .opencode/cosca/memory -name "INDEX.md" | wc -l
+find internal/embed/cosca/memory -name "INDEX.md" | wc -l
 
 # Engine count
-ls -d .opencode/cosca/engines/*/ | wc -l
+ls -d internal/embed/cosca/engines/*/ | wc -l
 
 # Workflow count
-ls .opencode/cosca/workflows/*.md 2>/dev/null | wc -l
+ls internal/embed/cosca/workflows/*.md 2>/dev/null | wc -l
 
 # Department SKILL files
-find .opencode/cosca/departments -name "SKILL.md" | wc -l
+find internal/embed/cosca/departments -name "SKILL.md" | wc -l
 
 # Provider count
 ls -d internal/providers/*/ 2>/dev/null | wc -l
@@ -87,13 +87,13 @@ Ler os arquivos de documentação que declaram números:
 grep -E "^\| \*\*" README.md
 
 # Session context
-grep -E "Memory files|Agents:|Engines:|Workflows:" .opencode/cosca/memory/context/session.md
+grep -E "Memory files|Agents:|Engines:|Workflows:" internal/embed/cosca/memory/context/session.md
 
 # Codebase overview
-grep -E "Go files|packages|endpoints|commands|TSX|providers|adapters" .opencode/cosca/memory/codebase/overview.md
+grep -E "Go files|packages|endpoints|commands|TSX|providers|adapters" internal/embed/cosca/memory/codebase/overview.md
 
 # INDEX health
-grep -A3 "## Health" .opencode/cosca/memory/INDEX.md
+grep -A3 "## Health" internal/embed/cosca/memory/INDEX.md
 ```
 
 ### Step 3 — COMPARE (Detect Drift)

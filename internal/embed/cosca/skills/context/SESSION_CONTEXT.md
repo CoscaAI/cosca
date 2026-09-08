@@ -6,7 +6,7 @@
 Build and maintain session context across agent restarts and workspace changes.
 
 ## Process
-1. On session start: load .opencode/cosca/memory/context/session.md.
+1. On session start: load internal/embed/cosca/memory/context/session.md.
 2. Scan git: current branch, recent commits, uncommitted changes.
 3. Load active memories: project status, open issues, recent decisions.
 4. Build context snapshot: project state, active agents, pending tasks.

@@ -39,12 +39,12 @@ Paradigm Review Report:
 - CONFIDENCE: {0.0-1.0} in this review
 
 MEMORY:
-- Learnings: .opencode/cosca/memory/agent/cosca-paradigm/learnings.md
-- Failures: .opencode/cosca/memory/agent/cosca-paradigm/failures.md
-- Confidence Model: .opencode/cosca/engines/evidence/CONFIDENCE_MODEL.md
+- Learnings: internal/embed/cosca/memory/agent/cosca-paradigm/learnings.md
+- Failures: internal/embed/cosca/memory/agent/cosca-paradigm/failures.md
+- Confidence Model: internal/embed/cosca/engines/evidence/CONFIDENCE_MODEL.md
 - ADRs: docs/adr/ (patterns being questioned)
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-paradigm/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-paradigm/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES:
 - Default answer: KEEP current pattern. Change requires overwhelming evidence.

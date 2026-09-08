@@ -5,12 +5,44 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/CoscaAI/cosca/internal/knowledge"
+	"github.com/CoscaAI/cosca/internal/learning"
 	"github.com/CoscaAI/cosca/internal/memory"
 	"github.com/CoscaAI/cosca/internal/memoryguard"
 	"github.com/spf13/cobra"
 )
+
+// upsertLearningVault grava o gatilho do aprendizado recém-registrado no vault
+// do departamento (ADR-044 §2.3 passo 4). Determinístico, sem LLM. O conteúdo
+// completo permanece no bloco imutável — o vault guarda só metadados.
+func upsertLearningVault(dir string, agent string, res *memory.LearningResult, input memory.LearningInput) error {
+	vaultDir, err := learningVaultDir()
+	if err != nil {
+		return err
+	}
+	vault := learning.VaultForAgent(agent)
+	db, err := learning.OpenVault(vaultDir, vault)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	t := learning.Trigger{
+		ID:        res.ID,
+		Agent:     agent,
+		Vault:     vault,
+		Date:      time.Now().UTC().Format("2006-01-02"),
+		Title:     input.Title,
+		Level:     input.Level,
+		Tags:      strings.Join(input.Tags, " "),
+		Hash16:    res.Hash16,
+		BlockHash: res.Hash,
+		ChainPrev: res.Prev,
+	}
+	return learning.UpsertTrigger(db, t)
+}
 
 // NewMemoryRegisterCommand creates the `cosca memory register` subcommand.
 // It automates the mechanical parts of registering a learning
@@ -124,6 +156,15 @@ NÃO faz commit nem assina a family chain (ordem sagrada L199).`,
 				for _, r := range res.Guard.Reasons {
 					formatter.Bullet("  ✗ " + r)
 				}
+			}
+
+			// ADR-044 — Learning Vault por departamento: upsert leve do gatilho
+			// no vault do departamento (trigger + hash + pointer). Determinístico,
+			// sem LLM, sem monolito. O conteúdo completo permanece no bloco.
+			if vErr := upsertLearningVault(dir, agent, res, input); vErr != nil {
+				formatter.Warning(fmt.Sprintf("Vault do departamento falhou (não-bloqueante): %v", vErr))
+			} else {
+				formatter.Success(fmt.Sprintf("Gatilho no vault %s", learning.VaultForAgent(agent)))
 			}
 
 			// FASE 2 — ingestão automática pós-registro válido. O bloco

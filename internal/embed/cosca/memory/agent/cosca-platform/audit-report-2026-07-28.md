@@ -251,7 +251,7 @@ Based on cosca-infrastructure audit (W5) and direct review:
 
 **Existing**:
 - Proto generation (`make proto`) — protoc + protoc-gen-go + protoc-gen-go-grpc
-- Embed sync (`make embed-sync`) — rsync `.opencode/cosca/` → `internal/embed/cosca/`
+- Embed sync (`make embed-sync`) — rsync `internal/embed/cosca/` → `internal/embed/cosca/`
 - Godoc generation (`make docs`)
 - OpenAPI → TypeScript types (`openapi-typescript`)
 
@@ -501,11 +501,11 @@ All located in `docs/adr/`:
 | Docker Compose | `docker-compose.yml` |
 | CI Workflow | `.github/workflows/ci.yml` |
 | CD Workflow | `.github/workflows/cd.yml` |
-| Quality Gates | `.opencode/cosca/QUALITY_GATES.md` |
-| Infrastructure Audit | `.opencode/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
-| Provider Learnings | `.opencode/cosca/memory/agent/cosca-provider/learnings.md` |
-| Learning Protocol | `.opencode/cosca/memory/LEARNING_PROTOCOL.md` |
-| Auto-Evolution Protocol | `.opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md` |
+| Quality Gates | `internal/embed/cosca/QUALITY_GATES.md` |
+| Infrastructure Audit | `internal/embed/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
+| Provider Learnings | `internal/embed/cosca/memory/agent/cosca-provider/learnings.md` |
+| Learning Protocol | `internal/embed/cosca/memory/LEARNING_PROTOCOL.md` |
+| Auto-Evolution Protocol | `internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md` |
 
 ---
 

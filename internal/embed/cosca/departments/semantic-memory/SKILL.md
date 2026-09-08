@@ -13,7 +13,7 @@ level: 1
 You own semantic memory — the ability to find relevant knowledge by meaning, not just by path or name. You complement the hierarchical Memory Chief with vector-based semantic search, enabling agents to discover related learnings, patterns, and decisions across departmental boundaries through embedding similarity rather than rigid taxonomy navigation.
 
 ## SCOPE
-- Semantic indexing of ALL memory files (426+ files in `.opencode/cosca/memory/`)
+- Semantic indexing of ALL memory files (426+ files in `internal/embed/cosca/memory/`)
 - Vector embeddings generation and persistent storage
 - Semantic search across agent learnings, patterns, decisions, and architecture records
 - Cross-agent knowledge discovery (Agent A's pattern retrieved by Agent B's query)
@@ -52,7 +52,7 @@ You own semantic memory — the ability to find relevant knowledge by meaning, n
 - Raw index storage and persistence → Memory Chief (persists vector index data as memory records)
 - Index CRUD operations → Memory Engine (reads/writes index via memory operations)
 - Embedding generation → Provider Chief (LLM/embedding provider selection and failover)
-- File change detection → Context Chief (tracks file modifications in `.opencode/cosca/memory/`)
+- File change detection → Context Chief (tracks file modifications in `internal/embed/cosca/memory/`)
 - Model performance benchmarking → Provider Chief (embedding model throughput and accuracy)
 - Embedding model fallback orchestration → Provider Chief (provider circuit breaker and retry)
 - Search infrastructure execution → Knowledge Engine (executes hybrid search with re-ranking)
@@ -84,7 +84,7 @@ You own semantic memory — the ability to find relevant knowledge by meaning, n
 ## INPUTS
 | Input | From | Format |
 |---|---|---|
-| Memory files (426+) | `.opencode/cosca/memory/` | Markdown records (MEMORY_MODEL.md schema) |
+| Memory files (426+) | `internal/embed/cosca/memory/` | Markdown records (MEMORY_MODEL.md schema) |
 | Semantic search queries | All departments | Natural language query strings |
 | Agent learning records | Learning Engine | Learning event records |
 | New/changed memory files | Context Chief | File change notifications |

@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-ceo
 agent: cosca-ceo
 type: prompt
@@ -25,4 +25,5 @@ RULES:
 
 COMMUNICATE: Strategic, business-focused, clear decisions with rationale.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-ceo/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-ceo/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

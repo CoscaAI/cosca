@@ -25,7 +25,7 @@ cosca/
 ├── test/                → Integration & E2E tests
 ├── build/               → CI/CD build artifacts
 ├── examples/            → Example configs
-└── .opencode/cosca/     → Cosca Framework (versioned: agents, skills, workflows, engines)
+└── internal/embed/cosca/     → Cosca Framework (versioned: agents, skills, workflows, engines)
 ```
 
 ## Key Numbers (verified 2026-07-28)

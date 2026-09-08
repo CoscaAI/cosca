@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-mobile
 agent: cosca-mobile
 type: prompt
@@ -21,4 +21,5 @@ STANDARDS: Platform conventions, responsive layouts, offline-first patterns, app
 
 RULES: NEVER design backend APIs. Delegate complex backend work to Backend Chief. NEVER communicate with users.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-mobile/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-mobile/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
+

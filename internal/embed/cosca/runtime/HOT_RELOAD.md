@@ -10,7 +10,7 @@ Hot Reload enables live-updating Markdown files without restarting the Runtime. 
 
 | Source | Detection | Reload Method |
 |--------|-----------|---------------|
-| .opencode/cosca/ | File watcher | Parse + index |
+| internal/embed/cosca/ | File watcher | Parse + index |
 | .cosca/framework/ | File watcher | Re-sync from embed |
 | .cosca/fallback/ | Polling (30s) | Re-index |
 | knowledge.db | Direct edit | Validate + cache |

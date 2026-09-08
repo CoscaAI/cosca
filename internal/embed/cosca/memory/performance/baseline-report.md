@@ -359,11 +359,11 @@ These values become the baseline against which future G7 checks compare:
 
 | Document | Path |
 |----------|------|
-| Bug-005 (sqlite first-run) | `.opencode/cosca/memory/bug/bug-005-sqlite-first-run.md` |
-| Technical Debt Scorecard | `.opencode/cosca/memory/technical-debt/scorecard.md` |
-| Quality Gates | `.opencode/cosca/memory/qa/quality-gates.md` |
+| Bug-005 (sqlite first-run) | `internal/embed/cosca/memory/bug/bug-005-sqlite-first-run.md` |
+| Technical Debt Scorecard | `internal/embed/cosca/memory/technical-debt/scorecard.md` |
+| Quality Gates | `internal/embed/cosca/memory/qa/quality-gates.md` |
 | GAP-06 (bug-005 perf investigation) | Scorecard §1.4 |
-| cosca-performance learnings | `.opencode/cosca/memory/agent/cosca-performance/learnings.md` |
+| cosca-performance learnings | `internal/embed/cosca/memory/agent/cosca-performance/learnings.md` |
 | Schema definition | `internal/sqlite/schema.go` |
 | FTS5 client | `internal/sqlite/fts.go` |
 | Vector store | `internal/vector/sqlite_vec.go` |

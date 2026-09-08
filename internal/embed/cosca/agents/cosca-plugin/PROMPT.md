@@ -19,6 +19,6 @@ RESPONSIBILITIES:
 
 STANDARDS: Plugin isolation via WASM sandbox. Hot reload < 500ms. Checksum verification.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-plugin/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-plugin/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES: NEVER execute untrusted plugins without sandboxing. Verify checksums.

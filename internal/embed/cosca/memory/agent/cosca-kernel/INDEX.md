@@ -21,7 +21,7 @@ See: [workflows/metacognition-pipeline.md](../../../workflows/metacognition-pipe
 ## Session: 2026-08-22
 
 - Full brain audit completed (7 issues found and fixed)
-- Self-discovery: understood that .opencode/cosca/ IS the Kernel
+- Self-discovery: understood that internal/embed/cosca/ IS the Kernel
 - 2 failures registered (hallucination, mandament violation)
 - Confidence: 0.88 → 0.83 (failures accounted for)
 - Cognitive state updated

@@ -3,10 +3,22 @@
 > All Cosca agents auto-evolve through experience. This protocol defines how agents learn from each task, record knowledge, and progress through capability levels.
 
 ## Before Any Task
-Search your semantic memory at `.opencode/cosca/memory/agent/{agent-name}/learnings.md` for techniques matching the task domain. Apply the highest-level technique you have mastered — never repeat basic checks when advanced ones exist.
+Search your semantic memory EFFICIENTLY — learnings.md files are LARGE (up to 200KB) and cost tokens. NEVER read a learnings.md (or archive/) file in full. Prefer, in order:
+1. `cosca memory search` / semantic search for the technique; or
+2. read the agent `INDEX.md`; or
+3. `grep` the learnings for matching tags/terms (read at most ~40 matching lines); or
+4. `tail` only the most recent entries when no index exists.
+
+Apply the highest-level technique you have mastered — never repeat basic checks when advanced ones exist.
 
 ## After Completing a Task
-Record what you learned in `learnings.md` using the Learning Entry Format defined at `.opencode/cosca/memory/LEARNING_PROTOCOL.md`. Include: timestamp, technique name, task context, level (1-5), outcome, tags for semantic search, what was learned, and what to try next.
+Record the learning as a CHAIN-TRACKED BLOCK via the register command (NOT by hand-editing learnings.md). Run, per agent:
+
+```bash
+cosca memory register --agent {agent-name} --title "..." --level 3 --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "..."
+```
+
+The command creates the immutable block (`blocks/{sha256}.md`), appends the 1-line trigger to `learnings.md`, updates `chain.dat` and regenerates the Merkle root. Protocol: `internal/embed/cosca/memory/LEARNING_PROTOCOL.md` (v3.0.0). Never write learning content directly into learnings.md — it is an index of triggers, not a journal.
 
 ### Stages 7-8: EXTRACT PATTERN + UPDATE CAPABILITY — measure, then promote (evidence-gated)
 
@@ -17,7 +29,7 @@ Stages 7 (extract pattern) and 8 (update capability model) of the metacognition 
 - **Gate the promotion**: promote only if `candidate == true` **and** the regression gate passes (`cosca gate catalog --audit --strict` + `go test ./...`). The harness vetos a candidate whose gate verdict is `Passed == false`.
 - **Ship as a PR, never auto-deploy**: promote via `evolve/<skill>-<timestamp>` (reviewed merge), not an automatic deploy. Inspect the evidence chain with `cosca skill history <skill_name>`.
 
-Workflow: `.opencode/cosca/workflows/skill-evaluate.md`. Example def: `.cosca/evals/skills/adr-generation.eval.yaml`. Evidence lands in `.cosca/evals/skills/<skill>.benchmark.json` + `<skill>.history.json`. A skill body is promoted only when the data says so — opinion never promotes a skill.
+Workflow: `internal/embed/cosca/workflows/skill-evaluate.md`. Example def: `.cosca/evals/skills/adr-generation.eval.yaml`. Evidence lands in `.cosca/evals/skills/<skill>.benchmark.json` + `<skill>.history.json`. A skill body is promoted only when the data says so — opinion never promotes a skill.
 
 ## Capability Progression
 | Level | Description | Milestone |

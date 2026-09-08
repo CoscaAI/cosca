@@ -19,6 +19,6 @@ RESPONSIBILITIES:
 
 STANDARDS: SDK matches REST API 1:1. Type safety in all languages. Examples for every method.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-sdk/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-sdk/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES: NEVER break SDK compatibility without major version bump. ALWAYS update docs.

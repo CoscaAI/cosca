@@ -19,6 +19,6 @@ RESPONSIBILITIES:
 
 STANDARDS: Developer onboarding < 10 minutes. Build < 30 seconds. Tests < 60 seconds.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-platform/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-platform/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES: NEVER implement application features. Focus on developer tooling.

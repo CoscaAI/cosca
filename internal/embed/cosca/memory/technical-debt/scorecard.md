@@ -68,7 +68,7 @@ All 5 formally registered bugs are fixed. However, CI validation gates to preven
 
 ### 1.3 Test Coverage Gaps
 
-Overall unit coverage: ~78% (target: 85%). Source: `.opencode/cosca/memory/testing/coverage.md`.
+Overall unit coverage: ~78% (target: 85%). Source: `internal/embed/cosca/memory/testing/coverage.md`.
 
 #### Zero-Coverage Packages (P0)
 
@@ -103,7 +103,7 @@ Overall unit coverage: ~78% (target: 85%). Source: `.opencode/cosca/memory/testi
 
 ### 1.4 Semantic Index Gaps
 
-From `.opencode/cosca/memory/semantic/INDEX.md` sections 4.1 (Critical/P0) and 4.2 (Major/P1).
+From `internal/embed/cosca/memory/semantic/INDEX.md` sections 4.1 (Critical/P0) and 4.2 (Major/P1).
 
 #### P0 — Critical Gaps (Missing Foundational Capabilities)
 
@@ -134,7 +134,7 @@ From `.opencode/cosca/memory/semantic/INDEX.md` sections 4.1 (Critical/P0) and 4
 
 ### 1.5 Agent Ecosystem Structural Debt
 
-From `.opencode/cosca/memory/semantic/INDEX.md` §3 (Agent Capability Matrix) and file-level analysis of all 54 agent directories. The agent ecosystem represents 78% of all memory files (334/426) but only ~12% density of substantive content.
+From `internal/embed/cosca/memory/semantic/INDEX.md` §3 (Agent Capability Matrix) and file-level analysis of all 54 agent directories. The agent ecosystem represents 78% of all memory files (334/426) but only ~12% density of substantive content.
 
 | ID | Gap | Current | Target | Impact if Uncorrected | Sev | Age Mult | Score |
 |----|-----|---------|--------|----------------------|-----|----------|-------|
@@ -149,7 +149,7 @@ From `.opencode/cosca/memory/semantic/INDEX.md` §3 (Agent Capability Matrix) an
 
 ### 1.6 Risk Registry — Technical Debt Intersection
 
-From `.opencode/cosca/memory/risk/RISK_REGISTRY.md`. Listed only items with direct technical debt implications (non-overlapping with above).
+From `internal/embed/cosca/memory/risk/RISK_REGISTRY.md`. Listed only items with direct technical debt implications (non-overlapping with above).
 
 | ID | Risk | Registry Sev | Debt Sev | Effort (h) | Age Mult | Score |
 |----|------|-------------|----------|------------|----------|-------|
@@ -414,13 +414,13 @@ Items classified as "structural" require process or cultural change, not just a 
 
 | Document | Path |
 |----------|------|
-| Bug Registry | `.opencode/cosca/memory/bug/INDEX.md` |
-| Semantic Index | `.opencode/cosca/memory/semantic/INDEX.md` |
-| Agent Capability Matrix | `.opencode/cosca/memory/semantic/INDEX.md` §3 |
-| Risk Registry | `.opencode/cosca/memory/risk/RISK_REGISTRY.md` |
-| Test Strategy | `.opencode/cosca/memory/testing/strategy.md` |
-| Test Coverage | `.opencode/cosca/memory/testing/coverage.md` |
-| Runtime Learnings (BUG-U01/U02 source) | `.opencode/cosca/memory/agent/cosca-runtime/learnings.md` |
+| Bug Registry | `internal/embed/cosca/memory/bug/INDEX.md` |
+| Semantic Index | `internal/embed/cosca/memory/semantic/INDEX.md` |
+| Agent Capability Matrix | `internal/embed/cosca/memory/semantic/INDEX.md` §3 |
+| Risk Registry | `internal/embed/cosca/memory/risk/RISK_REGISTRY.md` |
+| Test Strategy | `internal/embed/cosca/memory/testing/strategy.md` |
+| Test Coverage | `internal/embed/cosca/memory/testing/coverage.md` |
+| Runtime Learnings (BUG-U01/U02 source) | `internal/embed/cosca/memory/agent/cosca-runtime/learnings.md` |
 
 ---
 

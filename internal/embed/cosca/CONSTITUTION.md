@@ -148,23 +148,23 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 
 ### P8 — INTEGRIDADE DO EMBED (MANDAMENTO DO DON)
 
-**Regra:** O diretório `internal/embed/cosca/` é um artefato de build derivado de `.opencode/cosca/`. NUNCA remover arquivos de AMBOS os diretórios simultaneamente sem confirmação explícita, detalhada e por escrito do Don. Remoções no embed devem ser precedidas por remoção na fonte (`.opencode/cosca/`) e executadas exclusivamente via `make embed-sync`.
+**Regra:** O diretório `internal/embed/cosca/` é um artefato de build derivado de `internal/embed/cosca/`. NUNCA remover arquivos de AMBOS os diretórios simultaneamente sem confirmação explícita, detalhada e por escrito do Don. Remoções no embed devem ser precedidas por remoção na fonte (`internal/embed/cosca/`) e executadas exclusivamente via `make embed-sync`.
 
 **Fluxo correto:**
 ```
-.opencode/cosca/ (FONTE) → [make embed-sync] → internal/embed/cosca/ (BUILD) → [go build] → binário
+internal/embed/cosca/ (FONTE) → [make embed-sync] → internal/embed/cosca/ (BUILD) → [go build] → binário
 ```
 
 **Procedimento obrigatório para qualquer remoção:**
-1. Remover o arquivo APENAS de `.opencode/cosca/` (fonte)
+1. Remover o arquivo APENAS de `internal/embed/cosca/` (fonte)
 2. Executar `make embed-sync --dry-run` para verificar o que será afetado
 3. Reportar ao Don: lista exata de arquivos que serão removidos do embed, razão da remoção, e impacto no runtime
 4. Aguardar aprovação explícita do Don
 5. Somente então executar `make embed-sync` (sem --dry-run)
 
 **Proibido:**
-- ❌ Remover arquivos diretamente de `internal/embed/cosca/` sem antes remover de `.opencode/cosca/`
-- ❌ Remover arquivos de `.opencode/cosca/` e `internal/embed/cosca/` no mesmo commit sem aprovação
+- ❌ Remover arquivos diretamente de `internal/embed/cosca/` sem antes remover de `internal/embed/cosca/`
+- ❌ Remover arquivos de `internal/embed/cosca/` e `internal/embed/cosca/` no mesmo commit sem aprovação
 - ❌ Usar `rm -rf` ou qualquer comando destrutivo nos diretórios do embed
 - ❌ Qualquer script ou automação que delete arquivos do embed sem o procedimento acima
 

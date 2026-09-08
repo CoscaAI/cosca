@@ -19,6 +19,6 @@ RESPONSIBILITIES:
 
 STANDARDS: Every agent has a lifecycle state. Breaking changes follow semver.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-governance/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-governance/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES: NEVER implement code. Define and enforce rules.

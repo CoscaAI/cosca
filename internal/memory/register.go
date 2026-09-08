@@ -142,7 +142,7 @@ func prepareLearning(agentDir string, in LearningInput) (*LearningResult, string
 		return nil, "", fmt.Errorf("at least one tag is required")
 	}
 
-	nextID, err := nextLearningID(filepath.Join(agentDir, "learnings.md"))
+	nextID, err := nextLearningID(agentDir)
 	if err != nil {
 		return nil, "", err
 	}
@@ -218,31 +218,63 @@ func buildBlock(prev, id, date string, in LearningInput, tags string) string {
 }
 
 var learningIDRe = regexp.MustCompile(`^## L(\d+) \|`)
+var chainIDRe = regexp.MustCompile(`(?:^|\|)\s*L(\d+)\s*(?:\||$)`)
 
-// nextLearningID returns the next L-number by scanning learnings.md.
-func nextLearningID(learningsPath string) (string, error) {
-	data, err := os.ReadFile(learningsPath)
-	if err != nil {
-		return "", fmt.Errorf("read learnings.md: %w", err)
-	}
+// nextLearningID returns the next L-number for the agent memory directory.
+// The source of truth is chain.dat (the memory ledger), NOT learnings.md —
+// learnings.md is only a trigger index and may be trimmed/archived (Don,
+// 2026-09-08: memory is chain-tracked; the index must never gate numbering).
+//
+// Resolution order:
+//  1. chain.dat rows (ID column) — highest L found there + 1.
+//  2. learnings.md trigger lines (`## L<nn> | ...`) — fallback for legacy
+//     journals that never populated chain.dat.
+//  3. If neither exists, the agent has no chain yet → L1 (fresh genesis),
+//     matching chainState()'s genesis default.
+func nextLearningID(agentDir string) (string, error) {
+	// 1. chain.dat — the ledger is the truth.
+	chainPath := filepath.Join(agentDir, "chain.dat")
 	max := 0
-	for _, line := range strings.Split(string(data), "\n") {
-		m := learningIDRe.FindStringSubmatch(line)
-		if m == nil {
-			continue
+	if data, err := os.ReadFile(chainPath); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			if m := chainIDRe.FindStringSubmatch("|" + line); m != nil {
+				if n, err := strconv.Atoi(m[1]); err == nil && n > max {
+					max = n
+				}
+			}
 		}
-		n, err := strconv.Atoi(m[1])
-		if err != nil {
-			continue
-		}
-		if n > max {
-			max = n
+		if max > 0 {
+			return fmt.Sprintf("L%d", max+1), nil
 		}
 	}
-	if max == 0 {
-		return "", fmt.Errorf("no existing learnings found in %s", learningsPath)
+
+	// 2. Fallback: learnings.md trigger lines.
+	learningsPath := filepath.Join(agentDir, "learnings.md")
+	if data, err := os.ReadFile(learningsPath); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			m := learningIDRe.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			n, err := strconv.Atoi(m[1])
+			if err != nil {
+				continue
+			}
+			if n > max {
+				max = n
+			}
+		}
+		if max > 0 {
+			return fmt.Sprintf("L%d", max+1), nil
+		}
 	}
-	return fmt.Sprintf("L%d", max+1), nil
+
+	// 3. Fresh agent — genesis L1 (chainState default).
+	return "L1", nil
 }
 
 // lastChainHash returns the hash of the last block in chain.dat.

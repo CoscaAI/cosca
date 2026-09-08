@@ -1,18 +1,7 @@
-# cosca-bootstrap — Semantic Learnings
+﻿# cosca-bootstrap - Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
+> INDICE DE GATILHOS - 1 linha por aprendizado. Conteudo completo nos blocos imutaveis (blocks/{sha256}.md).
+> NUNCA editar este arquivo manualmente - use: cosca memory register --agent cosca-bootstrap
 
-## Seed Knowledge
-
-### 2026-07-27 — Baseline
-| Field | Value |
-|-------|-------|
-| **Agent** | cosca-bootstrap |
-| **Task** | Initial capability establishment |
-| **Technique** | Standard bootstrap patterns — project conventions |
-| **Level** | 1 |
-| **Outcome** | success |
-| **Tags** | #bootstrap #baseline #initialization |
-| **Related** | .opencode/cosca/memory/codebase/overview.md |
-| **Learned** | Project established. Core bootstrap patterns documented. Ready for Level 2 techniques. |
-| **Next** | Level 2: Identify first advanced technique to master |
+## 2026-07-27 | 2026-07-27 | 2026-07-27 — Baseline | L | #bootstrap #baseline #initialization | b3d587b10e6c901a

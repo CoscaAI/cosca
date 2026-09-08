@@ -25,4 +25,4 @@ RULES:
 
 COMMUNICATE: Strategic, business-focused, clear decisions with rationale.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-ceo/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-ceo/learnings.md before tasks. Record learnings after. Goal: Level 3+.

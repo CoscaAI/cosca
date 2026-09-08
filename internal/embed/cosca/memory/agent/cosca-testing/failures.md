@@ -50,7 +50,7 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 | **Severity** | Blocker (production path) |
 | **Outcome** | Confirmed — not fixed (documenting as expected failure) |
 | **Tags** | #bug #runtime #restart #state-machine #production |
-| **Related** | BUG-U01 in `.opencode/cosca/memory/technical-debt/scorecard.md` |
+| **Related** | BUG-U01 in `internal/embed/cosca/memory/technical-debt/scorecard.md` |
 
 **Reproduction**: `TestBugU01_RestartBroken` in `internal/runtime/runtime_lifecycle_test.go`
 
@@ -73,7 +73,7 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 | **Severity** | Critical (cascading startup failures) |
 | **Outcome** | Confirmed — not fixed (documenting as expected failure) |
 | **Tags** | #bug #runtime #event #startup #timing |
-| **Related** | BUG-U02 in `.opencode/cosca/memory/technical-debt/scorecard.md` |
+| **Related** | BUG-U02 in `internal/embed/cosca/memory/technical-debt/scorecard.md` |
 
 **Reproduction**: `TestBugU02_EventStartupCompletePremature` + `TestBugU02_SubscribersGetNilSubsystems`
 

@@ -304,7 +304,7 @@ Phase 3: Routing Redundancy (Long-term)
 
 ## 5. Architecture Decision Records (ADRs)
 
-**Status**: No ADRs found in `.opencode/cosca/memory/architecture/adr/` — directory does not exist.
+**Status**: No ADRs found in `internal/embed/cosca/memory/architecture/adr/` — directory does not exist.
 
 **Recommendation**: Create ADRs for the following infrastructure decisions:
 1. ADR-INF-001: Choice of ECS Fargate over EKS/Kubernetes
@@ -346,9 +346,9 @@ Phase 3: Routing Redundancy (Long-term)
 | Terraform (AWS) | `deploy/terraform/aws/main.tf` |
 | Helm Chart | `deploy/helm/cosca/` |
 | Prometheus Config | `deploy/prometheus.yml` |
-| Risk Registry | `.opencode/cosca/memory/risk/RISK_REGISTRY.md` |
-| Technical Debt Scorecard | `.opencode/cosca/memory/technical-debt/scorecard.md` |
-| Cognitive State | `.opencode/cosca/memory/context/cognitive-state.md` |
+| Risk Registry | `internal/embed/cosca/memory/risk/RISK_REGISTRY.md` |
+| Technical Debt Scorecard | `internal/embed/cosca/memory/technical-debt/scorecard.md` |
+| Cognitive State | `internal/embed/cosca/memory/context/cognitive-state.md` |
 | Deployment Workflow | `internal/embed/cosca/workflows/deployment.md` |
 | Runtime Health Handler | `api/rest/handler/runtime.go` |
 

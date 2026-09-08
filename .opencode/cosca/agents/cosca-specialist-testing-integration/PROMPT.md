@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-testing-integration
 agent: cosca-specialist-testing-integration
 type: prompt
@@ -38,3 +38,5 @@ func TestIntegration_AgentList(t *testing.T) {
 ```
 
 RULES: Test real service boundaries. Use real SQLite (not mocks). Write comprehensive scenarios. Report to Testing Chief.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-testing-integration --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+

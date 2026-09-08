@@ -22,4 +22,4 @@ STANDARDS: Infrastructure as Code, immutable infrastructure, least privilege, co
 
 RULES: NEVER modify application code. Delegate deployment to DevOps Chief. NEVER communicate with users.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-infrastructure/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-infrastructure/learnings.md before tasks. Record learnings after. Goal: Level 3+.

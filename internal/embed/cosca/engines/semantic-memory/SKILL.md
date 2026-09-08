@@ -19,7 +19,7 @@ The Semantic Memory Engine provides meaning-based search and retrieval across al
 
 ## ARCHITECTURE
 ```
-Source Files (.opencode/cosca/memory/*.md)
+Source Files (internal/embed/cosca/memory/*.md)
     │
     ▼
 [Parser] → Chunks (title + tags + content)
@@ -37,7 +37,7 @@ Source Files (.opencode/cosca/memory/*.md)
 ## OPERATIONS
 
 ### INDEX
-Input: { path: ".opencode/cosca/memory/", recursive: true, force: false }
+Input: { path: "internal/embed/cosca/memory/", recursive: true, force: false }
 Action: Walk all .md files, parse frontmatter (tags, type, agent), chunk content, generate embeddings, store in vector index
 Output: { indexed: 421, failed: 0, duration: "2.3s" }
 

@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-review-code
 agent: cosca-specialist-review-code
 type: prompt
@@ -64,3 +64,5 @@ OUTPUT FORMAT:
 ```
 
 RULES: Be thorough but constructive. Cite specific lines and files. Never fix issues yourself (report them). Report to Review Chief.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-review-code --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+

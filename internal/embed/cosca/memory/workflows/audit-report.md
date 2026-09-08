@@ -9,7 +9,7 @@
 ## 1. EXECUTIVE SUMMARY
 
 The Cosca platform has **28 workflow definitions** stored in two mirrored locations:
-- `.opencode/cosca/workflows/` (28 `.md` files)
+- `internal/embed/cosca/workflows/` (28 `.md` files)
 - `internal/embed/cosca/workflows/` (28 `.md` files, embedded via Go `embed.FS`)
 
 Workflows are parsed by the `internal/workflows/workflows.go` engine from Markdown files with optional YAML frontmatter. The engine supports two execution paths: a **fallback** (sequential step-by-step simulation) and a **pipeline** path (delegates to `orchestration.Pipeline`).

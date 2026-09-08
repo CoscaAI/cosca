@@ -30,7 +30,7 @@ TOTAL ESTIMADO: 10 dias
 Criar um documento canônico que define as regras imutáveis de operação da plataforma. Consolidar o que já existe (GOVERNANCE.md, QUALITY_GATES.md, AGENT_DNA.md, KERNEL.md) sem duplicar.
 
 ### Artefato principal
-`.opencode/cosca/CONSTITUTION.md`
+`internal/embed/cosca/CONSTITUTION.md`
 
 ### Estrutura do documento
 
@@ -148,7 +148,7 @@ OBJETIVO → COLETA DE EVIDÊNCIAS → ANÁLISE → AVALIAÇÃO DE RISCOS → PL
 Criar um sistema de pesos para diferentes fontes de informação, permitindo que o Kernel resolva conflitos automaticamente com base na confiabilidade da fonte.
 
 ### Artefato principal
-`.opencode/cosca/engines/evidence/CONFIDENCE_MODEL.md`
+`internal/embed/cosca/engines/evidence/CONFIDENCE_MODEL.md`
 
 ### Estrutura do motor de confiança
 
@@ -244,7 +244,7 @@ Exemplo real (Fase 1):
 Criar um motor que avalia, condensa, promove, rebaixa e remove entradas de memória automaticamente, evitando poluição de contexto.
 
 ### Artefato principal
-`.opencode/cosca/engines/memory-curation/MEMORY_CURATION_ENGINE.md`
+`internal/embed/cosca/engines/memory-curation/MEMORY_CURATION_ENGINE.md`
 
 ### Arquitetura do motor de curadoria
 
@@ -376,7 +376,7 @@ Processo:
 Criar `capability-profile.md` para cada um dos 51 agentes, permitindo que o Kernel escolha o melhor agente para cada task baseado em dados reais de competência.
 
 ### Artefatos
-51 arquivos: `.opencode/cosca/memory/agent/{agent}/capability-profile.md`
+51 arquivos: `internal/embed/cosca/memory/agent/{agent}/capability-profile.md`
 
 ### Estratégia de implementação
 
@@ -463,8 +463,8 @@ Reach Level 2:
 
 ```bash
 # Para cada agente sem capability-profile.md:
-for agent in $(ls .opencode/cosca/memory/agent/); do
-  if [ ! -f ".opencode/cosca/memory/agent/$agent/capability-profile.md" ]; then
+for agent in $(ls internal/embed/cosca/memory/agent/); do
+  if [ ! -f "internal/embed/cosca/memory/agent/$agent/capability-profile.md" ]; then
     # Extrair dados do SKILL.md do agente
     # Gerar perfil inicial
     echo "Gerando perfil para $agent..."
@@ -488,7 +488,7 @@ done
 Criar um dashboard que responde: "A plataforma está evoluindo? Está mais rápida? Gastando menos? Produzindo menos bugs?"
 
 ### Artefato principal
-`.opencode/cosca/metrics/platform-health-dashboard.md`
+`internal/embed/cosca/metrics/platform-health-dashboard.md`
 
 ### Métricas-chave (5 essenciais)
 

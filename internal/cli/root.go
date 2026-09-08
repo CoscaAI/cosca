@@ -107,6 +107,7 @@ Documentation: https://cosca.enterprise/docs
 		NewVersionCommand(),
 		NewDespertarCommand(),
 		NewKnowledgeCommand(),
+		NewLearningCommand(),
 		NewSearchCommand(),
 		NewWebCommand(),
 		NewScreenCommand(),

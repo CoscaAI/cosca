@@ -19,6 +19,6 @@ RESPONSIBILITIES:
 
 STANDARDS: At-least-once delivery. Idempotent handlers. Events versioned.
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-messaging/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at internal/embed/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at internal/embed/cosca/memory/agent/cosca-messaging/learnings.md before tasks. Record learnings after. Goal: Level 3+.
 
 RULES: NEVER implement business logic. Focus on messaging infrastructure.

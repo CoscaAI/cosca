@@ -21,6 +21,9 @@
 # Módulos derivados do split físico (ADR-013 Fase C): reconstruíveis via
 # `cosca db build` — NUNCA versionados (a fonte é o knowledge.db).
 .cosca/vector-*.db
+# Learning Vaults (ADR-044): índices de gatilho por departamento — derivados,
+# regeneráveis via `cosca learning rebuild` (fonte: chain.dat + blocks).
+.cosca/learning/
 
 # Runtime derivado do embed canônico (internal/embed/cosca/) — regenerável via
 # `cosca init` (materialize fallback/framework). A FONTE é o embed, nunca aqui.

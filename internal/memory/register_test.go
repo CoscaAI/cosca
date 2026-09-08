@@ -202,13 +202,32 @@ func TestPreviewLearning_ExposesGuardWithoutBlocking(t *testing.T) {
 }
 
 func TestNextLearningID(t *testing.T) {
+	// 1. chain.dat é a fonte da verdade: L12 no ledger + triggers L5/L12 no
+	// índice → próximo é L13 (independente do que o índice tem).
 	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "chain.dat"),
+		[]byte("aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899|0000000000000000000000000000000000000000000000000000000000000000|2026-08-01|L12|algum titulo\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "learnings.md"),
-		[]byte("## L5 | x | y | L4 | #a | 0000000000000000\n## L12 | x | y | L4 | #a | 0000000000000000\n"), 0o644))
+		[]byte("## L5 | x | y | L4 | #a | 0000000000000000\n"), 0o644))
 
-	id, err := nextLearningID(filepath.Join(dir, "learnings.md"))
+	id, err := nextLearningID(dir)
 	require.NoError(t, err)
 	require.Equal(t, "L13", id)
+
+	// 2. Fallback: sem chain.dat, usa o maior L dos triggers do learnings.md.
+	dir2 := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir2, "learnings.md"),
+		[]byte("## L5 | x | y | L4 | #a | 0000000000000000\n## L12 | x | y | L4 | #a | 0000000000000000\n"), 0o644))
+
+	id2, err := nextLearningID(dir2)
+	require.NoError(t, err)
+	require.Equal(t, "L13", id2)
+
+	// 3. Agente sem memória alguma → genesis L1 (não é erro).
+	dir3 := t.TempDir()
+	id3, err := nextLearningID(dir3)
+	require.NoError(t, err)
+	require.Equal(t, "L1", id3)
 }
 
 func TestLastChainHash_EmptyFallsBackToGenesis(t *testing.T) {

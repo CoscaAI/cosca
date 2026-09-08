@@ -505,18 +505,18 @@ Estes itens apareciam nas auditorias mas foram concluídos entre a auditoria e e
 
 | Documento | Path |
 |-----------|------|
-| Cognitive State (PENDING) | `.opencode/cosca/memory/context/cognitive-state.md` |
-| AI Audit | `.opencode/cosca/memory/agent/cosca-ai/learnings.md` |
-| Provider Audit | `.opencode/cosca/memory/agent/cosca-provider/learnings.md` |
-| Infrastructure Audit | `.opencode/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
-| Mobile Audit | `.opencode/cosca/memory/agent/cosca-mobile/learnings.md` |
-| Platform Audit | `.opencode/cosca/memory/agent/cosca-platform/audit-report-2026-07-28.md` |
-| Analytics Audit | `.opencode/cosca/memory/agent/cosca-analytics/learnings.md` |
-| Milestones | `.opencode/cosca/memory/roadmap/milestones.md` |
-| Platform Evolution | `.opencode/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
-| Onda 2 Plan | `.opencode/cosca/memory/roadmap/onda-2-plan.md` |
-| Risk Registry | `.opencode/cosca/memory/risk/RISK_REGISTRY.md` |
-| Quality Gates | `.opencode/cosca/QUALITY_GATES.md` |
+| Cognitive State (PENDING) | `internal/embed/cosca/memory/context/cognitive-state.md` |
+| AI Audit | `internal/embed/cosca/memory/agent/cosca-ai/learnings.md` |
+| Provider Audit | `internal/embed/cosca/memory/agent/cosca-provider/learnings.md` |
+| Infrastructure Audit | `internal/embed/cosca/memory/agent/cosca-infrastructure/audit-report-2026-07-28.md` |
+| Mobile Audit | `internal/embed/cosca/memory/agent/cosca-mobile/learnings.md` |
+| Platform Audit | `internal/embed/cosca/memory/agent/cosca-platform/audit-report-2026-07-28.md` |
+| Analytics Audit | `internal/embed/cosca/memory/agent/cosca-analytics/learnings.md` |
+| Milestones | `internal/embed/cosca/memory/roadmap/milestones.md` |
+| Platform Evolution | `internal/embed/cosca/memory/roadmap/platform-evolution-v1.4.0.md` |
+| Onda 2 Plan | `internal/embed/cosca/memory/roadmap/onda-2-plan.md` |
+| Risk Registry | `internal/embed/cosca/memory/risk/RISK_REGISTRY.md` |
+| Quality Gates | `internal/embed/cosca/QUALITY_GATES.md` |
 
 ---
 

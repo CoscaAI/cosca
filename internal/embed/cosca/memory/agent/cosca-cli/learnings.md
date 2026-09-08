@@ -1,30 +1,9 @@
-# cosca-cli — Semantic Learnings
+﻿# cosca-cli - Semantic Learnings
 
-> Auto-evolution memory.
+> Auto-evolution memory. Search before acting. Record after learning.
+> INDICE DE GATILHOS - 1 linha por aprendizado. Conteudo completo nos blocos imutaveis (blocks/{sha256}.md).
+> NUNCA editar este arquivo manualmente - use: cosca memory register --agent cosca-cli
 
-## Seed Knowledge
-
-### 2026-07-27 — Baseline
-| Field | Value |
-|-------|-------|
-| **Agent** | cosca-cli |
-| **Task** | Initial capability establishment |
-| **Technique** | Standard cli patterns |
-| **Level** | 1 |
-| **Outcome** | success |
-| **Tags** | #cli #baseline |
-| **Learned** | Ready for Level 2. |
-| **Next** | Identify first advanced technique |
-
-### 2026-07-28 — Full CLI Audit
-| Field | Value |
-|-------|-------|
-| **Agent** | cosca-cli |
-| **Task** | Comprehensive CLI audit: coverage, UX, gap analysis of 37 top-level + 105 leaf commands |
-| **Technique** | Systematic audit via build-verify-test-analyze pipeline |
-| **Level** | 1 |
-| **Outcome** | success |
-| **Tags** | #cli #audit #cobra #ux #completion #coverage |
-| **Related** | root.go, adapters, output.go, Cobra CLI |
-| **Learned** | 37/37 top-level commands confirmed functional. 105 leaf commands total. Adapter pattern bridges CLI to internal engines. Key UX gaps: no aliases, -v/-V flag swap, inconsistent --dry-run shorthand. Quick wins identified: aliases, grouping, completion hints. Build compiles, tests pass. |
-| **Next** | Implement quick wins (aliases, flags, grouping). Then explore deeper CLI patterns: custom completions, command suggestions, middleware. |
+## 2026-07-27 | 2026-07-27 | 2026-07-27 — Baseline | L | #cli #baseline | 33e5ba9a13c0f438
+## 2026-07-28 | 2026-07-28 | 2026-07-28 — Full CLI Audit | L | #cli #audit #cobra #ux #completion #coverage | d18edf2d95da713f
+## 2026-08-06 | 2026-08-06 | 2026-08-06 — Deep Audit: cosca start | L | #cli #audit #start #serve #bugs #ux | 096cd3ace565abe1

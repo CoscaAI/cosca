@@ -233,7 +233,7 @@ Each agent maintains a self-evolving semantic memory that grows with experience.
 
 ### Architecture
 ```
-.opencode/cosca/memory/agent/{agent-name}/
+internal/embed/cosca/memory/agent/{agent-name}/
 ├── learnings.md    ← Semantic journal (FTS5-indexed, vector-searchable)
 ├── evolution.md    ← Capability level tracking
 ├── patterns.md     ← Reusable solution patterns
@@ -257,7 +257,7 @@ Each agent maintains a self-evolving semantic memory that grows with experience.
 | 5 | Master | 20 successful L4 tasks | Contributing new OWASP techniques, training other agents |
 
 ### Cross-Agent Learning
-All learnings are indexed in the knowledge engine (SQLite FTS5 + vector embeddings). The Knowledge Engine indexes .opencode/cosca/memory/agent/ recursively. Agent A's security pattern can be semantically retrieved by Agent B when facing a related task.
+All learnings are indexed in the knowledge engine (SQLite FTS5 + vector embeddings). The Knowledge Engine indexes internal/embed/cosca/memory/agent/ recursively. Agent A's security pattern can be semantically retrieved by Agent B when facing a related task.
 
 ### Semantic Search
 Before any task, agents execute: `cosca knowledge search "#security #xss"` to find relevant learnings. Results ranked by: level (higher = better), recency (fresher = more relevant), outcome (success > partial > failure).

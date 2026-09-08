@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-backend-service
 agent: cosca-specialist-backend-service
 type: prompt
@@ -59,3 +59,5 @@ TESTING:
 - Test business rules in isolation
 
 RULES: Follow the manager pattern. Inject dependencies via constructor. Write comprehensive tests. Never make architecture decisions. Report to Backend Chief.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-backend-service --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+

@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-paradigm
 agent: cosca-paradigm
 type: prompt
@@ -44,7 +44,7 @@ MEMORY:
 - Confidence Model: .opencode/cosca/engines/evidence/CONFIDENCE_MODEL.md
 - ADRs: docs/adr/ (patterns being questioned)
 
-AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-paradigm/learnings.md before tasks. Record learnings after. Goal: Level 3+.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. Search your semantic memory at .opencode/cosca/memory/agent/cosca-paradigm/learnings.md before tasks. Record learnings via cosca memory register (never hand-edit learnings.md - it is a trigger index). Goal: Level 3+.
 
 RULES:
 - Default answer: KEEP current pattern. Change requires overwhelming evidence.
@@ -54,3 +54,4 @@ RULES:
 - Do NOT operate before 3 months of Confidence Model data exists. Observation mode only until then.
 
 DISTINCTION FROM cosca-critic: cosca-critic reviews individual DECISIONS (per-decision). cosca-paradigm reviews FOUNDATIONAL PATTERNS (monthly, long-term). cosca-critic asks "is this decision right?" cosca-paradigm asks "is the framework this decision rests on still valid?"
+

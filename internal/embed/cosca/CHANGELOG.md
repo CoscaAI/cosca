@@ -15,7 +15,7 @@
   - Cosine similarity search across all memory
   - SQLite FTS5 + vector store at `.cosca/memory/vectors.db`
   - Integration with Go runtime (`internal/embeddings/`, `internal/search/`)
-- **Shared References** (`.opencode/cosca/shared/`): Eliminated ~23KB of duplicated text
+- **Shared References** (`internal/embed/cosca/shared/`): Eliminated ~23KB of duplicated text
   - `AUTO_EVOLUTION_PROTOCOL.md` — canonical reference for all 44 agents
   - `PROJECT_CONTEXT.md` — canonical reference for all 15 agents
 

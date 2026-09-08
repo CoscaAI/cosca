@@ -1,18 +1,8 @@
-# cosca-specialist-testing-unit — Semantic Learnings
+﻿# cosca-specialist-testing-unit - Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
+> INDICE DE GATILHOS - 1 linha por aprendizado. Conteudo completo nos blocos imutaveis (blocks/{sha256}.md).
+> NUNCA editar este arquivo manualmente - use: cosca memory register --agent cosca-specialist-testing-unit
 
-## Seed Knowledge
-
-### 2026-07-27 — Baseline
-| Field | Value |
-|-------|-------|
-| **Agent** | cosca-specialist-testing-unit |
-| **Task** | Initial capability establishment |
-| **Technique** | Standard testing-unit patterns — project conventions |
-| **Level** | 1 |
-| **Outcome** | success |
-| **Tags** | #testing-unit #baseline #initialization |
-| **Related** | .opencode/cosca/memory/codebase/overview.md |
-| **Learned** | Project established. Core testing-unit patterns documented. Ready for Level 2 techniques. |
-| **Next** | Level 2: Identify first advanced technique to master |
+## 2026-07-27 | 2026-07-27 | 2026-07-27 — Baseline | L | #testing-unit #baseline #initialization | 6b25c2a9caffbf4a
+## 2026-07-30 | 2026-07-30 | 2026-07-30 — MCP Client: re-execution pattern + mutex deadlock detection | L | #mcp #subprocess #re-execution #deadlock #mutex #json-rpc #ndjson | b23216e2b809cf7e

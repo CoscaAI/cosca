@@ -73,7 +73,7 @@ Identify, measure, categorize, and prioritize technical debt across the codebase
 
 ## Success Criteria
 - [ ] All debt categories analyzed
-- [ ] Debt score calculated via golangci-lint + gocyclo + deadcode analysis. Baseline recorded in .opencode/cosca/memory/evolution/learnings.md. Score must decrease or remain stable in subsequent analyses.
+- [ ] Debt score calculated via golangci-lint + gocyclo + deadcode analysis. Baseline recorded in internal/embed/cosca/memory/evolution/learnings.md. Score must decrease or remain stable in subsequent analyses.
 - [ ] Prioritized backlog generated
 - [ ] Remediation plan with effort estimates
 - [ ] Trend tracking established for future comparison

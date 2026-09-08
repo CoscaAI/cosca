@@ -502,7 +502,7 @@ Cada task dos outros 9 agentes da Onda 2 foi avaliada quanto à clareza e verifi
 | Top 10 prioridades com ROI | ✅ Sim | ✅ Sim (lista ranqueada) | ✅ APROVADO |
 | Learning com confiança ≥ 0.40 | ✅ Sim | ✅ Sim | ✅ APROVADO |
 
-**Parecer QA**: Critérios sólidos. A métrica de Debt Score composto é bem definida. Recomendo que o Debt Score seja armazenado em local consultável por outros agentes (ex: `.opencode/cosca/metrics/tech-debt-score.json`).
+**Parecer QA**: Critérios sólidos. A métrica de Debt Score composto é bem definida. Recomendo que o Debt Score seja armazenado em local consultável por outros agentes (ex: `internal/embed/cosca/metrics/tech-debt-score.json`).
 
 #### cosca-critic — 5-Question Challenge (Fase 1, Onda A)
 

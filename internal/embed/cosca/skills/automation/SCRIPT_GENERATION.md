@@ -12,7 +12,7 @@ Generate shell scripts, automation tooling, and development helper scripts for C
 4. Implement with error handling: set -euo pipefail (bash), try/except (Python), if err != nil (Go).
 5. Add validation: input checks, dependency verification, dry-run mode.
 6. Test on clean environment. Document usage in script header.
-7. Register in Makefile or .opencode/cosca/scripts/ as appropriate.
+7. Register in Makefile or internal/embed/cosca/scripts/ as appropriate.
 
 ## Success Criteria
 - Script completes without errors on clean environment

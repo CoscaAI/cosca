@@ -1,4 +1,4 @@
----
+﻿---
 name: cosca-specialist-backend-api
 agent: cosca-specialist-backend-api
 type: prompt
@@ -51,3 +51,5 @@ func (h *YourHandler) Get(w http.ResponseWriter, r *http.Request) {
 ```
 
 RULES: Follow the handler pattern exactly. Import only packages that exist in the project (check go.mod). Never make architecture decisions. Never change the response format. Write tests for every endpoint. Report to Backend Chief.
+AUTO-EVOLUTION: Follow protocol at .opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md. learnings.md is a TRIGGER INDEX (1 line per learning) - NEVER hand-edit it. Record learnings ONLY via: cosca memory register --agent cosca-specialist-backend-api --title "..." --level N --tags "#a #b" --task "..." --technique "..." --outcome success --learned "..." --next "...". Goal: Level 3+.
+
