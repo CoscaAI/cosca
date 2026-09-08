@@ -1,15 +1,19 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/CoscaAI/cosca/internal/embeddings"
 	"github.com/CoscaAI/cosca/internal/learning"
+	"github.com/CoscaAI/cosca/internal/providers/ollama"
 )
 
 // NewLearningCommand creates the `cosca learning` command (ADR-044).
@@ -37,11 +41,66 @@ Subcomandos:
 
 	cmd.AddCommand(
 		newLearningRebuildCommand(),
+		newLearningEmbedCommand(),
 		newLearningSearchCommand(),
 		newLearningStatsCommand(),
 		newLearningListCommand(),
 	)
 	return cmd
+}
+
+// newLearningEmbedCommand: `cosca learning embed` — vetoriza os gatilhos
+// sem embedding (idempotente). Requer o provider local (ollama nomic).
+// --force re-embeda todos (útil após melhorar o texto embedado).
+func newLearningEmbedCommand() *cobra.Command {
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "embed",
+		Short: "Vetoriza gatilhos sem embedding (idempotente, busca semântica)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			vaultDir, err := learningVaultDir()
+			if err != nil {
+				return err
+			}
+			reg, err := newEmbeddingRegistry()
+			if err != nil {
+				return err
+			}
+			defer reg.Close()
+
+			if force {
+				if err := learning.ClearEmbeddings(vaultDir); err != nil {
+					return err
+				}
+			}
+
+			n, err := learning.EmbedAll(cmd.Context(), reg, vaultDir, learningAgentsRoot())
+			if err != nil {
+				return err
+			}
+			formatter := GetFormatter(cmd)
+			formatter.Success(fmt.Sprintf("Embeddings gerados: %d gatilhos vetorizados", n))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "re-embeda todos (apaga embeddings existentes)")
+	return cmd
+}
+
+// newEmbeddingRegistry abre o registry de embeddings com o provider local
+// (ollama + nomic-embed-text — mesmo caminho do memory semantic).
+func newEmbeddingRegistry() (*embeddings.ProviderRegistry, error) {
+	reg := embeddings.GetRegistry()
+	ollama.Register()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := reg.Select(ctx, embeddings.ProviderRegistryConfig{
+		Primary: "ollama",
+		Model:   "nomic-embed-text",
+	}); err != nil {
+		return nil, fmt.Errorf("selecionar provider de embedding: %w", err)
+	}
+	return reg, nil
 }
 
 // learningVaultDir resolves the vault dir (.cosca/learning).
@@ -98,9 +157,10 @@ func newLearningRebuildCommand() *cobra.Command {
 func newLearningSearchCommand() *cobra.Command {
 	var vault string
 	var limit int
+	var semantic bool
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Busca FTS5 em um vault de departamento",
+		Short: "Busca em um vault (FTS5 ou semântica com --semantic)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if vault == "" {
@@ -116,18 +176,33 @@ func newLearningSearchCommand() *cobra.Command {
 			}
 			defer db.Close()
 
-			q := learning.SanitizeFTS(args[0])
-			results, err := learning.Search(db, q, limit)
+			formatter := GetFormatter(cmd)
+
+			var results []learning.Trigger
+			if semantic {
+				reg, rErr := newEmbeddingRegistry()
+				if rErr != nil {
+					return rErr
+				}
+				defer reg.Close()
+				results, err = learning.HybridSearch(cmd.Context(), reg, db, args[0], limit)
+			} else {
+				q := learning.SanitizeFTS(args[0])
+				results, err = learning.Search(db, q, limit)
+			}
 			if err != nil {
 				return err
 			}
 
-			formatter := GetFormatter(cmd)
 			if len(results) == 0 {
 				formatter.Warning(fmt.Sprintf("Nenhum trigger encontrado no vault %s para: %s", vault, args[0]))
 				return nil
 			}
-			formatter.Success(fmt.Sprintf("%d resultado(s) no vault %s:", len(results), vault))
+			mode := "FTS5"
+			if semantic {
+				mode = "híbrida (FTS5 + semântica)"
+			}
+			formatter.Success(fmt.Sprintf("%d resultado(s) no vault %s (busca %s):", len(results), vault, mode))
 			for _, t := range results {
 				formatter.Bullet(fmt.Sprintf("%s | %s | %s | L%d | %s | %s",
 					t.ID, t.Date, t.Title, t.Level, t.Tags, t.Hash16))
@@ -137,6 +212,7 @@ func newLearningSearchCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&vault, "vault", "", "departamento (vault) para buscar")
 	cmd.Flags().IntVar(&limit, "limit", 20, "máximo de resultados")
+	cmd.Flags().BoolVar(&semantic, "semantic", false, "busca semântica por entendimento (requer embeddings)")
 	return cmd
 }
 

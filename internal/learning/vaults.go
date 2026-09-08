@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS triggers (
 	tags       TEXT NOT NULL DEFAULT '',
 	hash16     TEXT NOT NULL DEFAULT '',
 	chain_prev TEXT NOT NULL DEFAULT '',
+	embedding  BLOB,
 	created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_triggers_agent ON triggers(agent);

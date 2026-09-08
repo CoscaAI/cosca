@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,8 +16,9 @@ import (
 )
 
 // upsertLearningVault grava o gatilho do aprendizado recém-registrado no vault
-// do departamento (ADR-044 §2.3 passo 4). Determinístico, sem LLM. O conteúdo
-// completo permanece no bloco imutável — o vault guarda só metadados.
+// do departamento (ADR-044 §2.3 passo 4) e tenta vetorizá-lo (best-effort —
+// sem embedding o trigger fica só FTS5; `cosca learning embed` completa depois).
+// Determinístico, sem LLM de chat. O conteúdo completo permanece no bloco.
 func upsertLearningVault(dir string, agent string, res *memory.LearningResult, input memory.LearningInput) error {
 	vaultDir, err := learningVaultDir()
 	if err != nil {
@@ -41,7 +43,23 @@ func upsertLearningVault(dir string, agent string, res *memory.LearningResult, i
 		BlockHash: res.Hash,
 		ChainPrev: res.Prev,
 	}
-	return learning.UpsertTrigger(db, t)
+	if err := learning.UpsertTrigger(db, t); err != nil {
+		return err
+	}
+
+	// Vetorização best-effort: falha não bloqueia o registro.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	reg, rErr := newEmbeddingRegistry()
+	if rErr != nil {
+		return nil // sem embedding é aceitável — FTS5 cobre
+	}
+	defer reg.Close()
+	blob, eErr := learning.EmbedText(ctx, reg, learning.EmbeddingText(t))
+	if eErr != nil {
+		return nil
+	}
+	return learning.SetEmbedding(db, t.BlockHash, blob)
 }
 
 // NewMemoryRegisterCommand creates the `cosca memory register` subcommand.
