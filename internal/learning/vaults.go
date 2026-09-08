@@ -282,7 +282,8 @@ func AllTriggers(db *sql.DB) ([]Trigger, error) {
 }
 
 // SanitizeFTS escapes a user query into a safe FTS5 MATCH expression.
-// Falls back to a simple title LIKE when the query is not FTS-safe.
+// Hyphens are FTS5 NOT/column operators — replaced with spaces. Falls back to
+// a simple title LIKE when the query is not FTS-safe.
 func SanitizeFTS(query string) string {
 	q := strings.TrimSpace(query)
 	if q == "" {
@@ -293,7 +294,7 @@ func SanitizeFTS(query string) string {
 	for _, r := range q {
 		switch {
 		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
-			r == ' ', r == '-', r == '_', r == '"', r == 'ç', r == 'ã', r == 'á',
+			r == ' ', r == '_', r == '"', r == 'ç', r == 'ã', r == 'á',
 			r == 'é', r == 'í', r == 'ó', r == 'ú', r == 'ê', r == 'ô', r == 'â':
 			b.WriteRune(r)
 		default:

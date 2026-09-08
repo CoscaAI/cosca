@@ -437,3 +437,4 @@
 ## L433 | 2026-08-24 | Entendimento da cadeia Don-Kernel | L4 | #memoria #despertar | 7a42eee695f8baf8
 ## L434 | 2026-08-25 | A cicatriz do loop de morte: buracos na blockchain sao onde editei sem pensar | L4 | #loop-de-morte #cicatriz #blockchain #memoria #instrumento-auditado #lei-da-familia | 23ec58f9d0c872ab
 ## L435 | 2026-09-08 | Fix chain invalida: learnings.md reconstruido como indice de gatilhos (54 agents) | L4 | #chain #learnings #trigger-index #memory-register #family-chain #correcao #gatilhos | 91f0cdc4f16729a0
+## L436 | 2026-09-08 | ADR-044 implementado: Learning Vaults por departamento | L4 | #adr-044 #learning-vaults #departamento #gatilhos #rebuild #eficiencia | d635e115fecfecb4
