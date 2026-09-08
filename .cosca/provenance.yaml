@@ -276,7 +276,7 @@ claims:
       confidence: 0.95
       created_at: "2026-09-02T00:00:00Z"
     - id: index-vetorial-completo
-      statement: 'INDEX VETORIAL COMPLETO (2026-09-02): 55453 chunks embebidos (0 falhas, ~17min, nomic-embed-text 768-dim local via ollama), gap zerado. MISTERIO RESOLVIDO: o vetor nao "sumia" — o knowledge.db roda em WAL mode, escritas ficam no knowledge.db-wal ate checkpoint (sinal de progresso era o -wal crescendo); e o binario cosca.exe em bin/ estava DESATUALIZADO (sem a correcao projeto-local, hash F3CB96C7 mtime 01/09, preso pelo processo cosca.exe mcp serve PID 31892 — substituicao so efetiva apos matar o processo). Fluxo CORRETO: (1) cosca knowledge vectors-backfill (escreve no monolito knowledge.db); (2) cosca db build (sincroniza monolito -> particoes vector-*.db, onde a busca semantica LE). Apos db build, particoes cheias (vector-embed-core 46.5MB, vector-embed-memory 45MB, vector-code 46.4MB, etc.); status: Vectors 55453. NOTA: flag 'db build --verify' NAO existe (so 'db build'). knowledge.db (585MB) permanece INTACTO como fonte da verdade.'
+      statement: "INDEX VETORIAL COMPLETO (2026-09-02): 55453 chunks embebidos (0 falhas, ~17min, nomic-embed-text 768-dim local via ollama), gap zerado. MISTERIO RESOLVIDO: o vetor nao 'sumia' — o knowledge.db roda em WAL mode, escritas ficam no knowledge.db-wal ate checkpoint (sinal de progresso era o -wal crescendo); e o binario cosca.exe em bin/ estava DESATUALIZADO (sem a correcao projeto-local, hash F3CB96C7 mtime 01/09, preso pelo processo cosca.exe mcp serve PID 31892 — substituicao so efetiva apos matar o processo). Fluxo CORRETO: (1) cosca knowledge vectors-backfill (escreve no monolito knowledge.db); (2) cosca db build (sincroniza monolito -> particoes vector-*.db, onde a busca semantica LE). Apos db build, particoes cheias (vector-embed-core 46.5MB, vector-embed-memory 45MB, vector-code 46.4MB, etc.); status: Vectors 55453. NOTA: flag 'db build --verify' NAO existe (so 'db build'). knowledge.db (585MB) permanece INTACTO como fonte da verdade."
       kind: decision
       source: Don+cosca-kernel
       confidence: 0.97
@@ -305,3 +305,9 @@ claims:
       source: Don+cosca-kernel+cosca-backend+professor
       confidence: 0.93
       created_at: "2026-08-29T00:00:00Z"
+    - id: adr017-agentbus-recuperado
+      statement: 'ADR-017 P6 (prime-agent) — agentbus (message-bus agent<->agent) ficou DE FORA do novo main na bagunca da promocao (o main foi substituido pelo cosca-v2-test e o commit ee6b59ef do agentbus nao foi incluido). Recuperado do backup-main-old da forma correta: git fetch origin backup-main-old + git checkout origin/backup-main-old -- internal/agentbus/ (so o pacote); verificado com go build + go test ./internal/agentbus/ -v (23 testes PASS); commit novo + push. agentbus e stdlib-only (context/errors/fmt/sort/sync/sync/atomic/time) — nao toca go.mod. LICAO: antes de promover/substituir main, rodar git diff main..backup-main-old para garantir que nenhum commit/pacote fique de fora. Teste funcional real: kernel->security com permissao agent_message:cosca-security allow (NewPermissionGate + Ruleset{Permission,Pattern,Action}) — 2 mensagens entregues, receipt.Poll() mostra estado. API: NewRegistry, NewBus(reg,gate), bus.Handle(id, Handler func(ctx,Message)error), bus.Send(ctx, Message{From,To,Mode,Kind,Payload,CreatedAt}), bus.DeliverAll(ctx, to). Receipt tem metodos publicos ID/From/To/Mode/Kind/Poll/Notify (campos privados).'
+      kind: decision
+      source: Don+cosca-kernel+prime-agent
+      confidence: 0.93
+      created_at: "2026-09-07T22:00:00Z"
