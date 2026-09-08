@@ -27,6 +27,7 @@ Sistema de auto-gerenciamento de banco de dados + Intelligence Engine determiní
 	rootCmd.AddCommand(cli.ScanCmd())
 	rootCmd.AddCommand(cli.RulesCmd())
 	rootCmd.AddCommand(cli.ServeCmd())
+	rootCmd.AddCommand(cli.AskCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
