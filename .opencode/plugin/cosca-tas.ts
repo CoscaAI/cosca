@@ -22,14 +22,21 @@ import { join } from "node:path"
  * Fail-closed: se o workspace não tem sinais (sem go.mod/package.json, sem
  * git), o plugin não injeta nada — o TAS segue com o que o executor já tem
  * (Prompt + stack detectado), sem quebrar nada.
+ *
+ * NOTA DE PORTABILIDADE (Windows): este plugin NÃO usa pipes/`grep`/`sort`/
+ * `head` do shell Unix — eles não existem no cmd/PowerShell do Windows. Todo o
+ * processamento do `git log` é feito em JS puro (split/filter/sort/slice).
  */
-export default (async ({ project, directory }) => {
+export default (async ({ directory }) => {
   return {
-    "tool.execute.before": async (input, output) => {
+    "tool.execute.before": async (
+      input: { tool: string },
+      output: { args: Record<string, unknown> },
+    ): Promise<void> => {
       // Só age na tool `cosca`.
       if (input.tool !== "cosca") return
 
-      const workspace = directory ?? project?.path
+      const workspace = directory
       if (!workspace) return
 
       // ── Metadados do workspace ─────────────────────────────────────────
@@ -41,18 +48,28 @@ export default (async ({ project, directory }) => {
       if (existsSync(join(workspace, "package.json"))) meta["tas.package_json"] = true
 
       // Arquivos recentemente modificados (via git, se disponível).
+      // Sem pipes Unix: `git log --name-only` puro, processado em JS.
       try {
-        const recent = execSync(
-          "git log --name-only --pretty=format: --since='7 days ago' -- . | grep -v '^$' | sort -u | head -20",
-          { cwd: workspace, encoding: "utf8", timeout: 13000 },
+        const raw = execSync(
+          "git log --name-only --pretty=format: --since=7.days.ago -- .",
+          { cwd: workspace, encoding: "utf8", timeout: 6000 },
         )
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean)
+
+        // Filtra linhas vazias, deduplica e limita a 20.
+        const seen = new Set<string>()
+        const recent: string[] = []
+        for (const line of raw.split("\n")) {
+          const p = line.trim()
+          if (p === "" || seen.has(p)) continue
+          seen.add(p)
+          recent.push(p)
+          if (recent.length >= 20) break
+        }
+
         if (recent.length > 0) {
           meta["tas.recent_files"] = recent
-          // O arquivo mais recente (provável alvo) — último do log (mais novo).
-          // git log lista em ordem cronológica reversa; pegamos o primeiro.
+          // `git log --name-only` lista do MAIS NOVO para o MAIS ANTIGO, então
+          // o primeiro item é o arquivo modificado mais recentemente (alvo).
           meta["tas.target_hint"] = recent[0]
         }
       } catch {
@@ -60,12 +77,14 @@ export default (async ({ project, directory }) => {
       }
 
       // ── Injeta os metadados nos args da tool `cosca` ───────────────────
-      // Preserva os args existentes; adiciona/merge o objeto `tas` se o
-      // chamador não o definiu. O Cosca lê via Request.Context → PipelineData.Extra.
-      const args = (output.args ?? {}) as Record<string, unknown>
-      const existing = (args.tas ?? {}) as Record<string, unknown>
-      args.tas = { ...meta, ...existing }
-      output.args = args
+      // Muta `output.args` no lugar (não reatribui o objeto inteiro — mais
+      // seguro com a propagação por referência do hook). Preserva args
+      // existentes e o objeto `tas` se o chamador já o definiu.
+      if (!output.args || typeof output.args !== "object") {
+        output.args = {}
+      }
+      const existing = (output.args.tas ?? {}) as Record<string, unknown>
+      output.args.tas = { ...meta, ...existing }
     },
   }
 }) satisfies Plugin
