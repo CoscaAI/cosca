@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -38,6 +39,7 @@ type GlobalFlags struct {
 	JSON    bool
 	Format  string
 	NoColor bool
+	Full    bool
 }
 
 var (
@@ -88,6 +90,7 @@ Documentation: https://cosca.enterprise/docs
 	rootCmd.PersistentFlags().BoolVarP(&globalFlags.JSON, "json", "j", false, "output in JSON format")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.Format, "format", "text", "output format (text, json, yaml, table)")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoColor, "no-color", false, "disable colored output")
+	rootCmd.PersistentFlags().BoolVar(&globalFlags.Full, "full", false, "disable output clipping (emit full, untruncated output)")
 	rootCmd.PersistentFlags().BoolP("version", "v", false, "version for cosca")
 	rootCmdMu.Unlock()
 
@@ -391,11 +394,28 @@ func IsJSONOutput(cmd *cobra.Command) bool {
 	return globalFlags.JSON
 }
 
-// printJSON is a helper to print JSON output from commands.
+// IsFullOutput reports whether output clipping is disabled (via --full).
+func IsFullOutput(cmd *cobra.Command) bool {
+	fullFlag := cmd.Root().PersistentFlags().Lookup("full")
+	if fullFlag != nil && fullFlag.Value.String() == "true" {
+		return true
+	}
+	return globalFlags.Full
+}
+
+// printJSON is a helper to print JSON output from commands. It serializes the
+// value, then passes it through the output guard (ClipLines) so an oversized
+// payload is truncated with a marker and spilled to a temp file instead of
+// flooding the context.
 func printJSON(cmd *cobra.Command, v interface{}) error {
-	encoder := json.NewEncoder(cmd.OutOrStdout())
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(v)
+	if err := encoder.Encode(v); err != nil {
+		return err
+	}
+	_, _, err := ClipLines(cmd.OutOrStdout(), buf.String(), OutputMaxLines(), IsFullOutput(cmd))
+	return err
 }
 
 // newContextWithFormatter stores the formatter in the context.

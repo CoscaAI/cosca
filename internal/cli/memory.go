@@ -100,7 +100,10 @@ func NewMemoryListCommand() *cobra.Command {
 			}
 
 			if useJSON {
-				return printJSON(cmd, records)
+				if IsFullOutput(cmd) {
+					return printJSON(cmd, records)
+				}
+				return printJSON(cmd, projectMemoryRecords(records))
 			}
 
 			formatter.Header(fmt.Sprintf("Memory Records (%s)", ifEmpty(memoryType, "all")))
@@ -120,6 +123,33 @@ func NewMemoryListCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&memoryType, "type", "t", "", "filter by memory type (short, long, project, arch, decision)")
 	cmd.Flags().IntVarP(&limit, "limit", "l", 20, "maximum number of records")
 	return cmd
+}
+
+// MemoryListSummary is the slim projection used by `cosca memory list --json`.
+// It keeps only the essential, header-like fields so verbose fields such as
+// full Content do not flood the context; `--full` reverts to the full records.
+type MemoryListSummary struct {
+	ID        string    `json:"id"`
+	Title     string    `json:"title,omitempty"`
+	Type      string    `json:"type"`
+	Tags      []string  `json:"tags,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// projectMemoryRecords converts full memory records into the slim summary
+// projection exposed by `cosca memory list --json`.
+func projectMemoryRecords(records []MemoryRecordEx) []MemoryListSummary {
+	out := make([]MemoryListSummary, 0, len(records))
+	for _, r := range records {
+		out = append(out, MemoryListSummary{
+			ID:        r.ID,
+			Title:     r.Title,
+			Type:      r.Type,
+			Tags:      r.Tags,
+			Timestamp: r.Timestamp,
+		})
+	}
+	return out
 }
 
 // NewMemoryShowCommand creates the `cosca memory show` subcommand.
