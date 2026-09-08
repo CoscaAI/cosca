@@ -158,9 +158,22 @@ func (l Level) CanEditarBrain() bool {
 // BrainPath é o caminho relativo do cérebro (embutido) — a fronteira crítica.
 const BrainPath = "internal/embed/cosca"
 
+// InternalPath é a raiz do código-fonte interno do Cosca. Editar qualquer
+// coisa sob internal/ é tocar o coração da família — por isso fica sob o gate
+// de soberania (SÓ o L3-SOBERANO, com aval do Don, pode editar; L1/L2 negam).
+// Decisão do Don (2026-09-07): "tudo que mexe no codigo internal deve ter
+// bloqueio gate."
+const InternalPath = "internal"
+
 // IsBrainPath devolve true quando o path dado está dentro do cérebro.
 func IsBrainPath(path string) bool {
 	return strings.Contains(filepathToSlash(path), BrainPath)
+}
+
+// IsInternalPath devolve true quando o path dado está dentro do código-fonte
+// interno do Cosca (internal/). É a fronteira que protege o coração da família.
+func IsInternalPath(path string) bool {
+	return strings.Contains(filepathToSlash(path), InternalPath)
 }
 
 // filepathToSlash normaliza separadores para '/' (comparação estável).

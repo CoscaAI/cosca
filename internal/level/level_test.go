@@ -42,10 +42,16 @@ func TestGateOperacionalNaoEditaCerebro(t *testing.T) {
 	if v != VDeny {
 		t.Errorf("L2 editar cerebro deveria ser DENY (nao edita o proprio cerebro), foi %s", v)
 	}
-	// mas edita workspace
+	// decisão do Don (2026-09-07): TODO internal/ (codigo-fonte) sob gate.
+	// Editar internal/ em L2 é DENY (fail-closed), mesmo fora do embed.
 	v2 := g.Check(Action{Tool: "edit", TargetPath: "internal/foo/bar.go"})
-	if v2 != VAllow {
-		t.Errorf("L2 editar workspace deveria ser ALLOW, foi %s", v2)
+	if v2 != VDeny {
+		t.Errorf("L2 editar internal/ (codigo-fonte) deveria ser DENY (gate do Don), foi %s", v2)
+	}
+	// mas editar fora do internal (projeto) continua allowed.
+	v3 := g.Check(Action{Tool: "edit", TargetPath: "bin/cosca.go"})
+	if v3 != VAllow {
+		t.Errorf("L2 editar fora do internal (bin/) deveria ser ALLOW, foi %s", v3)
 	}
 }
 
@@ -130,6 +136,39 @@ func TestIsBrainPath(t *testing.T) {
 	}
 	if IsBrainPath("internal/foo/bar.go") {
 		t.Error("nao deveria reconhecer path fora do cerebro")
+	}
+}
+
+func TestIsInternalPath(t *testing.T) {
+	// Decisão do Don (2026-09-07): todo internal/ é código-fonte sob gate.
+	if !IsInternalPath("internal/foo/bar.go") {
+		t.Error("deveria reconhecer codigo-fonte internal/")
+	}
+	if !IsInternalPath("internal/embed/cosca/KERNEL.md") {
+		t.Error("deveria reconhecer internal/embed/cosca")
+	}
+	if !IsInternalPath(`internal\cli\serve.go`) {
+		t.Error("deveria reconhecer internal/ com backslash (windows)")
+	}
+	if IsInternalPath("bin/cosca.go") || IsInternalPath("cmd/cosca/main.go") {
+		t.Error("nao deveria reconhecer path fora de internal/")
+	}
+}
+
+func TestGateInternalEditL1L2DenyL3Allow(t *testing.T) {
+	// Só o L3-SOBERANO (com aval do Don) edita internal/; L1/L2 negam.
+	if v := NewGate(L1Inicial).Check(Action{Tool: "edit", TargetPath: "internal/cli/serve.go"}); v != VDeny {
+		t.Errorf("L1 editar internal/ deveria ser DENY, foi %s", v)
+	}
+	if v := NewGate(L2Operacional).Check(Action{Tool: "edit", TargetPath: "internal/cli/serve.go"}); v != VDeny {
+		t.Errorf("L2 editar internal/ deveria ser DENY, foi %s", v)
+	}
+	if v := NewGate(L3Soberano).Check(Action{Tool: "edit", TargetPath: "internal/cli/serve.go"}); v != VAllow {
+		t.Errorf("L3 editar internal/ deveria ser ALLOW, foi %s", v)
+	}
+	// mesmo para RawCommand (bash deletando internal/)
+	if v := NewGate(L2Operacional).Check(Action{Tool: "bash", RawCommand: "rm -rf internal/agentbus"}); v != VDeny {
+		t.Errorf("L2 bash rm internal/ deveria ser DENY, foi %s", v)
 	}
 }
 

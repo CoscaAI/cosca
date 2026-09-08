@@ -53,8 +53,10 @@ func TestFluxoSubidaSoberanoAposAval(t *testing.T) {
 	if v := g.Check(Action{Tool: "edit", TargetPath: "internal/embed/cosca/KERNEL.md"}); v != VDeny {
 		t.Errorf("L2 editar o cerebro deveria ser DENY, foi %s", v)
 	}
-	if v := g.Check(Action{Tool: "edit", TargetPath: "internal/foo.go"}); v != VAllow {
-		t.Errorf("L2 editar workspace deveria ser ALLOW, foi %s", v)
+	// decisão do Don (2026-09-07): TODO internal/ (codigo-fonte) sob gate.
+	// Editar internal/ em L2 é DENY (fail-closed), mesmo fora do embed.
+	if v := g.Check(Action{Tool: "edit", TargetPath: "internal/foo.go"}); v != VDeny {
+		t.Errorf("L2 editar internal/ (codigo-fonte) deveria ser DENY (gate do Don), foi %s", v)
 	}
 
 	// Subida a L3 com aval do Don → permitida.

@@ -191,6 +191,22 @@ func (g *Gate) Check(a Action) Verdict {
 		}
 	}
 
+	// Ação de edição no código-fonte interno (internal/) — o coração da casa.
+	// Decisão do Don (2026-09-07): "tudo que mexe no codigo internal deve ter
+	// bloqueio gate." SÓ o L3-SOBERANO (com aval do Don) pode editar; L1/L2
+	// negam por código (fail-closed, independente do LLM).
+	if isInternalEdit(a) {
+		if g.current == L2Operacional {
+			return VDeny
+		}
+		if g.current == L1Inicial {
+			return VDeny
+		}
+		if g.current == L3Soberano {
+			return VAllow
+		}
+	}
+
 	// Ações de escrita/operação precisam de permissão mínima = PermOperate
 	// para o escopo do projeto. Leitura é sempre permitida.
 	switch {
@@ -232,6 +248,18 @@ func isBrainEdit(a Action) bool {
 		return IsBrainPath(a.TargetPath)
 	}
 	return strings.Contains(filepathToSlash(a.RawCommand), BrainPath)
+}
+
+// isInternalEdit devolve true quando a ação edita/escreve no código-fonte
+// interno (internal/) — o coração da casa. É a extensão do gate de soberania
+// para TODO o internal/, não só o cérebro embutido. Decisão do Don (2026-09-07).
+func isInternalEdit(a Action) bool {
+	tool := a.Tool
+	if tool == "write" || tool == "edit" || tool == "delete" || tool == "remove" {
+		return IsInternalPath(a.TargetPath)
+	}
+	// Também pega RawCommand: um bash `rm internal/...`, `go build ./internal`, etc.
+	return strings.Contains(filepathToSlash(a.RawCommand), InternalPath)
 }
 
 // isRead devolve true para ferramentas de leitura (livres em qualquer nível).
