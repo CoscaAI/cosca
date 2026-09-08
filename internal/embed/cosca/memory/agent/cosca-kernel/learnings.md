@@ -438,3 +438,4 @@
 ## L434 | 2026-08-25 | A cicatriz do loop de morte: buracos na blockchain sao onde editei sem pensar | L4 | #loop-de-morte #cicatriz #blockchain #memoria #instrumento-auditado #lei-da-familia | 23ec58f9d0c872ab
 ## L435 | 2026-09-08 | Fix chain invalida: learnings.md reconstruido como indice de gatilhos (54 agents) | L4 | #chain #learnings #trigger-index #memory-register #family-chain #correcao #gatilhos | 91f0cdc4f16729a0
 ## L436 | 2026-09-08 | ADR-044 implementado: Learning Vaults por departamento | L4 | #adr-044 #learning-vaults #departamento #gatilhos #rebuild #eficiencia | d635e115fecfecb4
+## L437 | 2026-09-08 | Vetorizacao semantica dos Learning Vaults (ADR-044) | L4 | #adr-044 #vetorizacao #semantica #embedding #hibrido #rrf #nomic | f3f93c99c279865f
