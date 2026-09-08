@@ -249,3 +249,8 @@ tmp/
 .cosca/tela.png
 .cosca/teste-fala.wav
 cosca/tela.png
+
+# DSMS runtime data (regenerável)
+dsms-data/
+E:\trainer
+

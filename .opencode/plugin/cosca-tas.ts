@@ -52,7 +52,7 @@ export default (async ({ directory }) => {
       try {
         const raw = execSync(
           "git log --name-only --pretty=format: --since=7.days.ago -- .",
-          { cwd: workspace, encoding: "utf8", timeout: 6000 },
+          { cwd: workspace, encoding: "utf8", timeout: 3000 },
         )
 
         // Filtra linhas vazias, deduplica e limita a 20.
