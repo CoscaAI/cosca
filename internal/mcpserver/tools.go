@@ -754,6 +754,7 @@ var allowedCLIRoot = map[string]bool{
 	"screen":     true,
 	"despertar":  true,
 	"dataset":    true,
+	"learning":   true,
 }
 
 // allowedCLIRootList devolve a lista de comandos permitidos como string

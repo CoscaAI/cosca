@@ -254,7 +254,7 @@ func (e *Engine) registerTools() {
 		Risk:        RiskOperate,
 		Permission:  PermissionPublic,
 		Cost:        CostMedium,
-		Description: "Operar o CLI do COSCA — executar um subconjunto SEGURO de comandos (leitura/gestão) via allowlist default-deny; NUNCA execução arbitrária. Passa pelo kernel gate. Comandos permitidos: status, doctor, health, version, capability, cost, budget, agent, skill, memory, knowledge, trace, provider, model, hardware, machine, project, web, dataset. Para BUSCAR INFORMAÇÃO NA WEB (notícia/verificação/Hacker News/GitHub) use args=[\"web\",\"<provider>\",\"<query>\"] com provider em wiki|news|hn|github|github-issues — retorna resultados reais de fontes públicas, sem chave/custo.",
+		Description: "Operar o CLI do COSCA — executar um subconjunto SEGURO de comandos (leitura/gestão) via allowlist default-deny; NUNCA execução arbitrária. Passa pelo kernel gate. Comandos permitidos: status, doctor, health, version, capability, cost, budget, agent, skill, memory, knowledge, learning, trace, provider, model, hardware, machine, project, web, dataset. Para BUSCAR INFORMAÇÃO NA WEB (notícia/verificação/Hacker News/GitHub) use args=[\"web\",\"<provider>\",\"<query>\"] com provider em wiki|news|hn|github|github-issues — retorna resultados reais de fontes públicas, sem chave/custo.",
 		InputSchema: `{"type":"object","properties":{"args":{"type":"array","items":{"type":"string"}},"cwd":{"type":"string"}},"required":["args"]}`,
 		Handler:     e.handleCLI,
 	})
