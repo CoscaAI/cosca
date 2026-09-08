@@ -176,6 +176,12 @@ func DefaultExecutorConfig() ExecutorConfig {
 		Timeout:       5 * time.Minute,
 		MaxToolRounds: 5,
 		Budget:        &budget,
+		// EnableTAS: o Task-Aware Search (ADR-045) fica ATIVO por padrão no
+		// caminho padrão (`cosca run`). A busca passa a re-ponderar por
+		// afinidade com a tarefa e ajustar por fase. Um zero-value
+		// ExecutorConfig{} mantém EnableTAS=false (comportamento atual) para
+		// call sites que não usam o default.
+		EnableTAS: true,
 	}
 }
 
