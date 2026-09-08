@@ -214,7 +214,28 @@ FACT/EVIDENCE/INFERENCE). É o coração da busca semântica.
 | `cosca flow` | Durable Workflow demo (replay + retry) |
 | `cosca desktop` | Abre o COSCA Desktop |
 | `cosca terminal` | Launch do Cosca Terminal TUI |
-| `cosca voice` | Assistente de voz |
+| `cosca voice` | Assistente de voz (ver §10a) |
+| `cosca vision` | Pipeline de visão ONNX (4/4 — ver §10a) |
+| `cosca screen` | Percepção de tela (OCR + zoom — ver §10a) |
+
+### 10a. Percepção — os sentidos do Cosca
+
+O Cosca **sente** (tudo nativo, local, sem Python em runtime). A percepção é
+**por ação**: o Cosca só "olha a tela" quando você pede (ex.: "olha a tela" no
+`voice chat`).
+
+| Sentido | Comando | O que faz |
+|---------|---------|-----------|
+| **Ver** | `cosca vision infer img.png` | pipeline ONNX completo (CLIP/SAM2/GroundingDINO/Depth) |
+| **Ver — status** | `cosca model vision` | status dos 4 modelos (4/4 present) |
+| **Ouvir** | `cosca voice listen` | STT streaming (sherpa-onnx PT-BR) |
+| **Falar** | `cosca voice speak "olá"` | TTS (vits-piper PT-BR), gera `.wav` |
+| **Diálogo ao vivo** | `cosca voice chat` | ouve → vê (pedido) → interpreta → fala |
+| **Ler tela (OCR)** | `cosca screen --ocr` | captura + lê texto, zoom bicubic 1x→2x→4x |
+
+> Os modelos de visão vivem em `~/.cosca/models/vision/` (CLIP 466MB, SAM2 828MB,
+> GroundingDINO 661MB, Depth 94MB). A **voz** exige build com
+> `-tags "stt_sherpa tts_sherpa"` (CGO) + DLLs nativas em `bin/`.
 
 > **O Cosca não constrói uma cidade — possui uma linguagem para representar
 > mundos** (`WORLD → World Model → GIS | Knowledge | Unreal`). Os módulos

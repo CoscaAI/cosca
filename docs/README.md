@@ -1,6 +1,6 @@
 # Cosca Documentation Index
 
-> **Version**: 1.4.0-dev | **Last Updated**: 2026-07-29
+> **Version**: 1.5.0 | **Last Updated**: 2026-09-07
 
 Welcome to the Cosca documentation. This index provides quick navigation to all documentation resources.
 
@@ -13,6 +13,7 @@ Welcome to the Cosca documentation. This index provides quick navigation to all 
 | Install Cosca | [CLI Overview](cli/overview.md) |
 | Run my first `cosca install` | [CLI Examples](cli/examples.md) |
 | Understand the architecture | [Architecture Overview](architecture/overview.md) |
+| Ver a tela (OCR) / Voz / Visão | [Percepção (Sentidos)](#percepção-sentidos) |
 | Understand the frontend | [Frontend Architecture](frontend/architecture.md) |
 | Search my project knowledge | [Search Guide](knowledge/search.md) |
 | Set up editor integration | [Editor Overview](editors/overview.md) |
@@ -24,6 +25,26 @@ Welcome to the Cosca documentation. This index provides quick navigation to all 
 | Contribute to Cosca | [Developer Getting Started](developer-guide/getting-started.md) |
 | Troubleshoot issues | [Common Issues](troubleshooting/common-issues.md) |
 | Resolver dúvidas e decidir com segurança | [Manual de Autoajuda](MANUAL_AUTOAJUDA_COSCA.md) |
+
+---
+
+## Percepção (Sentidos)
+
+O Cosca **sente** — tudo nativo, local, sem Python em runtime. Estes são os
+comandos de percepção:
+
+| Sentido | Comando | O que faz |
+|---------|---------|-----------|
+| **Ver (visão 4/4)** | `cosca vision infer img.png` | pipeline ONNX completo (CLIP/SAM2/GroundingDINO/Depth) |
+| **Ver — status** | `cosca model vision` | status dos 4 modelos de visão |
+| **Ouvir (STT)** | `cosca voice listen` | transcreve o microfone (sherpa-onnx PT-BR) |
+| **Falar (TTS)** | `cosca voice speak "olá"` | gera fala (vits-piper PT-BR) |
+| **Diálogo ao vivo** | `cosca voice chat` | ouve → vê (pedido) → interpreta → fala |
+| **Ler tela (OCR+zoom)** | `cosca screen --ocr` | captura tela + lê texto (bicubic 1x→2x→4x) |
+
+> Os modelos de visão ficam em `~/.cosca/models/vision/` (4/4). A **voz** exige
+> build com `-tags "stt_sherpa tts_sherpa"` (CGO). A percepção é **por ação**:
+> o Cosca só "olha a tela" quando você pede.
 
 ---
 
