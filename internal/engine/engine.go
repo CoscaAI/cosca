@@ -13,8 +13,8 @@ import (
 	"github.com/CoscaAI/cosca/internal/chat/executor"
 	"github.com/CoscaAI/cosca/internal/contenttrust"
 	"github.com/CoscaAI/cosca/internal/modlink"
-	"github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/pending"
+	"github.com/CoscaAI/cosca/internal/plugins"
 	"github.com/CoscaAI/cosca/internal/providers"
 	"github.com/CoscaAI/cosca/internal/safeerror"
 	"github.com/rs/zerolog/log"
@@ -422,6 +422,9 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 			totalUsage.PromptTokens += resp.Usage.PromptTokens
 			totalUsage.CompletionTokens += resp.Usage.CompletionTokens
 			totalUsage.TotalTokens += resp.Usage.TotalTokens
+			// Decomposição (ADR-031 Fase 1): promove o cache/reasoning por turno.
+			totalUsage.CachedTokens += resp.Usage.CachedTokens
+			totalUsage.ReasoningTokens += resp.Usage.ReasoningTokens
 		}
 
 		// Record cognitive budget consumption for this LLM call. Cost stays 0
@@ -509,6 +512,10 @@ func (e *AgentEngine) Run(ctx context.Context, userInput string, history []chat.
 					totalUsage.PromptTokens += subResult.TokenUsage.PromptTokens
 					totalUsage.CompletionTokens += subResult.TokenUsage.CompletionTokens
 					totalUsage.TotalTokens += subResult.TokenUsage.TotalTokens
+					// Decomposição (ADR-031 Fase 1): subagente também reusa
+					// cache / gasta reasoning — soma no agregado do run.
+					totalUsage.CachedTokens += subResult.TokenUsage.CachedTokens
+					totalUsage.ReasoningTokens += subResult.TokenUsage.ReasoningTokens
 				}
 
 				llmMessages = append(llmMessages, chat.Message{
@@ -608,53 +615,53 @@ func (e *AgentEngine) RunStream(ctx context.Context, userInput string, history [
 		agentName = routeResult.Agent
 	}
 
-		// ── 2a. Pre-turn: Retrieve memories and knowledge ────────────────────
-		var memories []string
-		var knowledge []string
-		var knowledgeNoRoute bool
-		var knowledgeScope *modlink.SearchScope
+	// ── 2a. Pre-turn: Retrieve memories and knowledge ────────────────────
+	var memories []string
+	var knowledge []string
+	var knowledgeNoRoute bool
+	var knowledgeScope *modlink.SearchScope
 
-		if e.memoryRetriever != nil {
-			results, err := e.memoryRetriever.Search(ctx, userInput, MemorySearchOptions{
-				Limit:  5,
-				Layers: []string{"session", "workspace"},
-			})
-			if err == nil && len(results) > 0 {
-				for _, r := range results {
-					memories = append(memories, r.Content)
-				}
-			}
-		}
-
-		if e.knowledge != nil {
-			results, err := e.knowledge.Search(ctx, KnowledgeSearchParams{
-				Query: userInput,
-				Limit: 3,
-			})
-			if err == nil {
-				if results.NoRoute {
-					// FASE 1: NO_ROUTE no modo modular — semantic retrieval é 0
-					// (sem full-scan silencioso); o sinal é propagado ao contexto.
-					knowledgeNoRoute = true
-					knowledgeScope = results.Scope
-				} else if len(results.Results) > 0 {
-					for _, r := range results.Results {
-						knowledge = append(knowledge, concatEpistemic(r))
-					}
-				}
-			}
-		}
-
-		// ── 2b. Build context ─────────────────────────────────────────────
-		msgs := make([]chat.Message, len(history), len(history)+1)
-		copy(msgs, history)
-		msgs = append(msgs, chat.Message{
-			Role:    chat.RoleUser,
-			Content: userInput,
+	if e.memoryRetriever != nil {
+		results, err := e.memoryRetriever.Search(ctx, userInput, MemorySearchOptions{
+			Limit:  5,
+			Layers: []string{"session", "workspace"},
 		})
+		if err == nil && len(results) > 0 {
+			for _, r := range results {
+				memories = append(memories, r.Content)
+			}
+		}
+	}
 
-		builtCtx := e.contextBldr.Build(ctx, agentName, msgs, nil, memories, knowledge)
-		builtCtx = applyKnowledgeNoRoute(builtCtx, knowledgeNoRoute, knowledgeScope)
+	if e.knowledge != nil {
+		results, err := e.knowledge.Search(ctx, KnowledgeSearchParams{
+			Query: userInput,
+			Limit: 3,
+		})
+		if err == nil {
+			if results.NoRoute {
+				// FASE 1: NO_ROUTE no modo modular — semantic retrieval é 0
+				// (sem full-scan silencioso); o sinal é propagado ao contexto.
+				knowledgeNoRoute = true
+				knowledgeScope = results.Scope
+			} else if len(results.Results) > 0 {
+				for _, r := range results.Results {
+					knowledge = append(knowledge, concatEpistemic(r))
+				}
+			}
+		}
+	}
+
+	// ── 2b. Build context ─────────────────────────────────────────────
+	msgs := make([]chat.Message, len(history), len(history)+1)
+	copy(msgs, history)
+	msgs = append(msgs, chat.Message{
+		Role:    chat.RoleUser,
+		Content: userInput,
+	})
+
+	builtCtx := e.contextBldr.Build(ctx, agentName, msgs, nil, memories, knowledge)
+	builtCtx = applyKnowledgeNoRoute(builtCtx, knowledgeNoRoute, knowledgeScope)
 
 	// ── 3. Session management ───────────────────────────────────────────
 	var sessionID string
@@ -888,6 +895,10 @@ func (e *AgentEngine) RunStream(ctx context.Context, userInput string, history [
 						totalUsage.PromptTokens += subResult.TokenUsage.PromptTokens
 						totalUsage.CompletionTokens += subResult.TokenUsage.CompletionTokens
 						totalUsage.TotalTokens += subResult.TokenUsage.TotalTokens
+						// Decomposição (ADR-031 Fase 1): streaming também agrega
+						// o cache/reasoning reportado pelo subagente.
+						totalUsage.CachedTokens += subResult.TokenUsage.CachedTokens
+						totalUsage.ReasoningTokens += subResult.TokenUsage.ReasoningTokens
 					}
 
 					if !emit(EngineEvent{

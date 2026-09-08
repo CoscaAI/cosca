@@ -5,6 +5,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -245,16 +246,69 @@ type Usage struct {
 }
 
 // RawUsage captura os detalhes de decomposição do payload OpenAI-compatível:
-// prompt_tokens_details.cached_tokens e completion_tokens_details.reasoning_tokens.
-// Embed da Usage para preservar os campos base na desserialização.
+// prompt_tokens_details.cached_tokens e completion_tokens_details.reasoning_tokens
+// (OpenAI nested) e prompt_cache_hit_tokens/prompt_cache_miss_tokens (DeepSeek
+// flat). Embed da Usage para preservar os campos base na desserialização.
 type RawUsage struct {
 	Usage
-	PromptTokensDetails     struct {
+	PromptTokensDetails struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
 	CompletionTokensDetails struct {
 		ReasoningTokens int `json:"reasoning_tokens"`
 	} `json:"completion_tokens_details"`
+
+	// DeepSeek (OpenAI-compat): context caching AUTOMÁTICO por prefixo no servidor.
+	// prompt_tokens == prompt_cache_hit_tokens + prompt_cache_miss_tokens.
+	// Ausente em OpenAI/Anthropic/Ollama → 0 (decode seguro).
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens"`
+}
+
+// UnmarshalJSON promove os detalhes de decomposição do payload bruto para a
+// Usage embutida (ADR-031 Fase 1). Ordem de precedência documentada — NUNCA soma
+// (evita dupla contagem quando o provider envia mais de uma fonte):
+//
+//	CachedTokens = prompt_tokens_details.cached_tokens (OpenAI nested, 1ª)
+//	            → prompt_cache_hit_tokens (DeepSeek flat, 2ª)
+//	            → cached_tokens (flat legado, 3ª — já decodificado no embutido)
+//	            → 0 (nenhum detalhe presente)
+//
+// O valor promovido é clampado a PromptTokens (defensivo: hit > prompt é
+// anomalia do provider, nunca cache maior que o prompt). ReasoningTokens segue
+// a mesma regra: completion_tokens_details.reasoning_tokens (nested) tem
+// precedência; quando ausente, mantém o flat reasoning_tokens decodificado.
+// prompt_cache_miss_tokens fica APENAS no campo cru — não entra em chat.Usage
+// (a miss é o complemento informativo de CachedAndEffective, não um total novo).
+func (u *RawUsage) UnmarshalJSON(data []byte) error {
+	// Alias sem métodos: o tipo derivado não herda UnmarshalJSON, evitando a
+	// recursão infinita de decodificar RawUsage dentro de RawUsage.
+	type rawUsageAlias RawUsage
+	var alias rawUsageAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	// Promoção do cache: primeira fonte não-zero na ordem documentada.
+	cached := alias.PromptTokensDetails.CachedTokens
+	if cached == 0 && alias.PromptCacheHitTokens > 0 {
+		cached = alias.PromptCacheHitTokens
+	}
+	if cached == 0 {
+		cached = alias.CachedTokens // flat legado já decodificado
+	}
+	if cached > alias.PromptTokens {
+		cached = alias.PromptTokens
+	}
+	alias.CachedTokens = cached
+
+	// Promoção do reasoning: nested primeiro; senão mantém o flat decodificado.
+	if rt := alias.CompletionTokensDetails.ReasoningTokens; rt > 0 {
+		alias.ReasoningTokens = rt
+	}
+
+	*u = RawUsage(alias)
+	return nil
 }
 
 // CachedAndEffective devolve (cached, effective) onde effective = prompt - cached

@@ -1007,3 +1007,108 @@ func TestTimeImport(t *testing.T) {
 	// Just verify that time.Now compiles and works
 	_ = time.Now
 }
+
+// TestEngine_AccumulatesDecomposedUsage valida a acumulação decomposta
+// (ADR-031 Fase 1) nos 3 sítios do engine: uso dos turnos do LLM (Run),
+// uso do subagente (Run) e o agregado final em EngineResult.TokenUsage.
+// Fake provider devolve CachedTokens/ReasoningTokens por turno — 2 turnos do
+// agente principal + 1 chamada do subagente — e a soma deve bater exata.
+func TestEngine_AccumulatesDecomposedUsage(t *testing.T) {
+	reg, cb, rtr, prov, exec := setupEngineTest(t)
+	e := NewAgentEngine(reg, cb, rtr, prov, exec, defaultEngineConfig(), nil, nil, nil)
+
+	// Registry do subagente (mesmo padrão do TestRun "spawns subagent").
+	subDir := t.TempDir()
+	writeAgentFile(t, subDir, "sub.md",
+		"name: cosca-analytics\ncapabilities: [analytics]",
+		"You are an analytics agent.")
+	reg2 := NewAgentRegistry(subDir)
+	e.registry = reg2
+	e.spawner = NewSubagentSpawner(reg2, prov, exec)
+
+	callCount := 0
+	prov.chatFunc = func(ctx context.Context, messages []chat.Message, opts chat.ChatOptions) (*chat.ChatResponse, error) {
+		callCount++
+		switch callCount {
+		case 1:
+			// Turno 1 (agente principal): spawna subagente com uso decomposto.
+			return &chat.ChatResponse{
+				Choices: []chat.Choice{
+					{
+						Message: chat.Message{
+							Content: "Spawning agent...",
+							ToolCalls: []chat.ToolCall{
+								{
+									ID:   "spawn_1",
+									Type: "function",
+									Function: chat.FunctionCall{
+										Name:      SubagentSpawnToolName,
+										Arguments: `{"agent":"cosca-analytics","task":"analyze this"}`,
+									},
+								},
+							},
+						},
+					},
+				},
+				Usage: chat.Usage{PromptTokens: 500, CompletionTokens: 100, TotalTokens: 600, CachedTokens: 400, ReasoningTokens: 50},
+			}, nil
+		case 2:
+			// Chamada única do subagente (spawner): uso decomposto próprio.
+			return &chat.ChatResponse{
+				Choices: []chat.Choice{
+					{Message: chat.Message{Content: "subagent analysis"}},
+				},
+				Usage: chat.Usage{PromptTokens: 1500, CompletionTokens: 200, TotalTokens: 1700, CachedTokens: 1000, ReasoningTokens: 100},
+			}, nil
+		default:
+			// Turno 2 (agente principal): consome o resultado e encerra o loop.
+			return &chat.ChatResponse{
+				Choices: []chat.Choice{
+					{Message: chat.Message{Content: "Final analysis complete"}},
+				},
+				Usage: chat.Usage{PromptTokens: 300, CompletionTokens: 80, TotalTokens: 380, CachedTokens: 200, ReasoningTokens: 20},
+			}, nil
+		}
+	}
+
+	result, err := e.Run(context.Background(), "analyze the data", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Error != "" {
+		t.Fatalf("unexpected engine error: %s", result.Error)
+	}
+	if callCount != 3 {
+		t.Fatalf("provider call count = %d, want 3 (2 turnos + 1 subagente)", callCount)
+	}
+
+	want := chat.Usage{
+		PromptTokens:     500 + 1500 + 300,
+		CompletionTokens: 100 + 200 + 80,
+		TotalTokens:      600 + 1700 + 380,
+		CachedTokens:     400 + 1000 + 200,
+		ReasoningTokens:  50 + 100 + 20,
+	}
+	if result.TokenUsage != want {
+		t.Errorf("TokenUsage = %+v\nwant          %+v", result.TokenUsage, want)
+	}
+}
+
+// TestEngine_AccumulatesDecomposedUsage_NoDetails garante que, sem detalhe de
+// cache/reasoning no provider (delta zero), a acumulação decomposta é no-op —
+// o comportamento existente não muda.
+func TestEngine_AccumulatesDecomposedUsage_NoDetails(t *testing.T) {
+	reg, cb, rtr, prov, exec := setupEngineTest(t)
+	e := NewAgentEngine(reg, cb, rtr, prov, exec, defaultEngineConfig(), nil, nil, nil)
+
+	result, err := e.Run(context.Background(), "Hello", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.TokenUsage.CachedTokens != 0 || result.TokenUsage.ReasoningTokens != 0 {
+		t.Errorf("TokenUsage decomposto deveria ser 0 sem detalhes, got %+v", result.TokenUsage)
+	}
+	if result.TokenUsage.TotalTokens <= 0 {
+		t.Errorf("esperava TotalTokens > 0 (uso base intacto), got %d", result.TokenUsage.TotalTokens)
+	}
+}

@@ -41,14 +41,24 @@ func (a *EngineAdapter) Run(ctx context.Context, req RunRequest) (*RunResult, er
 	}
 
 	return &RunResult{
-		Response: result.Content,
-		Agent:    req.Agent,
-		TokenUsage: TokenUsage{
-			Input:  result.TokenUsage.PromptTokens,
-			Output: result.TokenUsage.CompletionTokens,
-		},
-		TurnCount: result.TurnCount,
+		Response:   result.Content,
+		Agent:      req.Agent,
+		TokenUsage: tokenUsageFrom(result.TokenUsage),
+		TurnCount:  result.TurnCount,
 	}, nil
+}
+
+// tokenUsageFrom mapeia o chat.Usage (decomposto ADR-031) do engine para o
+// TokenUsage do pipeline. Providers sem detalhe de cache/reasoning → 0
+// (no-op honesto — o mapping em cli/run.go passa a receber valor real quando
+// o provider expõe, e 0 quando não expõe).
+func tokenUsageFrom(u chat.Usage) TokenUsage {
+	return TokenUsage{
+		Input:           u.PromptTokens,
+		Output:          u.CompletionTokens,
+		CachedTokens:    u.CachedTokens,
+		ReasoningTokens: u.ReasoningTokens,
+	}
 }
 
 func (a *EngineAdapter) RunStream(ctx context.Context, req RunRequest) (<-chan RunEvent, error) {

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -261,5 +262,162 @@ func TestUsage_ReasoningTokens(t *testing.T) {
 	var zero Usage
 	if zero.ReasoningTokensCount() != 0 {
 		t.Fatalf("default reasoning = %d, esperava 0", zero.ReasoningTokensCount())
+	}
+}
+
+// decodeRawUsage desserializa um payload de usage OpenAI-compatível bruto.
+func decodeRawUsage(t *testing.T, payload string) RawUsage {
+	t.Helper()
+	var raw RawUsage
+	if err := json.Unmarshal([]byte(payload), &raw); err != nil {
+		t.Fatalf("json.Unmarshal falhou: %v", err)
+	}
+	return raw
+}
+
+// TestRawUsage_Unmarshal_PromotesCacheDetails valida a promoção do cache
+// (ADR-031 Fase 1) no UnmarshalJSON do RawUsage. Tabela AAA: cada linha é um
+// shape de payload real (OpenAI nested, DeepSeek flat, dual, ausente, anomalia).
+func TestRawUsage_Unmarshal_PromotesCacheDetails(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		payload       string
+		wantCached    int
+		wantEffective int
+		wantPrompt    int
+	}{
+		{
+			name: "openai nested cached_tokens",
+			// prompt_tokens_details.cached_tokens é a 1ª fonte (OpenAI).
+			payload:       `{"prompt_tokens":1000,"completion_tokens":200,"total_tokens":1200,"prompt_tokens_details":{"cached_tokens":600}}`,
+			wantCached:    600,
+			wantEffective: 400,
+			wantPrompt:    1000,
+		},
+		{
+			name: "deepseek flat prompt_cache_hit_tokens",
+			// DeepSeek OpenAI-compat: campos flat no usage. 2ª fonte.
+			payload:       `{"prompt_tokens":2000,"completion_tokens":300,"total_tokens":2300,"prompt_cache_hit_tokens":1500,"prompt_cache_miss_tokens":500}`,
+			wantCached:    1500,
+			wantEffective: 500,
+			wantPrompt:    2000,
+		},
+		{
+			name: "dual nested e flat — precedência nested, sem soma",
+			// Ambas as fontes presentes: NUNCA somar (600+1500) — nested vence.
+			payload:       `{"prompt_tokens":2000,"completion_tokens":300,"total_tokens":2300,"prompt_tokens_details":{"cached_tokens":600},"prompt_cache_hit_tokens":1500,"prompt_cache_miss_tokens":500}`,
+			wantCached:    600,
+			wantEffective: 1400,
+			wantPrompt:    2000,
+		},
+		{
+			name: "regressão: payload OpenAI flat legado (sem detalhes)",
+			// Payload base existente (provider_test.go) continua decodificando;
+			// sem detalhes → CachedTokens==0 (honesto).
+			payload:       `{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}`,
+			wantCached:    0,
+			wantEffective: 10,
+			wantPrompt:    10,
+		},
+		{
+			name: "anomalia: hit > prompt faz clamp",
+			// flat legado cached_tokens (3ª fonte) maior que prompt_tokens →
+			// clamp defensivo para prompt_tokens.
+			payload:       `{"prompt_tokens":2000,"completion_tokens":100,"total_tokens":2100,"cached_tokens":3000}`,
+			wantCached:    2000,
+			wantEffective: 0,
+			wantPrompt:    2000,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			raw := decodeRawUsage(t, tt.payload)
+
+			// Arrange/Act/Assert: base preservado + decomposição promovida.
+			if raw.Usage.PromptTokens != tt.wantPrompt {
+				t.Errorf("PromptTokens = %d, esperava %d", raw.Usage.PromptTokens, tt.wantPrompt)
+			}
+			if raw.Usage.CachedTokens != tt.wantCached {
+				t.Errorf("CachedTokens = %d, esperava %d", raw.Usage.CachedTokens, tt.wantCached)
+			}
+			cached, effective := raw.Usage.CachedAndEffective()
+			if cached != tt.wantCached {
+				t.Errorf("CachedAndEffective() cached = %d, esperava %d", cached, tt.wantCached)
+			}
+			if effective != tt.wantEffective {
+				t.Errorf("CachedAndEffective() effective = %d, esperava %d", effective, tt.wantEffective)
+			}
+		})
+	}
+}
+
+// TestRawUsage_Unmarshal_PromotesReasoning valida a promoção do reasoning:
+// completion_tokens_details.reasoning_tokens (nested) tem precedência sobre o
+// flat reasoning_tokens; quando nenhum está presente, o valor permanece 0.
+func TestRawUsage_Unmarshal_PromotesReasoning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		payload string
+		want    int
+	}{
+		{
+			name:    "nested reasoning_tokens",
+			payload: `{"prompt_tokens":100,"completion_tokens":80,"total_tokens":180,"completion_tokens_details":{"reasoning_tokens":25}}`,
+			want:    25,
+		},
+		{
+			name:    "nested tem precedência sobre flat",
+			payload: `{"prompt_tokens":100,"completion_tokens":80,"total_tokens":180,"reasoning_tokens":10,"completion_tokens_details":{"reasoning_tokens":25}}`,
+			want:    25,
+		},
+		{
+			name:    "flat reasoning_tokens preservado quando nested ausente",
+			payload: `{"prompt_tokens":100,"completion_tokens":80,"total_tokens":180,"reasoning_tokens":30}`,
+			want:    30,
+		},
+		{
+			name:    "ausente → 0",
+			payload: `{"prompt_tokens":100,"completion_tokens":80,"total_tokens":180}`,
+			want:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			raw := decodeRawUsage(t, tt.payload)
+			if raw.Usage.ReasoningTokens != tt.want {
+				t.Errorf("ReasoningTokens = %d, esperava %d", raw.Usage.ReasoningTokens, tt.want)
+			}
+		})
+	}
+}
+
+// TestRawUsage_DeepSeek_Invariant valida o invariante documentado do DeepSeek:
+// prompt_tokens == prompt_cache_hit_tokens + prompt_cache_miss_tokens quando os
+// campos flat estão presentes. O hit é promovido; a miss fica só no campo cru.
+func TestRawUsage_DeepSeek_Invariant(t *testing.T) {
+	t.Parallel()
+
+	raw := decodeRawUsage(t, `{"prompt_tokens":2000,"completion_tokens":300,"total_tokens":2300,"prompt_cache_hit_tokens":1500,"prompt_cache_miss_tokens":500}`)
+
+	if raw.PromptCacheHitTokens != 1500 {
+		t.Errorf("PromptCacheHitTokens = %d, esperava 1500", raw.PromptCacheHitTokens)
+	}
+	if raw.PromptCacheMissTokens != 500 {
+		t.Errorf("PromptCacheMissTokens = %d, esperava 500", raw.PromptCacheMissTokens)
+	}
+	if got := raw.PromptCacheHitTokens + raw.PromptCacheMissTokens; got != raw.PromptTokens {
+		t.Errorf("hit+miss = %d, esperava prompt_tokens %d (invariante DeepSeek)", got, raw.PromptTokens)
+	}
+	// Promovido: hit vira CachedTokens na Usage; miss NÃO entra em Usage.
+	if raw.Usage.CachedTokens != 1500 {
+		t.Errorf("Usage.CachedTokens = %d, esperava 1500", raw.Usage.CachedTokens)
 	}
 }
