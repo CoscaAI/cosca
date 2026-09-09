@@ -178,6 +178,7 @@ Documentation: https://cosca.enterprise/docs
 		NewConflictCommand(),
 		NewEvidenceCommand(),
 		NewIntelligenceCommand(),
+		NewCognitiveCommand(),
 		NewBudgetCommand(),
 		NewCostCommand(),
 		NewShadowCommand(),

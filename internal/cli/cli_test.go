@@ -61,6 +61,7 @@ func TestRootCommand_HasAllSubcommands(t *testing.T) {
 		"index",
 		"graph",
 		"intelligence",
+		"cognitive",
 		"workflow",
 		"agent",
 		"skill",
