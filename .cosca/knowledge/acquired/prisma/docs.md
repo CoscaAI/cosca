@@ -109,7 +109,7 @@ MySQL follows later. See the [roadmap](./ROADMAP.md) for what must happen before
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, commands, DCO signoff, and PR expectations. For substantive changes, please open an issue first so we can give direction-fit feedback before you invest implementation time.
 
-Security issues: follow the Private Vulnerability Reporting flow in [SECURITY.md](./SECURITY.md). Please do not file them as public issues.
+Security issues: follow the Private Vulnerability Reporting flow in [SECURITY.md](../../../../.opencode/node_modules/msgpackr/SECURITY.md). Please do not file them as public issues.
 
 ## Community
 

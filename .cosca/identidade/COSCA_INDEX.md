@@ -23,7 +23,7 @@ Single source of truth for all Cosca ecosystem files. Navigate, discover, and un
 | [QUALITY_GATES.md](QUALITY_GATES.md) | Canonical quality gate definitions | None |
 | [MEMORY_MODEL.md](MEMORY_MODEL.md) | Canonical memory taxonomy and schema (v4.0.0) | None |
 | [HELP.md](HELP.md) | User-facing usage guide | All |
-| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Complete enterprise architecture audit (2026-07-12) | All |
+| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](../../internal/embed/cosca/archive/COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Complete enterprise architecture audit (2026-07-12) | All |
 
 ### COMPANY (1)
 | File | Purpose | Dependencies |
@@ -262,7 +262,7 @@ MEMORY_MODEL.md (canonical definition)
 | [GOVERNANCE.md](GOVERNANCE.md) | Versions, lifecycle, deprecation, ownership |
 | [QUALITY_GATES.md](QUALITY_GATES.md) | Gate definitions, metrics, thresholds |
 | [MEMORY_MODEL.md](MEMORY_MODEL.md) | Memory types, schemas, storage locations |
-| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Enterprise readiness audit and roadmap |
+| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](../../internal/embed/cosca/archive/COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Enterprise readiness audit and roadmap |
 
 ### Enterprise Contracts
 | File | Covers |
@@ -313,7 +313,7 @@ MEMORY_MODEL.md (canonical definition)
 | [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) | Complete cybersecurity framework — 8 domains, Zero Trust, OWASP, supply chain, AI security, incident response |
 | [AGENT_DNA.md](AGENT_DNA.md) | Standardized 28-field agent contract (v3.0) |
 | [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) | 6-layer redundancy matrix with RTO/RPO |
-| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Complete architecture audit (v1.0 baseline) |
+| [COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md](../../internal/embed/cosca/archive/COSCA_ENTERPRISE_ARCHITECTURE_AUDIT.md) | Complete architecture audit (v1.0 baseline) |
 | [COSCA_ENTERPRISE_EVOLUTION.md](COSCA_ENTERPRISE_EVOLUTION.md) | Full evolution roadmap and platform spec (v2.0) |
 
 ---
