@@ -34,6 +34,7 @@ type Source struct {
 	Recency      time.Time `json:"recency"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	ParentCommit string    `json:"parent_commit"` // hash do commit git que gerou o aprendizado (proveniência de versão)
+	ParentDate   string    `json:"parent_date"`   // data do aprendizado no índice (id pai temporal; granular — cada aprendizado tem a sua)
 }
 
 // SourceProvider fornece as fontes do conhecimento semântico da casa.
@@ -174,14 +175,18 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 			// o novo tem evidência melhor ou igual → sinaliza conflito (R6)
 			if inc.Evidence >= k.Evidence {
 				c := *guardrails.DetectConflict(k.ID, inc.ID, sim, true)
-				// Proveniência de versão (id pai): anexa os commits e calibra a
-				// nota. Mesmo commit = mesma versão → contradição mais provável.
+				// Proveniência (id pai): commit (versão) + data (contexto temporal).
 				c.OldCommit = k.ParentCommit
 				c.NewCommit = inc.ParentCommit
-				if k.ParentCommit != "" && k.ParentCommit == inc.ParentCommit {
-					c.Note = "conflito no MESMO commit (" + k.ParentCommit + ") — mesma versão, conclusões divergem; contradição provável (R6)"
-				} else {
-					c.Note = "conflito (conclusões divergem, commits " + k.ParentCommit + " vs " + inc.ParentCommit + ") — escala ao Don (R6)"
+				c.OldDate = k.ParentDate
+				c.NewDate = inc.ParentDate
+				switch {
+				case k.ParentDate != "" && k.ParentDate == inc.ParentDate:
+					c.Note = "conflito na MESMA data (" + k.ParentDate + ") — mesmo contexto temporal, conclusões divergem; contradição provável (R6)"
+				case k.ParentCommit != "" && k.ParentCommit == inc.ParentCommit:
+					c.Note = "conflito no MESMO commit (" + k.ParentCommit + ") — mesma versão, conclusões divergem (R6)"
+				default:
+					c.Note = "conflito (conclusões divergem) — escala ao Don, o engine não decide quem vence (R6)"
 				}
 				conflicts = append(conflicts, c)
 			}

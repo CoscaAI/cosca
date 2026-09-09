@@ -153,9 +153,13 @@ func lineToSource(agent, line string, parentCommit string) Source {
 		}
 	}
 
-	// recência: data do arquivo (fallback) — a data do índice é ambígua
+	// recência + data do aprendizado (id pai temporal): a data do índice é
+	// GRANULAR (cada aprendizado tem a sua) — usada para calibrar conflito
+	// (mesma data = mesmo contexto temporal) e alimentar o decay.
 	recency := time.Now()
+	parentDate := ""
 	if m := dateRe.FindString(line); m != "" {
+		parentDate = m
 		if t, err := time.Parse("2006-01-02", m); err == nil {
 			recency = t
 		}
@@ -165,6 +169,7 @@ func lineToSource(agent, line string, parentCommit string) Source {
 		ID:           id,
 		Content:      content,
 		ParentCommit: parentCommit,
+		ParentDate:   parentDate,
 		Topic:        topic,
 		Evidence:     evidence,
 		Confidence:   confidence,
