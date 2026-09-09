@@ -59,6 +59,7 @@ Subcomandos:
 	cmd.AddCommand(
 		NewIntelligencePlanCommand(),
 		NewIntelligenceConflictsCommand(),
+		NewIntelligenceDuplicatesCommand(),
 		NewIntelligenceGateCommand(),
 	)
 	return cmd
@@ -160,6 +161,59 @@ conclusão divergente, evidência melhor). R6 só SINALIZA — quem decide quem
 				})
 			}
 			formatter.Table([]string{"Conhecimento atual", "Novo", "Similaridade", "O que o Don decide"}, rows)
+			return nil
+		},
+	}
+}
+
+// NewIntelligenceDuplicatesCommand cria `cosca intelligence duplicates` — o que
+// condensar (R2): aprendees duplicados (mesmo aprendizado gravado N×) que
+// deveriam virar 1. Shadow-first: só lista, nunca edita.
+func NewIntelligenceDuplicatesCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "duplicates",
+		Short: "Duplicatas para condensar (R2) — mesmo aprendizado gravado N×",
+		Long: `Detecta aprendizados duplicados (mesmo aprendizado gravado várias vezes
+com hashes diferentes — ex.: 'Post-Commit Hook Execution' 34× no cosca-devops).
+São candidatos à condensação (R2): virar 1 entrada. Shadow-first: só lista,
+nunca edita — a aplicação da condensação é decisão sua (gate do Don).`,
+		Example: `  cosca intelligence duplicates
+  cosca intelligence duplicates --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+
+			memDir, err := resolveMemoryDir()
+			if err != nil {
+				return err
+			}
+			eng := intelligence.New(guardrails.DefaultDeps(), intelligence.MemoryProvider(memDir))
+			srcs, err := eng.Sources(cmd.Context())
+			if err != nil {
+				return err
+			}
+			dups := eng.DetectDuplicates(srcs, srcs)
+
+			if useJSON {
+				return printJSON(cmd, dups)
+			}
+
+			formatter.Header(fmt.Sprintf("Duplicatas para condensar (R2) — %d par(es)", len(dups)))
+			if len(dups) == 0 {
+				formatter.Success("Nenhuma duplicata detectada.")
+				return nil
+			}
+			rows := make([][]string, 0, len(dups))
+			for _, d := range dups {
+				rows = append(rows, []string{
+					fmt.Sprintf("%.2f", d.Similarity),
+					d.SourceA,
+					d.SourceB,
+				})
+			}
+			formatter.Table([]string{"Similaridade", "Fonte A", "Fonte B"}, rows)
+			formatter.KeyValue("Modo", "shadow-first (G3) — nada foi condensado/alterado")
 			return nil
 		},
 	}
