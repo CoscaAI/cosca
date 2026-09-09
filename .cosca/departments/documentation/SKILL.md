@@ -128,7 +128,7 @@ You own all documentation. You maintain README, ADRs, API docs, architecture doc
 - [Architecture Chief](../architecture/SKILL.md) — ADRs and architecture content
 - [Backend Chief](../backend/SKILL.md) — API documentation source
 - [Database Chief](../database/SKILL.md) — Schema documentation source
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.6 Documentation checks
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.6 Documentation checks
 
 ## HISTORY
 | Version | Date | Author | Changes |

@@ -1,7 +1,7 @@
 # VECTOR REPRESENTATION PROTOCOL — Representação Vetorial Semântica
 
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Kernel / Semantic Memory | **Last Updated**: 2026-08-26
-> **Tipo**: SKILL (procedimento operacional geral). Complementa o [SEMANTIC_REPRESENTATION_PROTOCOL](../shared/SEMANTIC_REPRESENTATION_PROTOCOL.md) (invariável).
+> **Tipo**: SKILL (procedimento operacional geral). Complementa o [SEMANTIC_REPRESENTATION_PROTOCOL](../../shared/SEMANTIC_REPRESENTATION_PROTOCOL.md) (invariável).
 
 ---
 
@@ -291,9 +291,9 @@ Reutilizável para qualquer objeto, veículo, personagem, equipamento, símbolo 
 
 ## RELATED
 
-- [Protocolo de Representação Semântica](../shared/SEMANTIC_REPRESENTATION_PROTOCOL.md) — a invariante
-- [Learning do caso Fiorino](../memory/agent/cosca-kernel/learnings.md)
-- [SKILL_TEMPLATE](../SKILL_TEMPLATE.md)
+- [Protocolo de Representação Semântica](../../shared/SEMANTIC_REPRESENTATION_PROTOCOL.md) — a invariante
+- [Learning do caso Fiorino](../../fallback/memory/agent/cosca-ai/learnings.md)
+- [SKILL_TEMPLATE](../../identidade/SKILL_TEMPLATE.md)
 
 ## HISTORY
 

@@ -2,7 +2,7 @@
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Created**: 2026-07-28
 >
-> **Constitutional authority**: [CONSTITUTION.md](../../CONSTITUTION.md) — Implements P2 (Código executado é a verdade absoluta) and Part III (Regras de conflito de informação).
+> **Constitutional authority**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) — Implements P2 (Código executado é a verdade absoluta) and Part III (Regras de conflito de informação).
 
 ---
 
@@ -329,4 +329,4 @@ The Evolution Engine periodically verifies:
 
 ---
 
-> **Related**: [CONSTITUTION.md](../../CONSTITUTION.md) P2 | [LEARNING_PROTOCOL.md](../../memory/LEARNING_PROTOCOL.md) | [MEMORY_CURATION_ENGINE.md](../memory-curation/MEMORY_CURATION_ENGINE.md) | [metacognition-pipeline.md](../../workflows/metacognition-pipeline.md)
+> **Related**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) P2 | [LEARNING_PROTOCOL.md](../../fallback/memory/LEARNING_PROTOCOL.md) | [MEMORY_CURATION_ENGINE.md](../memory-curation/MEMORY_CURATION_ENGINE.md) | [metacognition-pipeline.md](../../workflows/metacognition-pipeline.md)

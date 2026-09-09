@@ -105,7 +105,7 @@ Migrate from one AI or cloud provider to another with minimal disruption. Includ
 ## RELATED
 - [Provider Chief](../departments/provider/SKILL.md)
 - [Provider Integration skill](../skills/platform/PROVIDER_INTEGRATION.md)
-- [PROVIDER_INTERFACE.md](../PROVIDER_INTERFACE.md)
+- [PROVIDER_INTERFACE.md](../identidade/PROVIDER_INTERFACE.md)
 - [migration-execution.md](./migration-execution.md)
 
 ## HISTORY

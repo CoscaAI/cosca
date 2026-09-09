@@ -98,6 +98,6 @@ bash scripts/detect-orphans.sh /path/to/cosca
 ## Related
 - [Governance Chief](../departments/governance/SKILL.md)
 - [Scripts](../scripts/) — Validation scripts
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Gate definitions
-- [COSCA_INDEX.md](../COSCA_INDEX.md) — Full inventory
-- [COSCA_ENTERPRISE_EVOLUTION_v3.md](../COSCA_ENTERPRISE_EVOLUTION.md) — Evolution report
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Gate definitions
+- [COSCA_INDEX.md](../identidade/COSCA_INDEX.md) — Full inventory
+- [COSCA_ENTERPRISE_EVOLUTION_v3.md](../identidade/COSCA_ENTERPRISE_EVOLUTION.md) — Evolution report

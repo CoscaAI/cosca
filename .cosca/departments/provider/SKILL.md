@@ -132,8 +132,8 @@ You own provider strategy and operations. You manage relationships with AI model
 - [Infrastructure Chief](../infrastructure/SKILL.md) — Cloud infrastructure
 - [Security Chief](../security/SKILL.md) — Provider security
 - [Compliance Chief](../compliance/SKILL.md) — Provider compliance
-- [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md) — Provider abstraction
-- [RUNTIME_CONTRACT.md](../../RUNTIME_CONTRACT.md) — Runtime interface
+- [PROVIDER_INTERFACE.md](../../identidade/PROVIDER_INTERFACE.md) — Provider abstraction
+- [RUNTIME_CONTRACT.md](../../identidade/RUNTIME_CONTRACT.md) — Runtime interface
 
 ## HISTORY
 | Version | Date | Author | Changes |

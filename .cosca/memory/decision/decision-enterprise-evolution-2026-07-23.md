@@ -85,8 +85,8 @@ Rationale:
 - All templates follow template convention
 
 ## Related
-- [COSCA_INDEX.md](../../COSCA_INDEX.md) — Updated master index
-- [CHANGELOG.md](../../CHANGELOG.md) — v3.0 release notes
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md) — Updated master index
+- [CHANGELOG.md](../../identidade/CHANGELOG.md) — v3.0 release notes
 - [company/ORGCHART.md](../../company/ORGCHART.md) — Updated organization
 - [skills/SKILLS_CATALOG.md](../../skills/SKILLS_CATALOG.md) — Skills catalog
-- [GOVERNANCE.md](../../GOVERNANCE.md) — Governance policies
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Governance policies

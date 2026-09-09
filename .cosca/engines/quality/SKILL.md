@@ -11,7 +11,7 @@ level: 3
 ## PURPOSE
 The Quality Engine enforces quality gates across all deliverables. It defines standards, runs automated checks, and provides quality metrics.
 
-See [QUALITY_GATES.md](../../QUALITY_GATES.md) for canonical gate definitions and metric thresholds.
+See [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) for canonical gate definitions and metric thresholds.
 
 ## QUALITY GATES
 
@@ -88,7 +88,7 @@ See [QUALITY_GATES.md](../../QUALITY_GATES.md) for canonical gate definitions an
 | QUALITY_GATES.md | Canonical gate definitions |
 
 ## RELATED
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Canonical gate definitions and metric thresholds
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Canonical gate definitions and metric thresholds
 - [Review Engine](../review/SKILL.md) — Provides review input to quality gates
 - [QA Chief](../../departments/qa/SKILL.md) — Consumes quality reports for sign-off
 

@@ -130,7 +130,7 @@ Generate a Context Report in this structure:
 - [ ] Test coverage: [X%]
 ```
 
-See [MEMORY_MODEL.md](../../MEMORY_MODEL.md) for memory store locations.
+See [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) for memory store locations.
 
 ## DEPENDENCIES
 
@@ -140,10 +140,10 @@ See [MEMORY_MODEL.md](../../MEMORY_MODEL.md) for memory store locations.
 | Kernel | Session initialization |
 
 ## RELATED
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md)
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md)
 - [Discovery Engine](../discovery/SKILL.md)
 - [Context Chief](../../departments/context/SKILL.md)
-- [Kernel](../../KERNEL.md)
+- [Kernel](../../identidade/KERNEL.md)
 
 ## HISTORY
 

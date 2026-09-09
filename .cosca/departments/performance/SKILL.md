@@ -132,7 +132,7 @@ You own system performance. You define performance standards, conduct benchmarki
 - [Database Chief](../database/SKILL.md) — Database performance
 - [Cache Chief](../cache/SKILL.md) — Cache performance validation
 - [QA Chief](../qa/SKILL.md) — Performance test integration
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.4 Performance checks
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.4 Performance checks
 
 ## HISTORY
 | Version | Date | Author | Changes |

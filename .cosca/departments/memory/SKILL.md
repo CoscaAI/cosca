@@ -117,11 +117,11 @@ You own the memory system. You manage storage, retrieval, and organization of al
 - Architecture decisions outside memory scope
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [KERNEL.md](../../KERNEL.md)
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [KERNEL.md](../../identidade/KERNEL.md)
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md)
 - [Memory Engine](../../engines/memory/SKILL.md)
 - [Context Engine](../../engines/context/SKILL.md)
 - [Learning Engine](../../engines/learning/SKILL.md)

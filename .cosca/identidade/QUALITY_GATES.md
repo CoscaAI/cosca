@@ -37,7 +37,7 @@ Acionado pelo Kernel antes que qualquer trabalho comecce.
 
 > **Dono**: cosca-critic | **Obrigatorio para**: Decisoes estrategicas P0/P1 | **Opcional para**: P2/P3
 >
-> **Workflow completo**: [workflows/contrafactual-gate.md](workflows/contrafactual-gate.md)
+> **Workflow completo**: [workflows/contrafactual-gate.md](../fallback/workflows/contrafactual-gate.md)
 
 **Acionado pelo Kernel** apos Resolucao de Capacidade (Passo 6) e antes de Planejamento e Geracao de DAG (Passo 7), quando uma decisao estrategica foi identificada mas ainda nao commitada. O Kernel invoca cosca-critic para executar o gate.
 
@@ -124,11 +124,11 @@ Passo 6: Resolucao de Capacidade
 
 ### Relacionados
 
-- [Workflow: contrafactual-gate.md](workflows/contrafactual-gate.md) — Workflow completo, passos e exemplo
-- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Dono do gate e execucao
+- [Workflow: contrafactual-gate.md](../fallback/workflows/contrafactual-gate.md) — Workflow completo, passos e exemplo
+- [cosca-critic PROMPT.md](../agents/cosca-memory-chief/PROMPT.md) — Dono do gate e execucao
 - [KERNEL.md sec 10](KERNEL.md) — Sequencia de Inicializacao (onde o gate e invocado)
-- [CONFIDENCE_MODEL.md](engines/evidence/CONFIDENCE_MODEL.md) — Modelo de ponderacao de evidencias
-- [RISK_REGISTRY.md](memory/risk/RISK_REGISTRY.md) — Registro de riscos conhecidos
+- [CONFIDENCE_MODEL.md](../engines/evidence/CONFIDENCE_MODEL.md) — Modelo de ponderacao de evidencias
+- [RISK_REGISTRY.md](../fallback/knowledge/failures/risks/RISK_REGISTRY.md) — Registro de riscos conhecidos
 
 ---
 
@@ -274,13 +274,13 @@ OVERALL = (Arquitetura x 0.20) + (Qualidade do Codigo x 0.20) + (Seguranca x 0.2
 ## RELACIONADOS
 
 - [CONSTITUTION.md](CONSTITUTION.md) — Referencia Parte IV Passo 7
-- [Contrafactual Gate](workflows/contrafactual-gate.md) — Workflow completo e exemplo do Gate 0.5
-- [cosca-critic PROMPT.md](agents/cosca-critic/PROMPT.md) — Execucao do Gate 0.5
-- [Review Engine](engines/review/SKILL.md) — Executa Gates 2.1–2.6
-- [Quality Engine](engines/quality/SKILL.md) — Coleta e relatorio de metricas
-- [QA Chief](departments/qa/SKILL.md) — Autoridade de aprovacao do gate
-- [Release Chief](departments/release/SKILL.md) — Execucao do Gate 3
-- [Monitoring Chief](departments/monitoring/SKILL.md) — Execucao do Gate 4
+- [Contrafactual Gate](../fallback/workflows/contrafactual-gate.md) — Workflow completo e exemplo do Gate 0.5
+- [cosca-critic PROMPT.md](../agents/cosca-memory-chief/PROMPT.md) — Execucao do Gate 0.5
+- [Review Engine](../engines/knowledge/SKILL.md) — Executa Gates 2.1–2.6
+- [Quality Engine](../engines/knowledge/SKILL.md) — Coleta e relatorio de metricas
+- [QA Chief](../engines/knowledge/SKILL.md) — Autoridade de aprovacao do gate
+- [Release Chief](../engines/knowledge/SKILL.md) — Execucao do Gate 3
+- [Monitoring Chief](../engines/knowledge/SKILL.md) — Execucao do Gate 4
 - [KERNEL.md](KERNEL.md) — Execucao dos Gates 0 e 0.5
 
 ---

@@ -116,10 +116,10 @@ You own AI/ML capabilities. You manage ML models, prompts, RAG pipelines, embedd
 - Backend API implementation (delegate to Backend Chief)
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [KERNEL.md](../../KERNEL.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [KERNEL.md](../../identidade/KERNEL.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md)
 - [CTO Chief](../cto/SKILL.md)
 - [Architecture Chief](../architecture/SKILL.md)
 - [Security Chief](../security/SKILL.md)

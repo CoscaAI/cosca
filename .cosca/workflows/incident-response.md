@@ -95,7 +95,7 @@ Respond to production incidents following structured process. Minimize mean-time
 - [Monitoring Chief](../departments/monitoring/SKILL.md)
 - [Disaster Recovery workflow](./disaster-recovery.md)
 - [Incident Response skill](../skills/reliability/INCIDENT_RESPONSE.md)
-- [ENTERPRISE_REDUNDANCY.md](../ENTERPRISE_REDUNDANCY.md)
+- [ENTERPRISE_REDUNDANCY.md](../identidade/ENTERPRISE_REDUNDANCY.md)
 
 ## HISTORY
 | Version | Date | Author | Changes |

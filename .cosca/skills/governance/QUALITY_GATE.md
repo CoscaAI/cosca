@@ -56,7 +56,7 @@ OVERALL = (Architecture × 0.20) + (Code Quality × 0.20) + (Security × 0.25)
 
 ## Related
 - [QA Chief](../../departments/qa/SKILL.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate definitions
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate definitions
 - [Code Review](../../skills/code-quality/CODE_REVIEW.md)
 - [Security Audit](../../skills/security/SECURITY_AUDIT.md)
 - [Performance Audit](../../skills/performance/PERFORMANCE_AUDIT.md)

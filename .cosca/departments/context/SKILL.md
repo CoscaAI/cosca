@@ -114,11 +114,11 @@ You own context management. You maintain session context, project context, and u
 - Architecture decisions
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [KERNEL.md](../../KERNEL.md)
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [KERNEL.md](../../identidade/KERNEL.md)
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md)
 - [Context Engine](../../engines/context/SKILL.md)
 - [Discovery Engine](../../engines/discovery/SKILL.md)
 - [Runtime Engine](../../engines/runtime/SKILL.md)

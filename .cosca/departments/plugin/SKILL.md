@@ -133,7 +133,7 @@ You own the plugin ecosystem. You design the plugin architecture, define the plu
 - [Runtime Chief](../runtime/SKILL.md) — Plugin runtime
 - [Architecture Chief](../architecture/SKILL.md) — Plugin architecture
 - [Product Chief](../product/SKILL.md) — Plugin marketplace
-- [RUNTIME_CONTRACT.md](../../RUNTIME_CONTRACT.md) — Runtime interface
+- [RUNTIME_CONTRACT.md](../../identidade/RUNTIME_CONTRACT.md) — Runtime interface
 
 ## HISTORY
 | Version | Date | Author | Changes |

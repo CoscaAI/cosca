@@ -254,7 +254,7 @@ MMKV (offline cache)
 - [UI/UX Chief](../../departments/uiux/SKILL.md) — Mobile design specifications
 - [Security Chief](../../departments/security/SKILL.md) — Mobile security review
 - [Template Engine](../../engines/templates/SKILL.md) — Scaffolding process
-- [RUNTIME_CONTRACT.md](../../RUNTIME_CONTRACT.md) — Runtime interface
+- [RUNTIME_CONTRACT.md](../../identidade/RUNTIME_CONTRACT.md) — Runtime interface
 
 ## HISTORY
 

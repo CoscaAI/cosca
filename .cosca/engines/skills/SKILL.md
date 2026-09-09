@@ -39,7 +39,7 @@ The Skills Engine manages the Cosca skill registry. It discovers, loads, validat
 
 ## SKILL REGISTRY
 
-Complete skill registry is maintained in [COSCA_INDEX.md](../../COSCA_INDEX.md). See [CONVENTIONS.md](../../CONVENTIONS.md) for skill format standards and [GOVERNANCE.md](../../GOVERNANCE.md) for lifecycle policies.
+Complete skill registry is maintained in [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md). See [CONVENTIONS.md](../../identidade/CONVENTIONS.md) for skill format standards and [GOVERNANCE.md](../../identidade/GOVERNANCE.md) for lifecycle policies.
 
 ## SKILL COMPOSITION
 Skills can compose other skills:
@@ -58,9 +58,9 @@ Skills can compose other skills:
 | GOVERNANCE.md | Lifecycle policies |
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [CONVENTIONS.md](../../CONVENTIONS.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [CONVENTIONS.md](../../identidade/CONVENTIONS.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
 - [Evolution Engine](../evolution/SKILL.md)
 
 ## HISTORY

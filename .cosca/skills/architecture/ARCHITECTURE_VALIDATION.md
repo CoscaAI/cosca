@@ -37,5 +37,5 @@
 > ## Related
 > - [Architecture Chief](../../departments/architecture/SKILL.md)
 > - [Architecture Analysis](./ARCHITECTURE_ANALYSIS.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.1
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.1
 > - [Review Chief](../../departments/review/SKILL.md)

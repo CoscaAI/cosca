@@ -57,8 +57,8 @@
 > ## Related
 > - [Security Chief](../../departments/security/SKILL.md)
 > - [Compliance Chief](../../departments/compliance/SKILL.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.3 Security
-> - [SECURITY_ARCHITECTURE.md](../../SECURITY_ARCHITECTURE.md)
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.3 Security
+> - [SECURITY_ARCHITECTURE.md](../../identidade/SECURITY_ARCHITECTURE.md)
 > - [workflows/security-audit.md](../../workflows/security-audit.md)
 
 ## Process

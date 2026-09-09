@@ -60,5 +60,5 @@
 > ## Related
 > - [Testing Chief](../../departments/testing/SKILL.md)
 > - [QA Chief](../../departments/qa/SKILL.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.5 Testing
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.5 Testing
 > - [Integration Testing](./INTEGRATION_TESTING.md)

@@ -91,4 +91,4 @@
 | **Confiança** | 1.0 (ordem explícita do Don "grava pra nunca mais errar" + evidência real do quase-erro) |
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro
+> **Protocol**: [LEARNING_PROTOCOL.md](../../../fallback/memory/LEARNING_PROTOCOL.md) | **Constitution**: P1 — a família vem primeiro

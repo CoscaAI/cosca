@@ -140,7 +140,7 @@ You own technical debt management. You track, measure, prioritize, and drive red
 - [Review Chief](../review/SKILL.md) — Code review quality
 - [Discovery Chief](../discovery/SKILL.md) — Codebase analysis
 - [Performance Chief](../performance/SKILL.md) — Performance debt
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality gate definitions
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality gate definitions
 
 ## HISTORY
 | Version | Date | Author | Changes |

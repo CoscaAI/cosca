@@ -20,6 +20,6 @@ These diagrams are written in Mermaid format and can be rendered in:
 
 ## Related
 - [Documentation Chief](../departments/documentation/SKILL.md)
-- [KERNEL.md](../KERNEL.md)
+- [KERNEL.md](../identidade/KERNEL.md)
 - [COUNCILS.md](../councils/COUNCILS.md)
 - [ORGCHART.md](../company/ORGCHART.md)

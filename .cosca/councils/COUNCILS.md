@@ -327,10 +327,10 @@ Every Council decision must be documented:
 
 ## RELATED
 - [ORGCHART.md](../company/ORGCHART.md) — Department organizational chart
-- [AGENT_DNA.md](../AGENT_DNA.md) — Agent contract standard
-- [GOVERNANCE.md](../GOVERNANCE.md) — Governance policies
+- [AGENT_DNA.md](../identidade/AGENT_DNA.md) — Agent contract standard
+- [GOVERNANCE.md](../identidade/GOVERNANCE.md) — Governance policies
 - [CAPABILITY_CATALOG.md](../capabilities/CAPABILITY_CATALOG.md) — Capability registry
-- [ENTERPRISE_REDUNDANCY.md](../ENTERPRISE_REDUNDANCY.md) — Redundancy matrix
+- [ENTERPRISE_REDUNDANCY.md](../identidade/ENTERPRISE_REDUNDANCY.md) — Redundancy matrix
 
 ## HISTORY
 

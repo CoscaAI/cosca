@@ -157,7 +157,7 @@ None
 | Reviewer agent failure | Assign secondary reviewer, continue from last completed step |
 
 ## RELATED
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Gate 2 canonical definitions, thresholds, and scoring formula
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Gate 2 canonical definitions, thresholds, and scoring formula
 - [Review Engine](../engines/review/SKILL.md) — Automated review enforcement
 - [Review Chief](../departments/review/SKILL.md) — Review orchestration
 - [Security Chief](../departments/security/SKILL.md) — Security review escalation

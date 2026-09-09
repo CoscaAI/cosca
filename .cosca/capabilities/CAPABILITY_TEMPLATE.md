@@ -74,9 +74,9 @@ One paragraph describing what this capability enables.
 
 ## RELATED
 - [CAPABILITY_CATALOG.md](CAPABILITY_CATALOG.md) — Complete catalog of all capabilities
-- [AGENT_DNA.md](../AGENT_DNA.md) — Agent contract standard
-- [CONVENTIONS.md](../CONVENTIONS.md) — File format standards
-- [GOVERNANCE.md](../GOVERNANCE.md) — Versioning and lifecycle
+- [AGENT_DNA.md](../identidade/AGENT_DNA.md) — Agent contract standard
+- [CONVENTIONS.md](../identidade/CONVENTIONS.md) — File format standards
+- [GOVERNANCE.md](../identidade/GOVERNANCE.md) — Versioning and lifecycle
 
 ## HISTORY
 

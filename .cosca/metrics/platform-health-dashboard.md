@@ -3,7 +3,7 @@
 > **Version**: 2.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Created**: 2026-07-28 | **Updated**: 2026-07-28
 >
 > **v2.0.0**: Intelligence Score adicionado — 5 dimensões de inteligência com score composto.
-> **Constitutional authority**: [CONSTITUTION.md](../CONSTITUTION.md) — Implements G2 (Transparência total) and the principle of continuous self-measurement.
+> **Constitutional authority**: [CONSTITUTION.md](../identidade/CONSTITUTION.md) — Implements G2 (Transparência total) and the principle of continuous self-measurement.
 > **Depends on**: Capability profiles for all 51 agents, metacognition pipeline metrics.
 
 ---
@@ -587,4 +587,4 @@ O dashboard gera alertas quando:
 
 ---
 
-> **Related**: [CONSTITUTION.md](../CONSTITUTION.md) | [CONFIDENCE_MODEL.md](../engines/evidence/CONFIDENCE_MODEL.md) | [MEMORY_CURATION_ENGINE.md](../engines/memory-curation/MEMORY_CURATION_ENGINE.md) | [metacognition-pipeline.md](../workflows/metacognition-pipeline.md)
+> **Related**: [CONSTITUTION.md](../identidade/CONSTITUTION.md) | [CONFIDENCE_MODEL.md](../engines/evidence/CONFIDENCE_MODEL.md) | [MEMORY_CURATION_ENGINE.md](../engines/memory-curation/MEMORY_CURATION_ENGINE.md) | [metacognition-pipeline.md](../workflows/metacognition-pipeline.md)

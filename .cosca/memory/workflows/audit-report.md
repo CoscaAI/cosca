@@ -379,4 +379,4 @@ audit-runtime-sync (meta — cross-cuts all docs and code)            │
 
 > **Next audit**: Scheduled after R1-R9 are implemented (estimated: 2 sprints).
 >
-> **Related**: [workflow/SKILL.md](../../engines/workflow/SKILL.md) | [KERNEL.md](../../KERNEL.md) | [MEMORY_MODEL.md](../../MEMORY_MODEL.md) | [learnings.md](../agent/cosca-workflow-chief/learnings.md)
+> **Related**: [workflow/SKILL.md](../../engines/workflow/SKILL.md) | [KERNEL.md](../../identidade/KERNEL.md) | [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) | [learnings.md](../agent/cosca-workflow-chief/learnings.md)

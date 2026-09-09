@@ -1053,5 +1053,5 @@ contract_templates:
   health: "templates/contract/health.yaml"
 ```
 
-Refer to [RUNTIME_CONTRACT.md](../RUNTIME_CONTRACT.md) for the complete Runtime ↔ Kernel interface contract.
+Refer to [RUNTIME_CONTRACT.md](../identidade/RUNTIME_CONTRACT.md) for the complete Runtime ↔ Kernel interface contract.
 

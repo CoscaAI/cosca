@@ -14,4 +14,4 @@
 - [Department SKILL.md](../../../departments/semantic-memory/SKILL.md)
 - [Engine SKILL.md](../../../engines/semantic-memory/SKILL.md)
 - [MEMORY_SYSTEM.md](../../MEMORY_SYSTEM.md)
-- [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md)
+- [LEARNING_PROTOCOL.md](../../../fallback/memory/LEARNING_PROTOCOL.md)

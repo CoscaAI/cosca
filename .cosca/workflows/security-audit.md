@@ -107,7 +107,7 @@ None
 
 ## RELATED
 - [Security Chief](../departments/security/SKILL.md)
-- [QUALITY_GATES.md](../QUALITY_GATES.md)
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md)
 - [Dependency Update Workflow](dependency-update.md)
 
 ## HISTORY

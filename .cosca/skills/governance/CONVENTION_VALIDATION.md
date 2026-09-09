@@ -63,6 +63,6 @@
 >
 > ## Related
 > - [Governance Chief](../../departments/governance/SKILL.md)
-> - [CONVENTIONS.md](../../CONVENTIONS.md) — Standard skill contract
-> - [AGENT_DNA.md](../../AGENT_DNA.md) — Agent contract standard
-> - [GOVERNANCE.md](../../GOVERNANCE.md) — Governance policies
+> - [CONVENTIONS.md](../../identidade/CONVENTIONS.md) — Standard skill contract
+> - [AGENT_DNA.md](../../identidade/AGENT_DNA.md) — Agent contract standard
+> - [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Governance policies

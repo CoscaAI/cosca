@@ -28,6 +28,6 @@ Open an issue in the Cosca repository with:
 - Expected deliverables
 
 ## Related
-- [Workflows Catalog](../../COSCA_INDEX.md) — All workflow definitions
+- [Workflows Catalog](../../identidade/COSCA_INDEX.md) — All workflow definitions
 - [Knowledge Base](../INDEX.md) — Other knowledge stores
 - [Incidents](../incidents/INDEX.md) — Real incident reports

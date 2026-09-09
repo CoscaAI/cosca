@@ -44,4 +44,4 @@
 > - [Documentation Chief](../../departments/documentation/SKILL.md)
 > - [ADR Creation](./ADR_CREATION.md)
 > - [API Documentation](./API_DOCUMENTATION.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.6 Documentation
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.6 Documentation

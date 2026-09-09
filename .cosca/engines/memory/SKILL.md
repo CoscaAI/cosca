@@ -11,7 +11,7 @@ level: 3
 ## PURPOSE
 The Memory Engine manages all persistent knowledge across sessions. It stores, retrieves, indexes, and organizes memories of all types. It enables the Cosca to learn and improve over time.
 
-For canonical memory types, schemas, and storage locations, see [MEMORY_MODEL.md](../../MEMORY_MODEL.md).
+For canonical memory types, schemas, and storage locations, see [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md).
 
 ## MEMORY OPERATIONS
 
@@ -104,7 +104,7 @@ The Memory Engine should automatically capture:
 | MEMORY_MODEL.md | Canonical memory taxonomy |
 
 ## RELATED
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md) — Canonical memory types, schemas, and storage locations
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) — Canonical memory types, schemas, and storage locations
 - [Memory Chief](../../departments/memory/SKILL.md) — Orchestrates memory operations
 - [Context Engine](../context/SKILL.md) — Provides session context from memory
 - [Learning Engine](../learning/SKILL.md) — Derives patterns from stored memories

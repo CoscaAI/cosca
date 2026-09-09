@@ -163,55 +163,55 @@ delegation event, the action is invalid.
 
 ## 1. ARCHITECTURE OVERVIEW
 
-> **Extracted to**: [runtime/ARCHITECTURE.md](runtime/ARCHITECTURE.md) — See this document for the full specification.
+> **Extracted to**: [runtime/ARCHITECTURE.md](../runtime/ARCHITECTURE.md) — See this document for the full specification.
 > **Lines extracted**: 1,006 | **Date**: 2026-07-28
 
 ---
 ## 2. CAPABILITY FIRST ARCHITECTURE
 
-> **Extracted to**: [runtime/CAPABILITY.md](runtime/CAPABILITY.md) — See this document for the full specification.
+> **Extracted to**: [runtime/CAPABILITY.md](../runtime/CAPABILITY.md) — See this document for the full specification.
 > **Lines extracted**: 811 | **Date**: 2026-07-28
 
 ---
 ## 3. RUNTIME STATE MACHINE
 
-> **Extracted to**: [runtime/STATE_MACHINE.md](runtime/STATE_MACHINE.md) — See this document for the full specification.
+> **Extracted to**: [runtime/STATE_MACHINE.md](../runtime/STATE_MACHINE.md) — See this document for the full specification.
 > **Lines extracted**: 750 | **Date**: 2026-07-28
 
 ---
 ## 4. EVENT DRIVEN ARCHITECTURE
 
-> **Extracted to**: [runtime/EVENTS.md](runtime/EVENTS.md) — See this document for the full specification.
+> **Extracted to**: [runtime/EVENTS.md](../runtime/EVENTS.md) — See this document for the full specification.
 > **Lines extracted**: 813 | **Date**: 2026-07-28
 
 ---
 ## 5. EXECUTION GRAPH (DAG)
 
-> **Extracted to**: [runtime/EXECUTION_GRAPH.md](runtime/EXECUTION_GRAPH.md) — See this document for the full specification.
+> **Extracted to**: [runtime/EXECUTION_GRAPH.md](../runtime/EXECUTION_GRAPH.md) — See this document for the full specification.
 > **Lines extracted**: 877 | **Date**: 2026-07-28
 
 ---
 ## 6. SCHEDULER ENTERPRISE
 
-> **Extracted to**: [runtime/SCHEDULER.md](runtime/SCHEDULER.md) — See this document for the full specification.
+> **Extracted to**: [runtime/SCHEDULER.md](../runtime/SCHEDULER.md) — See this document for the full specification.
 > **Lines extracted**: 603 | **Date**: 2026-07-28
 
 ---
 ## 7. RUNTIME CONTRACTS
 
-> **Extracted to**: [runtime/CONTRACTS_CATALOG.md](runtime/CONTRACTS_CATALOG.md) — See this document for the full specification.
+> **Extracted to**: [runtime/CONTRACTS_CATALOG.md](../runtime/CONTRACTS_CATALOG.md) — See this document for the full specification.
 > **Lines extracted**: 1,049 | **Date**: 2026-07-28
 
 ---
 ## 8. RUNTIME HEALTH
 
-> **Extracted to**: [runtime/HEALTH.md](runtime/HEALTH.md) — See this document for the full specification.
+> **Extracted to**: [runtime/HEALTH.md](../runtime/HEALTH.md) — See this document for the full specification.
 > **Lines extracted**: 641 | **Date**: 2026-07-28
 
 ---
 ## 9. RUNTIME METRICS
 
-> **Extracted to**: [runtime/METRICS.md](runtime/METRICS.md) — See this document for the full specification.
+> **Extracted to**: [runtime/METRICS.md](../runtime/METRICS.md) — See this document for the full specification.
 > **Lines extracted**: 556 | **Date**: 2026-07-28
 
 ---
@@ -220,15 +220,15 @@ delegation event, the action is invalid.
 The canonical initialization sequence. Every Runtime MUST execute these steps in order.
 
 ### Step 1: Bootstrap
-- Load [cosca.config.yaml](cosca.config.yaml) for configuration
-- Resolve virtual paths via [Resource Resolver Engine](engines/resource-resolver/SKILL.md)
+- Load [cosca.config.yaml](../cosca.config.yaml) for configuration
+- Resolve virtual paths via [Resource Resolver Engine](../engines/knowledge/SKILL.md)
 - Initialize Event Bus
 - Initialize Health Monitor
 - Publish `BootstrapStarted` event
 - Transition to BOOTSTRAPPING state
 
 ### Step 2: Context Discovery
-Load the [Discovery Engine](engines/discovery/SKILL.md) and [Context Engine](engines/context/SKILL.md) to:
+Load the [Discovery Engine](../engines/knowledge/SKILL.md) and [Context Engine](../engines/knowledge/SKILL.md) to:
 - Scan workspace: framework, language, database, dependencies, build system, test framework, CI/CD, Docker, architecture pattern
 - Read README, package.json, or equivalent project files
 - Map directory structure and module boundaries
@@ -258,7 +258,7 @@ Following the canonical [MEMORY_MODEL.md](MEMORY_MODEL.md), load **indexes/refer
 Publish `MemoryLoaded` event. Transition to LOADING_MEMORY state.
 
 ### Step 4: Company Initialization
-- Load [company/ORGCHART.md](company/ORGCHART.md) for organizational structure
+- Load [company/ORGCHART.md](../company/ORGCHART.md) for organizational structure
 - Verify department availability through Capability Registry
 - Load [QUALITY_GATES.md](QUALITY_GATES.md) for gate enforcement rules
 - Load [GOVERNANCE.md](GOVERNANCE.md) for lifecycle and versioning policies
@@ -272,13 +272,13 @@ Classify the request:
 - **Capabilities**: Resolve required capabilities (never departments)
 
 ### Step 6: Capability Resolution
-- Resolve `Request Type → Required Capabilities` via [Capability Engine](engines/capability/SKILL.md)
-- Map capabilities to workflows via [Workflow Engine](engines/workflow/SKILL.md)
+- Resolve `Request Type → Required Capabilities` via [Capability Engine](../engines/knowledge/SKILL.md)
+- Map capabilities to workflows via [Workflow Engine](../engines/knowledge/SKILL.md)
 - Map workflows to chiefs and specialists via Capability Registry
 - Publish `CapabilityResolved` and `WorkflowResolved` events
 
 ### Step 7: Planning & DAG Generation
-- Generate execution plan with [Planning Engine](engines/planning/SKILL.md)
+- Generate execution plan with [Planning Engine](../engines/knowledge/SKILL.md)
 - Create DAG with nodes, edges, priorities, dependencies
 - Apply risk assessment
 - Define success criteria
@@ -286,15 +286,15 @@ Classify the request:
 - Transition to PLANNING state
 
 ### Step 8: Scheduling & Execution
-- Submit DAG to [Scheduler](engines/scheduler/SKILL.md)
+- Submit DAG to [Scheduler](../engines/knowledge/SKILL.md)
 - Queue nodes to appropriate queues
-- Dispatch to [Execution Engine](engines/execution/SKILL.md) workers
+- Dispatch to [Execution Engine](../engines/knowledge/SKILL.md) workers
 - Monitor execution, handle retries
 - Publish `ExecutionStarted` / `ExecutionCompleted` events
 - Transition to EXECUTING state
 
 ### Step 9: Review
-Trigger the [Review Engine](engines/review/SKILL.md) to enforce:
+Trigger the [Review Engine](../engines/knowledge/SKILL.md) to enforce:
 - Architecture compliance (Gate 2.1)
 - Code quality (Gate 2.2)
 - Security (Gate 2.3)
@@ -314,7 +314,7 @@ Apply [QUALITY_GATES.md](QUALITY_GATES.md):
 Publish `QualityPassed` or `QualityFailed` event.
 
 ### Step 11: Documentation Update
-Trigger the [Documentation Engine](engines/documentation/SKILL.md) to update:
+Trigger the [Documentation Engine](../engines/knowledge/SKILL.md) to update:
 - README (if structural changes)
 - ADR (if architecture decision)
 - API docs (if endpoints changed)
@@ -327,7 +327,7 @@ Publish `DocumentationUpdated` event. Transition to DOCUMENTING state.
 - Store decisions in `.cosca/memory/decision/`
 - Store patterns in `${MEMORY_GLOBAL}/pattern/`
 - Store learnings in `${MEMORY_GLOBAL}/agent/`
-- Sync to [Knowledge Engine](engines/knowledge/SKILL.md)
+- Sync to [Knowledge Engine](../engines/knowledge/SKILL.md)
 - Publish `KnowledgeStored` event. Transition to SYNCING state.
 
 ### Step 13: Delivery & Completion
@@ -335,8 +335,8 @@ Publish `DocumentationUpdated` event. Transition to DOCUMENTING state.
 - Persist session context
 - Publish `SessionFinished` event
 - Transition to FINISHED state
-- Trigger [Learning Engine](engines/learning/SKILL.md) for post-session learning
-- Trigger [Evolution Engine](engines/evolution/SKILL.md) for periodic evolution
+- Trigger [Learning Engine](../engines/knowledge/SKILL.md) for post-session learning
+- Trigger [Evolution Engine](../engines/knowledge/SKILL.md) for periodic evolution
 
 ---
 
@@ -366,37 +366,37 @@ Following [MEMORY_MODEL.md](MEMORY_MODEL.md):
 ---
 ## 13. RUNTIME SYNCHRONIZATION PIPELINE
 
-> **Extracted to**: [runtime/SYNC_PIPELINE.md](runtime/SYNC_PIPELINE.md) — See this document for the full specification.
+> **Extracted to**: [runtime/SYNC_PIPELINE.md](../runtime/SYNC_PIPELINE.md) — See this document for the full specification.
 > **Lines extracted**: 668 | **Date**: 2026-07-28
 
 ---
 ## 14. HOT RELOAD
 
-> **Extracted to**: [runtime/HOT_RELOAD.md](runtime/HOT_RELOAD.md) — See this document for the full specification.
+> **Extracted to**: [runtime/HOT_RELOAD.md](../runtime/HOT_RELOAD.md) — See this document for the full specification.
 > **Lines extracted**: 631 | **Date**: 2026-07-28
 
 ---
 ## 15. RECOVERY ENGINE
 
-> **Extracted to**: [runtime/RECOVERY.md](runtime/RECOVERY.md) — See this document for the full specification.
+> **Extracted to**: [runtime/RECOVERY.md](../runtime/RECOVERY.md) — See this document for the full specification.
 > **Lines extracted**: 691 | **Date**: 2026-07-28
 
 ---
 ## 16. KNOWLEDGE INTEGRATION
 
-> **Extracted to**: [runtime/KNOWLEDGE.md](runtime/KNOWLEDGE.md) — See this document for the full specification.
+> **Extracted to**: [runtime/KNOWLEDGE.md](../runtime/KNOWLEDGE.md) — See this document for the full specification.
 > **Lines extracted**: 661 | **Date**: 2026-07-28
 
 ---
 ## 17. MULTI RUNTIME
 
-> **Extracted to**: [runtime/MULTI_RUNTIME.md](runtime/MULTI_RUNTIME.md) — See this document for the full specification.
+> **Extracted to**: [runtime/MULTI_RUNTIME.md](../runtime/MULTI_RUNTIME.md) — See this document for the full specification.
 > **Lines extracted**: 559 | **Date**: 2026-07-28
 
 ---
 ## 18. DASHBOARD INTEGRATION
 
-> **Extracted to**: [runtime/DASHBOARD.md](runtime/DASHBOARD.md) — See this document for the full specification.
+> **Extracted to**: [runtime/DASHBOARD.md](../runtime/DASHBOARD.md) — See this document for the full specification.
 > **Lines extracted**: 495 | **Date**: 2026-07-28
 
 ---
@@ -1316,13 +1316,13 @@ Refer to [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) for the complete 6
 ## 24. WORKFLOW ROUTING
 
 All work follows workflows defined in `workflows/`. For workflow definitions, see:
-- [Workflow Engine](engines/workflow/SKILL.md) — Schema and lifecycle
+- [Workflow Engine](../engines/knowledge/SKILL.md) — Schema and lifecycle
 - [COSCA_INDEX.md](COSCA_INDEX.md) — Complete workflow inventory
 
 For new features, route through:
-1. Capability Resolution → Product Chief loads [Wizard Engine](engines/wizard/SKILL.md)
-2. CTO loads [Planning Engine](engines/planning/SKILL.md)
-3. Execution via [Execution Engine](engines/execution/SKILL.md)
+1. Capability Resolution → Product Chief loads [Wizard Engine](../engines/knowledge/SKILL.md)
+2. CTO loads [Planning Engine](../engines/knowledge/SKILL.md)
+3. Execution via [Execution Engine](../engines/knowledge/SKILL.md)
 
 ---
 
@@ -1331,8 +1331,8 @@ For new features, route through:
 After each session:
 - Analyze what went well and what went wrong
 - Suggest Cosca improvements
-- Store learnings via [Learning Engine](engines/learning/SKILL.md)
-- Trigger [Evolution Engine](engines/evolution/SKILL.md) periodically
+- Store learnings via [Learning Engine](../engines/knowledge/SKILL.md)
+- Trigger [Evolution Engine](../engines/knowledge/SKILL.md) periodically
 - Update knowledge stores with new patterns
 - Publish learnings to agent memory
 
@@ -1360,7 +1360,7 @@ After each session:
 
 | File | Why |
 |------|-----|
-| [company/ORGCHART.md](company/ORGCHART.md) | Company structure and chain of command |
+| [company/ORGCHART.md](../company/ORGCHART.md) | Company structure and chain of command |
 | [QUALITY_GATES.md](QUALITY_GATES.md) | Quality gate definitions |
 | [MEMORY_MODEL.md](MEMORY_MODEL.md) | Memory taxonomy and locations |
 | [CONVENTIONS.md](CONVENTIONS.md) | Skill file standards |
@@ -1368,20 +1368,20 @@ After each session:
 | [COSCA_INDEX.md](COSCA_INDEX.md) | Complete file inventory |
 | [RUNTIME_CONTRACT.md](RUNTIME_CONTRACT.md) | Kernel ↔ Runtime interface contract |
 | [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) | AI provider abstraction with failover |
-| [capabilities/CAPABILITY_CATALOG.md](capabilities/CAPABILITY_CATALOG.md) | Capability registry (64 capabilities) |
+| [capabilities/CAPABILITY_CATALOG.md](../capabilities/CAPABILITY_CATALOG.md) | Capability registry (64 capabilities) |
 | [AGENT_DNA.md](AGENT_DNA.md) | Agent contract standard |
 | [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) | 6-layer redundancy matrix |
 | [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) | Cybersecurity framework |
-| [Context Engine](engines/context/SKILL.md) | Context building |
-| [Discovery Engine](engines/discovery/SKILL.md) | Workspace scanning |
-| [Memory Engine](engines/memory/SKILL.md) | Memory operations |
-| [Capability Engine](engines/capability/SKILL.md) | Capability resolution |
-| [Workflow Engine](engines/workflow/SKILL.md) | Workflow orchestration |
-| [Scheduler Engine](engines/scheduler/SKILL.md) | Task scheduling |
-| [Recovery Engine](engines/recovery/SKILL.md) | Failure recovery |
-| [Knowledge Engine](engines/knowledge/SKILL.md) | Knowledge management |
-| [Feature Flag Engine](engines/feature-flags/SKILL.md) | Feature flag management |
-| [Health Monitor](engines/observability/SKILL.md) | Health checks and metrics |
+| [Context Engine](../engines/knowledge/SKILL.md) | Context building |
+| [Discovery Engine](../engines/knowledge/SKILL.md) | Workspace scanning |
+| [Memory Engine](../engines/knowledge/SKILL.md) | Memory operations |
+| [Capability Engine](../engines/knowledge/SKILL.md) | Capability resolution |
+| [Workflow Engine](../engines/knowledge/SKILL.md) | Workflow orchestration |
+| [Scheduler Engine](../engines/knowledge/SKILL.md) | Task scheduling |
+| [Recovery Engine](../engines/knowledge/SKILL.md) | Failure recovery |
+| [Knowledge Engine](../engines/knowledge/SKILL.md) | Knowledge management |
+| [Feature Flag Engine](../engines/knowledge/SKILL.md) | Feature flag management |
+| [Health Monitor](../engines/knowledge/SKILL.md) | Health checks and metrics |
 
 ---
 
@@ -1474,8 +1474,8 @@ verification_runbook:
 - [QUALITY_GATES.md](QUALITY_GATES.md) — Quality gate definitions
 - [GOVERNANCE.md](GOVERNANCE.md) — Versioning, lifecycle, deprecation
 - [COSCA_INDEX.md](COSCA_INDEX.md) — Complete ecosystem map
-- [capabilities/CAPABILITY_CATALOG.md](capabilities/CAPABILITY_CATALOG.md) — Complete capability registry
-- [company/ORGCHART.md](company/ORGCHART.md) — Organizational structure
+- [capabilities/CAPABILITY_CATALOG.md](../capabilities/CAPABILITY_CATALOG.md) — Complete capability registry
+- [company/ORGCHART.md](../company/ORGCHART.md) — Organizational structure
 - [COSCA_ENTERPRISE_EVOLUTION.md](COSCA_ENTERPRISE_EVOLUTION.md) — Evolution roadmap (v1.0 → v2.0)
 - [HELP.md](HELP.md) — User-facing guide
 

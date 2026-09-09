@@ -80,4 +80,4 @@ Discover, evaluate, and compare AI providers (LLM, embedding, image, audio) for 
 - [AI Chief](../../departments/ai/SKILL.md)
 - [Prompt Engineering](./PROMPT_ENGINEERING.md)
 - [Embedding Pipeline](./EMBEDDING_PIPELINE.md)
-- [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md)
+- [PROVIDER_INTERFACE.md](../../identidade/PROVIDER_INTERFACE.md)

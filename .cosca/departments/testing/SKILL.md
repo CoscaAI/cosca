@@ -129,7 +129,7 @@ You own testing. You write and maintain all test suites, ensure coverage, and va
 - [QA Chief](../qa/SKILL.md) — Test strategy and quality oversight
 - [Backend Chief](../backend/SKILL.md) — Backend code under test
 - [Frontend Chief](../frontend/SKILL.md) — Frontend code under test
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.5 Testing checks
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.5 Testing checks
 
 ## HISTORY
 | Version | Date | Author | Changes |

@@ -392,7 +392,7 @@ Save to: `.cosca/reports/bootstrap-report-{{DATE}}.md`
 ## PHASE 9 — QUALITY VALIDATION (`quality_validation`)
 
 ### 9.1 Run Gate 0 (Pre-Work)
-Per [QUALITY_GATES.md](../QUALITY_GATES.md):
+Per [QUALITY_GATES.md](../identidade/QUALITY_GATES.md):
 
 | Check | Status |
 |-------|--------|
@@ -512,14 +512,14 @@ Save events to `.cosca/memory/session/bootstrap-events.json`.
 | [validators/cosca-validator.md](validators/cosca-validator.md) | Cosca component validation |
 | [validators/dependency-validator.md](validators/dependency-validator.md) | Dependency health validation |
 | [reports/bootstrap-report-template.md](reports/bootstrap-report-template.md) | Bootstrap report template |
-| [../QUALITY_GATES.md](../QUALITY_GATES.md) | Gate 0 enforcement |
-| [../MEMORY_MODEL.md](../MEMORY_MODEL.md) | Memory initialization rules |
+| [../QUALITY_GATES.md](../identidade/QUALITY_GATES.md) | Gate 0 enforcement |
+| [../MEMORY_MODEL.md](../identidade/MEMORY_MODEL.md) | Memory initialization rules |
 | [../.cosca-scaffold/](../.cosca-scaffold/) | Project scaffold templates |
 
 ## RELATED
 - [lifecycle.md](lifecycle.md) — Detailed lifecycle states and transitions
-- [../KERNEL.md](../KERNEL.md) — Kernel (handover target)
-- [../COSCA_INDEX.md](../COSCA_INDEX.md) — Complete skill inventory
+- [../KERNEL.md](../identidade/KERNEL.md) — Kernel (handover target)
+- [../COSCA_INDEX.md](../identidade/COSCA_INDEX.md) — Complete skill inventory
 
 ## HISTORY
 

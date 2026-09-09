@@ -209,8 +209,8 @@ backend:
 - [Audit Engine](../audit/SKILL.md) — Secret access audit trail
 - [Review Engine](../review/SKILL.md) — Pre-commit leak detection
 - [Integrations Chief](../../departments/integrations/SKILL.md) — Third-party API credential registration
-- [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md) — AI provider credential management
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.3 Security checks
+- [PROVIDER_INTERFACE.md](../../identidade/PROVIDER_INTERFACE.md) — AI provider credential management
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.3 Security checks
 
 ## HISTORY
 

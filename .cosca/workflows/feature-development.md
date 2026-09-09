@@ -208,7 +208,7 @@ None (but may depend on other features based on plan)
 - [Planning Engine](../engines/planning/SKILL.md) — Executive plan generation
 - [Review Engine](../engines/review/SKILL.md) — Gate 2 enforcement
 - [Quality Engine](../engines/quality/SKILL.md) — Gate 3 enforcement
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Canonical gate definitions
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Canonical gate definitions
 - [Release Workflow](release.md) — Post-feature release process
 
 ## HISTORY

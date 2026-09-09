@@ -117,7 +117,7 @@
 | **Avoidance Pattern** | Antes de "corrigir" qualquer coisa na memória: perguntar "isso é bug para consertar, ou cicatriz para lembrar?" **Se é cicatriz, NÃO mexo** — registro o entendimento e deixo intacta. Sempre auditar MEU instrumento de leitura (parser) antes de culpar a memória. Editar o embed só com ordem explícita do Don + re-assinar a chain. |
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../../fallback/memory/LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
 
 ### 2026-08-25 — Persegui automação de hook no Windows sem progresso (loop do L434)
 
@@ -148,4 +148,4 @@
 | **Avoidance Pattern** | `write` em arquivo que pode existir? Primeiro `Test-Path`/`Glob`. Existe → usa `edit` ou renomeia. Depois de qualquer commit, `git show --stat` para confirmar que não entrou deleção não-intencional. |
 
 ---
-> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../../fallback/memory/LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

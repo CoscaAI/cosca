@@ -93,4 +93,4 @@ _ = rs.TransitionTo(StateInitializing, "invalid back")
 
 ---
 
-> **Protocol**: [LEARNING_PROTOCOL.md](../../LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros
+> **Protocol**: [LEARNING_PROTOCOL.md](../../../fallback/memory/LEARNING_PROTOCOL.md) | **Constitution**: P5 — A família aprende com erros

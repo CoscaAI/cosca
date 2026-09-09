@@ -7,7 +7,7 @@
 
 ## Preâmbulo
 
-Este documento estabelece os quality gates operacionais (G0–G9) aplicados ao ciclo de desenvolvimento da plataforma Cosca. Ele implementa o passo 7 (VALIDAÇÃO) do ciclo de decisão definido na CONSTITUTION.md Parte IV, sendo complementar ao documento [QUALITY_GATES.md](../../QUALITY_GATES.md) que define os gates mais amplos de ciclo de vida (G0–G4 por fase de projeto).
+Este documento estabelece os quality gates operacionais (G0–G9) aplicados ao ciclo de desenvolvimento da plataforma Cosca. Ele implementa o passo 7 (VALIDAÇÃO) do ciclo de decisão definido na CONSTITUTION.md Parte IV, sendo complementar ao documento [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) que define os gates mais amplos de ciclo de vida (G0–G4 por fase de projeto).
 
 **Relação com CONSTITUTION.md**: Os gates G0–G9 aqui definidos são o mecanismo de enforcement do princípio P6 (Evolução sem Regressão) e do passo 7 do Ciclo de Decisão. Nenhum artefato pode avançar para a próxima etapa do ciclo sem passar pelos gates aplicáveis ao seu tipo.
 
@@ -630,11 +630,11 @@ Cada task dos outros 9 agentes da Onda 2 foi avaliada quanto à clareza e verifi
 
 | Documento | Relação |
 |-----------|---------|
-| [CONSTITUTION.md](../../CONSTITUTION.md) | Princípios P1, P2, P6; Ciclo de Decisão passo 7 |
-| [QUALITY_GATES.md](../../QUALITY_GATES.md) | Gates de ciclo de vida G0–G4 (fases de projeto) |
+| [CONSTITUTION.md](../../identidade/CONSTITUTION.md) | Princípios P1, P2, P6; Ciclo de Decisão passo 7 |
+| [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) | Gates de ciclo de vida G0–G4 (fases de projeto) |
 | [onda-2-plan.md](../roadmap/onda-2-plan.md) | Plano de ativação dos 10 agentes da Onda 2 |
 | [INDEX.md](../bug/INDEX.md) | Bug registry — auditoria e classificação |
-| [LEARNING_PROTOCOL.md](../../memory/LEARNING_PROTOCOL.md) | Formato de registro de aprendizados |
+| [LEARNING_PROTOCOL.md](../../fallback/memory/LEARNING_PROTOCOL.md) | Formato de registro de aprendizados |
 
 ---
 

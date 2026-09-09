@@ -109,7 +109,7 @@ None
 
 ## RELATED
 - [Evolution Engine](../engines/evolution/SKILL.md) — Detects refactoring candidates
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Quality metrics and thresholds
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Quality metrics and thresholds
 - [Architecture Chief](../departments/architecture/SKILL.md) — Refactoring approach design
 - [Testing Chief](../departments/testing/SKILL.md) — Safety net test coverage
 

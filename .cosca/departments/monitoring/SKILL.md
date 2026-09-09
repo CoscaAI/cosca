@@ -114,10 +114,10 @@ You own application monitoring, alerting, and observability.
 - Product decisions
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [KERNEL.md](../../KERNEL.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [KERNEL.md](../../identidade/KERNEL.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md)
 - [Observability Engine](../../engines/observability/SKILL.md)
 - [CTO Chief](../cto/SKILL.md)
 - [DevOps Chief](../devops/SKILL.md)

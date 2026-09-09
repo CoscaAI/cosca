@@ -80,5 +80,5 @@ flowchart LR
 | Delivery | 1-30min | Gate 3-4 | Release Chief |
 
 ## Related
-- [KERNEL.md](../KERNEL.md) — Complete runtime specification
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Gate definitions
+- [KERNEL.md](../identidade/KERNEL.md) — Complete runtime specification
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Gate definitions

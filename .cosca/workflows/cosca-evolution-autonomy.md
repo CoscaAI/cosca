@@ -660,4 +660,4 @@ Dia 8-10:  FASE E (Auto-Medicao)
 
 ---
 
-> **Related**: [CONSTITUTION.md](../CONSTITUTION.md) | [AGENT_DNA.md](../AGENT_DNA.md) | [metacognition-pipeline.md](../workflows/metacognition-pipeline.md) | [LEARNING_PROTOCOL.md](../memory/LEARNING_PROTOCOL.md)
+> **Related**: [CONSTITUTION.md](../identidade/CONSTITUTION.md) | [AGENT_DNA.md](../identidade/AGENT_DNA.md) | [metacognition-pipeline.md](../workflows/metacognition-pipeline.md) | [LEARNING_PROTOCOL.md](../fallback/memory/LEARNING_PROTOCOL.md)

@@ -427,16 +427,16 @@ Before any project goes to production:
 ---
 
 ## RELACIONADOS
-- [Security Chief](departments/security/SKILL.md) — Estratégia e supervisão de segurança
-- [Secrets Engine](engines/secrets/SKILL.md) — Gerenciamento de credenciais
-- [Identity Engine](engines/identity/SKILL.md) — Autenticação e controle de acesso
-- [Compliance Engine](engines/compliance/SKILL.md) — Conformidade regulatória
-- [Policy Engine](engines/policy/SKILL.md) — Políticas de segurança (POL-SEC-*)
+- [Security Chief](../engines/knowledge/SKILL.md) — Estratégia e supervisão de segurança
+- [Secrets Engine](../engines/knowledge/SKILL.md) — Gerenciamento de credenciais
+- [Identity Engine](../engines/knowledge/SKILL.md) — Autenticação e controle de acesso
+- [Compliance Engine](../engines/knowledge/SKILL.md) — Conformidade regulatória
+- [Policy Engine](../engines/knowledge/SKILL.md) — Políticas de segurança (POL-SEC-*)
 - [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 2.3 Verificações de segurança
-- [COUNCILS.md](councils/COUNCILS.md) — Autoridade do Security Council
+- [COUNCILS.md](../councils/COUNCILS.md) — Autoridade do Security Council
 - [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) — Circuit breakers e recuperação
 - [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — Segurança de providers de IA
-- [project-init workflow](workflows/project-init.md) — Security Baseline (Passo 7)
+- [project-init workflow](../fallback/workflows/project-init.md) — Security Baseline (Passo 7)
 
 ## HISTÓRICO
 

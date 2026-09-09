@@ -147,7 +147,7 @@ You lead mobile application development. You design and implement iOS, Android, 
 - [Security Chief](../security/SKILL.md) — Mobile security
 - [DevOps Chief](../devops/SKILL.md) — CI/CD and deployments
 - [QA Chief](../qa/SKILL.md) — Test strategy
-- [KERNEL.md](../../KERNEL.md) — Orchestration entry point
+- [KERNEL.md](../../identidade/KERNEL.md) — Orchestration entry point
 
 ## HISTORY
 

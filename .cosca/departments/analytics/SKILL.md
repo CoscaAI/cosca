@@ -108,10 +108,10 @@ You own data analytics. You define metrics, build dashboards, and provide data-d
 - Product scope decisions
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
-- [KERNEL.md](../../KERNEL.md)
-- [GOVERNANCE.md](../../GOVERNANCE.md)
-- [QUALITY_GATES.md](../../QUALITY_GATES.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
+- [KERNEL.md](../../identidade/KERNEL.md)
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md)
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md)
 - [CTO Chief](../cto/SKILL.md)
 - [Database Chief](../database/SKILL.md)
 - [Monitoring Chief](../monitoring/SKILL.md)

@@ -110,7 +110,7 @@ None
 - [Database Chief](../departments/database/SKILL.md)
 - [Frontend Chief](../departments/frontend/SKILL.md)
 - [Architecture Chief](../departments/architecture/SKILL.md)
-- [QUALITY_GATES.md](../QUALITY_GATES.md)
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md)
 
 ## HISTORY
 

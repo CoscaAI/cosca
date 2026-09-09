@@ -183,7 +183,7 @@ On git commit:
 - [cosca-validator.md](cosca-validator.md) — Cosca component validation
 - [dependency-validator.md](dependency-validator.md) — Dependency health validation
 - [Resource Resolver](../../engines/resource-resolver/SKILL.md) — Virtual Path resolution
-- [CONVENTIONS.md](../../CONVENTIONS.md) — File format standards
+- [CONVENTIONS.md](../../identidade/CONVENTIONS.md) — File format standards
 
 ## HISTORY
 

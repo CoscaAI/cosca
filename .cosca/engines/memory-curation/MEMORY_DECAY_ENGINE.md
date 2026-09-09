@@ -3,7 +3,7 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Memory Chief | **Created**: 2026-07-28
 >
 > **Extends**: [MEMORY_CURATION_ENGINE.md](MEMORY_CURATION_ENGINE.md) v1.0.0 — Upgrades CurationScore from v1.0 → v2.0
-> **Constitutional authority**: [CONSTITUTION.md](../../CONSTITUTION.md) — Implements P7 (Memória sem poluição).
+> **Constitutional authority**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) — Implements P7 (Memória sem poluição).
 > **Approved by**: Don — "um cérebro eficiente também esquece"
 
 ---

@@ -111,7 +111,7 @@ CREATED → VALIDATED → READY → RUNNING → REVIEWING → QA → COMPLETED
 9. **security-audit** — Security review and remediation
 10. **performance-audit** — Performance analysis and optimization
 
-Workflow definitions are maintained in workflows/*.md. See [COSCA_INDEX.md](../../COSCA_INDEX.md) for complete inventory.
+Workflow definitions are maintained in workflows/*.md. See [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md) for complete inventory.
 
 ## DEPENDENCIES
 
@@ -124,7 +124,7 @@ Workflow definitions are maintained in workflows/*.md. See [COSCA_INDEX.md](../.
 | Workflow Chief | Workflow design |
 
 ## RELATED
-- [COSCA_INDEX.md](../../COSCA_INDEX.md)
+- [COSCA_INDEX.md](../../identidade/COSCA_INDEX.md)
 - [Workflow Chief](../../departments/workflow/SKILL.md)
 - [Planning Engine](../planning/SKILL.md)
 - [Execution Engine](../execution/SKILL.md)

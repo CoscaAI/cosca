@@ -37,7 +37,7 @@
 > ## Related
 > - [Technical Debt Chief](../../departments/technical-debt/SKILL.md)
 > - [Refactoring](./REFACTORING.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.2 quality checks
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.2 quality checks
 
 ## Process
 1. **Select Target**: Identify the file or package to analyze (Go: internal/*, TypeScript: web/src/*).

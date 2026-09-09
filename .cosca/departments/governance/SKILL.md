@@ -127,10 +127,10 @@ You own framework governance. You ensure all Cosca framework components follow s
 - Making framework changes without documentation updates
 
 ## RELATED
-- [CONVENTIONS.md](../../CONVENTIONS.md) — Framework conventions
-- [GOVERNANCE.md](../../GOVERNANCE.md) — Governance policies
-- [AGENT_DNA.md](../../AGENT_DNA.md) — Agent contracts
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality gates
+- [CONVENTIONS.md](../../identidade/CONVENTIONS.md) — Framework conventions
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Governance policies
+- [AGENT_DNA.md](../../identidade/AGENT_DNA.md) — Agent contracts
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality gates
 - [Evolution Engine](../../engines/evolution/SKILL.md) — Evolution engine
 - [Skills Engine](../../engines/skills/SKILL.md) — Skill validation
 

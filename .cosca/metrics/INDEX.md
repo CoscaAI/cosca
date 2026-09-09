@@ -15,4 +15,4 @@ Track and improve the quality, coverage, and health of the Cosca framework itsel
 ## Related
 - [Governance Chief](../departments/governance/SKILL.md)
 - [Governance Engine](../engines/quality/SKILL.md)
-- [COSCA_INDEX.md](../COSCA_INDEX.md)
+- [COSCA_INDEX.md](../identidade/COSCA_INDEX.md)

@@ -163,9 +163,9 @@ Máquina de Estados:
 ## RELACIONADOS
 - [KERNEL.md](KERNEL.md) — Tratamento de erros e regras de redundância
 - [PROVIDER_INTERFACE.md](PROVIDER_INTERFACE.md) — Configuração de failover de providers
-- [COUNCILS.md](councils/COUNCILS.md) — Escalação de liderança para Conselhos
-- [Recovery Engine](engines/recovery/SKILL.md) — Procedimentos de recuperação automatizados
-- [Secrets Engine](engines/secrets/SKILL.md) — Rotação de credenciais em caso de breach
+- [COUNCILS.md](../councils/COUNCILS.md) — Escalação de liderança para Conselhos
+- [Recovery Engine](../engines/knowledge/SKILL.md) — Procedimentos de recuperação automatizados
+- [Secrets Engine](../engines/knowledge/SKILL.md) — Rotação de credenciais em caso de breach
 - [QUALITY_GATES.md](QUALITY_GATES.md) — Gate 4 de health checks pós-release
 
 ## HISTÓRICO

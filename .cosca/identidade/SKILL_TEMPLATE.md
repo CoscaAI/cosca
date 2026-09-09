@@ -5,7 +5,7 @@
 ## Propósito
 Use este modelo ao criar qualquer nova skill de departamento, skill de engine, workflow ou modelo. Siga exatamente o contrato do [CONVENTIONS.md](CONVENTIONS.md).
 
-Todos os caminhos neste modelo usam notação de Caminho Virtual. Substitua os placeholders pelos valores reais. Nunca use caminhos hardcoded. Veja [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md).
+Todos os caminhos neste modelo usam notação de Caminho Virtual. Substitua os placeholders pelos valores reais. Nunca use caminhos hardcoded. Veja [engines/resource-resolver/SKILL.md](../engines/knowledge/SKILL.md).
 
 ---
 
@@ -221,7 +221,7 @@ project/
 - Nota 1
 
 ## RELACIONADOS
-- [Template relacionado](../template-name/TEMPLATE.md)
+- [Template relacionado](../fallback/memory/timeline/impact-reports/TEMPLATE.md)
 
 ## HISTÓRICO
 

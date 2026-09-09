@@ -242,12 +242,12 @@ Policy owner (Release Chief) notified.
 
 ## RELATED
 
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality thresholds referenced by policies
-- [GOVERNANCE.md](../../GOVERNANCE.md) — Policy lifecycle and versioning
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality thresholds referenced by policies
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Policy lifecycle and versioning
 - [Security Chief](../../departments/security/SKILL.md) — Security policy authority
 - [Release Chief](../../departments/release/SKILL.md) — Deployment policy authority
 - [Audit Engine](../audit/SKILL.md) — Policy evaluation audit trail
-- [KERNEL.md](../../KERNEL.md) — Policy enforcement at decision points
+- [KERNEL.md](../../identidade/KERNEL.md) — Policy enforcement at decision points
 
 ## HISTORY
 

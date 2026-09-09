@@ -58,7 +58,7 @@
 > - [DevOps Chief](../../departments/devops/SKILL.md)
 > - [Platform Chief](../../departments/platform/SKILL.md)
 > - [Security Chief](../../departments/security/SKILL.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality gates
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality gates
 
 ## Process
 1. **Pipeline Discovery**: Identify CI/CD configuration files (.github/workflows/, Makefile, Dockerfile).

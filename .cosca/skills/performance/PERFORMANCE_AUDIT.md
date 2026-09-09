@@ -55,7 +55,7 @@
 >
 > ## Related
 > - [Performance Chief](../../departments/performance/SKILL.md)
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.4 Performance
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.4 Performance
 > - [workflows/performance-audit.md](../../workflows/performance-audit.md)
 > - [Load Testing](./LOAD_TESTING.md)
 

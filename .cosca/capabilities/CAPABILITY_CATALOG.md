@@ -204,10 +204,10 @@ Single source of truth for all capabilities in the Cosca ecosystem. Every respon
 
 ## RELATED
 - [CAPABILITY_TEMPLATE.md](CAPABILITY_TEMPLATE.md) — Standard capability contract
-- [AGENT_DNA.md](../AGENT_DNA.md) — Agent contract standard
-- [COSCA_INDEX.md](../COSCA_INDEX.md) — Complete file inventory
+- [AGENT_DNA.md](../identidade/AGENT_DNA.md) — Agent contract standard
+- [COSCA_INDEX.md](../identidade/COSCA_INDEX.md) — Complete file inventory
 - [COUNCILS.md](../councils/COUNCILS.md) — Council governance structure
-- [ENTERPRISE_REDUNDANCY.md](../ENTERPRISE_REDUNDANCY.md) — Redundancy matrix
+- [ENTERPRISE_REDUNDANCY.md](../identidade/ENTERPRISE_REDUNDANCY.md) — Redundancy matrix
 
 ## HISTORY
 

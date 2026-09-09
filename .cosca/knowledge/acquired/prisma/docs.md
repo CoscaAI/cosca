@@ -76,7 +76,7 @@ Just describe what you want. For example:
 
 The agent loads the `prisma-8` skill, opens its contract and queries references, then drives the change end-to-end.
 
-For the full catalogue and what each skill covers, see [`skills/README.md`](./skills/README.md).
+For the full catalogue and what each skill covers, see [`skills/README.md`](../../../fallback/knowledge/README.md).
 
 ## Found a bug, missing a feature, or have a question for the team?
 

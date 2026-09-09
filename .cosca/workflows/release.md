@@ -118,7 +118,7 @@ Prepare and execute a software release, including version bump, changelog genera
 - [Release Chief](../departments/release/SKILL.md)
 - [QA Chief](../departments/qa/SKILL.md)
 - [DevOps Chief](../departments/devops/SKILL.md)
-- [QUALITY_GATES.md](../QUALITY_GATES.md)
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md)
 
 ## HISTORY
 

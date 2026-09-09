@@ -54,6 +54,6 @@
 >
 > ## Related
 > - [Memory Chief](../../departments/memory/SKILL.md)
-> - [MEMORY_MODEL.md](../../MEMORY_MODEL.md) — Memory taxonomy
+> - [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) — Memory taxonomy
 > - [Memory Engine](../../engines/memory/SKILL.md) — Memory operations
 > - [Context Engine](../../engines/context/SKILL.md) — Context building

@@ -78,5 +78,5 @@ Integrate new AI, cloud, or third-party providers into the platform following st
 - [Provider Chief](../../departments/provider/SKILL.md)
 - [Configuration Validation](./CONFIGURATION_VALIDATION.md)
 - [Project Bootstrap](./PROJECT_BOOTSTRAP.md)
-- [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md)
+- [PROVIDER_INTERFACE.md](../../identidade/PROVIDER_INTERFACE.md)
 - [workflows/provider-migration.md](../../workflows/provider-migration.md)

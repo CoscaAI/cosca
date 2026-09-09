@@ -361,4 +361,4 @@ TASK: "Optimize API performance for knowledge search endpoint"
 
 ---
 
-> **Related**: [AGENT_DNA.md](../AGENT_DNA.md) | [LEARNING_PROTOCOL.md](../memory/LEARNING_PROTOCOL.md) | [QUALITY_GATES.md](../QUALITY_GATES.md)
+> **Related**: [AGENT_DNA.md](../identidade/AGENT_DNA.md) | [LEARNING_PROTOCOL.md](../fallback/memory/LEARNING_PROTOCOL.md) | [QUALITY_GATES.md](../identidade/QUALITY_GATES.md)

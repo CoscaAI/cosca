@@ -134,11 +134,11 @@ You own regulatory compliance and policy governance. You ensure the platform mee
 
 ## RELATED
 - [Security Chief](../security/SKILL.md) — Security compliance
-- [Security Architecture](../../SECURITY_ARCHITECTURE.md) — Security framework
+- [Security Architecture](../../identidade/SECURITY_ARCHITECTURE.md) — Security framework
 - [Governance Chief](../governance/SKILL.md) — Policy governance
 - [Database Chief](../database/SKILL.md) — Data management
 - [Monitoring Chief](../monitoring/SKILL.md) — Compliance monitoring
-- [GOVERNANCE.md](../../GOVERNANCE.md) — Governance policies
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Governance policies
 
 ## HISTORY
 | Version | Date | Author | Changes |

@@ -182,9 +182,9 @@ None
 - [Review Chief](../departments/review/SKILL.md) — Scaffold validation
 - [QA Chief](../departments/qa/SKILL.md) — Test setup
 - [Documentation Chief](../departments/documentation/SKILL.md) — Documentation
-- [KERNEL.md](../KERNEL.md) — Kernel initialization
-- [QUALITY_GATES.md](../QUALITY_GATES.md) — Gate 0 enforcement
-- [RUNTIME_CONTRACT.md](../RUNTIME_CONTRACT.md) — Runtime interface
+- [KERNEL.md](../identidade/KERNEL.md) — Kernel initialization
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md) — Gate 0 enforcement
+- [RUNTIME_CONTRACT.md](../identidade/RUNTIME_CONTRACT.md) — Runtime interface
 
 ## HISTORY
 

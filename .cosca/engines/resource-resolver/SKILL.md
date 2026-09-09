@@ -159,8 +159,8 @@ resolve("ENGINES_HOME")    → ${COSCA_HOME}/engines
 - [environment.md](environment.md) — Environment detection
 - [validation.md](validation.md) — Path validation rules
 - [../../bootstrap/BOOTSTRAP.md](../../bootstrap/BOOTSTRAP.md) — Bootstrap (consumer)
-- [../../KERNEL.md](../../KERNEL.md) — Kernel (consumer)
-- [../../MEMORY_MODEL.md](../../MEMORY_MODEL.md) — Memory taxonomy (path references)
+- [../../KERNEL.md](../../identidade/KERNEL.md) — Kernel (consumer)
+- [../../MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) — Memory taxonomy (path references)
 
 ## HISTORY
 

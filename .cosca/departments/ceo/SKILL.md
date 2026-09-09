@@ -90,7 +90,7 @@ None. The CEO does not have specialist sub-roles.
 ## RELATED
 - [CTO](../cto/SKILL.md) — Chief Technology Officer
 - [Product Chief](../product/SKILL.md) — Chief Product Officer
-- [Kernel](../../KERNEL.md) — Escalation routing
+- [Kernel](../../identidade/KERNEL.md) — Escalation routing
 
 ## HISTORY
 | Version | Date | Author | Description |

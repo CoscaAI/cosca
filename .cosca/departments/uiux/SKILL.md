@@ -123,7 +123,7 @@ You own design. You create design systems, user experiences, prototypes, and ens
 - [Frontend Chief](../frontend/SKILL.md) — Design implementation
 - [Product Chief](../product/SKILL.md) — Product requirements and direction
 - [QA Chief](../qa/SKILL.md) — Accessibility testing
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality standards
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality standards
 
 ## HISTORY
 | Version | Date | Author | Changes |

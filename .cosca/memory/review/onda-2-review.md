@@ -306,7 +306,7 @@ Já documentado na seção 2.2. Evento publicado antes da inicialização dos su
 | Documento | Relação |
 |-----------|---------|
 | [quality-gates.md](../qa/quality-gates.md) | Gates G0–G9 aplicados neste review |
-| [CONSTITUTION.md](../../CONSTITUTION.md) | P1 (Segurança), P2 (Código é verdade), P6 (Evolução sem Regressão) |
+| [CONSTITUTION.md](../../identidade/CONSTITUTION.md) | P1 (Segurança), P2 (Código é verdade), P6 (Evolução sem Regressão) |
 | [CI.md](../../../.github/workflows/CI.md) | Runbook do CI — precisa de atualização (issues #4, #5, #6 resolvidos) |
 | [onda-2-plan.md](../roadmap/onda-2-plan.md) | Plano original da Onda 2 |
 | [bug/INDEX.md](../bug/INDEX.md) | Bug registry — B-U01, B-U02, B-U03 precisam ser formalizados |

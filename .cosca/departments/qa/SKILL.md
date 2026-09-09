@@ -128,7 +128,7 @@ You own quality. You define quality standards, design test strategies, manage te
 - Writing production code fixes (report bugs, don't fix them)
 
 ## RELATED
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Canonical quality gates and thresholds
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Canonical quality gates and thresholds
 - [Testing Chief](../testing/SKILL.md) — Test implementation
 - [Review Chief](../review/SKILL.md) — Code quality review
 - [Security Chief](../security/SKILL.md) — Security testing coordination

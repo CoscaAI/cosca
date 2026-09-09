@@ -11,7 +11,7 @@ level: 2
 ## PURPOSE
 The Review Engine provides automated and semi-automated review of all deliverables. It enforces standards, identifies issues, and ensures quality before code reaches QA.
 
-For canonical review criteria, thresholds, and scoring, see [QUALITY_GATES.md](../../QUALITY_GATES.md) Gate 2.
+For canonical review criteria, thresholds, and scoring, see [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) Gate 2.
 
 ## REVIEW PROCESS
 
@@ -83,7 +83,7 @@ Review Report → APPROVED / CHANGES REQUESTED / REJECTED
 | QUALITY_GATES.md | Canonical review criteria and thresholds |
 
 ## RELATED
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Canonical review criteria, thresholds, and scoring
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Canonical review criteria, thresholds, and scoring
 - [Review Chief](../../departments/review/SKILL.md) — Orchestrates review specialists
 - [Quality Engine](../quality/SKILL.md) — Consumes review results for quality gates
 - [QA Chief](../../departments/qa/SKILL.md) — Receives review reports for QA sign-off

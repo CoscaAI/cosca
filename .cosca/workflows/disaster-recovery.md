@@ -107,4 +107,4 @@ Execute disaster recovery procedures to restore system functionality after a cat
 - [Infrastructure Chief](../departments/infrastructure/SKILL.md)
 - [Disaster Recovery skill](../skills/reliability/DISASTER_RECOVERY.md)
 - [Incident Response skill](../skills/reliability/INCIDENT_RESPONSE.md)
-- [ENTERPRISE_REDUNDANCY.md](../ENTERPRISE_REDUNDANCY.md)
+- [ENTERPRISE_REDUNDANCY.md](../identidade/ENTERPRISE_REDUNDANCY.md)

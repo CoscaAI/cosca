@@ -51,7 +51,7 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 - Se a documentação descreve 34 comandos CLI mas o código tem 39, o código vence
 - Se um LLM sugere uma arquitetura que contradiz `internal/runtime/runtime.go`, o código vence
 
-**Mecanismo detalhado:** [CONFIDENCE_MODEL.md](engines/evidence/CONFIDENCE_MODEL.md)
+**Mecanismo detalhado:** [CONFIDENCE_MODEL.md](../engines/evidence/CONFIDENCE_MODEL.md)
 
 **Quem garante:** `cosca-discovery` — responsável por verificar código real vs claims.
 
@@ -73,7 +73,7 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 - Alterações de configuração devem ter `changed_by` e `reason`
 - O pipeline de metacognição (CRITIQUE OWN WORK) gera o rastro automaticamente
 
-**Mecanismo detalhado:** [metacognition-pipeline.md](workflows/metacognition-pipeline.md) — Estágio 6: CRITIQUE OWN WORK
+**Mecanismo detalhado:** [metacognition-pipeline.md](../fallback/workflows/metacognition-pipeline.md) — Estágio 6: CRITIQUE OWN WORK
 
 **Quem garante:** `cosca-audit` (via `internal/audit/`) — audita trilhas de decisão.
 
@@ -108,7 +108,7 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 - Agentes devem buscar `failures.md` de outros agentes antes de executar tasks em domínio similar
 - Repetir um failure mode conhecido sem justificativa reduz confiança em -0.15 (compounding)
 
-**Mecanismo detalhado:** [LEARNING_PROTOCOL.md](memory/LEARNING_PROTOCOL.md) — Negative Memory Format
+**Mecanismo detalhado:** [LEARNING_PROTOCOL.md](../fallback/memory/LEARNING_PROTOCOL.md) — Negative Memory Format
 
 **Quem garante:** `cosca-evolution` — monitora padrões de falha e propagação de lições.
 
@@ -124,7 +124,7 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 - Justificativas válidas: restrição de tempo, simplicidade suficiente, contexto não requer profundidade
 - Justificativas inválidas: "é mais fácil", "não lembrei da técnica avançada"
 
-**Mecanismo detalhado:** [metacognition-pipeline.md](workflows/metacognition-pipeline.md) — Estágio 3: PLAN STRATEGY
+**Mecanismo detalhado:** [metacognition-pipeline.md](../fallback/workflows/metacognition-pipeline.md) — Estágio 3: PLAN STRATEGY
 
 **Quem garante:** `cosca-evolution` — detecta regressão e alerta o Kernel.
 
@@ -140,7 +140,7 @@ Estes 8 princípios não podem ser violados por nenhum agente, em nenhuma circun
 - Entradas duplicadas (similaridade > 80%) são condensadas
 - Memória obsoleta não deve poluir o contexto dos agentes
 
-**Mecanismo detalhado:** [MEMORY_CURATION_ENGINE.md](engines/memory-curation/MEMORY_CURATION_ENGINE.md)
+**Mecanismo detalhado:** [MEMORY_CURATION_ENGINE.md](../engines/memory-curation/MEMORY_CURATION_ENGINE.md)
 
 **Quem garante:** `cosca-memory-chief` — executa ciclo de curadoria a cada 50 entradas ou 7 dias.
 
@@ -411,10 +411,10 @@ Esta Constituição é a autoridade máxima. Os documentos abaixo implementam as
 | [QUALITY_GATES.md](QUALITY_GATES.md) | 10 quality gates (G0-G9), métricas, thresholds | Implementa o passo 7 (VALIDAÇÃO) do ciclo de decisão |
 | [AGENT_DNA.md](AGENT_DNA.md) | 28 campos obrigatórios por agente, compliance checklist | Implementa P3 (rastro), P6 (evolução), estrutura de capability profile |
 | [KERNEL.md](KERNEL.md) | Especificação do Kernel, 5 mandamentos do consigliere | Implementa o papel do Kernel na cadeia de comando |
-| [metacognition-pipeline.md](workflows/metacognition-pipeline.md) | Pipeline de 8 estágios para execução de tasks | Implementa o ciclo de decisão (PARTE IV) para tasks de desenvolvimento |
-| [LEARNING_PROTOCOL.md](memory/LEARNING_PROTOCOL.md) | Formato de aprendizado, negative memory, confidence scoring | Implementa P5 (aprender com erros), P6 (evolução), P7 (curadoria) |
+| [metacognition-pipeline.md](../fallback/workflows/metacognition-pipeline.md) | Pipeline de 8 estágios para execução de tasks | Implementa o ciclo de decisão (PARTE IV) para tasks de desenvolvimento |
+| [LEARNING_PROTOCOL.md](../fallback/memory/LEARNING_PROTOCOL.md) | Formato de aprendizado, negative memory, confidence scoring | Implementa P5 (aprender com erros), P6 (evolução), P7 (curadoria) |
 | [ENTERPRISE_REDUNDANCY.md](ENTERPRISE_REDUNDANCY.md) | Failover, recuperação, modo degradado | Implementa G5 (modo degradado) |
-| [CONFIDENCE_MODEL.md](engines/evidence/CONFIDENCE_MODEL.md) | Modelo de confiança da informação, pesos, modificadores | Implementa P2 (hierarquia de fontes) com algoritmo detalhado |
+| [CONFIDENCE_MODEL.md](../engines/evidence/CONFIDENCE_MODEL.md) | Modelo de confiança da informação, pesos, modificadores | Implementa P2 (hierarquia de fontes) com algoritmo detalhado |
 
 ---
 

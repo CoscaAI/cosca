@@ -112,7 +112,7 @@ You own workflow definitions and pipeline orchestration. You define how work flo
 ## RELATED
 - [QA Chief](../qa/SKILL.md) — Workflow validation
 - [CTO](../cto/SKILL.md) — Workflow architecture approval
-- [GOVERNANCE.md](../../GOVERNANCE.md) — Workflow governance rules
+- [GOVERNANCE.md](../../identidade/GOVERNANCE.md) — Workflow governance rules
 - [workflows/](../../workflows/) — Workflow definition files
 
 ## HISTORY

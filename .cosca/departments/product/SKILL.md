@@ -111,7 +111,7 @@ You are the Product Chief. You translate user needs into product requirements, d
 - [CEO](../ceo/SKILL.md) — Strategic approval
 - [CTO](../cto/SKILL.md) — Technical execution
 - [UI/UX Chief](../uiux/SKILL.md) — Design specifications
-- [Kernel](../../KERNEL.md) — User communication
+- [Kernel](../../identidade/KERNEL.md) — User communication
 - [Wizard Engine](../../engines/wizard/SKILL.md) — Feature workflow
 
 ## HISTORY

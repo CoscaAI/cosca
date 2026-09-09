@@ -139,7 +139,7 @@ Run the A/B meta-loop for a skill (ADR-8101, incremento 1) and promote a candida
 
 - [Meta-loop A/B (internal/skilleval)](../../internal/skilleval) — `RunAB`, robust summary, candidate + gate semantics
 - [skill-eval CLI](../../internal/cli/skill_eval.go) — `cosca skill benchmark | history | eval`
-- [Catalog gate](../QUALITY_GATES.md) — gate de catálogo `cosca gate catalog`
+- [Catalog gate](../identidade/QUALITY_GATES.md) — gate de catálogo `cosca gate catalog`
 - [AUTO-EVOLUTION PROTOCOL](../shared/AUTO_EVOLUTION_PROTOCOL.md) — stages 7-8 evidence-based promotion
 - [ADR-001](docs/adr/ADR-001-cosca-cli-architecture.md) — canonical ADR template the skill generates
 

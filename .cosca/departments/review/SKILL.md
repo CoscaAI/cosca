@@ -124,7 +124,7 @@ You own the review process. You review all code, architecture changes, and deliv
 - QA testing (delegate to QA Chief)
 
 ## RELATED
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2 code quality checks enforced by review
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2 code quality checks enforced by review
 - [Security Chief](../security/SKILL.md) — Security review coordination
 - [Architecture Chief](../architecture/SKILL.md) — Architecture compliance
 - [QA Chief](../qa/SKILL.md) — Quality standards

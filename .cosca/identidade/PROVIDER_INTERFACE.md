@@ -91,7 +91,7 @@ O framework Cosca tambem abstrai uma modalidade de **audio** para interacao por 
 
 - Roteamento e failover seguem a mesma abstracao de provider definida neste documento.
 - Audio nunca sai da maquina — 100% local.
-- Gerenciado pelo [Voice Engine](engines/voice/SKILL.md); veja a capacidade `voice.local` no [KERNEL.md](KERNEL.md).
+- Gerenciado pelo [Voice Engine](../engines/knowledge/SKILL.md); veja a capacidade `voice.local` no [KERNEL.md](KERNEL.md).
 
 ## 2. REGRAS DE ROTEAMENTO DE TAREFAS
 
@@ -247,10 +247,10 @@ Estado: HALF_OPEN → (sucesso) → CLOSED | (falha) → OPEN
 ## RELACIONADOS
 - [KERNEL.md](KERNEL.md) — Ponto de entrada da orquestracao
 - [RUNTIME_CONTRACT.md](RUNTIME_CONTRACT.md) — Interface do runtime que consome providers
-- [departments/ai/SKILL.md](departments/ai/SKILL.md) — Chefe de IA (estrategia de selecao de provider)
-- [departments/monitoring/SKILL.md](departments/monitoring/SKILL.md) — Monitoramento de saude do provider
-- [engines/observability/SKILL.md](engines/observability/SKILL.md) — Metricas de custo e latencia
-- [engines/voice/SKILL.md](engines/voice/SKILL.md) — Voice Engine (modalidade de audio TTS/STT)
+- [departments/ai/SKILL.md](../engines/knowledge/SKILL.md) — Chefe de IA (estrategia de selecao de provider)
+- [departments/monitoring/SKILL.md](../engines/knowledge/SKILL.md) — Monitoramento de saude do provider
+- [engines/observability/SKILL.md](../engines/knowledge/SKILL.md) — Metricas de custo e latencia
+- [engines/voice/SKILL.md](../engines/knowledge/SKILL.md) — Voice Engine (modalidade de audio TTS/STT)
 
 ## HISTORICO
 

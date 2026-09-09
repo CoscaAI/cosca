@@ -203,7 +203,7 @@ Response: { type, payload, status, errors }
 
 ## 9. VERSIONED CONTRACTS (v2.0.0)
 
-> Decisão: [ADR-7423](knowledge/architecture/adr/adr-7423-versioned-contracts.md). Padrão
+> Decisão: [ADR-7423](../fallback/knowledge/architecture/adr/adr-7423-versioned-contracts.md). Padrão
 > adaptado do framework `versioned-rpc` do Traycer (open-source, MIT) — ver
 > `.cosca/memory/project/traycer-analysis.md`.
 
@@ -251,9 +251,9 @@ de todo runtime (CLI, API, dashboard, plugins). Nenhum método fora do registry.
 - [KERNEL.md](KERNEL.md) — Orquestração do Kernel
 - [MEMORY_MODEL.md](MEMORY_MODEL.md) — Taxonomia de memória
 - [QUALITY_GATES.md](QUALITY_GATES.md) — Definições de quality gates
-- [engines/resource-resolver/SKILL.md](engines/resource-resolver/SKILL.md) — Resolução de Caminhos Virtuais
-- [ADR-7423](knowledge/architecture/adr/adr-7423-versioned-contracts.md) — Decisão de versionamento
-- [BRIDGE_ARCHITECTURE.md](knowledge/architecture/BRIDGE_ARCHITECTURE.md) — Referência: ponte Host↔OpenCode (padrão Vercel AI SDK) para futuro bridge Cosca
+- [engines/resource-resolver/SKILL.md](../engines/knowledge/SKILL.md) — Resolução de Caminhos Virtuais
+- [ADR-7423](../fallback/knowledge/architecture/adr/adr-7423-versioned-contracts.md) — Decisão de versionamento
+- [BRIDGE_ARCHITECTURE.md](../fallback/knowledge/architecture/BRIDGE_ARCHITECTURE.md) — Referência: ponte Host↔OpenCode (padrão Vercel AI SDK) para futuro bridge Cosca
 
 ## HISTÓRICO
 

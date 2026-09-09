@@ -73,7 +73,7 @@
 > - [ ] Pass/fail recommendation clear
 >
 > ## Related
-> - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality gate definitions
+> - [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Quality gate definitions
 > - [Review Chief](../../departments/review/SKILL.md) — Review ownership
 > - [Security Chief](../../departments/security/SKILL.md) — Security review
 > - [Performance Chief](../../departments/performance/SKILL.md) — Performance review

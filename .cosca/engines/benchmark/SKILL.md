@@ -274,8 +274,8 @@ Date: 2026-07-12 | Benchmark Suite: v1.0 | Provider: Claude 3.5 Sonnet
 - [Learning Engine](../learning/SKILL.md) — Consumes benchmark data for agent optimization
 - [Evolution Engine](../evolution/SKILL.md) — Consumes regression data for skill improvements
 - [AI Chief](../../departments/ai/SKILL.md) — Provider selection strategy
-- [PROVIDER_INTERFACE.md](../../PROVIDER_INTERFACE.md) — Provider registry for comparison
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md) — Agent Memory schema
+- [PROVIDER_INTERFACE.md](../../identidade/PROVIDER_INTERFACE.md) — Provider registry for comparison
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md) — Agent Memory schema
 - [Observability Engine](../observability/SKILL.md) — Cross-reference with production metrics
 
 ## HISTORY

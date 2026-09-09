@@ -3,7 +3,7 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Memory Chief | **Created**: 2026-07-28
 >
 > **Upgrade**: [MEMORY_DECAY_ENGINE.md](MEMORY_DECAY_ENGINE.md) v1.0.0 — CurationScore v2.0 with frequency density, success rate, age decay, and conflict detection.
-> **Constitutional authority**: [CONSTITUTION.md](../../CONSTITUTION.md) — Implements P7 (Memória sem poluição).
+> **Constitutional authority**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) — Implements P7 (Memória sem poluição).
 > **Depends on**: [CONFIDENCE_MODEL.md](../evidence/CONFIDENCE_MODEL.md) — Uses EvidenceConfidence to evaluate memory entries.
 
 ---
@@ -474,4 +474,4 @@ After each cycle, the engine generates a report:
 
 ---
 
-> **Related**: [CONSTITUTION.md](../../CONSTITUTION.md) P7 | [CONFIDENCE_MODEL.md](../evidence/CONFIDENCE_MODEL.md) | [LEARNING_PROTOCOL.md](../../memory/LEARNING_PROTOCOL.md) | [AGENT_DNA.md](../../AGENT_DNA.md)
+> **Related**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) P7 | [CONFIDENCE_MODEL.md](../evidence/CONFIDENCE_MODEL.md) | [LEARNING_PROTOCOL.md](../../fallback/memory/LEARNING_PROTOCOL.md) | [AGENT_DNA.md](../../identidade/AGENT_DNA.md)

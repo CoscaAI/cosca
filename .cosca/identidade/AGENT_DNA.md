@@ -148,7 +148,7 @@ Definido em `capability-profile.md`. Resumo inline:
 | {dominio} | 0.00-1.00 | YYYY-MM-DD | up down igual |
 
 ## 27. PIPELINE DE METACOGNITAO
-**Obrigatorio**: Todas as tarefas passam pelo pipeline de metacognicao definido em [workflows/metacognition-pipeline.md](workflows/metacognition-pipeline.md).
+**Obrigatorio**: Todas as tarefas passam pelo pipeline de metacognicao definido em [workflows/metacognition-pipeline.md](../fallback/workflows/metacognition-pipeline.md).
 
 **Etapas**: AUTO-AVALIAR - RECUPERAR MEMORIA - PLANEJAR ESTRATEGIA - EXECUTAR - VERIFICAR RESULTADO - CRITICAR PROPRIO TRABALHO - EXTRAIR PADRAO - ATUALIZAR MODELO DE CAPACIDADE
 

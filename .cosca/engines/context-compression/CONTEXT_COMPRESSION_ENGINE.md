@@ -2,7 +2,7 @@
 
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Cosca Kernel | **Created**: 2026-07-28
 >
-> **Constitutional authority**: [CONSTITUTION.md](../../CONSTITUTION.md) — Implements G2 (Transparência total) and the principle of efficient context management.
+> **Constitutional authority**: [CONSTITUTION.md](../../identidade/CONSTITUTION.md) — Implements G2 (Transparência total) and the principle of efficient context management.
 > **Approved by**: Don — "Não guardar toda conversa. Guardar estado atual do projeto."
 
 ---

@@ -100,7 +100,7 @@ Systematically identify, prioritize, and resolve performance bottlenecks. Uses d
 - [Performance Chief](../departments/performance/SKILL.md)
 - [Performance Audit skill](../skills/performance/PERFORMANCE_AUDIT.md)
 - [Load Testing skill](../skills/performance/LOAD_TESTING.md)
-- [QUALITY_GATES.md](../QUALITY_GATES.md)
+- [QUALITY_GATES.md](../identidade/QUALITY_GATES.md)
 
 ## HISTORY
 | Version | Date | Author | Changes |

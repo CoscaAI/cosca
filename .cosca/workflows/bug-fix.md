@@ -111,7 +111,7 @@ None
 | Pattern already exists | Link to existing pattern, skip new entry |
 
 ## RELATED
-- [MEMORY_MODEL.md](../MEMORY_MODEL.md) — Bug memory store schema
+- [MEMORY_MODEL.md](../identidade/MEMORY_MODEL.md) — Bug memory store schema
 - [Workflow Engine](../engines/workflow/SKILL.md) — Workflow lifecycle
 - [Review Engine](../engines/review/SKILL.md) — Code review enforcement
 - [Architecture Chief](../departments/architecture/SKILL.md) — Fix design for complex bugs

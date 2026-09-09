@@ -205,11 +205,11 @@ CREATE → ACTIVE → ARCHIVE/PRUNE
 
 ## Related
 
-- [Memory Engine](engines/memory/SKILL.md) — Memory operations and auto-capture rules
-- [Memory Chief](departments/memory/SKILL.md) — Memory management
-- [Context Engine](engines/context/SKILL.md) — Context building from memory
-- [Learning Engine](engines/learning/SKILL.md) — Agent memory updates
-- [Evolution Engine](engines/evolution/SKILL.md) — Pattern and bug memory updates
+- [Memory Engine](../engines/knowledge/SKILL.md) — Memory operations and auto-capture rules
+- [Memory Chief](../engines/knowledge/SKILL.md) — Memory management
+- [Context Engine](../engines/knowledge/SKILL.md) — Context building from memory
+- [Learning Engine](../engines/knowledge/SKILL.md) — Agent memory updates
+- [Evolution Engine](../engines/knowledge/SKILL.md) — Pattern and bug memory updates
 - [KERNEL.md](KERNEL.md) — Memory loading at session start
 
 ---

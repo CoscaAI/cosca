@@ -98,7 +98,7 @@ The engine delegates heavy lifting to the Go binary's existing infrastructure:
 | 1.0.0 | 2026-07-28 | Cosca Kernel (por ordem do Don) | Initial Semantic Memory Engine |
 
 ## RELATED
-- [MEMORY_MODEL.md](../../MEMORY_MODEL.md)
+- [MEMORY_MODEL.md](../../identidade/MEMORY_MODEL.md)
 - [Memory Engine](../memory/SKILL.md)
 - [Knowledge Engine](../knowledge/SKILL.md)
 - [Learning Engine](../learning/SKILL.md)

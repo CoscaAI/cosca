@@ -127,10 +127,10 @@ You own application security. You design security architecture, audit code, scan
 - Product decisions
 - Database administration
 
-- [SECURITY_ARCHITECTURE.md](../../SECURITY_ARCHITECTURE.md) — Complete cybersecurity framework (8 domains, Zero Trust, OWASP, supply chain, AI security)
+- [SECURITY_ARCHITECTURE.md](../../identidade/SECURITY_ARCHITECTURE.md) — Complete cybersecurity framework (8 domains, Zero Trust, OWASP, supply chain, AI security)
 
 ## RELATED
-- [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.3 Security checks
+- [QUALITY_GATES.md](../../identidade/QUALITY_GATES.md) — Gate 2.3 Security checks
 - [Architecture Chief](../architecture/SKILL.md) — Security architecture alignment
 - [QA Chief](../qa/SKILL.md) — Security testing coordination
 - [DevOps Chief](../devops/SKILL.md) — Infrastructure security
