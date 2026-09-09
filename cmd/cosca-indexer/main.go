@@ -99,17 +99,19 @@ func main() {
 	// Collect all files to index
 	var files []fileEntry
 
-	// 1. Fonte de agente. A fonte VIVA de projeto (.opencode/cosca/memory/
-	// agent/**) é ingerida como origem de projeto. A cópia legada em
+	// 1. Fonte de agente. A fonte VIVA de projeto (.cosca/memory/agent/**)
+	// é ingerida como origem de projeto (fonte única curada). A cópia legada em
 	// .cosca/fallback/memory/agent é resquício do sync morto (derivada do
 	// embed canônico) — NÃO é ingerida para evitar indexação duplicada e
-	// conflitante do mesmo agente (o canônico diverge do fallback).
+	// conflitante do mesmo agente (o canônico diverge do fallback). O legado
+	// .opencode/cosca/memory/agent é redundante e NÃO é ingerido: a fonte
+	// curada agora vive em .cosca/.
 	// Passa pelo CLASSIFICADOR: só o que for persistente é indexado.
 	agentRoots := []struct {
 		dir    string
 		origin string
 	}{
-		{filepath.Join(projectRoot, ".opencode", "cosca", "memory", "agent"), "opencode"},
+		{filepath.Join(projectRoot, ".cosca", "memory", "agent"), "cosca"},
 	}
 	for _, ar := range agentRoots {
 		entries, err := os.ReadDir(ar.dir)
@@ -405,8 +407,8 @@ func metaFor(f fileEntry, projectRoot string) map[string]any {
 // de internal/embed/cosca/**). Fontes de agente são scope=project (o valor
 // final é confirmado pelo classificador no loop).
 // scopeFor decide o escopo pela ORIGEM física da fonte (não só pela categoria).
-//   - "opencode" (.opencode/cosca/memory/agent/**) → project (conhecimento VIVO
-//     do projeto — a fonte que o agente produz durante o trabalho).
+//   - "cosca" (.cosca/memory/agent/**) → project (conhecimento VIVO
+//     do projeto — a fonte única curada que o agente produz durante o trabalho).
 //   - "fallback" (.cosca/fallback/**) e "embed" (internal/embed/cosca/**) →
 //     global (cérebro embarcado: uma é a cópia materializada, a outra a fonte;
 //     ambas são conteúdo de framework, não conhecimento único do projeto).
@@ -416,7 +418,7 @@ func metaFor(f fileEntry, projectRoot string) map[string]any {
 // nunca vira global).
 func scopeFor(f fileEntry) string {
 	switch f.origin {
-	case "opencode":
+	case "cosca":
 		return knowledge.ScopeProject
 	case "fallback", "embed":
 		return knowledge.ScopeGlobal

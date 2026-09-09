@@ -11,18 +11,18 @@ import (
 
 // NewKnowledgeSemanticDiscoveryCommand cria `cosca knowledge discover-semantic <query>`.
 //
-// FASE 5.4 — descobrimento semântico ENTRE agentes: busca por SIGNIFICADO em
-// todo o corpus (cobertura completa após 5.3) e anota cada resultado com o
-// agente dono. Um console semântico que atravessa a família, sem confinar a um
+// FASE 5.4 â€” descobrimento semÃ¢ntico ENTRE agentes: busca por SIGNIFICADO em
+// todo o corpus (cobertura completa apÃ³s 5.3) e anota cada resultado com o
+// agente dono. Um console semÃ¢ntico que atravessa a famÃ­lia, sem confinar a um
 // agente/caminho.
 func NewKnowledgeSemanticDiscoveryCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "discover-semantic <query>",
-		Short: "Busca por significado em toda a família (atravessa agentes por sentido)",
-		Long: `Busca por SIGNIFICADO em todo o corpus de conhecimento (cobertura completa após a
-5.3) e anota cada resultado com o agente dono (.opencode/cosca/memory/agent/<nome>).
-Provando a recuperação ENTRE agentes: uma consulta semântica atravessa a família,
-não um único agente/caminho. É o modo "perguntar a família inteira por sentido".`,
+		Short: "Busca por significado em toda a famÃ­lia (atravessa agentes por sentido)",
+		Long: `Busca por SIGNIFICADO em todo o corpus de conhecimento (cobertura completa apÃ³s a
+5.3) e anota cada resultado com o agente dono (.cosca/memory/agent/<nome>).
+Provando a recuperaÃ§Ã£o ENTRE agentes: uma consulta semÃ¢ntica atravessa a famÃ­lia,
+nÃ£o um Ãºnico agente/caminho. Ã‰ o modo "perguntar a famÃ­lia inteira por sentido".`,
 		Example: `  cosca knowledge discover-semantic "seguranca de identidade da familia"
   cosca knowledge discover-semantic "como evitar erro no codigo"`,
 		Args: cobra.ExactArgs(1),
@@ -53,7 +53,7 @@ não um único agente/caminho. É o modo "perguntar a família inteira por senti
 				return printJSON(cmd, res)
 			}
 
-			formatter.Header(fmt.Sprintf("Descobrimento semântico — %d hits de %d agentes", len(res.Hits), res.DistinctAgents))
+			formatter.Header(fmt.Sprintf("Descobrimento semÃ¢ntico â€” %d hits de %d agentes", len(res.Hits), res.DistinctAgents))
 			keys := make([]string, 0, len(res.ByAgent))
 			for a := range res.ByAgent {
 				keys = append(keys, a)

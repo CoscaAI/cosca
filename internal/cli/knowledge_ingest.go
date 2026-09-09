@@ -34,7 +34,7 @@ O scope é decidido pelo classificador (path = proveniência física; scope =
 jurisdição semântica): origem de projeto → project; cérebro embarcado
 (internal/embed/cosca/**) → global. A ingestão NUNCA promove project→global.`,
 		Example: `  cosca knowledge ingest internal/embed/cosca/memory/agent/cosca-kernel/blocks/<hash>.md
-  cosca knowledge ingest .opencode/cosca/memory/agent/cosca-uiux/blocks/<hash>.md --agent cosca-uiux`,
+  cosca knowledge ingest .cosca/memory/agent/cosca-uiux/blocks/<hash>.md --agent cosca-uiux`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			formatter := GetFormatter(cmd)
