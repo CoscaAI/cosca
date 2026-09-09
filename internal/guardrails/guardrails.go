@@ -129,6 +129,12 @@ type Conflict struct {
 	NewResource string  `json:"new_resource"`
 	Similarity  float64 `json:"similarity"`
 	Note        string  `json:"note"`
+	// Proveniência de versão (id pai — hash do commit git): o conhecimento
+	// aponta de qual commit veio. Mesmo commit (mesma versão) + conclusão
+	// divergente = contradição mais provável (mesma versão não tem 2 verdades);
+	// commits diferentes = possível evolução. O Don decide (G5).
+	OldCommit string `json:"old_commit,omitempty"`
+	NewCommit string `json:"new_commit,omitempty"`
 }
 
 // DetectConflict detecta conflito entre duas versões (mesmo tema, conclusão

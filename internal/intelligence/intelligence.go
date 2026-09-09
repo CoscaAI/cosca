@@ -26,13 +26,14 @@ import (
 
 // Source é uma unidade de conhecimento considerada pelo engine.
 type Source struct {
-	ID         string    `json:"id"`
-	Content    string    `json:"content"`
-	Topic      string    `json:"topic"`
-	Evidence   int       `json:"evidence"`   // 0-5 (regra: >=4 é forte)
-	Confidence float64   `json:"confidence"` // 0-1
-	Recency    time.Time `json:"recency"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	Content      string    `json:"content"`
+	Topic        string    `json:"topic"`
+	Evidence     int       `json:"evidence"`   // 0-5 (regra: >=4 é forte)
+	Confidence   float64   `json:"confidence"` // 0-1
+	Recency      time.Time `json:"recency"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ParentCommit string    `json:"parent_commit"` // hash do commit git que gerou o aprendizado (proveniência de versão)
 }
 
 // SourceProvider fornece as fontes do conhecimento semântico da casa.
@@ -172,7 +173,17 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 			}
 			// o novo tem evidência melhor ou igual → sinaliza conflito (R6)
 			if inc.Evidence >= k.Evidence {
-				conflicts = append(conflicts, *guardrails.DetectConflict(k.ID, inc.ID, sim, true))
+				c := *guardrails.DetectConflict(k.ID, inc.ID, sim, true)
+				// Proveniência de versão (id pai): anexa os commits e calibra a
+				// nota. Mesmo commit = mesma versão → contradição mais provável.
+				c.OldCommit = k.ParentCommit
+				c.NewCommit = inc.ParentCommit
+				if k.ParentCommit != "" && k.ParentCommit == inc.ParentCommit {
+					c.Note = "conflito no MESMO commit (" + k.ParentCommit + ") — mesma versão, conclusões divergem; contradição provável (R6)"
+				} else {
+					c.Note = "conflito (conclusões divergem, commits " + k.ParentCommit + " vs " + inc.ParentCommit + ") — escala ao Don (R6)"
+				}
+				conflicts = append(conflicts, c)
 			}
 		}
 	}

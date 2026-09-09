@@ -3,6 +3,7 @@ package intelligence
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -60,24 +61,39 @@ func parseLearningsFile(agent, path string) []Source {
 	if err != nil {
 		return nil
 	}
-	return parseLearnings(agent, string(data))
+	// Proveniência de versão: o commit git que tocou este arquivo de learnings
+	// (id pai — Don, 2026-09-09). Conecta conhecimento ↔ versão de código.
+	parentCommit := gitCommitForFile(path)
+	return parseLearnings(agent, string(data), parentCommit)
+}
+
+// gitCommitForFile devolve o commit git (curto) que mais recentemente tocou o
+// arquivo (o "id pai" dos aprendizados nele). Vazio se indisponível (dir fora
+// do repo, erro de git, etc.) — o engine trata sem proveniência de versão.
+func gitCommitForFile(path string) string {
+	cmd := exec.Command("git", "log", "-1", "--format=%h", "--", path)
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // parseLearnings é a versão testável do parse (sem I/O).
-func parseLearnings(agent, content string) []Source {
+func parseLearnings(agent, content string, parentCommit string) []Source {
 	var srcs []Source
 	lines := strings.Split(content, "\n")
 	for _, line := range lines {
 		if !indexLineRe.MatchString(line) {
 			continue
 		}
-		srcs = append(srcs, lineToSource(agent, strings.TrimSpace(line)))
+		srcs = append(srcs, lineToSource(agent, strings.TrimSpace(line), parentCommit))
 	}
 	return srcs
 }
 
 // lineToSource converte uma linha de índice em um Source determinístico.
-func lineToSource(agent, line string) Source {
+func lineToSource(agent, line string, parentCommit string) Source {
 	// split por "|" (formato do índice)
 	parts := strings.Split(line, "|")
 	content := line
@@ -146,11 +162,12 @@ func lineToSource(agent, line string) Source {
 	}
 
 	return Source{
-		ID:         id,
-		Content:    content,
-		Topic:      topic,
-		Evidence:   evidence,
-		Confidence: confidence,
-		Recency:    recency,
+		ID:           id,
+		Content:      content,
+		ParentCommit: parentCommit,
+		Topic:        topic,
+		Evidence:     evidence,
+		Confidence:   confidence,
+		Recency:      recency,
 	}
 }
