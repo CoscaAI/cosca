@@ -14,6 +14,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/CoscaAI/cosca/internal/config"
 	"github.com/CoscaAI/cosca/internal/env"
 	"github.com/CoscaAI/cosca/internal/grpcclient"
 )
@@ -163,7 +164,14 @@ func TestResolveDataDir_EmptyDefaults(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := filepath.Join(tmpDir, ".cosca")
+	// A funÃ§Ã£o Ã© CONFIG-FIRST (soberana): prefere o caminho absoluto do projeto
+	// (config.Paths.Project) sobre o CWD â€” o CWD Ã© frÃ¡gil (comando de um dir
+	// aninhado resolveria .cosca relativo e duplicaria o segmento). O CWD sÃ³ Ã©
+	// usado como fallback quando o config nÃ£o tem Paths.Project.
+	want := filepath.Join(tmpDir, ".cosca") // fallback (CWD)
+	if cfg, err := config.Load(); err == nil && cfg.Paths.Project != "" {
+		want = filepath.Join(cfg.Paths.Project, ".cosca") // config-first
+	}
 	if dir != want {
 		t.Errorf("dir = %q, want %q", dir, want)
 	}
@@ -352,13 +360,13 @@ func TestRecordSessionOnShutdown_CreatesRecord(t *testing.T) {
 }
 
 // =============================================================================
-// runServe integration — exercises initialization path up to server start
+// runServe integration â€” exercises initialization path up to server start
 // =============================================================================
 
 func TestRunServe_Integration_EarlyInit(t *testing.T) {
-	// Shutdown é disparado por sinal (os.Interrupt via Process.Signal), que
-	// não é suportado no Windows — o servidor nunca pararia e o durable.db
-	// ficaria aberto (falha de cleanup do TempDir, que não apaga arquivo em uso).
+	// Shutdown Ã© disparado por sinal (os.Interrupt via Process.Signal), que
+	// nÃ£o Ã© suportado no Windows â€” o servidor nunca pararia e o durable.db
+	// ficaria aberto (falha de cleanup do TempDir, que nÃ£o apaga arquivo em uso).
 	if runtime.GOOS == "windows" {
 		t.Skip("signal-based shutdown (os.Interrupt) is not supported on Windows")
 	}
@@ -416,9 +424,9 @@ func TestRunServe_Integration_EarlyInit(t *testing.T) {
 }
 
 func TestRunServe_Integration_ExplicitDataDir(t *testing.T) {
-	// Shutdown é disparado por sinal (os.Interrupt via Process.Signal), que
-	// não é suportado no Windows — o servidor nunca pararia e o durable.db
-	// ficaria aberto (falha de cleanup do TempDir, que não apaga arquivo em uso).
+	// Shutdown Ã© disparado por sinal (os.Interrupt via Process.Signal), que
+	// nÃ£o Ã© suportado no Windows â€” o servidor nunca pararia e o durable.db
+	// ficaria aberto (falha de cleanup do TempDir, que nÃ£o apaga arquivo em uso).
 	if runtime.GOOS == "windows" {
 		t.Skip("signal-based shutdown (os.Interrupt) is not supported on Windows")
 	}
@@ -473,9 +481,9 @@ func TestRunServe_Integration_ExplicitDataDir(t *testing.T) {
 }
 
 func TestRunServe_Integration_WithEnvFile(t *testing.T) {
-	// Shutdown é disparado por sinal (os.Interrupt via Process.Signal), que
-	// não é suportado no Windows — o servidor nunca pararia e o durable.db
-	// ficaria aberto (falha de cleanup do TempDir, que não apaga arquivo em uso).
+	// Shutdown Ã© disparado por sinal (os.Interrupt via Process.Signal), que
+	// nÃ£o Ã© suportado no Windows â€” o servidor nunca pararia e o durable.db
+	// ficaria aberto (falha de cleanup do TempDir, que nÃ£o apaga arquivo em uso).
 	if runtime.GOOS == "windows" {
 		t.Skip("signal-based shutdown (os.Interrupt) is not supported on Windows")
 	}
@@ -571,7 +579,7 @@ func TestRunServe_Wrapper_HistoricalSignature(t *testing.T) {
 }
 
 // =============================================================================
-// --api-only (FASE 2 — DDNA-2026-08-07-001)
+// --api-only (FASE 2 â€” DDNA-2026-08-07-001)
 // =============================================================================
 
 // TestServeCommand_APIONlyFlags verifies the --api-only / --runtime-grpc-addr
@@ -621,15 +629,15 @@ func TestServeCommand_APIONlyFlags(t *testing.T) {
 // TestRunServe_APIONly_NoDaemonPID verifies that --api-only boots the REST
 // server WITHOUT starting the internal background daemon:
 //
-//   - bootstrap.Compose is called with EnableDaemon=false → the daemon is
-//     never created → NO <dataDir>/cosca.pid file is written (the FASE 2
-//     contract — no PID file, no sync/backup loop);
+//   - bootstrap.Compose is called with EnableDaemon=false â†’ the daemon is
+//     never created â†’ NO <dataDir>/cosca.pid file is written (the FASE 2
+//     contract â€” no PID file, no sync/backup loop);
 //   - a RuntimeClient is wired to --runtime-grpc-addr (pointed at a closed
-//     loopback port — the client is lazy, so boot never dials it);
+//     loopback port â€” the client is lazy, so boot never dials it);
 //   - the server still shuts down gracefully via SIGINT.
 func TestRunServe_APIONly_NoDaemonPID(t *testing.T) {
-	// Shutdown é disparado por sinal (os.Interrupt via Process.Signal), que
-	// não é suportado no Windows — o servidor nunca pararia dentro do timeout.
+	// Shutdown Ã© disparado por sinal (os.Interrupt via Process.Signal), que
+	// nÃ£o Ã© suportado no Windows â€” o servidor nunca pararia dentro do timeout.
 	if runtime.GOOS == "windows" {
 		t.Skip("signal-based shutdown (os.Interrupt) is not supported on Windows")
 	}
@@ -687,7 +695,7 @@ func TestRunServe_APIONly_NoDaemonPID(t *testing.T) {
 	// The daemon MUST NOT have started in api-only mode: no PID file.
 	pidPath := filepath.Join(dataDir, "cosca.pid")
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
-		t.Errorf("api-only mode created PID file %s — daemon should NOT run", pidPath)
+		t.Errorf("api-only mode created PID file %s â€” daemon should NOT run", pidPath)
 	}
 
 	// Stop the server gracefully.
