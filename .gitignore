@@ -258,3 +258,10 @@ E:\trainer
 
 # Junction .opencode/cosca -> .cosca (o git NAO segue - fonte real e .cosca/).
 .opencode/cosca/
+
+# Laboratory - experimentos/campanhas (nao versiona; e lugar de trials e calibracao)
+# Unica excecao: o que o Don quiser promover manualmente. Se quiser re-versar, remover daqui.
+laboratory/
+
+# Backups - nunca versionar
+*.bak*
