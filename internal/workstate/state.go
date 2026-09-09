@@ -236,7 +236,12 @@ func (st *State) resetDelta() {
 	st.delta = make(map[string]string)
 	st.deleted = make(map[string]bool)
 	st.touched = make(map[string]bool)
-	st.touchSeq = make(map[string]uint64)
+	// touchSeq é PRESERVADO (não resetado): guarda a ordem histórica de
+	// atualização (seq) das entradas — essencial para o LRU. Sem isso, após um
+	// Checkpoint as entradas do base perdem a ordem e o leastRecentlyTouched
+	// não distingue qual é a mais antiga, evictando arbitrariamente (bug que
+	// quebrava o invariante "evicção é permanente" no TestStateRollbackAfterPruning).
+	// Entradas removidas são limpas via dropEntry/deleteInternal.
 }
 
 // DirtyKeys devolve, deterministicamente (ordenado), as chaves que mudaram
