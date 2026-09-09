@@ -12,7 +12,7 @@ func TestStripHTML(t *testing.T) {
 	cases := []struct{ name, in, want string }{
 		{"removes tags", "<p>oi <b>chefe</b></p>", "oi chefe"},
 		{"no tags", "texto limpo", "texto limpo"},
-		{"keeps internal spaces", " a \n b \t c ", "a  \n b \t c "},
+		{"keeps internal spaces", " a \n b \t c ", "a \n b \t c"},
 		{"strips entities none", "&amp;", "&amp;"},
 	}
 	for _, c := range cases {
