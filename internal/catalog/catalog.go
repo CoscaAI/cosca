@@ -7,16 +7,16 @@
 //
 //   Invariant A (index):       every catalog column is one of the four
 //                              collections (agents/skills/engines/departments)
-//                              under .opencode/cosca and MUST ship an INDEX.md.
-//   Invariant B (frontmatter): every SKILL.md/PROMPT.md under .opencode/cosca
+//                              under .cosca and MUST ship an INDEX.md.
+//   Invariant B (frontmatter): every SKILL.md/PROMPT.md under .cosca
 //                              MUST declare `name` (kebab-case, non-empty) and
 //                              `description` (non-empty); `level`, when present,
 //                              MUST be an integer 1-5.
 //   Invariant C (cross-refs):  every relative link in any *.md under
-//                              .opencode/cosca MUST point at an existing file
+//                              .cosca MUST point at an existing file
 //                              (http/https/mailto/tel/ftp/data/#/anchor/schemes
 //                              are ignored). This closes the dangling-ref gap.
-//   Invariant D (mojibake):    every *.md under .opencode/cosca MUST be clean
+//   Invariant D (mojibake):    every *.md under .cosca MUST be clean
 //                              UTF-8. No double-encoded (mojibake) sequences
 //                              from re-encoded em dashes/quotes/nbsp. A lone
 //                              `â` (C3 A2) is NOT a finding — it is a legit
@@ -40,7 +40,7 @@
 // Everything is deterministic: files are walked with filepath.Walk, results
 // are sorted by path, and output is byte-identical across platforms. No exec,
 // no fixed path inside internal/embed/cosca, no LLM. The root is always passed
-// in explicitly (default ".opencode/cosca" resolved by the caller).
+// in explicitly (default ".cosca" resolved by the caller).
 package catalog
 
 import (
@@ -63,9 +63,9 @@ const ManifestFileName = "catalog.manifest"
 // ManifestVersion is the schema version of the snapshot format.
 const ManifestVersion = 1
 
-// Collections are the top-level cataloged directories under .opencode/cosca.
+// Collections are the top-level cataloged directories under .cosca.
 // They are the ONLY directories scanned for catalog columns; everything else
-// in .opencode/cosca (memory, shared, scripts, workflows, ...) is bystander.
+// in .cosca (memory, shared, scripts, workflows, ...) is bystander.
 var Collections = []string{"agents", "skills", "engines", "departments"}
 
 // WhitelistNames are directory names that hold scaffold/transient content and
@@ -118,20 +118,20 @@ type Violation struct {
 
 // Stats summarizes what the gate inspected.
 type Stats struct {
-	MdFiles   int  `json:"md_files"`   // *.md files traversed (not checked)
-	Prompts   int  `json:"prompts"`    // SKILL.md/PROMPT.md files examined
-	Columns   int  `json:"columns"`    // catalog columns discovered
-	Links     int  `json:"links"`      // relative links resolved
-	Manifest  bool `json:"manifest"`   // snapshot present?
-	Mojibakes int  `json:"mojibake"`   // mojibake sequences detected
+	MdFiles   int  `json:"md_files"` // *.md files traversed (not checked)
+	Prompts   int  `json:"prompts"`  // SKILL.md/PROMPT.md files examined
+	Columns   int  `json:"columns"`  // catalog columns discovered
+	Links     int  `json:"links"`    // relative links resolved
+	Manifest  bool `json:"manifest"` // snapshot present?
+	Mojibakes int  `json:"mojibake"` // mojibake sequences detected
 }
 
 // Report is the outcome of a drift check or an invariant audit.
 type Report struct {
 	Root       string      `json:"root"`
-	Mode       string      `json:"mode"`   // "check" (drift) or "audit" (invariants)
-	Pass       bool        `json:"pass"`   // no findings
-	Drift      bool        `json:"drift"`  // manifest mismatch present (check mode)
+	Mode       string      `json:"mode"`  // "check" (drift) or "audit" (invariants)
+	Pass       bool        `json:"pass"`  // no findings
+	Drift      bool        `json:"drift"` // manifest mismatch present (check mode)
 	Violations []Violation `json:"violations"`
 	Stats      Stats       `json:"stats"`
 }
@@ -412,7 +412,7 @@ func checkFrontmatter(root string, rep *Report) error {
 //     img.png, path, ...). These intentionally reference a conceptual target.
 //  3. Out-of-catalog references that CLIMB ABOVE the audit root (e.g.
 //     ../../../.github/workflows/ci.yml, or links into internal/embed/cosca/...).
-//     These target the monorepo, NOT the .opencode/cosca tree, and are valid
+//     These target the monorepo, NOT the .cosca tree, and are valid
 //     cross-tree references. The root is always passed in explicitly.
 func checkCrossReferences(root string, rep *Report) error {
 	return filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
@@ -499,7 +499,7 @@ func falsePositiveLink(dest string) bool {
 // outOfTreeReference reports whether a (cleaned) link destination resolves to a
 // path that CLIMBS ABOVE the audit root. Such links target the monorepo (e.g.
 // ../../../.github/workflows/ci.yml) or another tree (internal/embed/cosca/...)
-// rather than the .opencode/cosca catalog, so they are valid cross-tree
+// rather than the .cosca catalog, so they are valid cross-tree
 // references and must NOT be reported as dangling.
 func outOfTreeReference(dir, dest, root string) bool {
 	absTarget := filepath.Clean(filepath.Join(dir, filepath.FromSlash(dest)))
@@ -595,8 +595,8 @@ func scanMojibake(data []byte, rel string, rep *Report) {
 			if bytes.HasPrefix(data[i:], pat.bytes) {
 				rep.Stats.Mojibakes++
 				rep.Violations = append(rep.Violations, Violation{
-					Kind:   KindMojibake,
-					Path:   rel,
+					Kind: KindMojibake,
+					Path: rel,
 					Detail: fmt.Sprintf("sequência mojibake %s (bytes %x) no byte %d — era %s",
 						pat.label, pat.bytes, i, pat.orig),
 				})

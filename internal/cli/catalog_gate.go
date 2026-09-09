@@ -9,7 +9,7 @@
 //
 // O model é generate-and-diff, determinístico, com DUAS operações ortogonais:
 //
-//   --generate          regenera o snapshot canônico (.opencode/cosca/catalog.manifest)
+//   --generate          regenera o snapshot canônico (.cosca/catalog.manifest)
 //                       com a lista ordenada de INDEX esperados + nomes canônicos.
 //                       O snapshot é o CONTRATO (versionado no git).
 //   --check  (default)  DIF de DRIFT: compara a árvore viva com o snapshot.
@@ -43,13 +43,13 @@ import (
 	"github.com/CoscaAI/cosca/internal/catalog"
 )
 
-// catalogRootFromCWD resolve o .opencode/cosca do diretório de trabalho.
+// catalogRootFromCWD resolve o .cosca (fonte única curada) do diretório de trabalho.
 func catalogRootFromCWD() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("getwd: %w", err)
+		return "", err
 	}
-	return filepath.Join(cwd, ".opencode", "cosca"), nil
+	return filepath.Join(cwd, ".cosca"), nil
 }
 
 // NewGateCatalogCommand cria a subárvore `cosca gate catalog`.
@@ -69,7 +69,7 @@ func NewGateCatalogCommand() *cobra.Command {
 
 DUAS OPERAÇÕES ORTOGONAIS:
 
-  --check  (default)  DIF DE DRIFT do snapshot canônico .opencode/cosca/catalog.manifest.
+  --check  (default)  DIF DE DRIFT do snapshot canônico .cosca/catalog.manifest.
                       Compara a árvore viva com o snapshot commitado. Deve PASSAR
                       (drift=0) e enforçar SÓ novo drift no futuro. NÃO avalia os
                       invariantes A/B/C. Se houver drift, falha e orienta rodar
@@ -87,7 +87,7 @@ DUAS OPERAÇÕES ORTOGONAIS:
                       Reporta contagens + exemplos e faz exit 0 (a menos que use
                       --strict). A dívida vira backlog visível, não trava a esteira.
 
-  --generate          Regenera o contrato canônico .opencode/cosca/catalog.manifest
+  --generate          Regenera o contrato canônico .cosca/catalog.manifest
                       (lista ordenada de INDEX esperados + nomes canônicos).
 
 Flags:
@@ -121,7 +121,7 @@ Exemplos:
 		},
 	}
 
-	cmd.Flags().BoolVar(&generate, "generate", false, "regenerar o snapshot canônico .opencode/cosca/catalog.manifest (em vez de checar)")
+	cmd.Flags().BoolVar(&generate, "generate", false, "regenerar o snapshot canônico .cosca/catalog.manifest (em vez de checar)")
 	cmd.Flags().BoolVar(&check, "check", false, "verificar DRIFT do snapshot (default; exit non-zero em drift)")
 	cmd.Flags().BoolVar(&audit, "audit", false, "auditar os 4 invariantes como débito não-bloqueante (em vez de checar drift)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "com --audit: tornar achados bloqueantes (exit 1)")
@@ -262,7 +262,7 @@ func printDriftReport(formatter *OutputFormatter, rep *catalog.Report) {
 	formatter.Header("Próximos passos")
 	formatter.Bullet("Há drift de contrato ✓")
 	formatter.Bullet("Rode: cosca gate catalog --generate")
-	formatter.Bullet("Depois: commit do .opencode/cosca/catalog.manifest")
+	formatter.Bullet("Depois: commit do .cosca/catalog.manifest")
 }
 
 // printAuditReport renderiza o relatório humano da auditoria (débito não-bloqueante).
