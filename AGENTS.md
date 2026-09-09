@@ -154,6 +154,17 @@ A memória vive em arquivos `.md` em `.cosca/memory/`:
 **Protocolo de auto-evolução:** `.cosca/shared/AUTO_EVOLUTION_PROTOCOL.md`.
 Busque na memória ANTES de tarefas; registre aprendizados DEPOIS.
 
+**COSCA FORMAT (obrigatório pós-edição):** todo `.md`/`.yaml`/`.json` editado deve
+passar pelo formatador da casa (encoding UTF-8, sem BOM, sem espaços finais, EOL
+limpo) antes de validar/commitar:
+```powershell
+powershell -File .cosca/scripts/format-cosca.ps1 -fix   # corrige
+powershell -File .cosca/scripts/format-cosca.ps1 -check # verifica
+```
+> **Enforcement por código:** o pre-commit hook (`.githooks/pre-commit`) roda o
+> format em `--fix` automaticamente antes de TODO commit — nada com whitespace
+> sujo/encoding quebrado entra no git. Código Go/TS: `gofmt` / `make fmt`.
+
 ```bash
 cosca memory register        # registra aprendizado
 cosca memory list / show <id>

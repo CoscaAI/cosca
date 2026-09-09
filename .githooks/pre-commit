@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# pre-commit — roda o COSCA FORMAT (format-cosca.ps1) antes de todo commit.
+# Padrao da casa por CODIGO, nao por disciplina: nada com whitespace sujo,
+# encoding quebrado ou BOM inconsistente entra no git.
+#
+# Windows: o git-for-windows executa hooks SEM extensao (este arquivo) via
+# bash embutido e NAO invoca pre-commit.cmd sozinho. Detecta Windows e delega
+# para o wrapper .cmd (logica equivalente em cmd.exe).
+set -u
+
+if [ "${OS:-}" = "Windows_NT" ] || uname -s 2>/dev/null | grep -qiE 'mingw|msys|cygwin'; then
+  HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+  HOOK_DIR_WIN="$(cygpath -w "$HOOK_DIR" 2>/dev/null)"
+  if [ -n "$HOOK_DIR_WIN" ] && [ -f "$HOOK_DIR/pre-commit.cmd" ]; then
+    cmd //c call "$HOOK_DIR_WIN\\pre-commit.cmd" </dev/null
+    exit $?
+  fi
+  exit 0
+fi
+
+# Linux/WSL: roda o formatador via powershell (se disponivel) ou pwsh.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+SCRIPT="$REPO_ROOT/.cosca/scripts/format-cosca.ps1"
+if [ -f "$SCRIPT" ]; then
+  if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -File "$SCRIPT" -fix >/dev/null 2>&1
+  fi
+  # re-adiciona o que o formatador limpou
+  git add -u >/dev/null 2>&1
+fi
+exit 0
