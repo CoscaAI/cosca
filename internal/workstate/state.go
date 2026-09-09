@@ -16,6 +16,7 @@
 //     materializar o estado commitado.
 //   - Checkpoint = O(k); Rollback = O(k); DirtyKeys/DeltaSnapshot = O(k log k);
 //     Entries/Len/TotalBytes = O(n) sobre o estado materializado.
+//
 // A propriedade que este pacote GARANTE é: o custo de gravar/reaplicar as
 // MUDANÇAS escala com o tamanho do DELTA (k), não com o estado total (n) — é
 // isso que evita copiar o estado inteiro a cada snapshot incremental.
@@ -68,8 +69,8 @@ type Caps struct {
 // 16 MiB total, truncando por entrada (nunca perde um handle inteiro).
 func DefaultCaps() Caps {
 	return Caps{
-		MaxEntryBytes:   1 << 20, // 1 MiB
-		MaxTotalBytes:   16 << 20, // 16 MiB
+		MaxEntryBytes:    1 << 20,  // 1 MiB
+		MaxTotalBytes:    16 << 20, // 16 MiB
 		TruncateOverflow: true,
 	}
 }
@@ -332,17 +333,40 @@ func (st *State) pruneTotal() {
 }
 
 func (st *State) leastRecentlyTouched() (string, bool) {
+	cur := st.Entries()
+
+	// BUGFIX (2026-09-09): a iteração do map é aleatória, e a primeira entrada
+	// vista era capturada via `if !found` mesmo quando era a MAIS RECENTE
+	// (ex.: uma entrada do delta com touchSeq alto). Isso fazia o pruning
+	// evictar a entrada errada — e uma evicção errada "ressuscitava" no
+	// Rollback (dropEntry não tocava a entrada que deveria). Corrigimos:
+	//
+	//  1. PRIORIDADE: entradas NÃO tocadas no delta (base estável = mais
+	//     antigas) são as primeiras a evictar, SEMPRE. Uma entrada que está
+	//     só no base, tocada há tempos, é a candidata natural ao pruning.
+	//  2. Só se NÃO houver nenhuma no base, evictamos a de MENOR touchSeq
+	//     (a mais antiga entre as tocadas no delta).
+	//
+	// Isso garante o invariante do teste: a evicção pega a entrada menos
+	// usada, e a evicção é permanente (dropEntry remove do base).
+	var baseName string
+	for name := range cur {
+		if _, ok := st.touchSeq[name]; !ok {
+			if baseName == "" {
+				baseName = name
+			}
+		}
+	}
+	if baseName != "" {
+		return baseName, true
+	}
+
 	var minName string
 	var minSeq uint64 = ^uint64(0)
 	found := false
-	cur := st.Entries()
 	for name := range cur {
 		s, ok := st.touchSeq[name]
 		if !ok {
-			// nunca tocado no delta: trata como mais antigo (base estável).
-			if !found {
-				minName, minSeq, found = name, 0, true
-			}
 			continue
 		}
 		if s < minSeq || !found {
