@@ -109,6 +109,31 @@ func TestDetectConflicts_DifferentTopicNoConflict(t *testing.T) {
 	}
 }
 
+func TestDetectConflicts_DuplicateNotConflict(t *testing.T) {
+	now := time.Now()
+	eng := New(guardrails.DefaultDeps(), nil)
+
+	// MESMO aprendizado gravado 2x (conteúdo ~idêntico, só o ID muda)
+	known := []Source{
+		src("a/111", "devops", "Post-Commit Hook Execution #devops #git-hooks", 5, 0.9, now),
+	}
+	incoming := []Source{
+		src("a/222", "devops", "Post-Commit Hook Execution #devops #git-hooks", 5, 0.9, now),
+	}
+
+	// Duplicata (sim > 0.85) NÃO é conflito
+	conflicts := eng.DetectConflicts(known, incoming, 0.4)
+	if len(conflicts) != 0 {
+		t.Fatalf("duplicata nao deveria virar conflito, got %d", len(conflicts))
+	}
+
+	// Mas é detectada como DUPLICATA (para condensar R2)
+	dups := eng.DetectDuplicates(known, incoming)
+	if len(dups) == 0 {
+		t.Fatal("esperava duplicata detectada")
+	}
+}
+
 // ============================================================
 // PROMOÇÃO (R4) — gateada
 // ============================================================

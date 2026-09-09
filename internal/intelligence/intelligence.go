@@ -138,8 +138,16 @@ func (e *Engine) Plan(ctx context.Context) (*Plan, error) {
 // CONFLITO (R6) — detecta, NÃO resolve (escala ao Don)
 // ============================================================
 
-// DetectConflicts compara fontes novas contra as atuais e sinaliza conflitos.
-// Só detecta e escalar — quem decide é o Don (guardrails G5).
+// DetectConflicts compara fontes novas contra as atuais e sinaliza CONFLITOS
+// reais (R6). Diferencia DUPLICATA de CONFLITO:
+//   - sim > duplicateSimilarityThreshold (0.85): MESMO aprendizado gravado de
+//     novo (duplicata) — NÃO é conflito, é redundância para condensar (R2).
+//     Não sinaliza como conflito (o Don não resolve "duplicata" como
+//     contradição).
+//   - similarityThreshold <= sim <= duplicateSimilarityThreshold: conclusões
+//     que DIVERGEM de fato (mesmo tema, conteúdo diferente) → conflito R6.
+//
+// Só detecta e escala — quem decide é o Don (guardrails G5).
 func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold float64) []guardrails.Conflict {
 	var conflicts []guardrails.Conflict
 
@@ -148,15 +156,17 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 			if inc.ID == k.ID {
 				continue
 			}
-			// mesmo tópico
 			if inc.Topic != k.Topic {
 				continue
 			}
-			// conclusões divergem (representação: conteúdo diferente + evidência melhor)
 			if inc.Content == k.Content {
 				continue
 			}
 			sim := similarityApprox(inc.Content, k.Content)
+			// duplicata (mesmo aprendizado): condensar, não conflito
+			if sim > duplicateSimilarityThreshold {
+				continue
+			}
 			if sim < similarityThreshold {
 				continue
 			}
@@ -168,6 +178,40 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 	}
 
 	return conflicts
+}
+
+// duplicateSimilarityThreshold: acima dele, duas fontes são o MESMO aprendizado
+// (duplicata), não conclusões divergentes. Usado para não confundir redundância
+// (condensar/R2) com contradição (conflito/R6).
+const duplicateSimilarityThreshold = 0.85
+
+// DetectedDuplicate é um par de fontes que são o mesmo aprendizado gravado mais
+// de uma vez (similaridade muito alta) — candidatos à condensação (R2).
+type DetectedDuplicate struct {
+	SourceA    string  `json:"source_a"`
+	SourceB    string  `json:"source_b"`
+	Similarity float64 `json:"similarity"`
+}
+
+// DetectDuplicates retorna os pares duplicados (mesmo aprendizado, sim > 0.85)
+// para a curadoria R2 (condensar) — separado dos CONFLITOS. Não tem relação com
+// a regra de ouro: duplicata é redundância, não divergência.
+func (e *Engine) DetectDuplicates(known, incoming []Source) []DetectedDuplicate {
+	var dups []DetectedDuplicate
+	for _, inc := range incoming {
+		for _, k := range known {
+			if inc.ID == k.ID || inc.ID <= k.ID {
+				continue // só um lado do par (evita A<->B e B<->A)
+			}
+			// Conteúdo idêntico OU quase idêntico = MESMO aprendizado (duplicata).
+			// Não se pula conteúdo igual — é o caso mais claro de duplicata.
+			sim := similarityApprox(inc.Content, k.Content)
+			if sim > duplicateSimilarityThreshold {
+				dups = append(dups, DetectedDuplicate{SourceA: k.ID, SourceB: inc.ID, Similarity: sim})
+			}
+		}
+	}
+	return dups
 }
 
 // ============================================================
