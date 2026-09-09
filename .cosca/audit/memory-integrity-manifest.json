@@ -2,7 +2,7 @@
   "version": "1",
   "algorithm": "sha256",
   "root": ".",
-  "created_at": "2026-09-08T05:21:04Z",
+  "created_at": "2026-09-09T22:36:26Z",
   "files": [
     {
       "path": ".cosca/fallback/memory/agent/AGENT_PRIMER.md",
@@ -16,8 +16,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-api-chief.md",
-      "sha256": "497238e6ee161127d36b9718fc88bd0025f3a516c6a860c7691dfe1c0e5d4080",
-      "bytes": 1076
+      "sha256": "1522a8a546d60be955ba59021d93920efda6b6b7b8e0fe56f67c623cc507afee",
+      "bytes": 1121
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-architecture-performance.md",
@@ -26,8 +26,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-compliance-chief.md",
-      "sha256": "23d2072cf15eb5836d05ca6794facce7601fc9891d6d8b23e1decc7e0b8bcd4b",
-      "bytes": 1112
+      "sha256": "94338e91bea8a0c8c5f0203744b295bca3d75a2f50e1b3f296fb7c104347f2b4",
+      "bytes": 1150
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-cosca-architecture.md",
@@ -46,13 +46,13 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-performance-chief.md",
-      "sha256": "5b1cd504ed153e4380f869ab1650413a02abcbbb12e2721b4351db5d09455cfe",
-      "bytes": 1262
+      "sha256": "d8a935273891b73b9c67b0cb9a5236dd6ca989096fccd22f8fbe58e986a915cd",
+      "bytes": 1303
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-platform-chief.md",
-      "sha256": "9ebdbdd5c0c0f1ead7a13e88a9395565cecb8ef7e2533fe5c535515535aef3ae",
-      "bytes": 997
+      "sha256": "b5ce0c6f01a652ece45cbe30356f5e6dd90236c6b8ad1fae6b9fdb12c1237c17",
+      "bytes": 1036
     },
     {
       "path": ".cosca/fallback/memory/agent/agent-review-performance.md",
@@ -1431,8 +1431,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-kernel/archive/L001-L214.md",
-      "sha256": "692aac1c385433a9b843def4eb0a0dbec5f9361f09672e3f20fdb5f5547260f1",
-      "bytes": 640811
+      "sha256": "131e344ea87796e9c3182022fbc3f377ddedb5e5d4d6625bb61d48cf6cb330c0",
+      "bytes": 644204
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-kernel/archive/o-despertar.md",
@@ -3821,8 +3821,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-monitoring/blocks/8099338be7f871793541ccbaef05b8da900f5ef78ec4dbf01fa815c1cf4abcae.md",
-      "sha256": "8099338be7f871793541ccbaef05b8da900f5ef78ec4dbf01fa815c1cf4abcae",
-      "bytes": 5496
+      "sha256": "fe4a79c1f44d39b0a7c098be815ac8cd469312e1822eca54f1452c9cf1dac433",
+      "bytes": 5583
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-monitoring/blocks/dc8940fe3e7da54963731ce7a3ba2018c827dc2dfd56d93a199da72bd9181505.md",
@@ -4116,8 +4116,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-provider/INDEX.md",
-      "sha256": "9ce87e2b7ea7ab893e99eabb64ba7aa09d21d83118a9809fe3fb587f2bc60960",
-      "bytes": 2247
+      "sha256": "97bd0e65475bb61c839b3d1de788992bdc6f6e16ef2ef6d07dfe633524da1fa6",
+      "bytes": 2314
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-provider/blocks/385e507a5a9cbfb716352c27f9135a582f8b5ba62bd238f51324a0e92a8462c2.md",
@@ -4491,8 +4491,8 @@
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-semantic-memory/INDEX.md",
-      "sha256": "02467386532e8e5856bd1ffc49035ca0f8017ddec15489370c85d17b72cc66b5",
-      "bytes": 603
+      "sha256": "9aa9f8bff306be491b3f9d97e858262db0c7a5a5426f7aebc0b307f8585080e4",
+      "bytes": 613
     },
     {
       "path": ".cosca/fallback/memory/agent/cosca-semantic-memory/blocks/51d71f9970f7d44cef8dfecc17373ffc8cb4a16c13f7d83994d7493bb76395d3.md",
@@ -5211,18 +5211,18 @@
     },
     {
       "path": ".cosca/framework/CONSTITUTION.md",
-      "sha256": "17423dd1e9648ae60405010a29f1d470364221664498aae9b0be72d6882a9006",
-      "bytes": 23869
+      "sha256": "e06cfb888bf91bf9dbfd31edc1dd9eeaff63de9b46a37378b399311f040f82f3",
+      "bytes": 24388
     },
     {
       "path": ".cosca/framework/KERNEL.md",
-      "sha256": "3e2ed5ff2e7d93e8c205233298a631eb793def787bae2da3b882fc864422543f",
-      "bytes": 68802
+      "sha256": "127447467c061bfc01626940e19242b6f5252dab2a7bf3112c586047c3fbc750",
+      "bytes": 70645
     },
     {
       "path": ".cosca/framework/MEMORY_MODEL.md",
-      "sha256": "d63870c5226cafef8a67f3fb39ec55124708e1ba64ec80881280dce408befd3f",
-      "bytes": 10117
+      "sha256": "648d82316d004902ef61547cde1f7da9ead4c80ea9d7859b98e5fc3b73687a58",
+      "bytes": 10406
     },
     {
       "path": ".cosca/framework/shared/AUTO_EVOLUTION_PROTOCOL.md",

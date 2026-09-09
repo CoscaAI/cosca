@@ -264,8 +264,77 @@ func (e *Engine) DetectDuplicates(known, incoming []Source) []DetectedDuplicate 
 }
 
 // ============================================================
-// PROMOÃ‡ÃƒO (R4) â€” propÃµe elevar a global (GATEADA)
+// SAÚDE COGNITIVA — índice de auto-inspeção (novo e melhor que o spec antigo)
 // ============================================================
+//
+// Inspirado (como REFERÊNCIA) nos specs antigos do backup (Entropia Cognitiva,
+// B1-B5) — mas MUITO melhor: é DETERMINÍSTICO e mede os dados REAIS do motor
+// (conflitos, duplicatas, obsolescência, proveniência), não uma heurística
+// manual. 100 = conhecimento saudável; 0 = caos.
+
+// HealthReport é o índice de saúde cognitiva do conhecimento da casa.
+type HealthReport struct {
+	Health            int     `json:"health"` // 0-100 (100 = perfeito)
+	ConflictScore     float64 `json:"conflict_score"`
+	DuplicateScore    float64 `json:"duplicate_score"`
+	StalenessScore    float64 `json:"staleness_score"`
+	ProvenanceScore   float64 `json:"provenance_score"`
+	Conflicts         int     `json:"conflicts"`
+	Duplicates        int     `json:"duplicates"`
+	Sources           int     `json:"sources"` // aprendizados únicos
+	MissingProvenance int     `json:"missing_provenance"`
+}
+
+// Health calcula o índice de saúde a partir dos dados REAIS que o motor já
+// produz (conflitos R6, duplicatas R2, recency decay, proveniência).
+func (e *Engine) Health(srcs []Source, conflicts []guardrails.Conflict, dups []DetectedDuplicate) HealthReport {
+	total := len(srcs)
+	if total == 0 {
+		return HealthReport{Health: 100}
+	}
+
+	// Conflitos: cada conflito penaliza (cap em 100)
+	cScore := clamp01(float64(len(conflicts)) / float64(total) * 100)
+
+	// Duplicatas: redundância penaliza (heu: pares/sources)
+	dScore := clamp01(float64(len(dups)) / float64(total) * 100)
+
+	// Obsolescência: fontes muito antigas (recency)
+	stale := 0
+	for _, s := range srcs {
+		if recencyScore(s.Recency) <= 0.1 { // >90 dias
+			stale++
+		}
+	}
+	sScore := clamp01(float64(stale) / float64(total) * 100)
+
+	// Proveniência: fontes sem commit nem data
+	noProv := 0
+	for _, s := range srcs {
+		if s.ParentCommit == "" && s.ParentDate == "" {
+			noProv++
+		}
+	}
+	pScore := clamp01(float64(noProv) / float64(total) * 100)
+
+	// Saúde = 100 - média ponderada (conflito pesa mais — corrompe decisão)
+	health := int(100 - (0.35*cScore + 0.25*dScore + 0.20*sScore + 0.20*pScore))
+	if health < 0 {
+		health = 0
+	}
+
+	return HealthReport{
+		Health:            health,
+		ConflictScore:     cScore,
+		DuplicateScore:    dScore,
+		StalenessScore:    sScore,
+		ProvenanceScore:   pScore,
+		Conflicts:         len(conflicts),
+		Duplicates:        len(dups),
+		Sources:           total,
+		MissingProvenance: noProv,
+	}
+}
 
 // PromoteProposal constrÃ³i uma proposta GATEADA de promoÃ§Ã£o.
 // Passa pelo freio (guardrails) â€” sem aprovaÃ§Ã£o do Don, Ã© sÃ³ proposta.

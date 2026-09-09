@@ -60,6 +60,7 @@ Subcomandos:
 		NewIntelligencePlanCommand(),
 		NewIntelligenceConflictsCommand(),
 		NewIntelligenceDuplicatesCommand(),
+		NewIntelligenceHealthCommand(),
 		NewIntelligenceGateCommand(),
 	)
 	return cmd
@@ -214,6 +215,57 @@ nunca edita — a aplicação da condensação é decisão sua (gate do Don).`,
 			}
 			formatter.Table([]string{"Similaridade", "Fonte A", "Fonte B"}, rows)
 			formatter.KeyValue("Modo", "shadow-first (G3) — nada foi condensado/alterado")
+			return nil
+		},
+	}
+}
+
+// NewIntelligenceHealthCommand cria `cosca intelligence health` — o índice de
+// SÁÚDE cognitiva (auto-inspeção do Kernel). Melhor que o spec antigo: é
+// determinístico e mede os dados reais do motor (conflitos, duplicatas,
+// obsolescência, proveniência). Shadow-first: só mede, nunca altera.
+func NewIntelligenceHealthCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "health",
+		Short: "Índice de saúde cognitiva do conhecimento (auto-inspeção, 0-100)",
+		Long: `Índice de saúde do conhecimento da casa — inspirado (referência) nos
+specs antigos (Entropia Cognitiva, B1-B5) mas MUITO melhor: é determinístico e
+mede os dados reais do motor (conflitos R6, duplicatas R2, obsolescência,
+proveniência). 100 = conhecimento saudável; 0 = caos. Shadow-first: só mede.`,
+		Example: `  cosca intelligence health
+  cosca intelligence health --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			formatter := GetFormatter(cmd)
+			useJSON := IsJSONOutput(cmd)
+
+			memDir, err := resolveMemoryDir()
+			if err != nil {
+				return err
+			}
+			eng := intelligence.New(guardrails.DefaultDeps(), intelligence.MemoryProvider(memDir))
+			srcs, err := eng.Sources(cmd.Context())
+			if err != nil {
+				return err
+			}
+			conflicts := eng.DetectConflicts(srcs, srcs, 0.4)
+			dups := eng.DetectDuplicates(srcs, srcs)
+			report := eng.Health(srcs, conflicts, dups)
+
+			if useJSON {
+				return printJSON(cmd, report)
+			}
+
+			formatter.Header(fmt.Sprintf("SAÚDE COGNITIVA: %d/100", report.Health))
+			formatter.KeyValue("Fontes (aprendizados únicos)", fmt.Sprintf("%d", report.Sources))
+			formatter.KeyValue("Conflitos (R6)", fmt.Sprintf("%d", report.Conflicts))
+			formatter.KeyValue("Duplicatas (R2)", fmt.Sprintf("%d", report.Duplicates))
+			formatter.KeyValue("Sem proveniência", fmt.Sprintf("%d", report.MissingProvenance))
+			formatter.KeyValue("Escs. conflito", fmt.Sprintf("%.1f", report.ConflictScore))
+			formatter.KeyValue("Escs. duplicata", fmt.Sprintf("%.1f", report.DuplicateScore))
+			formatter.KeyValue("Escs. obsolescência", fmt.Sprintf("%.1f", report.StalenessScore))
+			formatter.KeyValue("Escs. proveniência", fmt.Sprintf("%.1f", report.ProvenanceScore))
+			formatter.Warning("Modo: shadow-first (G3) — mede, nunca altera. Conhecimento íntegro = decisão melhor.")
 			return nil
 		},
 	}
