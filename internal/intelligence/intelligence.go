@@ -94,6 +94,14 @@ func weightPriority(s Source) float64 {
 	return clamp01(p)
 }
 
+// Sources retorna as fontes de conhecimento (via o provider).
+func (e *Engine) Sources(ctx context.Context) ([]Source, error) {
+	if e.sources == nil {
+		return nil, errors.New("engine sem fonte de conhecimento")
+	}
+	return e.sources(ctx)
+}
+
 // Plan retorna o curriculum ordenado por prioridade descendente.
 func (e *Engine) Plan(ctx context.Context) (*Plan, error) {
 	if e.sources == nil {

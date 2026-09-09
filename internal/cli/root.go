@@ -177,6 +177,7 @@ Documentation: https://cosca.enterprise/docs
 		NewTraceCommand(),
 		NewConflictCommand(),
 		NewEvidenceCommand(),
+		NewIntelligenceCommand(),
 		NewBudgetCommand(),
 		NewCostCommand(),
 		NewShadowCommand(),
