@@ -1,4 +1,4 @@
-﻿// Package knowledge â€” BASELINE DE RECALL portÃ¡vel (Fase A, ADR-030).
+// Package knowledge â€” BASELINE DE RECALL portÃ¡vel (Fase A, ADR-030).
 //
 // A revisÃ£o do CTO no ADR-029 exigiu: registrar baseline de recall ANTES de
 // qualquer refactor do motor (o gate verify/revalidate NÃƒO mede recall). Este

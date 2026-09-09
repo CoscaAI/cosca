@@ -9,29 +9,32 @@
 ## Progresso Geral
 
 ```
-FASE 1: Schema Design      [░░░░░░░░░░] 0%  (3-5 dias)
-FASE 2: Migration Script   [░░░░░░░░░░] 0%  (5-7 dias)
-FASE 3: DSMS Loop          [░░░░░░░░░░] 0%  (7-10 dias)
-FASE 4: Tests + Deploy     [░░░░░░░░░░] 0%  (3-5 dias)
+FASE 1: Schema Design      [██████████] 100%  (feito: 6 schemas SQL + storage + migrate_all)
+FASE 2: Migration Script   [░░░░░░░░░░] 0%    (NÃO IMPLEMENTADO: migrator ausente)
+FASE 3: DSMS Loop          [██████████] ~70%  (health/compact/archive/metrics/scheduler/loop existem)
+FASE 4: Tests + Deploy     [░░░░░░░░░░] ~10%  (intelligence testado; stubs do loop sem teste)
 
-TOTAL:                      [░░░░░░░░░░] 0%  (18-27 dias)
+TOTAL:                      [█████░░░░░] ~45%  (loop funcional; migrador = buraco central)
 ```
 
 ---
 
-## ⚠️ Status do Protótipo
+## ⚠️ Status do Protótipo (ESTADO REAL medido 2026-09-09)
 
 | Item | Status | Observação |
 |------|--------|------------|
-| Diretório criado | ⏳ PENDENTE | `internal/dsms/` |
-| Dados de teste | ⏳ PENDENTE | `dsms-test/` |
-| Schemas SQL | ⏳ PENDENTE | 6 bancos |
-| Código Go | ⏳ PENDENTE | Módulo isolado |
-| Testes unitários | ⏳ PENDENTE | Coverage > 80% |
-| Benchmark | ⏳ PENDENTE | vs sistema atual |
-| Validação Don | ⏳ PENDENTE | Gate de qualidade |
+| Diretório criado | ✅ FEITO | `internal/dsms/` (módulo Go próprio, isolado) |
+| Schemas SQL | ✅ FEITO | 6 schemas (`schema/001_core.sql` … `006_cache.sql` + `migrate_all.sql`) |
+| Código Go (loop) | ✅ FEITO | `dsms.go`, `storage`, `health`, `compact`, `archive`, `metrics`, `scheduler`, `loop`, `oracle`, `cli`, `cmd/dsms` |
+| Subsistema intelligence | ✅ FEITO + testado | `scanner`, `trainer`, `expander`, `distill`, `expert`, `pipeline`, `codeanalyzer`, `csnparser`, `rules` |
+| Migrator (Fase 2) | ❌ **NÃO EXISTE** | BURACO CENTRAL: nenhum `migrator.go`; 40+ bancos → 5 NÃO foi implementado |
+| Testes unitários | ⚠️ PARCIAL | intelligence 72-95% cobertura; stubs (archive/compact/health/metrics/loop) = **0%** |
+| Dados de teste | ❌ NÃO EXISTE | `dsms-test/` previsto no ADR, ausente |
+| Benchmark | ❌ PENDENTE | vs sistema atual |
+| Validação Don | ❌ PENDENTE | Gate de qualidade |
 
 **Regra:** Nada é integrado ao sistema atual até validação completa.
+**Estado:** build ✅ · vet ✅ · `go test ./...` ✅ (14 pacotes ok) · **`trainer.go` tinha BOM que quebrava `-cover` → CORRIGIDO.**
 
 ---
 
@@ -65,6 +68,15 @@ TOTAL:                      [░░░░░░░░░░] 0%  (18-27 dias)
 ---
 
 ## FASE 2: Migration Script
+
+> ⚠️ **BURACO CENTRAL:** Nenhum arquivo de migração existe em `internal/dsms/`.
+> Este é o núcleo do DSMS (consolidar 40+ bancos → 5). **Precisa ser construído.**
+> Owner: cosca-backend | Status: ❌ NÃO INICIADO
+
+### 2.0 Criar o pacote migrator (PRÉ-REQUISITO)
+- [ ] Criar `internal/dsms/migrator/` (pacote) + `migrator.go`
+- [ ] Criar `internal/dsms/migrations/` (migrações por domínio)
+- [ ] Criar `internal/dsms/migrator/migrator_test.go`
 
 ### 2.1 Migrator Core
 - [ ] Criar `internal/dsms/migrator.go`
@@ -239,14 +251,14 @@ TOTAL:                      [░░░░░░░░░░] 0%  (18-27 dias)
 | Métrica | Valor |
 |---------|-------|
 | Tarefas totais | 87 |
-| Tarefas concluídas | 0 |
+| Tarefas concluídas | ~39 (Fase 1 completa + Fase 3 parcial + intelligence) |
 | Tarefas em andamento | 0 |
-| Tarefas pendentes | 87 |
-| Bloqueios | 0 |
-| Dias decorridos | 0 |
-| Dias restantes estimados | 18-27 |
+| Tarefas pendentes | ~48 (Fase 2 migrator ausente + testes stubs + deploy) |
+| Bloqueios | 1 (migrator não iniciado — buraco central) |
+| Dias decorridos | 1 (2026-09-08 → 09) |
+| Dias restantes estimados | 18-27 (Fase 2 + 4 pendentes) |
 
 ---
 
 **Tracker atualizado por:** cosca-kernel
-**Última atualização:** 2026-09-08
+**Última atualização:** 2026-09-09 (estado real medido: build ✅ / vet ✅ / teste ok / trainer BOM corrigido)

@@ -20,7 +20,16 @@ if exist "%FORMAT_SCRIPT%" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%FORMAT_SCRIPT%" -fix >nul 2>&1
 )
 
-rem --- Re-adiciona o que o formatador limpou (whitespace/encoding/BOM) ---
+rem --- GOFMT: formata os arquivos .go staged (padrao Go da casa) ---
+rem Fecha o buraco do padrao: nada de .go nao-formatado entra no commit.
+where gofmt >nul 2>&1
+if %errorlevel%==0 (
+    for /f "usebackq delims=" %%g in (`git diff --cached --name-only --diff-filter=ACM 2^>nul ^| findstr /i /e ".go"`) do (
+        if exist "%REPO_ROOT%\%%g" gofmt -w "%REPO_ROOT%\%%g"
+    )
+)
+
+rem --- Re-adiciona o que o formatador limpou (whitespace/encoding/BOM/gofmt) ---
 git add -u >nul 2>&1
 
 exit /b 0

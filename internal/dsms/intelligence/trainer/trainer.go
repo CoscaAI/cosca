@@ -1,4 +1,4 @@
-﻿// Package trainer connects the Intelligence Engine to the REAL knowledge base.
+// Package trainer connects the Intelligence Engine to the REAL knowledge base.
 // It reads the 118K entries from knowledge.db and distills them into
 // deterministic rules that the engine can use.
 package trainer

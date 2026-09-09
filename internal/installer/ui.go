@@ -1,4 +1,4 @@
-﻿// Package installer — UI AVANÇADA do provisioner (TUI bubbletea premium).
+// Package installer — UI AVANÇADA do provisioner (TUI bubbletea premium).
 //
 // A visão do professor: "a UI visualiza o que o Provisioner REALMENTE faz".
 // Esta TUI premium consome o event stream e renderiza em tempo real com:

@@ -1,4 +1,4 @@
-﻿// Package diagnostics tests for individual diagnostic checks.
+// Package diagnostics tests for individual diagnostic checks.
 package diagnostics
 
 import (

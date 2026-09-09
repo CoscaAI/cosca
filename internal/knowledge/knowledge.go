@@ -1,4 +1,4 @@
-﻿// Package knowledge provides the main Knowledge Engine for the Cosca Enterprise Platform.
+// Package knowledge provides the main Knowledge Engine for the Cosca Enterprise Platform.
 // It orchestrates indexing, search, graph construction, caching, and lifecycle management.
 package knowledge
 

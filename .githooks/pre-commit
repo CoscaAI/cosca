@@ -25,7 +25,17 @@ if [ -f "$SCRIPT" ]; then
   if command -v pwsh >/dev/null 2>&1; then
     pwsh -NoProfile -File "$SCRIPT" -fix >/dev/null 2>&1
   fi
-  # re-adiciona o que o formatador limpou
-  git add -u >/dev/null 2>&1
 fi
+
+# GOFMT: formata os arquivos .go staged (padrao Go da casa).
+# Fecha o buraco do padrao: nada de .go nao-formatado entra no commit.
+if command -v gofmt >/dev/null 2>&1; then
+  git diff --cached --name-only --diff-filter=ACM 2>/dev/null | \
+    grep -E '\.go$' | \
+    while IFS= read -r f; do gofmt -w "$REPO_ROOT/$f" >/dev/null 2>&1; done
+fi
+
+# re-adiciona o que o formatador limpou
+git add -u >/dev/null 2>&1
+
 exit 0

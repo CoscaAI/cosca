@@ -1,4 +1,4 @@
-﻿// Package opencode provides the OpenCode editor adapter for Cosca,
+// Package opencode provides the OpenCode editor adapter for Cosca,
 // integrating Cosca with OpenCode by configuring the project-level
 // .opencode/opencode.json agent and instructions file.
 //
