@@ -74,7 +74,7 @@ Aqui você informa o registro de decisões (em breve automático).`,
 			formatter.KeyValue("Reversões", strconv.Itoa(q.Reverted))
 			formatter.KeyValue("Taxa de sucesso", fmt.Sprintf("%.1f%%", q.SuccessRate*100))
 			formatter.KeyValue("Taxa de reversão", fmt.Sprintf("%.1f%%", q.RevertRate*100))
-			formatter.KeyValue("Cobertura de proteção", fmt.Sprintf("%.0f%% (meta: ≥80%)", q.ProtectionCoverage*100))
+			formatter.KeyValue("Cobertura de proteção", fmt.Sprintf("%.0f%% (meta: 80%%)", q.ProtectionCoverage*100))
 			formatter.Warning("Meta da L13: zero reversões da MESMA classe. Medir é a vacina contra o loop.")
 			return nil
 		},
