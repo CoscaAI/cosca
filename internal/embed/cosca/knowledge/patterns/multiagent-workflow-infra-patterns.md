@@ -1,7 +1,7 @@
 # DeerFlow + Argo Workflows + Crossplane — Multi-Agent & Workflow Patterns
 
-> **Sources**: DeerFlow (ByteDance fork), `argoproj/argo-workflows`, `crossplane/crossplane`  
-> **Analyzed**: 2026-08-09 — Web research + cross-agent analysis  
+> **Sources**: DeerFlow (ByteDance fork), `argoproj/argo-workflows`, `crossplane/crossplane`
+> **Analyzed**: 2026-08-09 — Web research + cross-agent analysis
 > **Confidence**: 0.91
 
 ## Intent

@@ -1,7 +1,7 @@
 # Cosca Knowledge Base — Schema Migrations
 
-> **Database:** `cosca.db` (materializado em runtime)  
-> **Localização:** `internal/embed/cosca/knowledge/schema/`  
+> **Database:** `cosca.db` (materializado em runtime)
+> **Localização:** `internal/embed/cosca/knowledge/schema/`
 > **Status:** active
 
 ## Visão Geral

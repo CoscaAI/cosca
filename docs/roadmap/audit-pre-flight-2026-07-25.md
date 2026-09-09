@@ -1,9 +1,9 @@
 # Pre-Flight Audit Report — Cosca
 
-> **Date:** 2026-07-25  
-> **Author:** Documentation Chief  
-> **Type:** Comprehensive pre-development verification audit  
-> **Methodology:** Codebase inspection, static analysis, build verification, test execution  
+> **Date:** 2026-07-25
+> **Author:** Documentation Chief
+> **Type:** Comprehensive pre-development verification audit
+> **Methodology:** Codebase inspection, static analysis, build verification, test execution
 
 ---
 
@@ -140,9 +140,9 @@ All **37** command groups registered in `internal/cli/root.go:96-134` were indiv
 
 ### 4.1 Server Architecture
 
-**File:** `api/rest/server.go` (295 lines)  
-**Port:** 14120 (REST API), 14121 (Prometheus metrics)  
-**Framework:** Go 1.22+ `http.ServeMux` with method-based routing  
+**File:** `api/rest/server.go` (295 lines)
+**Port:** 14120 (REST API), 14121 (Prometheus metrics)
+**Framework:** Go 1.22+ `http.ServeMux` with method-based routing
 
 ### 4.2 Middleware Stack (Verified)
 

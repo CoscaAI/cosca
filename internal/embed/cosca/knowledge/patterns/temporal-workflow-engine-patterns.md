@@ -1,7 +1,7 @@
 # Temporal Workflow Engine Patterns
 
-> **Source**: https://github.com/temporalio/temporal — MIT License, Go 1.26, monorepo  
-> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)  
+> **Source**: https://github.com/temporalio/temporal — MIT License, Go 1.26, monorepo
+> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)
 > **Confidence**: 0.95 (validado por leitura direta do código fonte: ~300+ arquivos-chave, 30+ interfaces críticas)
 
 ## Intent

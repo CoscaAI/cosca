@@ -1,6 +1,6 @@
 # Runtime Integration Test Report — Cosca v1.4.0-dev
 
-> **Generated**: 2026-07-28 | **Agent**: cosca-testing (Testing Chief)  
+> **Generated**: 2026-07-28 | **Agent**: cosca-testing (Testing Chief)
 > **Status**: ✅ Complete | **Quality Gate**: G3 passed (tests pass with `-race`)
 
 ---
@@ -132,7 +132,7 @@ r.events.Publish(ctx, EventStartupComplete, "runtime", nil)  // Move to line ~34
 
 **Test**: `TestBugU03_MetricsCountDiscrepancy`
 
-**Documented**: ~7 metrics (per architecture docs)  
+**Documented**: ~7 metrics (per architecture docs)
 **Actual**: 6 high-level categories, **19+ individual data points** in `MetricsSnapshot`:
 
 | # | Category | Sub-metrics |
@@ -235,5 +235,5 @@ All tests follow the Arrange-Act-Assert pattern:
 
 ---
 
-> **Verification**: `go test -v -race -run "TestStateMachine|TestRuntimeLifecycle|TestBugU" ./internal/runtime/` — all tests pass.  
+> **Verification**: `go test -v -race -run "TestStateMachine|TestRuntimeLifecycle|TestBugU" ./internal/runtime/` — all tests pass.
 > **Next**: CI integration, E2E test suite, soak test.

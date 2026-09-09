@@ -1,6 +1,6 @@
 # Workflow documental: Filogênese Cognitiva aplicada a agentes
 
-> **Status:** proposta para comparação futura — não implementado  
+> **Status:** proposta para comparação futura — não implementado
 > **Escopo da ordem:** somente documentação. Este arquivo não cria agentes, não altera routing, não promove memória e não executa mutações.
 
 ## Objetivo

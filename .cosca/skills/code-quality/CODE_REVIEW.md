@@ -1,17 +1,17 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Review Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # CODE REVIEW SKILL
-> 
+>
 > ## Description
 > Use this skill to perform comprehensive code reviews. Covers architecture compliance, code quality, security, performance, testing, and documentation aspects. Follows the quality gates defined in QUALITY_GATES.md.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | code_diff | Yes | Code changes to review |
 > | review_depth | Yes | `quick`, `standard`, `full` |
 > | focus_areas | No | `architecture`, `security`, `performance`, `testing`, `docs` |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
@@ -19,15 +19,15 @@
 > | Issues list | Issues found with severity and location |
 > | Score | Quality score (0-10) per QUALITY_GATES.md |
 > | Pass/fail | Overall review decision |
-> 
+>
 > ## Review Dimensions
-> 
+>
 > ### Architecture (Gate 2.1)
 > - Module boundaries respected
 > - Dependency direction correct
 > - ADR compliance
 > - Pattern consistency
-> 
+>
 > ### Code Quality (Gate 2.2)
 > - SOLID principles
 > - DRY (duplication < 5%)
@@ -36,7 +36,7 @@
 > - Cyclomatic complexity < 10
 > - No dead code
 > - No magic numbers
-> 
+>
 > ### Security (Gate 2.3)
 > - OWASP Top 10 check
 > - No hardcoded secrets
@@ -44,34 +44,34 @@
 > - Output encoding correct
 > - Parameterized queries
 > - Authentication/authorization checks
-> 
+>
 > ### Performance (Gate 2.4)
 > - N+1 queries check
 > - Missing indexes
 > - Lazy/eager loading review
 > - Synchronous blocking in async contexts
-> 
+>
 > ### Testing (Gate 2.5)
 > - Line coverage > 80%
 > - Happy path tested
 > - Edge cases tested
 > - Error paths tested
 > - Test independence
-> 
+>
 > ### Documentation (Gate 2.6)
 > - API docs updated
 > - ADR created if needed
 > - Changelog updated
 > - Code comments meaningful
 > - No TODOs without issue reference
-> 
+>
 > ## Success Criteria
 > - [ ] All relevant dimensions reviewed
 > - [ ] Issues categorized by severity
 > - [ ] Score calculated per QUALITY_GATES.md
 > - [ ] Actionable feedback provided
 > - [ ] Pass/fail recommendation clear
-> 
+>
 > ## Related
 > - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Quality gate definitions
 > - [Review Chief](../../departments/review/SKILL.md) — Review ownership

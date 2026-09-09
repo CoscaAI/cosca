@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-ai
 agent: cosca-ai
 type: prompt

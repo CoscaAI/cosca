@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-provider
 agent: cosca-provider
 type: prompt

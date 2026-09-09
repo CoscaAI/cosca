@@ -68,10 +68,10 @@ glob <path>
 ```
 
 **Criação de arquivo novo exige justificativa.** O agente deve conseguir responder:
-1. O arquivo existe? 
-2. Existe um equivalente que deveria ser alterado? 
-3. A arquitetura pede uma nova unidade? 
-4. Foi explicitamente solicitado este arquivo? 
+1. O arquivo existe?
+2. Existe um equivalente que deveria ser alterado?
+3. A arquitetura pede uma nova unidade?
+4. Foi explicitamente solicitado este arquivo?
 5. Algum código existente deveria mudar em vez disso?
 
 Se qualquer resposta for incerta → **não escreve**.
@@ -224,7 +224,7 @@ TOOL DISCIPLINE
 
 ## 15. A inclinação que distingue o COSCA
 
-> O COSCA não precisa aprender *"use Edit em vez de Write"*. 
+> O COSCA não precisa aprender *"use Edit em vez de Write"*.
 > O COSCA deve aprender **"qual operação é epistemicamente válida para a intenção atual?"**
 >
 > — *"quero encontrar"* → glob/grep · *"quero compreender"* → read/lsp · *"quero modificar"* → edit/patch · *"quero criar"* → write · *"quero provar"* → read/diff/test · *"não tenho certeza do alvo"* → **não mutar ainda**.

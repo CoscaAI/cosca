@@ -247,24 +247,24 @@ function run_decay_pipeline():
     for agent_path in glob("memory/agent/*/learnings.md"):
         learnings = parse_learnings_file(agent_path)
         all_learnings.extend(learnings)
-    
+
     // Fase 2: Cálculo
     contradictions = detect_contradictions(all_learnings)
-    
+
     for learning in all_learnings:
         time_score = calc_time_decay(learning)
         event_score = calc_event_decay(learning, recent_events)
         contradiction_penalty = get_contradiction_penalty(learning, contradictions)
-        
+
         learning.freshness = calc_freshness(learning, time_score, event_score, contradiction_penalty)
         learning.decay_type = classify_decay(learning.freshness)
         learning.next_action = get_action(learning.decay_type)
-    
+
     // Fase 3: Relatório
     report = generate_report(all_learnings, contradictions)
     save_decay_report(report)
     update_agent_learnings(all_learnings)
-    
+
     return report
 ```
 
@@ -302,7 +302,7 @@ recency_term = 1 - min(days_since_last_use / 365, 1.0)
 
 Onde:
   days_since_last_use = NOW - last_use_date  (data do último uso documentado)
-  
+
   Se last_use_date não existe → usa creation_date
   Se days_since_last_use ≤ 30 → recency_term = 1.0 (sem decay por uso recente)
 ```
@@ -365,7 +365,7 @@ review_term = 1 - min(days_since_last_review / 180, 1.0)
 
 Onde:
   days_since_last_review = NOW - last_review_date
-  
+
   Se last_review_date não existe → usa creation_date
   Se days_since_last_review ≤ 30 → review_term = 1.0
 ```
@@ -554,7 +554,7 @@ B3_knowledge_freshness = avg(freshness_score for all learnings used in task)
 Onde:
   Para cada task executada, calcula-se a média do freshness dos
   aprendizados referenciados.
-  
+
   Thresholds:
     avg_freshness ≥ 0.70 → 🟢 Conhecimento saudável
     0.40 ≤ avg_freshness < 0.70 → 🟡 Conhecimento parcialmente desatualizado

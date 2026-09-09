@@ -216,7 +216,7 @@ function resolve_conflict(claims):
     3. For each group, take MAX(EvidenceConfidence) as the group's confidence
     4. Sort groups by confidence (descending)
     5. Calculate difference = group[0].confidence - group[1].confidence
-    
+
     IF difference > 0.30:
         RETURN group[0]  // Clear winner
     ELIF difference > 0.10:
@@ -224,7 +224,7 @@ function resolve_conflict(claims):
         // Winner exists but close — flag for review
     ELSE:
         ESCALATE to Kernel  // Too close to call automatically
-    
+
     IF Kernel cannot resolve:
         ESCALATE to Don
 ```

@@ -66,7 +66,7 @@ Rotate secrets (API keys, database credentials, certificates, tokens) following 
 
 ### Step 6: Verification
 - **Chief**: Monitoring Chief
-- **Specialists**: — 
+- **Specialists**: —
 - **Task**: Verify all services operational, no auth errors
 - **Output**: Verification report
 

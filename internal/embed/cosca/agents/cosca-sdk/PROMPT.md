@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-sdk
 agent: cosca-sdk
 type: prompt

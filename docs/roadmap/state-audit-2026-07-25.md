@@ -2,9 +2,9 @@
 
 > **Note:** This document reflects the state after Phases 0-3 (2026-07-25). For the current post-Phase 4 state (2026-07-27), see the latest project audit report and the [Roadmap README](README.md) current state table.
 
-> **Date:** 2026-07-25  
-> **Author:** Documentation Chief  
-> **Status:** Historical — Phases 0 through 3 delivered in a single session. Phase 4 completed 2026-07-27.  
+> **Date:** 2026-07-25
+> **Author:** Documentation Chief
+> **Status:** Historical — Phases 0 through 3 delivered in a single session. Phase 4 completed 2026-07-27.
 > **Audience:** Development team, stakeholders, future contributors
 
 ---

@@ -1,12 +1,12 @@
 # E2E Test Scenarios — Cosca v1.4.0-dev
 
-> **Document Type**: Test Planning (E2E)  
-> **Version**: 1.0.0  
-> **Status**: draft  
-> **Owner**: cosca-specialist-testing-e2e  
-> **Created**: 2026-07-28  
-> **Related Risk**: [R10 — Sem E2E tests](../risk/RISK_REGISTRY.md#R10)  
-> **Cobertura atual**: ~78% unit + integration, 0% E2E de jornada completa  
+> **Document Type**: Test Planning (E2E)
+> **Version**: 1.0.0
+> **Status**: draft
+> **Owner**: cosca-specialist-testing-e2e
+> **Created**: 2026-07-28
+> **Related Risk**: [R10 — Sem E2E tests](../risk/RISK_REGISTRY.md#R10)
+> **Cobertura atual**: ~78% unit + integration, 0% E2E de jornada completa
 
 ---
 

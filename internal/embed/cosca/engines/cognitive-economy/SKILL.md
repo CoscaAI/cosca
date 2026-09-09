@@ -62,7 +62,7 @@ O Kernel já demonstrou consciência implícita de custo em decisões anteriores
  você não pode saber se ela valeu a pena.
  Se você não sabe se valeu a pena,
  você não pode decidir se deve repeti-la.
- 
+
  ★ F2.1 — Cognitive Economy é a ESTRELA da Fase 2.
    Ela transforma o Cosca de um sistema que gasta
    em um sistema que investe."

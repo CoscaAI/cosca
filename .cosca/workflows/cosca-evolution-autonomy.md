@@ -186,9 +186,9 @@ Exemplo:
   - Antiga > 90 dias (-0.15)
   - Contradita por go.mod (nível 5, código fonte)
   = 0.50 - 0.15 = 0.35 (baixa confiança)
-  
+
   vs
-  
+
   go.mod import "modernc.org/sqlite" (base 1.00)
   - Com evidência: arquivo go.mod, linha 8 (+0.15)
   - Validado cross-agent: cosca-database confirma (+0.10)
@@ -208,12 +208,12 @@ Quando duas fontes divergem:
 6. Kernel ainda em dúvida: escala para Don
 
 Exemplo real (Fase 1):
-  Afirmação A: "Banco é PostgreSQL" 
+  Afirmação A: "Banco é PostgreSQL"
     - Fonte: memory/database-architecture.md (confiança: 0.35)
   Afirmação B: "Banco é SQLite"
     - Fonte: go.mod linha 8 (confiança: 1.00)
     - Fonte: internal/sqlite/db.go (confiança: 1.00)
-  
+
   Diferença: 1.00 - 0.35 = 0.65 > 0.30
   Resultado: SQLite vence. Memória marcada como desatualizada.
 ```

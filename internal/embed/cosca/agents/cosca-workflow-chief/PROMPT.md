@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-workflow-chief
 agent: cosca-workflow-chief
 type: prompt

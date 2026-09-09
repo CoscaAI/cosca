@@ -1,9 +1,9 @@
 # gRPC Server Implementation Plan — Cosca v1.4.0-dev
 
-**Status**: PLANNING  
-**Author**: Architecture Chief + Backend Chief  
-**Date**: 2026-07-28  
-**Proto version**: protoc-gen-go-grpc v1.5.1, protoc v3.21.12  
+**Status**: PLANNING
+**Author**: Architecture Chief + Backend Chief
+**Date**: 2026-07-28
+**Proto version**: protoc-gen-go-grpc v1.5.1, protoc v3.21.12
 
 ---
 

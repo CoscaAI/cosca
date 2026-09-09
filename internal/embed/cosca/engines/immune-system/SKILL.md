@@ -349,7 +349,7 @@ A Camada 2 cria **regras dinâmicas** baseadas em recorrência. O algoritmo:
 function adaptive_immunity(agent, antigen):
     // Passo 1: Verifica recorrência no mesmo agente
     same_agent_count = count_occurrences(agent, antigen, window=30dias)
-    
+
     if same_agent_count >= 3:
         // Cria regra permanente para este agente
         create_permanent_rule(
@@ -360,10 +360,10 @@ function adaptive_immunity(agent, antigen):
             valid_until = null  // permanente até reversão explícita
         )
         log("Regra permanente criada: {agent} → {antigen}")
-    
+
     // Passo 2: Verifica recorrência em múltiplos agentes
     multi_agent_count = count_agents_with_pattern(antigen, window=30dias)
-    
+
     if multi_agent_count >= 3:
         affected_domains = extract_common_domains(agents_com_antigen)
         for domain in affected_domains:
@@ -374,11 +374,11 @@ function adaptive_immunity(agent, antigen):
                 valid_until = now + 30dias  // global rules são temporárias
             )
         log("Regra global criada: {affected_domains} → {antigen}")
-    
+
     // Passo 3: Verifica imunidade adquirida
     if count_corrections(agent, antigen) >= N_corrections  // 3-5
        AND tasks_since_last_incident(agent, antigen) >= X_tasks  // 10-20:
-        
+
         grant_immunity(
             agent = agent,
             antigen = antigen,
@@ -621,25 +621,25 @@ function immune_system_pipeline(agent, task_result):
     registry = load_trust_registry(agent)
     learnings = load_recent_learnings(agent, 48h)
     contradictions = load_recent_contradictions(agent, 48h)
-    
+
     // PASSO 2: Regras Inatas (< 50ms)
     detections = []
-    
+
     // AG-001: Superconfiança
-    if profile.confidence > 0.90 
+    if profile.confidence > 0.90
        and registry.success_rate.last_20 < 0.80
        and registry.total_tasks >= 5:
         detections.push({
             antigen: "AG-001",
             severity: "light",
-            evidence: {confidence: profile.confidence, 
+            evidence: {confidence: profile.confidence,
                       success_rate: registry.success_rate.last_20},
             action: "reduce_confidence",
             delta: -0.10
         })
-    
+
     // AG-003: Aprendizado Falso
-    if task_result.has_learning 
+    if task_result.has_learning
        and not task_result.has_evidence_in_diff
        and task_result.learning_type != "decision-only":
         detections.push({
@@ -648,7 +648,7 @@ function immune_system_pipeline(agent, task_result):
             evidence: {learning: task_result.learning, diff: task_result.diff},
             action: "quarantine_learning"
         })
-    
+
     // AG-004: Contradição Crônica
     if contradictions.has_active_pair_in_48h(agent):
         detections.push({
@@ -657,9 +657,9 @@ function immune_system_pipeline(agent, task_result):
             evidence: contradictions.get_active_pair(agent),
             action: "block_learning_until_review"
         })
-    
+
     // AG-005: Memória Inflada
-    if learnings.total >= 50 
+    if learnings.total >= 50
        and profile.patterns_extracted == 0
        and agent.age_days >= 7:
         detections.push({
@@ -668,7 +668,7 @@ function immune_system_pipeline(agent, task_result):
             evidence: {total_learnings: learnings.total, patterns: 0},
             action: "force_compression"
         })
-    
+
     // AG-002: Viés de Confirmação (check mais caro, executar sob demanda)
     if registry.last_10_decisions.all_without_alternative
        and registry.last_10_decisions.confidence_delta_avg < 0.01:
@@ -678,52 +678,52 @@ function immune_system_pipeline(agent, task_result):
             evidence: registry.last_10_decisions,
             action: "mandatory_contrafactual_gate"
         })
-    
+
     // Confidence sem lastro (regra extra, não é antígeno nominal)
     if profile.confidence > 0.5 and registry.total_tasks == 0:
         profile.confidence = min(profile.confidence, 0.5)
-    
+
     // PASSO 3: Verificar padrões históricos (< 50ms)
     for detection in detections:
         // Verifica imunidade (Camada 2)
         if has_immunity(agent, detection.antigen):
             continue  // Skip — agente imune
-        
+
         // Verifica recorrência 3x no mesmo agente
         if count_pattern(agent, detection.antigen, 30dias) >= 3:
             create_permanent_rule(agent, detection.antigen, detection.action)
-        
+
         // Verifica recorrência em 3+ agentes
         if count_agents_with_pattern(detection.antigen, 30dias) >= 3:
             create_global_rule(detection.antigen)
-    
+
     // PASSO 4: Aplicar ações por severidade (< 50ms)
     for detection in detections:
         if has_immunity(agent, detection.antigen):
             continue
-        
+
         switch detection.severity:
             case "light":
                 registry.confidence_delta -= 0.10
                 apply_vaccine(agent, detection)
-                
+
             case "moderate":
                 registry.confidence_delta -= 0.15
                 block_next_learning(agent)
                 trigger_contrafactual_gate(agent)
-                
+
             case "critical":
                 registry.confidence_delta -= 0.30
                 quarantine_learning(detection.evidence.learning)
                 create_ddna("IMM", agent, detection)
                 notify_don(agent, detection)
-    
+
     // PASSO 5: Atualizar memória imunológica (< 20ms)
     for detection in detections:
         if not has_immunity(agent, detection.antigen):
             register_vaccine(agent, detection)
             increment_pattern_count(agent, detection.antigen)
-    
+
     return {detections, vaccines_applied, total_duration_ms}
 ```
 

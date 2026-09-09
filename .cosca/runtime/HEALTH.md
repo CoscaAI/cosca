@@ -90,20 +90,20 @@ Indicates whether the component is ready to accept requests.
 ```yaml
 readiness_probe:
   purpose: "Determine if component can handle requests"
-  
+
   endpoint: "/health/ready"
   method: "GET"
   interval: "10s"
   timeout: "5s"
   success_threshold: 1
   failure_threshold: 3
-  
+
   checks:
     - "Component initialized"
     - "Dependencies available"
     - "Configuration loaded"
     - "Resources allocated"
-    
+
   response:
     healthy:
       status: 200
@@ -111,12 +111,12 @@ readiness_probe:
     unhealthy:
       status: 503
       body: { "status": "not_ready", "component": "name", "reason": "DB not connected" }
-      
+
   action_on_failure:
     - "Remove from service (load balancer)"
     - "Publish HealthStatusChanged event"
     - "After 3 consecutive failures → escalate"
-    
+
   aggregation:
     global_readiness: "All critical components ready"
 ```
@@ -128,20 +128,20 @@ Indicates whether the component is alive and functioning.
 ```yaml
 liveness_probe:
   purpose: "Detect deadlocked or hung components"
-  
+
   endpoint: "/health/live"
   method: "GET"
   interval: "30s"
   timeout: "10s"
   success_threshold: 1
   failure_threshold: 3
-  
+
   checks:
     - "Process responding"
     - "Main loop executing"
     - "No deadlocks detected"
     - "Memory not exhausted"
-    
+
   response:
     healthy:
       status: 200
@@ -149,7 +149,7 @@ liveness_probe:
     unhealthy:
       status: 503
       body: { "status": "dead", "component": "name", "reason": "heap exhausted" }
-      
+
   action_on_failure:
     - "Restart component"
     - "Preserve queued events"
@@ -163,20 +163,20 @@ Indicates whether the component has completed initialization.
 ```yaml
 startup_probe:
   purpose: "Determine if component has finished startup"
-  
+
   endpoint: "/health/startup"
   method: "GET"
   interval: "5s (during startup only)"
   timeout: "5s"
   success_threshold: 1
   failure_threshold: 30  # 150s max startup time
-  
+
   checks:
     - "Configuration parsed"
     - "Dependencies connected"
     - "Internal state initialized"
     - "First health check passed"
-    
+
   response:
     started:
       status: 200
@@ -184,7 +184,7 @@ startup_probe:
     not_started:
       status: 503
       body: { "status": "starting", "component": "name", "progress": "75%" }
-      
+
   action_on_failure:
     - "Retry startup"
     - "After 30 failures → crash loop detection"
@@ -278,10 +278,10 @@ Individual component health checks are aggregated into an **overall Runtime Heal
 component_health:
   component_id: "string"
   component_type: "database | cache | engine | provider | store | bus | agent"
-  
+
   current_status: "healthy | degraded | unhealthy | unknown"
   previous_status: "healthy | degraded | unhealthy | unknown"
-  
+
   checks:
     - check_name: "readiness"
       status: "pass | fail"
@@ -291,22 +291,22 @@ component_health:
       status: "pass | fail"
       latency_ms: 8
       last_checked: "ISO8601"
-      
+
   dependency_health:
     - dependency: "postgresql"
       status: "healthy | degraded | unhealthy"
       latency_ms: 5
-      
+
   circuit_breaker:
     state: "closed | open | half_open"
     tripped_count: 0
     last_tripped: "ISO8601 | null"
-    
+
   uptime:
     uptime_percentage: 99.95
     current_session_uptime_ms: 3600000
     last_downtime: "ISO8601 | null"
-    
+
   metadata:
     version: "1.0.0"
     started_at: "ISO8601"
@@ -365,7 +365,7 @@ Every health status change generates an event.
 ```yaml
 health_events:
   change_threshold: "Any status change (healthy↔degraded↔unhealthy)"
-  
+
   event_payload:
     event: "HealthStatusChanged"
     payload:
@@ -375,14 +375,14 @@ health_events:
       reason: "query_latency > 1s"
       latency_ms: 2300
       consecutive_failures: 2
-      
+
   notification_rules:
     healthy→degraded: "Log warning, publish event"
     healthy→unhealthy: "Log error, publish event, notify on-call"
     degraded→unhealthy: "Log critical, publish event, escalate"
     unhealthy→healthy: "Log info, publish event, close incident"
     degraded→healthy: "Log info, publish event"
-    
+
   escalation:
     level_1: "3 consecutive unhealthy checks → email to component owner"
     level_2: "5 consecutive unhealthy checks → SMS/PagerDuty to on-call"
@@ -404,7 +404,7 @@ recovery_status:
       duration_ms: 45000
       status: "in_progress | completed | failed"
       checkpoint_id: "uuid"
-      
+
   recovery_history:
     - component: "redis"
       recovery_type: "restart"
@@ -413,7 +413,7 @@ recovery_status:
       duration_ms: 12000
       status: "completed"
       success: true
-      
+
   recovery_metrics:
     - "recovery.count: total recoveries attempted"
     - "recovery.success_rate: successful / total"
@@ -436,7 +436,7 @@ failover_status:
     reason: "latency_threshold_exceeded"
     started_at: "ISO8601"
     duration_ms: 85000
-    
+
   failover_history:
     - from: "primary_db"
       to: "replica_db"
@@ -445,7 +445,7 @@ failover_status:
       resolved_at: "ISO8601"
       duration_ms: 34000
       success: true
-      
+
   failover_state_machine:
     states: ["ACTIVE", "FAILING_OVER", "FAILED_OVER", "FAILING_BACK", "RESOLVED"]
     transitions:
@@ -470,35 +470,35 @@ resource_health:
     critical_threshold: "90% utilization"
     action_warning: "Scale up workers"
     action_critical: "Throttle new sessions"
-    
+
   memory:
     check_interval: "15s"
     warning_threshold: "75% utilization"
     critical_threshold: "90% utilization"
     action_warning: "GC trigger, reduce cache TTL"
     action_critical: "OOM prevention: drop lowest-priority work"
-    
+
   disk:
     check_interval: "30s"
     warning_threshold: "80% utilization"
     critical_threshold: "95% utilization"
     action_warning: "Archive old data, compress logs"
     action_critical: "Stop non-essential writes, alert on-call"
-    
+
   network:
     check_interval: "30s"
     warning_threshold: "50% bandwidth utilization"
     critical_threshold: "80% bandwidth utilization"
     action_warning: "Throttle background sync"
     action_critical: "Prioritize essential traffic only"
-    
+
   file_descriptors:
     check_interval: "30s"
     warning_threshold: "60% of max"
     critical_threshold: "80% of max"
     action_warning: "Investigate leak"
     action_critical: "Restart component"
-    
+
   goroutines/threads:
     check_interval: "30s"
     warning_threshold: "10000 goroutines"
@@ -564,29 +564,29 @@ health_dashboard:
         - "Status badge: HEALTHY | DEGRADED | UNHEALTHY | CRITICAL"
         - "Health score gauge: 0-100%"
         - "Uptime: current session + 30-day rolling"
-        
+
     - name: "Component Health"
       widgets:
         - "Table: Component | Status | Latency | Uptime | CB State"
         - "Color-coded: green=healthy, yellow=degraded, red=unhealthy"
         - "Sort by: status (unhealthy first)"
-        
+
     - name: "Circuit Breakers"
       widgets:
         - "Table: Breaker | State | Tripped | Last Opened | Recovery ETA"
         - "Alert if any breaker is OPEN for > 5min"
-        
+
     - name: "Resource Utilization"
       widgets:
         - "Gauges: CPU, Memory, Disk, Network"
         - "Timeline: last hour of resource usage"
-        
+
     - name: "Recovery & Failover"
       widgets:
         - "Active recoveries: count + details"
         - "Failover status: current + history"
         - "Recovery success rate: pie chart"
-        
+
     - name: "Health Events Timeline"
       widgets:
         - "Timeline: health status changes over time"

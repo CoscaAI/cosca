@@ -95,7 +95,7 @@ cosca editor setup           # Sets up the detected editor
 
 ### Manual Setup by Editor
 
-| Editor | Setup Command | 
+| Editor | Setup Command |
 |--------|---------------|
 | OpenCode | `cosca editor setup opencode` |
 | Claude Code | `cosca editor setup claude` |

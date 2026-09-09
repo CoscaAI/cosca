@@ -10,7 +10,7 @@ paths:
   COSCA_HOME: null
 
   # PROJECT_ROOT: Current workspace (auto-detected from CWD)
-  # Set via: export PROJECT_ROOT=/custom/path  
+  # Set via: export PROJECT_ROOT=/custom/path
   PROJECT_ROOT: null
 
   # MEMORY_GLOBAL: Cross-project memory (auto: ${COSCA_HOME}/memory)

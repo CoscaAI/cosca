@@ -1,9 +1,9 @@
 # Cosca KERNEL — Runtime Specification v3
 
 > **Version**: 3.0.1 | **Status**: active | **Owner**: Cosca Kernel | **Last Updated**: 2026-07-28
-> 
+>
 > **Runtime Specification** — This document defines the official Cosca Runtime architecture. Every implementation (Go Runtime, Dashboard, API, CLI, SDKs, Database, Redis, pgvector, OpenCode, Claude Code, Codex, ADK-Go, and future integrations) MUST follow this specification exactly.
-> 
+>
 > **v3.0.1 Changes**: Semantic Memory Kernel integrated. Framework expanded to 41 departments, 30+ engines, 43 skills, 54 agents. See CHANGELOG.md for full history.
 
 ---
@@ -497,7 +497,7 @@ Feature Flags provide **runtime control** over which capabilities are active, in
 ```yaml
 flag_evaluation:
   algorithm: "Multi-layer evaluation with early exit"
-  
+
   evaluation_steps:
     step_1: "Check if flag exists in registry"
     step_2: "Check if flag is DISABLED → return false (immediate)"
@@ -507,11 +507,11 @@ flag_evaluation:
     step_6: "Check rollout percentage → if within %, return true"
     step_7: "Check flag dependencies → if dependency false, return false"
     step_8: "Return default value from flag definition"
-    
+
   caching:
     strategy: "Cache evaluation result for session duration"
     invalidation: "On flag change event (publish → invalidate cache)"
-    
+
   performance:
     p50_evaluation: "< 1µs (cached)"
     p50_evaluation: "< 100µs (uncached)"
@@ -544,38 +544,38 @@ Default Value (lowest priority)
 feature_flag:
   name: "runtime.parallel-execution"
   phase: "stable | beta | experimental | deprecated | disabled"
-  
+
   metadata:
     owner: "Runtime Chief"
     created: "2026-01-15"
     updated: "2026-07-15"
     description: "Parallel DAG execution"
     ticket: "Cosca-1234"
-    
+
   defaults:
     global: true
     development: true
     staging: true
     production: false  # Gradual rollout in prod
-    
+
   targeting:
     tenants: []  # Empty = all tenants
     users: []    # Empty = all users
     session_types: []  # Empty = all types
-    
+
   rollout:
     percentage: 100  # 0-100
     increment: 10    # Auto-increment percentage per day
     auto_progress: true  # Automatically move to next phase
-    
+
   dependencies:
     - flag: "runtime.dag-scheduler"
       required_value: true
-      
+
   overrides:
     allowed: true
     max_duration_minutes: 480  # 8 hours max override
-    
+
   audit:
     changes: true
     evaluations: false  # Log evaluation count only, not every eval
@@ -626,23 +626,23 @@ flag_targeting:
     tenant_based:
       description: "Enable flag for specific tenants only"
       use_case: "Multi-tenant gradual rollout"
-      
+
     user_based:
       description: "Enable flag for specific users/sessions"
       use_case: "Internal testing, dogfooding"
-      
+
     environment_based:
       description: "Enable flag in specific environments (dev/staging/prod)"
       use_case: "Environment-specific features"
-      
+
     percentage_based:
       description: "Enable flag for X% of sessions"
       use_case: "Gradual rollout, A/B testing"
-      
+
     dependency_based:
       description: "Only enable if dependent flag is enabled"
       use_case: "Feature depends on another feature"
-      
+
   targeting_evaluation:
     tenant_based:
       method: "Check session.tenant_id against flag.targeting.tenants"
@@ -657,7 +657,7 @@ flag_targeting:
 ```yaml
 auto_rollout:
   description: "Automatically progress a flag through rollout percentages"
-  
+
   plan:
     day_1: "5% — Canary"
     day_2: "10% — Early adopters"
@@ -665,7 +665,7 @@ auto_rollout:
     day_5: "50% — Majority"
     day_7: "75% — Near full"
     day_10: "100% — Full rollout"
-    
+
   monitoring:
     metric: "error_rate, latency_p95, user_feedback"
     auto_rollback:
@@ -681,26 +681,26 @@ auto_rollout:
 ```yaml
 flag_overrides:
   description: "Temporary override of flag value for testing/debugging"
-  
+
   override_levels:
     session:
       scope: "Current session only"
       duration: "Session lifetime"
       authority: "Any user"
       mechanism: "POST /api/v1/flags/override { flag, value }"
-      
+
     environment:
       scope: "Environment (dev/staging/prod)"
       duration: "Until manual revert or max duration"
       authority: "Admin"
       mechanism: "Environment variable COSCA_FLAG_<NAME>=<VALUE>"
-      
+
     global:
       scope: "All environments, all sessions"
       duration: "Until manual revert"
       authority: "CTO"
       mechanism: "Update flag store directly"
-      
+
   audit:
     - "All overrides are logged with who, what, when, why"
     - "Session overrides expire automatically"
@@ -715,34 +715,34 @@ flag_overrides:
 ```yaml
 flag_dependencies:
   description: "Flags that depend on other flags being in a specific state"
-  
+
   dependency_types:
     requires:
       description: "This flag requires another flag to be true"
       evaluation: "If dependency false → this flag returns false"
-      
+
     conflicts:
       description: "This flag conflicts with another flag"
       evaluation: "If conflicting flag true → this flag returns false"
-      
+
     requires_phase:
       description: "This flag requires another flag to be in a minimum phase"
       evaluation: "If dependency phase < minimum → this flag returns false"
-      
+
   dependency_graph:
     runtime.parallel-execution:
       requires: ["runtime.dag-scheduler"]
-      
+
     dashboard.websocket:
       requires: ["dashboard.sse"]  # WebSocket requires SSE as fallback
-      
+
     memory.vector-search:
       requires: ["memory.compression"]
-      
+
     knowledge.correlation:
       requires: ["knowledge.graph"]
       requires_phase: ["knowledge.graph": "stable"]
-      
+
   cycle_detection:
     algorithm: "DFS with back-edge detection"
     action: "Block flag registration, log CYCLE_DETECTED"
@@ -788,21 +788,21 @@ featureflag_config:
   store:
     type: "database"
     cache_ttl_ms: 60000
-    
+
   evaluation:
     cache_results: true
     cache_ttl_ms: 300000  # 5 minutes
-    
+
   overrides:
     enabled: true
     max_session_overrides: 10
     max_environment_duration_minutes: 480
-    
+
   auto_rollout:
     enabled: true
     monitoring_interval_ms: 60000
     auto_rollback: true
-    
+
   governance:
     require_approval:
       experimental_to_beta: false
@@ -859,27 +859,27 @@ Markdown is **never** executed directly. It always flows through this official p
 pipeline_source:
   name: "Source Loading"
   position: 1
-  
+
   input:
     file_path: "path/to/file.md"
-    
+
   output:
     raw_content: "string"
     file_type: "markdown | yaml"
     file_size_bytes: 0
     encoding: "UTF-8"
-    
+
   operations:
     - "Read file from filesystem"
     - "Detect encoding (must be UTF-8)"
     - "Detect file type (by extension)"
     - "Check file size (max 10MB)"
-    
+
   error_handling:
     - "File not found → log error, skip"
     - "Encoding error → log error, skip"
     - "File too large → log warning, truncate to 10MB"
-    
+
   timeout_ms: 5000
 ```
 
@@ -889,11 +889,11 @@ pipeline_source:
 pipeline_parser:
   name: "Parser"
   position: 2
-  
+
   input:
     raw_content: "string"
     file_type: "markdown | yaml"
-    
+
   output:
     frontmatter: {}
     sections: []
@@ -903,7 +903,7 @@ pipeline_parser:
       table_count: 0
       link_count: 0
       code_block_count: 0
-      
+
   frontmatter_parser:
     format: "YAML between --- markers"
     required_fields:
@@ -913,7 +913,7 @@ pipeline_parser:
     optional_fields:
       - "last_updated (ISO8601)"
       - "next_review (ISO8601)"
-      
+
   body_parser:
     sections:
       detection: "## and ### headings"
@@ -929,12 +929,12 @@ pipeline_parser:
       extraction: "href + text + type"
     lists:
       types: ["ordered", "unordered", "task"]
-      
+
   error_handling:
     - "Missing frontmatter → log warning, use defaults"
     - "Invalid YAML → log error, skip file"
     - "Malformed markdown → log warning, continue with partial"
-    
+
   timeout_ms: 5000
 ```
 
@@ -944,47 +944,47 @@ pipeline_parser:
 pipeline_ast:
   name: "AST Construction"
   position: 3
-  
+
   input:
     parsed_document: {}
-    
+
   output:
     ast: {}
-    
+
   ast_node_types:
     Document:
       properties: [frontmatter, children[]]
-      
+
     Section:
       properties: [level, title, id, children[]]
-      
+
     Table:
       properties: [headers[], rows[[]], caption]
-      
+
     CodeBlock:
       properties: [language, content, filename]
-      
+
     Link:
       properties: [href, text, type, target_exists]
-      
+
     List:
       properties: [ordered, items[], task_items]
-      
+
     Paragraph:
       properties: [text, inline_elements[]]
-      
+
     Frontmatter:
       properties: [fields{}]
-      
+
   cross_references:
     - "Resolve relative links to absolute paths"
     - "Check if link targets exist in filesystem"
     - "Mark broken links in AST (target_exists: false)"
-    
+
   error_handling:
     - "Link resolution timeout → mark as unresolved"
     - "Circular reference detected → log error, break cycle"
-    
+
   timeout_ms: 5000
 ```
 
@@ -994,53 +994,53 @@ pipeline_ast:
 pipeline_validator:
   name: "Validator"
   position: 4
-  
+
   input:
     ast: {}
     file_type: "string"
-    
+
   output:
     valid: true | false
     violations: []
     warnings: []
-    
+
   validation_categories:
     metadata:
       - "Version is valid SemVer"
       - "Status is valid lifecycle state"
       - "Owner is specified"
       - "Last_updated is valid ISO8601"
-      
+
     structure:
       - "Required sections present (per file template)"
       - "Section hierarchy is valid (no skipped levels)"
       - "No duplicate section IDs"
-      
+
     references:
       - "All internal links resolve to existing files"
       - "All capability references exist in registry"
       - "All provider references exist in ORGCHART"
       - "All workflow references exist in workflows/"
-      
+
     contracts:
       - "Schema compliance per contract type"
       - "Input/output types match contract requirements"
       - "Quality criteria defined (if applicable)"
-      
+
     quality:
       - "No broken links"
       - "No TODO/FIXME without issue reference"
       - "No commented-out code"
       - "File size within limits"
-      
+
   severity:
     error: "Block file from pipeline"
     warn: "Allow file, log warning"
-    
+
   error_handling:
     - "Critical violation → block, return to source"
     - "Warning → allow, log, continue"
-    
+
   timeout_ms: 10000
 ```
 
@@ -1050,75 +1050,75 @@ pipeline_validator:
 pipeline_transform:
   name: "Transform (AST → Runtime Models)"
   position: 5
-  
+
   input:
     valid_ast: {}
     file_path: "string"
-    
+
   output:
     runtime_models: []
     model_types: []
-    
+
   file_type_mapping:
     "capabilities/CAPABILITY_CATALOG.md":
       transform: "extract_capabilities"
       model: "CapabilityModel"
-      
+
     "workflows/*.md":
       transform: "extract_workflow"
       model: "WorkflowModel"
-      
+
     "company/ORGCHART.md":
       transform: "extract_organization"
       model: "OrganizationModel"
-      
+
     "memory/**/*.md":
       transform: "extract_memory"
       model: "MemoryRecord"
-      
+
     "knowledge/**/*.md":
       transform: "extract_knowledge"
       model: "KnowledgeEntry"
-      
+
     "engines/**/SKILL.md":
       transform: "extract_engine"
       model: "EngineModel"
-      
+
     "departments/**/SKILL.md":
       transform: "extract_department"
       model: "DepartmentModel"
-      
+
     "KERNEL.md":
       transform: "extract_kernel_config"
       model: "RuntimeConfigModel"
-      
+
     "QUALITY_GATES.md":
       transform: "extract_quality_rules"
       model: "QualityGateModel"
-      
+
     "MEMORY_MODEL.md":
       transform: "extract_memory_config"
       model: "MemoryConfigModel"
-      
+
     "GOVERNANCE.md":
       transform: "extract_governance"
       model: "GovernanceModel"
-      
+
     "CONVENTIONS.md":
       transform: "extract_conventions"
       model: "ConventionsModel"
-      
+
   cross_model_references:
     - "Link capabilities to providers"
     - "Link workflows to capabilities"
     - "Link departments to chiefs"
     - "Link engines to capabilities"
     - "Validate all cross-references"
-    
+
   error_handling:
     - "Transform error → log, skip model, continue"
     - "Missing reference → log warning, leave unresolved"
-    
+
   timeout_ms: 30000
 ```
 
@@ -1128,14 +1128,14 @@ pipeline_transform:
 pipeline_registration:
   name: "Runtime Model Registration"
   position: 6
-  
+
   input:
     runtime_models: []
-    
+
   output:
     registered_count: 0
     updated_count: 0
-    
+
   registries:
     - "CapabilityRegistry"
     - "WorkflowRegistry"
@@ -1145,16 +1145,16 @@ pipeline_registration:
     - "EngineRegistry"
     - "DepartmentRegistry"
     - "QualityGateRegistry"
-    
+
   operations:
     create: "Add new model to registry"
     update: "Update existing model (if changed)"
     delete: "Remove model from registry (if file deleted)"
-    
+
   error_handling:
     - "Registry conflict → log, use last-write-wins"
     - "Registry unavailable → cache for later retry"
-    
+
   timeout_ms: 15000
 ```
 
@@ -1164,29 +1164,29 @@ pipeline_registration:
 pipeline_execution_plan:
   name: "Execution Plan Integration"
   position: 7
-  
+
   input:
     registered_models: []
-    
+
   output:
     execution_ready: true | false
-    
+
   integration:
     - "Capability models → available for resolution"
     - "Workflow models → available for routing"
     - "Quality gate rules → available for enforcement"
     - "Memory records → available for context"
     - "Knowledge entries → available for search"
-    
+
   trigger:
     - "If kernel config changed → re-evaluate bootstrap"
     - "If capability changed → invalidate capability cache"
     - "If workflow changed → invalidate workflow cache"
     - "If quality gates changed → reload gate definitions"
-    
+
   error_handling:
     - "Integration timeout → retry, then log warning"
-    
+
   timeout_ms: 15000
 ```
 
@@ -1253,12 +1253,12 @@ pipeline_config:
     transform: { enabled: true, timeout_ms: 30000 }
     registration: { enabled: true, timeout_ms: 15000 }
     execution_plan: { enabled: true, timeout_ms: 15000 }
-    
+
   validation:
     strict: true
     fail_on_error: true
     max_warnings: 100
-    
+
   performance:
     max_file_size_bytes: 10485760  # 10MB
     max_parse_time_ms: 5000
@@ -1490,9 +1490,9 @@ verification_runbook:
 
 ---
 
-> **Specification Version**: 3.0.1  
-> **Status**: active  
-> **Owner**: Cosca Kernel  
-> **Last Updated**: 2026-07-15  
-> **Next Review**: 2026-10-15  
+> **Specification Version**: 3.0.1
+> **Status**: active
+> **Owner**: Cosca Kernel
+> **Last Updated**: 2026-07-15
+> **Next Review**: 2026-10-15
 > **Enforced by**: Architecture Chief + Runtime Chief + Capability Engine

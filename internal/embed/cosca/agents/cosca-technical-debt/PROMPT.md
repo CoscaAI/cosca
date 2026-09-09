@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-technical-debt
 agent: cosca-technical-debt
 type: prompt

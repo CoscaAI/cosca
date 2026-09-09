@@ -1,8 +1,8 @@
 # cosca-product — Product Audit & Activation Report
 
-> **Agente**: cosca-product (Product Chief)  
-> **Data**: 2026-07-28  
-> **Versão**: 1.4.0-dev  
+> **Agente**: cosca-product (Product Chief)
+> **Data**: 2026-07-28
+> **Versão**: 1.4.0-dev
 > **Missão**: Auditoria de produto na ativação Onda 6
 
 ---

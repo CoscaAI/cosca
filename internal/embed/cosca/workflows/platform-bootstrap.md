@@ -81,7 +81,7 @@ Bootstrap the Internal Developer Platform (IDP) for an organization or team. Est
 
 ### Step 8: Launch & Iterate
 - **Chief**: Platform Chief
-- **Specialists**: — 
+- **Specialists**: —
 - **Task**: Launch platform, collect feedback, plan improvements
 - **Output**: Platform launch and feedback plan
 

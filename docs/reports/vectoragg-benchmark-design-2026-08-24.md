@@ -538,4 +538,4 @@ pré-registro → ground_truth document_id → FULL vs ROUTED`. Proíbe o loop
 - `RECALL_CHUNK@K` pode ser 0 (não exige o chunk exato).
 
 **Pergunta que a v3 responde (mais forte):** "O router consegue remover ~71–99%
-do espaço vetorial SEM remover o documento relevante?" — em vez de só "achou o chunk?". 
+do espaço vetorial SEM remover o documento relevante?" — em vez de só "achou o chunk?".

@@ -112,7 +112,7 @@ When a task is completed:
   → Details go to memory/{category}/ (permanent)
   → Only the DECISION stays in cognitive state
   → Marked as completed in PENDING, then removed next compression
-  
+
 Example:
   PENDING: [#4 Causalidade] → completed
   DECISIONS: [+2026-07-28 Bug Registry → Causality Tree v3.0]
@@ -140,7 +140,7 @@ Each entry has an implicit or explicit age:
   DECISIONS: date-stamped → freshness visible
   PENDING: status indicates staleness
   RISKS: severity may escalate over time → auto-escalate if > 14 days
-  
+
 Stale entries (> 30 days in PENDING without update):
   → Flag with [STALE] prefix
   → Auto-demote priority by 1 level

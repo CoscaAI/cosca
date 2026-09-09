@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-platform
 agent: cosca-platform
 type: prompt

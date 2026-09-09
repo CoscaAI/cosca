@@ -429,22 +429,22 @@ TASK: Projetar e implementar pipeline CI/CD com GitHub Actions para a plataforma
       - golangci-lint (com configuração adaptada ao código Cosca)
       - gofmt / goimports check
       - Prettier para frontend (TSX/TS)
-   
+
    b. Security Scanning (stage preparado para cosca-security integrar):
       - govulncheck ./...
       - gosec ./... (com configuração inicial)
       - Placeholder para semgrep (a ser configurado pelo cosca-security)
-   
+
    c. Test Suite:
       - go test -race -coverprofile=coverage.out ./...
       - Vitest para frontend (npm test)
       - Verificação de coverage threshold (≥ 70% inicial, subindo para 80%)
-   
+
    d. Build Validation:
       - go build ./...
       - npm run build (Next.js)
       - Docker image build (smoke test)
-   
+
    e. Doc-Code Validator (resolve R8):
       - Script que cruza referências em docs/ com paths reais no código
       - Alerta se documentação referencia arquivo inexistente
@@ -565,7 +565,7 @@ TASK: Definir SLOs e implementar export de métricas Prometheus para a plataform
    c. Session bootstrap (Phase 0-4): p95 < 5s
    d. API response (REST endpoint): p95 < 100ms
    e. Memory retrieval (PATH-based): p95 < 50ms
-   
+
    Para cada SLO: definir SLI (métrica concreta), target (%), e error budget
 
 2. Implementar Prometheus /metrics endpoint:

@@ -1,59 +1,59 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: DevOps Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # CI/CD VALIDATION SKILL
-> 
+>
 > ## Description
 > Use this skill to validate CI/CD pipeline configurations. Ensures pipelines follow best practices, are secure, efficient, and produce consistent results.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | pipeline_file | Yes | Path to CI/CD configuration file |
 > | platform | Yes | `github-actions`, `gitlab-ci`, `jenkins`, `circle-ci`, `argo-workflows` |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
 > | Validation report | Pipeline compliance report |
 > | Issues list | Issues found with severity |
 > | Recommendations | Pipeline optimization suggestions |
-> 
+>
 > ## Validation Checks
-> 
+>
 > ### Pipeline Structure
 > - Stages defined logically
 > - Dependencies between stages correct
 > - No unnecessary sequential stages
 > - Caching configured for dependencies
-> 
+>
 > ### Security
 > - No secrets exposed in configuration
 > - Least privilege for CI/CD tokens
 > - SAST/DAST scanning integrated
 > - Dependency scanning configured
 > - Container image scanning
-> 
+>
 > ### Efficiency
 > - Parallel job execution where possible
 > - Build caching configured
 > - Artifact retention policies set
 > - Timeouts configured
 > - Resource limits defined
-> 
+>
 > ### Quality Gates
 > - Test suite runs automatically
 > - Code quality checks enforced
 > - Security scan passes before deploy
 > - Performance benchmarks checked
 > - Approval gate for production
-> 
+>
 > ## Success Criteria
 > - [ ] Pipeline structure validated
 > - [ ] Security checks passed
 > - [ ] Efficiency optimizations identified
 > - [ ] Quality gates properly configured
 > - [ ] Recommendations provided
-> 
+>
 > ## Related
 > - [DevOps Chief](../../departments/devops/SKILL.md)
 > - [Platform Chief](../../departments/platform/SKILL.md)

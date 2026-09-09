@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-documentation-writer
 agent: cosca-specialist-documentation-writer
 type: prompt

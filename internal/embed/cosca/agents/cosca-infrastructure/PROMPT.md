@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-infrastructure
 agent: cosca-infrastructure
 type: prompt

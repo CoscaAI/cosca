@@ -128,7 +128,7 @@ go tool trace trace.out
 - name: Run benchmarks
   run: |
     go test -bench=. -benchmem -count=5 ./... | tee benchmark.txt
-    
+
 - name: Compare with baseline
   uses: benchmark-action/github-action-benchmark@v2
   with:

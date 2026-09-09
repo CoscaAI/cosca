@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-testing-unit
 agent: cosca-specialist-testing-unit
 type: prompt

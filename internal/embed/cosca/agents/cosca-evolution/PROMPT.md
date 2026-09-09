@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-evolution
 agent: cosca-evolution
 type: prompt

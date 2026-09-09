@@ -1,8 +1,8 @@
 # CTO Activation Report — 2026-07-28
 
-**Agent:** cosca-cto (Level 1→2)  
-**Scope:** Stack Review, Architecture Scan, Tech Debt Assessment, P0/P1 Recommendations  
-**Confidence:** 0.72  
+**Agent:** cosca-cto (Level 1→2)
+**Scope:** Stack Review, Architecture Scan, Tech Debt Assessment, P0/P1 Recommendations
+**Confidence:** 0.72
 
 ---
 

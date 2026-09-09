@@ -7,14 +7,14 @@
 RETRIEVE → "OWASP Top 10 Baseline" (Level 1)
 APPLY   → Manual code review using OWASP checklist
 RESULT  → Found 3 medium issues, 0 critical
-LEARN   → Recorded: "OWASP Top 10 Baseline" technique works, 
+LEARN   → Recorded: "OWASP Top 10 Baseline" technique works,
           but manual review missed CSP header config
 NEXT    → Learn CSP header auditing for Level 2
 ```
 
 ### Task 5: PR Security Review (Level 2)
 ```
-RETRIEVE → "OWASP Baseline" (L1) + "govulncheck Integration" (L2) 
+RETRIEVE → "OWASP Baseline" (L1) + "govulncheck Integration" (L2)
            + "CSP Header Audit" (L2 — learned in Task 3)
 APPLY   → Automated dependency scan + manual CSP review + OWASP checklist
 RESULT  → Found CSP misconfiguration (medium), caught CVE in dependency (high)

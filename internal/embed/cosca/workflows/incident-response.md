@@ -59,7 +59,7 @@ Respond to production incidents following structured process. Minimize mean-time
 
 ### Step 5: Communication
 - **Chief**: CEO (for critical) / Monitoring Chief
-- **Specialists**: — 
+- **Specialists**: —
 - **Task**: Update stakeholders, status page, affected users
 - **Output**: Status updates
 

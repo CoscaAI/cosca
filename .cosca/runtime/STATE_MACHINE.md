@@ -334,19 +334,19 @@ Every state has a **hard timeout**. If the state does not complete within its ti
 ```yaml
 watchdog:
   monitoring_interval_ms: 5000  # Check every 5 seconds
-  
+
   on_timeout:
     action: "state_timeout_elapsed"
     severity: "warning | critical"
     log: true
     metrics: true
-    
+
   on_hard_limit:
     action: "force_transition(FAILED)"
     severity: "critical"
     notify_escalation: true
     create_incident: true
-    
+
   on_recovery_timeout:
     action: "force_transition(FAILED)"
     severity: "critical"
@@ -368,7 +368,7 @@ state_persistence:
   storage:
     primary: "Redis (for speed)"
     secondary: "Database (for durability)"
-    
+
   schema:
     session_id: "uuid"
     current_state: "string"
@@ -376,12 +376,12 @@ state_persistence:
     transition_history: []
     last_checkpoint: "timestamp"
     state_data: {}  # Serialized state context
-    
+
   persistence_trigger:
     - On every state transition
     - On every checkpoint
     - Every 60 seconds (heartbeat)
-    
+
   consistency:
     write_strategy: "write_to_both_before_transition"
     validation: "read_your_writes"
@@ -393,27 +393,27 @@ state_persistence:
 ```yaml
 recovery_flow:
   on_crash_or_restart:
-    
+
     step_1: read_persisted_state
     action: "Load from Redis, fallback to Database"
-    
+
     step_2: validate_state
     action: "Check if persisted state is valid"
     on_invalid: "Reset to BOOTSTRAPPING"
-    
+
     step_3: check_heartbeat
     action: "If heartbeat older than 120s, treat as crash"
-    
+
     step_4: determine_recovery_action
     rules:
       - "If FINISHED or FAILED → Start new session"
       - "If EXECUTING → Resume from last checkpoint"
       - "If REVIEWING → Resume review"
       - "If any other → Transition to RECOVERING"
-      
+
     step_5: execute_recovery
     action: "Transition to appropriate state"
-    
+
 state_restoration_rules:
   - "State MUST be restored before processing any requests"
   - "Partial state restoration is not permitted"
@@ -433,26 +433,26 @@ state_audit_entry:
   session_id: "uuid"
   transition_id: "uuid"
   timestamp: "ISO8601"
-  
+
   from_state: "string"
   to_state: "string"
   trigger_event: "string"
-  
+
   duration_ms: 12345
-  
+
   guard_conditions:
     precondition_met: true
     guard_evaluations: {}
-    
+
   side_effects:
     executed: []
     failed: []
-    
+
   metadata:
     runtime_type: "opencode | claude-code | cosca-runtime"
     initiated_by: "user | system | timer | recovery"
     correlation_id: "uuid"
-  
+
   checkpoint:
     created: true
     checkpoint_id: "uuid"
@@ -536,22 +536,22 @@ concurrent_machines:
     scope: "Per-session"
     count: "1 per active session"
     isolation: "Complete (separate state, memory, events)"
-    
+
   workflow_machine:
     scope: "Per-workflow"
     count: "1 per active workflow"
     parent: "session_machine"
-    
+
   capability_machine:
     scope: "Per-capability"
     count: "1 per executing capability"
     parent: "workflow_machine"
-    
+
   health_machine:
     scope: "Global"
     count: "1 (singleton)"
     purpose: "Track Runtime health independently of sessions"
-    
+
   governance_machine:
     scope: "Global"
     count: "1 (singleton)"
@@ -596,12 +596,12 @@ hook_registration:
     handler: "engine_name | plugin_id"
     priority: 0-100  # Higher = executed first
     timeout_ms: 5000
-    
+
   execution:
     order: "By priority (descending)"
     isolation: "Each hook runs in its own context"
     failure: "Non-blocking hooks log warning; blocking hooks abort transition"
-    
+
   lifecycle:
     register_on: "Bootstrap"
     deregister_on: "Session end | Engine shutdown"
@@ -647,12 +647,12 @@ statemachine_health:
     - "Current state is valid"
     - "State machine not in FAILED state"
     - "Heartbeat within threshold"
-    
+
   liveness:
     - "State transitions are processing"
     - "Watchdog not triggered in last 60s"
     - "State persistence writable"
-    
+
   degraded:
     - "RECOVERING state > 30s → log warning"
     - "EXECUTING state > 240s → log warning"
@@ -688,13 +688,13 @@ validation:
     - "On every Runtime startup"
     - "On every state machine definition change"
     - "Weekly (automatic)"
-    
+
   methods:
     - "Model checking (reachability, deadlock)"
     - "Transition matrix completeness check"
     - "Guard condition determinism verification"
     - "Timeout value sanity check"
-    
+
   output:
     on_pass: "StateMachineValidationPassed event"
     on_fail: "StateMachineValidationFailed event with violations[]"

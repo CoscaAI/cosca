@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-messaging
 agent: cosca-messaging
 type: prompt

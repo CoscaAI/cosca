@@ -658,12 +658,12 @@
 |-------|-------|
 | **Tipo** | product-first / roblox / poc / fixed |
 | **Origem** | Don pediu produto (nao arquitetura) -> COSCA fabricou um tycoon vertical slice jogavel (E:\cosca-tmp\poc-tycoon). |
-| **Resultado** | 
+| **Resultado** |
 ojo build gera .rbxl; selene 0/0/0; Don confirmou "funcionou tudo como planejado". |
 | **LIAO CENTRAL** | O MUNDO (chao/spawn/moedas) tem que ser **PARTES REAIS pré-colocadas na build** via .model.json, NAO construido so por script no runtime. Motivo: (1) RobloxStudioBeta.exe "<arquivo>.rbxl" via linha de comando NAO carrega o lugar de forma confiavel -> Studio abre a tela inicial; (2) se o mundo so existe por script de servidor, e o script nao roda/erra, o personagem cai no vazio ("so ceu, sol e lua"). Pre-colocado o chao existe mesmo sem Play. |
-| **Schema .model.json (Rojo 7)** | Rojo 6+ IGNORA campo top-level "Name" (nome vem do NOME DO ARQUIVO). Campo class da instancia. Properties: "Size":[x,y,z]; "Anchored":true; "CanCollide":false; "Shape":"Ball" (token 0); "Color":[r,g,b] 0..1 -> vira Color3uint8; "Position":[x,y,z]. Children aninhados (ex.: ClickDetector). Verificar com 
+| **Schema .model.json (Rojo 7)** | Rojo 6+ IGNORA campo top-level "Name" (nome vem do NOME DO ARQUIVO). Campo class da instancia. Properties: "Size":[x,y,z]; "Anchored":true; "CanCollide":false; "Shape":"Ball" (token 0); "Color":[r,g,b] 0..1 -> vira Color3uint8; "Position":[x,y,z]. Children aninhados (ex.: ClickDetector). Verificar com
 ojo build --output ...rbxlx (XML) e ler o XML. |
-| **Tipos de script Rojo** | .server.luau -> Script (servidor); .client.luau -> LocalScript; sem sufixo sob ReplicatedStorage/Packages -> ModuleScript. 
+| **Tipos de script Rojo** | .server.luau -> Script (servidor); .client.luau -> LocalScript; sem sufixo sob ReplicatedStorage/Packages -> ModuleScript.
 ojo sourcemap mostra a arvore + classes (NAO mostra Parts, so scripts). |
 | **Ferramentas** | rojo 7.7.0, selene 0.31.0 em E:\cosca-tmp\roblox-tools. selene precisa "std = roblox"; regras: 1 statement por linha, sem variavel nao usada (usar _), funcao multi-linha. |
 | **Cliente vs servidor** | ClickDetector.MouseClick dispara no CLIENT; servidor valida (typeof==Instance e Parent==Coins folder) e destrói a moeda; RemoteEvent p/ coletar, RemoteFunction p/ buy/upgrade, RemoteEvent p/ empurrar dinheiro ao HUD (MoneyEvent). |
@@ -716,8 +716,8 @@ ojo sourcemap mostra a arvore + classes (NAO mostra Parts, so scripts). |
 | **O QUE** | Reconstrui o farming em arquitetura profissional (apos analisar Place1 + Export-2 + mining multi-genero): E:\cosca-tmp\poc-farm-modular\out\vale-verde. |
 | **ESTRUTURA MODULAR** | ReplicatedStorage/Packages: GameShared.luau (config) + Rules.luau (regras PURAS compartilhadas). ServerScriptService/Server: GameManager (Script, orquestrador/dono do estado/cria remotes/replica) + CropSystem, EconomySystem, DayCycleSystem, BuildSystem, Visuals (ModuleScripts). StarterPlayerScripts: Game.client.luau (LocalScript FINO: so envia intencao via RemoteFunction e renderiza snapshot). |
 | **PROVA** | rojo build OK (farm_modular2.rbxl, 11789 bytes); selene 0/0/0; sourcemap mostra as classes corretas; jogando no Studio a HUD renderiza (Dinheiro:0, Dia 1, toolbar, acbes) -> servidor subiu, remotes criados, client conectou e recebeu estado. |
-| **LICAO / BUG REAL** | 
-equire(script.CropSystem) FALHA: os modulos sao IRMAOS do GameManager (na pasta Server), nao filhos -> 
+| **LICAO / BUG REAL** |
+equire(script.CropSystem) FALHA: os modulos sao IRMAOS do GameManager (na pasta Server), nao filhos ->
 equire(script.Parent.CropSystem). O sintoma classico de arquitetura: quando o servidor nao sobe, ele nao cria os remotes, e o client WaitForChild de um Remote bloqueia -> HUD some. |
 | **CONCEITO CENTRAL** | server-authority: estado 100% no servidor; client so manda intencao (RemoteFunction IntentRemote); servidor VALIDA via Rules + aplica via Systems + replica via StateEvent(snapshot). Rules.luau (funcoes puras canTill/canPlant/canWater/canHarvest/growTick) = fonte unica de regra, compartilhada. |
 | **PASSOS FUTUROS** | (1) testar o loop de clique (arar->plantar->rega->dormir->colher->vender->cas/celeiro) de ponta a ponta. (2) escalar: Terrain real, kit-bash level design, times/match se quiser outro genero, persistencia ProfileStore, UI React-lua. |

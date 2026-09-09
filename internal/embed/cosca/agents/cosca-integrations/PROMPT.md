@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-integrations
 agent: cosca-integrations
 type: prompt

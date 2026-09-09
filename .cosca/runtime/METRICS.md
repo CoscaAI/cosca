@@ -241,45 +241,45 @@ metric_definition:
   name: "metric.name"
   version: "1.0.0"
   status: "active | deprecated | retired"
-  
+
   type: "counter | gauge | histogram | summary"
-  
+
   unit: "ms | count | bytes | usd | score | rate | percent | level | state"
-  
+
   description: "Human-readable description of what this metric measures"
-  
+
   tags:
     - name: "tag_name"
       description: "Tag description"
       required: true | false
       values: []  # Enum if applicable
-      
+
   collector:
     component: "component-name"
     method: "instrumentation | logging | polling"
     interval_ms: 10000  # For gauges
-    
+
   exporter:
     - "prometheus"
     - "dashboard"
     - "cost_engine"
     - "alerting"
-    
+
   aggregation:
     function: "sum | avg | min | max | p50 | p95 | p99 | count"
     window_ms: 60000  # Aggregation window
-    
+
   retention:
     raw: "24 hours"
     p50_p95_p99: "90 days"
     daily_rollup: "1 year"
     monthly_rollup: "7 years"
-    
+
   alert:
     enabled: true | false
     warning_threshold: 0.0
     critical_threshold: 0.0
-    
+
   cost:
     attribution: "per_session | per_capability | per_provider"
     factor: 0.0  # Cost multiplier if applicable
@@ -370,28 +370,28 @@ metric_name_count{tag="value"} 600
 dashboard_runtime_overview:
   refresh: "10s"
   time_range: "1h | 6h | 24h | 7d"
-  
+
   rows:
     - name: "Session Activity"
       panels:
         - "Active sessions (gauge)"
         - "Session start rate (graph)"
         - "Session duration p50/p95/p99 (graph)"
-        
+
     - name: "Execution Performance"
       panels:
         - "Execution time p50/p95/p99 (graph)"
         - "Steps per session (gauge)"
         - "Parallelism (graph)"
         - "Worker utilization (gauge)"
-        
+
     - name: "Quality & Reliability"
       panels:
         - "Quality score (gauge)"
         - "Success rate (gauge)"
         - "Retry rate (graph)"
         - "Failure rate by type (table)"
-        
+
     - name: "Cost & Usage"
       panels:
         - "Cost per hour (graph)"
@@ -406,19 +406,19 @@ dashboard_runtime_overview:
 dashboard_provider:
   refresh: "30s"
   time_range: "1h | 6h | 24h"
-  
+
   rows:
     - name: "Provider Health"
       panels:
         - "Provider availability (table)"
         - "Circuit breaker states (table)"
         - "Failover events (timeline)"
-        
+
     - name: "Provider Latency"
       panels:
         - "Latency p50/p95/p99 by provider (graph)"
         - "Latency heatmap (heatmap)"
-        
+
     - name: "Provider Cost"
       panels:
         - "Cost by provider (graph)"
@@ -432,20 +432,20 @@ dashboard_provider:
 dashboard_dag:
   refresh: "5s"
   time_range: "Current execution"
-  
+
   rows:
     - name: "DAG Progress"
       panels:
         - "DAG status (state timeline)"
         - "Completed / Total nodes (progress bar)"
         - "Critical path remaining (gauge)"
-        
+
     - name: "Node Execution"
       panels:
         - "Running nodes (table)"
         - "Node duration by type (graph)"
         - "Queue wait time (graph)"
-        
+
     - name: "Parallelism"
       panels:
         - "Parallel count (graph)"
@@ -540,19 +540,19 @@ Metrics feed into the Cost Engine for cost attribution.
 ```yaml
 cost_attribution:
   model: "per-session with breakdown by capability and provider"
-  
+
   formulas:
     token_cost: "input_tokens × input_price + output_tokens × output_price"
     provider_cost: "request_count × price_per_request"
     execution_cost: "duration_ms × resource_price_per_ms"
     total_cost: "token_cost + provider_cost + execution_cost"
-    
+
   attribution_tags:
     - "session_id"
     - "capability_id"
     - "provider_id"
     - "model"
-    
+
   reports:
     - "Daily cost by session"
     - "Weekly cost by capability"

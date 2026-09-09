@@ -322,37 +322,37 @@ TASK: "Optimize API performance for knowledge search endpoint"
    → Load capability profile: API Architecture (0.92), Performance (0.45)
    → Performance confidence 0.45 < 0.50 → ESCALATE
    → Kernel: "cosca-backend requests cosca-performance collaboration"
-   
+
 2. RETRIEVE MEMORY
    → Search learnings.md for #api #performance
    → Check failures.md: "aggressive-caching-2026-07-15" — DON'T cache auth endpoints!
    → Load patterns.md: "query-optimization-indexing"
-   
+
 3. PLAN STRATEGY
    → Technique: Level 2 — Add database indexes + FTS5 query optimization
    → Avoid: aggressive caching layer (known failure)
    → Collaborate: cosca-performance to run EXPLAIN QUERY PLAN
-   
+
 4. EXECUTE
    → Add composite index on (type, created_at)
    → Optimize FTS5 query with content= option
    → Run benchmarks: 340ms → 12ms (28x improvement)
-   
+
 5. VERIFY
    → Quality gates: G1 (build), G2 (lint), G3 (tests) ✓
    → Security: no auth bypass introduced ✓
    → Backward compatibility: all existing tests pass ✓
-   
+
 6. CRITIQUE
    → Good: collaboration with cosca-performance prevented over-engineering
    → Suboptimal: didn't check for existing indexes first (one was redundant)
    → Confidence accuracy: was right to escalate (0.45 performance confidence)
-   
+
 7. EXTRACT PATTERN
    → New pattern: "sqlite-query-optimization" — EXPLAIN before indexing
    → Learning entry: Level 2 technique for performance optimization
    → Did NOT trigger known failure mode "aggressive-caching"
-   
+
 8. UPDATE CAPABILITY MODEL
    → Performance confidence: 0.45 → 0.50 (+0.05 success)
    → Backend confidence: 0.92 → 0.92 (stable, domain well-mastered)

@@ -1,4 +1,4 @@
-﻿---
+---
 agent: cosca-context
 type: prompt
 version: 1.0.0

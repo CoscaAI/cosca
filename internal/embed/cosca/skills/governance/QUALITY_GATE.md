@@ -23,7 +23,7 @@ Execute quality gate checks as defined in QUALITY_GATES.md. Validates deliverabl
 
 ## Quality Score Formula
 ```
-OVERALL = (Architecture × 0.20) + (Code Quality × 0.20) + (Security × 0.25) 
+OVERALL = (Architecture × 0.20) + (Code Quality × 0.20) + (Security × 0.25)
         + (Performance × 0.10) + (Testing × 0.15) + (Documentation × 0.10)
 ```
 

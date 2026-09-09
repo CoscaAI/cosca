@@ -43,15 +43,15 @@ ações_possíveis:
   - ação: "Rollback do último deploy"
     comando: "kubectl rollout undo deployment/api-gateway -n production"
     risco: baixo
-    
-  - ação: "Scaling up réplicas"  
+
+  - ação: "Scaling up réplicas"
     comando: "kubectl scale deployment/api-gateway --replicas=10 -n production"
     risco: baixo
-    
+
   - ação: "Failover para região secundária"
     comando: "cosca workflow execute disaster-recovery --inputs '{\"type\":\"region-failover\"}'"
     risco: médio
-    
+
   - ação: "Desabilitar feature flag"
     comando: "cosca feature-flag disable problematic-feature"
     risco: baixo

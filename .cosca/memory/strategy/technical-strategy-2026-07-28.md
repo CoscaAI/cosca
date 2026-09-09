@@ -73,7 +73,7 @@ Documentation             |      ██████
 Testing                   |      ██████
 Security                  |   ████
 Compliance                | ██
-Disaster Recovery         | 
+Disaster Recovery         |
 Agent Ecosystem           |   ████
 Tech Debt Management      |      ██████
 Plugin System             |   ████
@@ -172,9 +172,9 @@ The TypeScript SDK v1.1.0 is production-ready with 12 domain modules. The Go SDK
 
 All 6 layers exist (embedding → vector → graph → search → re-ranking → knowledge engine). But no end-to-end retrieval-augmented generation flow wires them together. Building the RAG pipeline creates a reusable capability that every agent can use for context-aware LLM calls.
 
-**Architecture**: 
+**Architecture**:
 ```
-Agent Query → Semantic Router (selects agent) 
+Agent Query → Semantic Router (selects agent)
 → Knowledge Engine (searches knowledge.db)
 → Re-Ranker (scores results by relevance)
 → Context Builder (constructs prompt with top-K results)

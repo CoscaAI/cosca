@@ -37,9 +37,9 @@ CurationScore_v2 = CurationScore_v1 × DecayFactor + ConflictPenalty
 
 Where:
   CurationScore_v1 = same as before (outcome × 0.35 + usage × 0.25 + recency × 0.20 + evidence × 0.20)
-  
+
   DecayFactor = function of (frequency_density, success_rate, age)
-  
+
   ConflictPenalty = negative adjustment when entry conflicts with newer, higher-confidence patterns
 ```
 
@@ -73,7 +73,7 @@ Entry A: "API Surface Mapping"
   Created: 28 days ago (4 weeks)
   Retrievals: 32
   Density: 32/4 = 8.0/week → HOT → 1.00
-  
+
 Entry B: "Legacy Auth Pattern v1"
   Created: 180 days ago (~26 weeks)
   Retrievals: 5
@@ -138,7 +138,7 @@ age_in_days = days since entry was created (or last updated)
 
 Natural Decay Curve (half-life model):
   base_decay = 0.5 ^ (age_in_days / half_life_days)
-  
+
   half_life_days depends on entry type:
     Code patterns (técnicas):      half_life = 180 days (codebases change slowly)
     Project facts (estado):        half_life = 90 days  (project state evolves)
@@ -214,7 +214,7 @@ DecayFactor range: [0.0, 1.0]
 CurationScore_v2 = (CurationScore_v1 × DecayFactor) - ConflictPenalty
 
 Expanded:
-  CurationScore_v2 = (outcome × 0.35 + usage × 0.25 + recency × 0.20 + evidence × 0.20) 
+  CurationScore_v2 = (outcome × 0.35 + usage × 0.25 + recency × 0.20 + evidence × 0.20)
                      × (frequency × 0.40 + success_rate × 0.40 + age × 0.20)
                      - conflict_penalty
 
@@ -287,21 +287,21 @@ When a new learning contradicts an existing pattern, the older entry's weight is
 ```
 function detect_conflicts(new_entry, existing_entries):
     conflicts = []
-    
+
     FOR each existing_entry in same_domain(new_entry):
         similarity = cosine_similarity(new_entry.embedding, existing_entry.embedding)
-        
+
         IF similarity > 0.60 AND // Same topic
            new_entry.conclusion != existing_entry.conclusion AND // Different conclusion
            new_entry.evidence_level > existing_entry.evidence_level: // Newer, better evidence
-           
+
             conflicts.append({
                 old_entry: existing_entry.key,
                 new_entry: new_entry.key,
                 similarity: similarity,
                 evidence_delta: new_entry.evidence_level - existing_entry.evidence_level
             })
-    
+
     RETURN conflicts
 ```
 
@@ -309,28 +309,28 @@ function detect_conflicts(new_entry, existing_entries):
 
 ```
 FOR each conflict:
-    
+
     // Calculate ConflictPenalty for the OLDER entry
     evidence_gap = conflict.evidence_delta  // how much better is the new evidence?
-    
+
     IF evidence_gap >= 3:
         // New entry has MUCH better evidence (e.g., code vs. opinion)
         penalty = 0.40  // Heavy penalty — old pattern is likely wrong
-    
+
     ELSE IF evidence_gap >= 2:
         penalty = 0.25  // Moderate penalty
-    
+
     ELSE IF evidence_gap >= 1:
         penalty = 0.10  // Light penalty — may still be valid in some contexts
-    
+
     ELSE:
         penalty = 0.00  // Similar evidence level — let the scores compete naturally
-    
+
     // Apply penalty to old entry's CurationScore_v2
     old_entry.curation_score_v2 = max(0, old_entry.curation_score_v2 - penalty)
     old_entry.conflicts_with = APPEND(old_entry.conflicts_with, new_entry.key)
     new_entry.supersedes = APPEND(new_entry.supersedes, old_entry.key)
-    
+
     // Log the paradigm shift
     EVENT "memory.conflict_detected" {
         old: old_entry.key (score was: X, now: X - penalty),

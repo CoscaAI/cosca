@@ -1,17 +1,17 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Performance Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # PERFORMANCE AUDIT SKILL
-> 
+>
 > ## Description
 > Use this skill to perform comprehensive performance audits. Analyzes API latency, database queries, frontend rendering, memory usage, CPU profiles, and identifies performance bottlenecks.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | system_path | Yes | Path or endpoint to audit |
 > | audit_type | Yes | `api`, `database`, `frontend`, `memory`, `full` |
 > | load_profile | No | Expected traffic profile for capacity planning |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
@@ -19,40 +19,40 @@
 > | Bottleneck inventory | Prioritized bottlenecks |
 > | Optimization plan | Specific improvements with expected impact |
 > | Benchmark data | Current performance baselines |
-> 
+>
 > ## Audit Dimensions
-> 
+>
 > ### API Performance
 > - Response times (p50, p95, p99)
 > - Throughput (requests/second)
 > - Error rates
 > - Serialization overhead
-> 
+>
 > ### Database Performance
 > - Query execution times
 > - Missing indexes
 > - N+1 queries
 > - Connection pool usage
-> 
+>
 > ### Frontend Performance
 > - Core Web Vitals (LCP, FID, CLS)
 > - Bundle size analysis
 > - First meaningful paint
 > - Time to interactive
-> 
+>
 > ### Memory & CPU
 > - Memory allocation patterns
 > - CPU hot spots
 > - Garbage collection impact
 > - Thread contention
-> 
+>
 > ## Success Criteria
 > - [ ] All performance dimensions analyzed
 > - [ ] Bottlenecks identified with locations
 > - [ ] Baseline benchmarks established
 > - [ ] Optimization plan with estimated impact
 > - [ ] Report with clear pass/fail per dimension
-> 
+>
 > ## Related
 > - [Performance Chief](../../departments/performance/SKILL.md)
 > - [QUALITY_GATES.md](../../QUALITY_GATES.md) — Gate 2.4 Performance

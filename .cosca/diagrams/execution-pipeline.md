@@ -3,7 +3,7 @@
 ```mermaid
 flowchart LR
     Req((Request))
-    
+
     subgraph Init[Initialization Phase]
         direction TB
         BS[Bootstrap<br/>Initialize Runtime]
@@ -11,7 +11,7 @@ flowchart LR
         Ctx[Context<br/>Load Context]
         Mem[Memory<br/>Load Memories]
     end
-    
+
     subgraph Plan[Planning Phase]
         direction TB
         Cap[Capability<br/>Resolution]
@@ -19,7 +19,7 @@ flowchart LR
         PlanG[Plan<br/>Generation]
         DAG[DAG<br/>Generation]
     end
-    
+
     subgraph Exec[Execution Phase]
         direction TB
         Sched[Scheduler<br/>Queue & Dispatch]
@@ -27,14 +27,14 @@ flowchart LR
         Rev[Review<br/>Gate 2 Checks]
         QA[Quality<br/>Gate Scoring]
     end
-    
+
     subgraph Deliver[Delivery Phase]
         direction TB
         Doc[Documentation<br/>Update Docs]
         KStore[Knowledge Store<br/>Save Learnings]
         Del[Delivery<br/>Return Result]
     end
-    
+
     Req --> BS
     BS --> Disc
     Disc --> Ctx
@@ -43,24 +43,24 @@ flowchart LR
     Cap --> WF
     WF --> PlanG
     PlanG --> DAG
-    
+
     DAG --> Sched
     Sched --> ExecE
     ExecE --> Rev
     Rev --> QA
-    
+
     QA --> Doc
     Doc --> KStore
     KStore --> Del
     Del --> Done((Done))
-    
+
     %% Quality Gates
     G0[Gate 0<br/>Pre-Work] -..- BS
     G1[Gate 1<br/>Pre-Impl] -..- PlanG
     G2[Gate 2<br/>Post-Impl] -..- Rev
     G3[Gate 3<br/>Pre-Release] -..- QA
     G4[Gate 4<br/>Post-Release] -..- Del
-    
+
     style G0 fill:#ff6b6b,color:#fff
     style G1 fill:#ffd93d
     style G2 fill:#6bcb77

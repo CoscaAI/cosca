@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-frontend-component
 agent: cosca-specialist-frontend-component
 type: prompt

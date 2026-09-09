@@ -1,17 +1,17 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Security Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # SECURITY AUDIT SKILL
-> 
+>
 > ## Description
 > Use this skill to perform comprehensive security audits. Covers OWASP Top 10, dependency vulnerabilities, secrets exposure, authentication/authorization, and security configuration.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | codebase_path | Yes | Path to codebase to audit |
 > | audit_scope | Yes | `full`, `quick`, `dependency-only`, `secrets-only` |
 > | compliance_standard | No | `owasp`, `gdpr`, `hipaa`, `pci-dss`, `soc2` |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
@@ -19,9 +19,9 @@
 > | Vulnerability inventory | All vulnerabilities with severity |
 > | Remediation plan | Prioritized fixes |
 > | Compliance report | Compliance status per standard |
-> 
+>
 > ## Audit Dimensions
-> 
+>
 > ### Code Security (OWASP Top 10)
 > - Injection (SQL, NoSQL, OS, LDAP)
 > - Broken authentication
@@ -33,27 +33,27 @@
 > - Insecure deserialization
 > - Known vulnerabilities
 > - Insufficient logging/monitoring
-> 
+>
 > ### Infrastructure Security
 > - Network security groups
 > - TLS/SSL configuration
 > - Secret management
 > - Container security
 > - IAM permissions
-> 
+>
 > ### Dependency Security
 > - Known CVEs in dependencies
 > - Outdated packages
 > - Unused dependencies
 > - License compliance
-> 
+>
 > ## Success Criteria
 > - [ ] All audit dimensions covered
 > - [ ] Vulnerabilities categorized by severity
 > - [ ] Remediation plan prioritized
 > - [ ] Compliance status documented
 > - [ ] 0 critical/high findings for gate pass
-> 
+>
 > ## Related
 > - [Security Chief](../../departments/security/SKILL.md)
 > - [Compliance Chief](../../departments/compliance/SKILL.md)

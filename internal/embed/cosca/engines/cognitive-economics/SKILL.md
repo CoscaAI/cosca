@@ -52,10 +52,10 @@ Enquanto o F2.1 responde "esta task valeu a pena?", o F10.1 responde "o **sistem
 ```
 "Se F2.1 é o extrato bancário de cada transação,
  F10.1 é o balanço patrimonial da empresa inteira.
- 
+
  Não pergunte 'este investimento foi bom?'
  Pergunte 'nossa carteira de investimentos está saudável?'
- 
+
  ★ F10.1 — Cognitive Economics é o CFO da plataforma.
    Ela responde se o Cosca, como um todo,
    está gerando mais valor do que consumindo."
@@ -219,7 +219,7 @@ tendencia = (Platform_ROI_hoje - Platform_ROI_ontem) / Platform_ROI_ontem
 📊 RELATÓRIO COGNITIVE ECONOMICS — 2026-07-30
 
 Plataforma gerou ROI de +205% hoje — cada $1 investido retornou $3.05 em valor cognitivo.
-5º dia consecutivo de crescimento (▲ +12% vs ontem). 
+5º dia consecutivo de crescimento (▲ +12% vs ontem).
 
 🔹 Destaques positivos:
   - 47 novos aprendizados registrados (receita: $47)
@@ -340,15 +340,15 @@ adjustment_factors:
     security:            1.5×    # Bugs de segurança valem 50% mais
     data_integrity:      1.3×    # Problemas de dados valem 30% mais
     governance:          1.2×    # Conformidade vale 20% mais
-  
+
   momentum:
     domínio_com_momentum_baixo:  1.2×    # Aprendizado em área negligenciada vale mais
     domínio_com_momentum_alto:   0.8×    # Aprendizado em área saturada vale menos
-  
+
   cross_domain:
     padrão_cross_domain:         2.0×    # Padrão que conecta 2+ domínios vale o dobro
     learning_cross_agent:        1.5×    # Learning validado por múltiplos agentes
-  
+
   raridade:
     primeira_descoberta_domínio: 3.0×    # Pioneirismo em domínio inexplorado
     padrão_novo:                 2.0×    # Primeira ocorrência de um padrão
@@ -382,7 +382,7 @@ F10.1_aggregation = {
   total_learnings:         sum(learnings_gerados),
   total_interruptions:     sum(interrupcoes),
   execution_time_total:    sum(tempo_execucao),
-  
+
   platform_roi:            calcular_platform_roi(todos_acima)
 }
 ```
@@ -519,13 +519,13 @@ O Prediction Engine (F7.1) fornece ao F10.1 **previsões de custo** para o perí
 prediction_input:
   engine: "F7.1 — Prediction Engine"
   arquivo: "engines/prediction/SKILL.md"
-  
+
   dados_fornecidos:
     - "Previsão de tokens a consumir no próximo período"
     - "Previsão de tempo de execução das tasks planejadas"
     - "Previsão de taxa de sucesso (confidence)"
     - "Previsão de risco de falha"
-  
+
   uso_no_F10.1:
     - "Platform ROI previsto para amanhã (projeção)"
     - "Orçamento preditivo: 'com este budget, ROI esperado é X%'"
@@ -564,14 +564,14 @@ O Trust Registry (F7.2) fornece o **histórico de execução** que alimenta o c�
 trust_registry_input:
   engine: "F7.2 — Trust Registry"
   arquivo: "memory/trust/TRUST_REGISTRY.md"
-  
+
   dados_fornecidos:
     - "Total de tasks executadas por período"
     - "Taxa de sucesso por agente (success_rate)"
     - "Custo médio por task (cost)"
     - "Tempo médio de execução (avg_latency)"
     - "Confidence delta médio (confiança ganha/perdida)"
-  
+
   uso_no_F10.1:
     - "Σ(task_cost) para cálculo de custo total de execução"
     - "Custo médio como baseline para previsão de custo futuro"
@@ -600,13 +600,13 @@ O Engineering Score (F7.3) mede a **qualidade do código produzido**. Esta quali
 engineering_score_input:
   engine: "F7.3 — Engineering Score"
   arquivo: "analytics/engineering-score.md"
-  
+
   dados_fornecidos:
     - "engineering_score médio do período"
     - "Commit count no período"
     - "Dimensões com maior/menor score"
     - "Tendência semanal do score"
-  
+
   uso_no_F10.1:
     - "Valor por commit de alta qualidade: commits × $2.00 (se score > 80)"
     - "Desconto por commit de baixa qualidade: commits × $1.00 (se score < 50)"
@@ -641,13 +641,13 @@ O Experience Compiler (F9.1) transforma learnings brutos em **padrões reutiliz�
 experience_compiler_input:
   engine: "F9.1 — Experience Compiler"
   arquivo: "engines/experience-compiler/SKILL.md"
-  
+
   dados_fornecidos:
     - "Padrões compilados no período"
     - "Princípios extraídos"
     - "Maturidade média dos padrões (maturity_score)"
     - "Emendas constitucionais propostas"
-  
+
   valor_economico:
     learning_bruto:          $1.00  # Cada learning registrado
     padrão_compilado:        $3.00  # Padrão destilado e validado (5+ learnings → 1 padrão)
@@ -678,18 +678,18 @@ O Capability Market (F8.1) aloca agentes para tasks via leilão. Uma alocação 
 capability_market_input:
   engine: "F8.1 — Capability Market"
   arquivo: "engines/capability-market/SKILL.md"
-  
+
   dados_fornecidos:
     - "Total de leilões realizados"
     - "Bids vencedores (avg_score, avg_cost)"
     - "Shadow bids (alocações que seriam piores)"
     - "Eficiência de alocação (score_vencedor / score_médio)"
-  
+
   valor_economico:
     alocacao_eficiente:         $2.00  # Quando o melhor agente vence o leilão
     economia_vs_baseline:       $1.00  # Quando custo é menor que a média histórica
     shadow_bid_evitado:         $0.50  # Quando alocação sub-ótima foi evitada
-  
+
   ajuste_por_eficiencia:
     allocation_efficiency > 0.8:  × 1.5  # Mercado funcionando bem
     allocation_efficiency < 0.5:  × 0.5  # Mercado ineficiente, alocações erradas
@@ -853,17 +853,17 @@ alerts:
     warning_threshold: 0.0        # 0%
     decline_rate_alert: -0.10     # -10% em 1 dia
     consecutive_decline_alert: 3  # 3 dias seguidos de queda
-  
+
   costs:
     attention_daily_limit: 20.0   # $20/dia de atenção
     token_baseline_multiplier: 2.0 # 2× a média histórica
     provider_cost_spike: 1.5      # 1.5× o custo médio do provedor
-  
+
   metrics:
     b3_max_reversions: 1          # Máximo de reversões por período
     b5_zero_days: 7               # Dias sem detecção proativa antes do alerta
     b1_autonomy_decline: 0.20     # 20% de queda na autonomia
-    
+
   notification:
     p0: ["don_immediate", "dashboard_red", "executive_report"]
     p1: ["don_notification", "dashboard_orange", "executive_report"]
@@ -891,7 +891,7 @@ Causas identificadas:
   🟢 B1 (autonomia): estável em 75%
 
 Causa raiz provável:
-  Sessão com 5 agentes em paralelo usando provider premium (GPT-4) 
+  Sessão com 5 agentes em paralelo usando provider premium (GPT-4)
   para tarefas que poderiam usar provider budget (Haiku).
   Recommendation: revisar provider routing no Capability Market.
 
@@ -1016,13 +1016,13 @@ engine_self_metrics:
     total_calculations: 0           # Total de cálculos de Platform ROI
     avg_calculation_time_ms: 0      # Tempo médio de cálculo (< 5000ms target)
     last_calculation: null          # Timestamp da última execução
-  
+
   data_collection:
     sources_connected: 0/7          # Quantas fontes de dados estão conectadas
     last_successful_collection: null
     collection_errors: 0            # Erros de coleta de dados
     stale_data_sources: []          # Fontes com dados desatualizados
-  
+
   alerts:
     total_alerts_triggered: 0       # Total de alertas disparados
     p0_count: 0                     # Alertas P0
@@ -1031,7 +1031,7 @@ engine_self_metrics:
     p3_count: 0                     # Alertas P3
     false_positives: 0              # Alertas incorretos
     alert_accuracy: 0.0             # Taxa de acerto dos alertas
-  
+
   accuracy:
     platform_roi_variance: 0.0      # Variação do ROI calculado vs ROI real auditado
     prediction_accuracy: 0.0        # Acurácia do ROI previsto vs ROI realizado
@@ -1098,7 +1098,7 @@ automation:
       - "Gerar relatório executivo (1 parágrafo)"
       - "Verificar alertas e disparar se necessário"
       - "Arquivar relatório em logs/daily-reports/"
-  
+
   weekly:
     schedule: "0 8 * * 1"                       # 08:00 UTC toda segunda-feira
     actions:
@@ -1106,7 +1106,7 @@ automation:
       - "Calcular média móvel de 7 dias"
       - "Gerar relatório semanal para o Don"
       - "Recomendar ajustes de alocação"
-  
+
   on_demand:
     triggers:
       - "Comando explícito do Don (cosca economics roi)"
@@ -1124,63 +1124,63 @@ implementation_steps:
     description: |
       Criar types.go com PlatformROI, RevenueVector, CostVector, AlertConfig.
       Interfaces: DataAggregator, ROICalculator, DashboardGenerator, AlertEngine.
-  
+
   step_2:
     title: "Implementar Aggregator"
     effort: "4 horas"
     description: |
       aggregator.go: coleta dados de 7 fontes (F2.1, F1.5 B1-B5, F7.2, F7.3, F9.1, F8.1, runtime logs).
       Parse de arquivos markdown/YAML existentes. Cache de dados para performance.
-  
+
   step_3:
     title: "Implementar Platform ROI Calculator"
     effort: "2 horas"
     description: |
       platform-roi-calculator.go: fórmula principal (Σvalor / Σcusto - 1).
       Cálculo de tendência, média móvel, ROI preditivo.
-  
+
   step_4:
     title: "Implementar Dashboard Generator"
     effort: "3 horas"
     description: |
       dashboard-generator.go: geração do dashboard executivo em Markdown.
       Templates pré-compilados para performance.
-  
+
   step_5:
     title: "Implementar Alert Engine"
     effort: "3 horas"
     description: |
       alert-engine.go: 10 alertas configuráveis com 4 níveis de severidade.
       Notificação ao Don via dashboard + log + (futuro) webhook.
-  
+
   step_6:
     title: "Implementar Report Generator"
     effort: "2 horas"
     description: |
       report-generator.go: relatório executivo de 1 parágrafo.
       Suporte a períodos: diário, semanal, custom.
-  
+
   step_7:
     title: "Integrar com Cognitive Economy (F2.1)"
     effort: "2 horas"
     description: |
       Integração com F2.1 para dados de ROI por task.
       Parse dos logs de predição/outcome do F2.1.
-  
+
   step_8:
     title: "Integrar com B1-B5 Metrics (F1.5)"
     effort: "2 horas"
     description: |
       Parse dos arquivos B1-B5 em metrics/.
       Mapeamento B1-B5 → componentes de receita.
-  
+
   step_9:
     title: "Integrar com demais engines (F7.1-F9.1, F8.1)"
     effort: "3 horas"
     description: |
       Conexão com Trust Registry, Engineering Score, Experience Compiler,
       Capability Market. Parse de arquivos estruturados.
-  
+
   step_10:
     title: "Testes e Calibração Inicial"
     effort: "4 horas"

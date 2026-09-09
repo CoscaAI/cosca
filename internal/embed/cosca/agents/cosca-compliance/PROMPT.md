@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-compliance
 agent: cosca-compliance
 type: prompt

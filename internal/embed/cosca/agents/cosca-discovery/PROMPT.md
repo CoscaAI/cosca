@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-discovery
 agent: cosca-discovery
 type: prompt

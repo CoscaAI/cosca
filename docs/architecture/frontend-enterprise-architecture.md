@@ -1,6 +1,6 @@
 # Cosca Frontend Enterprise — Arquitetura de Redesign
 
-> **Status**: PROPOSED | **Author**: cosca-architecture | **Target**: v1.4.0  
+> **Status**: PROPOSED | **Author**: cosca-architecture | **Target**: v1.4.0
 > **Don's Order**: "quero melhorar o design frontend por completo, utilizar o que tem de mais avancado pra deixar nivel enterprise, design elegante bonito com graficos pra monitorar tudo em tempo real sem faltar nada"
 
 ---
@@ -156,23 +156,23 @@ O tema atual (hsl 240° 10% 3.9%) é um dark mode funcional mas genérico. A evo
   /* Base — Tokyo Night Evolved */
   --background: 222 15% 7%;        /* #0f1117 — mais azulado que preto puro */
   --foreground: 210 15% 90%;       /* #e1e4e9 — texto primário */
-  
+
   /* Surface layers — profundidade visual */
   --card: 222 15% 10%;             /* #161820 — cards e containers */
   --card-hover: 222 15% 13%;       /* #1e2029 — hover state */
   --popover: 222 15% 12%;          /* #1a1c24 — dropdowns, popovers */
-  
+
   /* Semantic — identidade Cosca */
   --primary: 235 70% 60%;          /* #5162f0 — Cosca brand blue */
   --primary-foreground: 0 0% 100%;
-  
+
   /* Status colors — semântica fixa */
   --success: 160 84% 45%;          /* #34d399 — healthy/active */
   --warning: 38 96% 58%;           /* #f59e0b — degraded/warning */
   --destructive: 0 72% 55%;        /* #ef4444 — error/critical */
   --info: 217 91% 60%;             /* #3b82f6 — informational */
   --neutral: 220 10% 45%;          /* #6b7280 — inactive/unknown */
-  
+
   /* Chart palette — 8 cores vibrantes para gráficos */
   --chart-1: 235 70% 60%;          /* Brand blue */
   --chart-2: 160 84% 45%;          /* Emerald */
@@ -182,7 +182,7 @@ O tema atual (hsl 240° 10% 3.9%) é um dark mode funcional mas genérico. A evo
   --chart-6: 195 80% 50%;          /* Cyan */
   --chart-7: 25 90% 55%;           /* Orange */
   --chart-8: 140 50% 55%;          /* Green */
-  
+
   /* Glass effect */
   --glass-bg: 222 15% 7% / 0.7;
   --glass-border: 222 15% 20% / 0.5;
@@ -251,25 +251,25 @@ O tema atual (hsl 240° 10% 3.9%) é um dark mode funcional mas genérico. A evo
   --space-10: 2.5rem;   /* 40px */
   --space-12: 3rem;     /* 48px */
   --space-16: 4rem;     /* 64px */
-  
+
   /* Border radius */
   --radius-sm: 0.375rem;   /* 6px — badges, tags, small buttons */
   --radius-md: 0.5rem;     /* 8px — cards, inputs, buttons */
   --radius-lg: 0.75rem;    /* 12px — modals, large cards */
   --radius-xl: 1rem;       /* 16px — main containers */
   --radius-full: 9999px;   /* Pills, avatars */
-  
+
   /* Shadows (dark mode) */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.3);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-  
+
   /* Glass */
   --glass-bg: hsl(222 15% 7% / 0.7);
   --glass-border: hsl(222 15% 25% / 0.3);
   --glass-blur: 12px;
-  
+
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -525,7 +525,7 @@ const TraceViewer = dynamic(
 import { useEffect, useRef, useState, useCallback } from "react";
 import { API_BASE_URL } from "@/lib/constants";
 
-type WSTopic = 
+type WSTopic =
   | "system.cpu" | "system.memory" | "system.disk"
   | "agents.events" | "runtime.requests" | "runtime.latency"
   | "knowledge.indexing" | "workflows.executions"
@@ -551,7 +551,7 @@ export function useCoscaWebSocket<T = unknown>(
       .split("; ")
       .find(row => row.startsWith("access_token="))
       ?.split("=")[1];
-    
+
     const ws = new WebSocket(
       `${API_BASE_URL.replace("http", "ws")}/v1/ws?token=${token}`
     );
@@ -602,14 +602,14 @@ function useLiveMetric<T>(
 ) {
   // Base data from react-query (cache, refetch, stale-while-revalidate)
   const query = useQuery({ queryKey, queryFn, refetchInterval: 30_000 });
-  
+
   // Live updates from WebSocket
   const [liveData, setLiveData] = useState<T | null>(null);
-  
+
   useCoscaWebSocket([wsTopic], (_, data) => {
     setLiveData(data as T);
   });
-  
+
   // WS data wins when available, fallback to query
   return {
     data: liveData ?? query.data,
@@ -952,5 +952,5 @@ Cada fase é considerada pronta quando:
 
 ---
 
-> **Documento aprovado?** Aguardando revisão do Don e CTO.  
+> **Documento aprovado?** Aguardando revisão do Don e CTO.
 > **Próximo passo**: Iniciar FASE 1 — Foundation, começando pelos design tokens e Command Center redesign.

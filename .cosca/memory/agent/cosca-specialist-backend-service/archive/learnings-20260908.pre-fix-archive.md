@@ -1,4 +1,4 @@
-﻿# cosca-specialist-backend-service - learnings.md EDITOR PRE-FIX
+# cosca-specialist-backend-service - learnings.md EDITOR PRE-FIX
 
 > Arquivo gerado em 20260908. Conteudo preservado - leia por grep, nunca inteiro.
 

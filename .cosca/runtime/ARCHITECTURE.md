@@ -417,40 +417,40 @@ stage:
   name: "Stage Name"
   position: 1-N
   description: "What this stage does"
-  
+
   input_contract:
     required_fields: []
     optional_fields: []
     validation_rules: []
-    
+
   output_contract:
     success_output: {}
     failure_output: {}
-    
+
   error_domains:
     - name: "Error Type"
       severity: "fatal | transient | warning"
       recovery: "retry | skip | abort"
-      
+
   timeout_policy:
     hard_limit_ms: 300000
     warning_at_ms: 240000
-    
+
   sla:
     p50_ms: 5000
     p95_ms: 30000
     p99_ms: 60000
-    
+
   emitted_metrics:
     - metric: "metric_name"
       type: "histogram | gauge | counter"
       unit: "ms | count | bytes"
-      
+
   state_transition:
     entry: "StateName"
     success: "NextState"
     failure: "FailedState"
-    
+
   published_events:
     - event: "EventName"
       trigger: "on_entry | on_success | on_failure"
@@ -464,12 +464,12 @@ stage:
 stage:
   name: "Bootstrap"
   position: 1
-  
+
   input_contract:
     required: [runtime_type, workspace_path, session_id]
     optional: [config_overrides, environment_variables]
     validation: [runtime_type in [opencode, claude-code, codex, cosca-runtime, gemini-cli, cursor, continue, adk-go, sdk]]
-    
+
   output_contract:
     success:
       config: resolved_config
@@ -478,17 +478,17 @@ stage:
     failure:
       error: bootstrap_error
       diagnostics: []
-      
+
   error_domains:
     - config_not_found: [fatal, abort]
     - path_resolution_failed: [fatal, abort]
     - provider_init_failed: [transient, retry(max=3)]
-    
+
   timeout: 30000ms
   sla: { p50: 2000, p95: 10000, p99: 20000 }
-  
+
   metrics: [bootstrap_duration_ms, config_size_bytes, provider_count]
-  
+
   state: BOOTSTRAPPING → DISCOVERING
   events: [BootstrapStarted → BootstrapCompleted | BootstrapFailed]
 ```
@@ -499,11 +499,11 @@ stage:
 stage:
   name: "Discovery"
   position: 2
-  
+
   input_contract:
     required: [workspace_path, session_id]
     optional: [framework_hints, language_hints]
-    
+
   output_contract:
     success:
       framework: string
@@ -518,17 +518,17 @@ stage:
     failure:
       error: discovery_error
       partial_results: {}
-      
+
   error_domains:
     - workspace_not_found: [fatal, abort]
     - scan_timeout: [transient, retry(max=2)]
     - partial_discovery: [warning, continue_with_partial]
-    
+
   timeout: 60000ms
   sla: { p50: 5000, p95: 30000, p99: 50000 }
-  
+
   metrics: [discovery_duration_ms, files_scanned, deps_found]
-  
+
   state: DISCOVERING → LOADING_CONTEXT
   events: [DiscoveryStarted → DiscoveryCompleted]
 ```
@@ -539,11 +539,11 @@ stage:
 stage:
   name: "Context Loading"
   position: 3
-  
+
   input_contract:
     required: [session_id, discovery_results]
     optional: [session_overrides]
-    
+
   output_contract:
     success:
       session_context: {}
@@ -552,16 +552,16 @@ stage:
       context_size_bytes: 0
     failure:
       error: context_error
-      
+
   error_domains:
     - context_corrupted: [fatal, abort]
     - context_too_large: [warning, truncate_and_continue]
-    
+
   timeout: 30000ms
   sla: { p50: 3000, p95: 15000, p99: 25000 }
-  
+
   metrics: [context_load_time_ms, context_size_bytes, context_entries]
-  
+
   state: LOADING_CONTEXT → LOADING_MEMORY
   events: [ContextLoaded]
 ```
@@ -572,11 +572,11 @@ stage:
 stage:
   name: "Memory Loading"
   position: 4
-  
+
   input_contract:
     required: [session_id, memory_types[]]
     optional: [filter_tags, time_range]
-    
+
   output_contract:
     success:
       stores_loaded: []
@@ -585,17 +585,17 @@ stage:
     failure:
       error: memory_error
       partial_stores: {}
-      
+
   error_domains:
     - store_not_found: [warning, skip_store]
     - store_corrupted: [transient, retry(max=2), fallback_to_backup]
     - global_store_unreachable: [warning, skip_global, continue_local]
-    
+
   timeout: 60000ms
   sla: { p50: 5000, p95: 25000, p99: 50000 }
-  
+
   metrics: [memory_load_time_ms, memory_entries, memory_size_bytes]
-  
+
   state: LOADING_MEMORY → VALIDATING
   events: [MemoryLoaded]
 ```
@@ -606,7 +606,7 @@ stage:
 stage:
   name: "Validation"
   position: 5
-  
+
   input_contract:
     required: [request_type, request_payload, session_id]
     validation:
@@ -614,7 +614,7 @@ stage:
       - scope defined (>= 1 sentence)
       - capabilities resolvable from request
       - no conflicting active workflows
-    
+
   output_contract:
     success:
       validated: true
@@ -625,18 +625,18 @@ stage:
       validated: false
       errors: []
       warnings: []
-      
+
   error_domains:
     - invalid_request_type: [fatal, abort]
     - missing_scope: [fatal, abort]
     - unresolvable_capability: [fatal, abort]
     - conflicting_workflow: [warning, queue_or_escalate]
-    
+
   timeout: 15000ms
   sla: { p50: 1000, p95: 5000, p99: 10000 }
-  
+
   metrics: [validation_duration_ms, validation_checks, capability_count]
-  
+
   state: VALIDATING → PLANNING | FAILED
   events: [ValidationCompleted | ValidationFailed]
 ```
@@ -647,11 +647,11 @@ stage:
 stage:
   name: "Planning"
   position: 6
-  
+
   input_contract:
     required: [capabilities[], priority, complexity, session_id]
     optional: [constraints, preferences]
-    
+
   output_contract:
     success:
       plan_id: uuid
@@ -663,17 +663,17 @@ stage:
       estimated_effort: [XS, S, M, L, XL]
     failure:
       error: planning_error
-      
+
   error_domains:
     - no_workflow_for_capability: [fatal, abort]
     - circular_dependency: [fatal, abort]
     - resource_unavailable: [warning, escalate_to_cto]
-    
+
   timeout: 60000ms
   sla: { p50: 10000, p95: 45000, p99: 55000 }
-  
+
   metrics: [planning_time_ms, dag_nodes, dag_edges, plan_complexity]
-  
+
   state: PLANNING → EXECUTING
   events: [PlanCreated]
 ```
@@ -684,10 +684,10 @@ stage:
 stage:
   name: "Execution"
   position: 7
-  
+
   input_contract:
     required: [plan_id, dag, session_id]
-    
+
   output_contract:
     success:
       results: {}
@@ -698,18 +698,18 @@ stage:
       error: execution_error
       partial_results: {}
       failed_steps: []
-      
+
   error_domains:
     - step_timeout: [transient, retry(max=3, exponential)]
     - step_failed_permanent: [fatal, abort_dependent_steps]
     - dependency_failure: [transient, retry(max=3)]
     - resource_exhausted: [fatal, escalate_to_cto]
-    
+
   timeout: 300000ms (configurable per step)
   sla: { p50: 60000, p95: 240000, p99: 290000 }
-  
+
   metrics: [execution_time_ms, step_count, parallel_count, retry_count, worker_count]
-  
+
   state: EXECUTING → REVIEWING | FAILED
   events: [ExecutionStarted → ExecutionCompleted | ExecutionFailed]
 ```
@@ -720,11 +720,11 @@ stage:
 stage:
   name: "Review"
   position: 8
-  
+
   input_contract:
     required: [artifacts[], review_types[], session_id]
     review_types: [architecture, code, security, performance]
-    
+
   output_contract:
     success:
       score: 0.0-10.0
@@ -734,16 +734,16 @@ stage:
       score: 0.0-10.0
       issues: []
       passed: false
-      
+
   error_domains:
     - review_timeout: [transient, retry(max=2)]
     - review_inconclusive: [warning, escalate_to_review_chief]
-    
+
   timeout: 240000ms
   sla: { p50: 30000, p95: 90000, p99: 110000 }
-  
+
   metrics: [review_time_ms, issues_found, review_score]
-  
+
   state: REVIEWING → DOCUMENTING | FAILED
   events: [ReviewStarted → ReviewCompleted]
 ```
@@ -754,11 +754,11 @@ stage:
 stage:
   name: "Quality Assurance"
   position: 9
-  
+
   input_contract:
     required: [review_results, session_id]
     gates: [Gate 2, Gate 3]
-    
+
   output_contract:
     success:
       gate_results: {}
@@ -768,16 +768,16 @@ stage:
       gate_results: {}
       overall_score: 0.0-10.0
       failed_gates: []
-      
+
   error_domains:
     - quality_timeout: [transient, retry(max=2)]
     - quality_inconclusive: [warning, escalate_to_qa_chief]
-    
+
   timeout: 240000ms
   sla: { p50: 30000, p95: 90000, p99: 110000 }
-  
+
   metrics: [quality_score, gate_pass_rate, test_coverage]
-  
+
   state: REVIEWING → DOCUMENTING | FAILED
   events: [QualityPassed | QualityFailed]
 ```
@@ -788,26 +788,26 @@ stage:
 stage:
   name: "Documentation"
   position: 10
-  
+
   input_contract:
     required: [changes[], session_id]
     doc_types: [readme, adr, api_docs, db_docs, changelog, release_notes]
-    
+
   output_contract:
     success:
       docs_updated: []
     failure:
       error: documentation_error
-      
+
   error_domains:
     - doc_generation_failed: [transient, retry(max=2)]
     - doc_conflict: [warning, mark_for_review]
-    
+
   timeout: 60000ms
   sla: { p50: 15000, p95: 45000, p99: 55000 }
-  
+
   metrics: [doc_duration_ms, docs_updated_count]
-  
+
   state: DOCUMENTING → LEARNING
   events: [DocumentationUpdated]
 ```
@@ -818,26 +818,26 @@ stage:
 stage:
   name: "Knowledge Store"
   position: 11
-  
+
   input_contract:
     required: [decisions[], patterns[], learnings[], session_id]
-    
+
   output_contract:
     success:
       stores_updated: []
       entry_count: 0
     failure:
       error: knowledge_error
-      
+
   error_domains:
     - store_write_failed: [transient, retry(max=3)]
     - embedding_failed: [warning, store_without_embeddings]
-    
+
   timeout: 60000ms
   sla: { p50: 10000, p95: 40000, p99: 55000 }
-  
+
   metrics: [knowledge_sync_time_ms, entries_stored]
-  
+
   state: LEARNING → SYNCING
   events: [KnowledgeStored]
 ```
@@ -848,10 +848,10 @@ stage:
 stage:
   name: "Delivery"
   position: 12
-  
+
   input_contract:
     required: [results, session_id, quality_score]
-    
+
   output_contract:
     success:
       delivery_status: "completed"
@@ -860,15 +860,15 @@ stage:
     failure:
       delivery_status: "failed"
       error: delivery_error
-      
+
   error_domains:
     - delivery_timeout: [transient, retry(max=2)]
-    
+
   timeout: 30000ms
   sla: { p50: 5000, p95: 20000, p99: 25000 }
-  
+
   metrics: [session_duration_ms, delivery_size_bytes]
-  
+
   state: SYNCING → FINISHED | FAILED
   events: [SessionFinished]
 ```
@@ -986,26 +986,26 @@ Every session MUST verify layer isolation. The verification is automatic and pro
 layer_isolation_report:
   session_id: "uuid"
   timestamp: "ISO8601"
-  
+
   organizational_layer:
     executed_code: false          # L-001
     routed_tasks_directly: false  # L-002
     implemented_features: false   # L-003
     modified_runtime_files: false # L-004
     bypassed_capabilities: false  # L-005
-    
+
   runtime_layer:
     overrode_governance: false    # L-006
     skipped_quality_gates: false  # L-007
     modified_governance_docs: false # L-008
     made_strategic_decisions: false # L-009
-    
+
   cross_layer:
     all_communication_logged: true  # L-010
     decision_records_synced: true
-    
+
   compliance: "PASS | FAIL"
-  
+
   violations: []  # empty = clean
 ```
 

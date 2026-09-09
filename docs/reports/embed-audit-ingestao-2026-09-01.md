@@ -56,26 +56,26 @@
 - `cosca embed audit` roda Ã­ntegro no Windows âœ…
 - BinÃ¡rio `bin/cosca.exe` rebuilt: `v1.5.0-345-g61a24af` âœ…
 
-## 7. Atualização — Chain re-assinada com autoridade do Don (2026-09-01)
+## 7. AtualizaÃ§Ã£o Â— Chain re-assinada com autoridade do Don (2026-09-01)
 
-A ingestão dos 692 arquivos disparou a Family Chain (fail-closed funcionando). Os blocks 61/62 foram git-anchored (testemunho de imutabilidade — fallback), mas o DON re-assinou pessoalmente: **Block 63 Ed25519, autoridade real** (fator máquina DPAPI + TTY + consentimento-ao-conteúdo). Chain validada: 63 blocks, 2.005 arquivos.
+A ingestÃ£o dos 692 arquivos disparou a Family Chain (fail-closed funcionando). Os blocks 61/62 foram git-anchored (testemunho de imutabilidade Â— fallback), mas o DON re-assinou pessoalmente: **Block 63 Ed25519, autoridade real** (fator mÃ¡quina DPAPI + TTY + consentimento-ao-conteÃºdo). Chain validada: 63 blocks, 2.005 arquivos.
 
-**Regra operacional (aprovada pelo Don):** mudou o embed ? commit ? DON assina com `cosca-check --sign`. O `--sign-auto` é apenas fallback emergencial, sempre seguido do `--sign`. O `--sign` não quebra com commits (não depende do git HEAD); o git-anchor quebra (lição: os blocks 61/62 quebraram após commits de docs/gitignore).
+**Regra operacional (aprovada pelo Don):** mudou o embed ? commit ? DON assina com `cosca-check --sign`. O `--sign-auto` Ã© apenas fallback emergencial, sempre seguido do `--sign`. O `--sign` nÃ£o quebra com commits (nÃ£o depende do git HEAD); o git-anchor quebra (liÃ§Ã£o: os blocks 61/62 quebraram apÃ³s commits de docs/gitignore).
 
-## 8. Incidente — queda do índice vetorial + recuperação (2026-09-01)
+## 8. Incidente Â— queda do Ã­ndice vetorial + recuperaÃ§Ã£o (2026-09-01)
 
-**Sintoma:** a tabela de vetores (que o Don celebrou como "vector é minoria") revelou na verdade uma QUEDA: o knowledge.db tinha 6.031 vetores (11% de cobertura) contra 58.756 no backup de 13:35 (índice completo de 22/08).
+**Sintoma:** a tabela de vetores (que o Don celebrou como "vector Ã© minoria") revelou na verdade uma QUEDA: o knowledge.db tinha 6.031 vetores (11% de cobertura) contra 58.756 no backup de 13:35 (Ã­ndice completo de 22/08).
 
-**Causa raiz:** o reindex de hoje (18:00-18:12) vetorizou 6.031 chunks e PAROU — o índice ficou caído pela metade. A busca semântica operava com 11% do índice. Não foi perda de dados (o conteúdo/chunks estava intacto; o backup preservou o índice antigo).
+**Causa raiz:** o reindex de hoje (18:00-18:12) vetorizou 6.031 chunks e PAROU Â— o Ã­ndice ficou caÃ­do pela metade. A busca semÃ¢ntica operava com 11% do Ã­ndice. NÃ£o foi perda de dados (o conteÃºdo/chunks estava intacto; o backup preservou o Ã­ndice antigo).
 
-**Recuperação:** `cosca knowledge vectors-backfill` (idempotente, aditivo, não-destrutivo) re-embebeu os chunks faltantes em 2 passadas:
+**RecuperaÃ§Ã£o:** `cosca knowledge vectors-backfill` (idempotente, aditivo, nÃ£o-destrutivo) re-embebeu os chunks faltantes em 2 passadas:
 - Passada 1: 6.031 ? 54.304 (15.869 embebidos, 400 falharam)
 - Passada 2: ? 54.507 (200 embebidos, 200 falharam)
 - **Final: 54.507/54.709 chunks = 99,6% de cobertura**
 
-**Gap residual (202):** chunks de 12-53 chars ("## Strengths", headers pequenos) — curtos demais para o modelo de embedding (nomic-embed-text 768-dim). Não é conhecimento perdido; é ruído de fragmentação rejeitado legitimamente pelo provider.
+**Gap residual (202):** chunks de 12-53 chars ("## Strengths", headers pequenos) Â— curtos demais para o modelo de embedding (nomic-embed-text 768-dim). NÃ£o Ã© conhecimento perdido; Ã© ruÃ­do de fragmentaÃ§Ã£o rejeitado legitimamente pelo provider.
 
-**Lições:**
-1. A tabela de vetores é métrica de SAÚDE do índice, não de design — o Don deve pedir `cosca db mirror`/`vectors-backfill --dry-run` para auditar cobertura.
-2. O backup automático salvou o índice antigo — a retenção de backups (decisão da Fase A: NÃO apagar) provou valor.
-3. Sempre verificar cobertura (vetores/chunks) após qualquer operação de reindex ou housekeeping.
+**LiÃ§Ãµes:**
+1. A tabela de vetores Ã© mÃ©trica de SAÃšDE do Ã­ndice, nÃ£o de design Â— o Don deve pedir `cosca db mirror`/`vectors-backfill --dry-run` para auditar cobertura.
+2. O backup automÃ¡tico salvou o Ã­ndice antigo Â— a retenÃ§Ã£o de backups (decisÃ£o da Fase A: NÃƒO apagar) provou valor.
+3. Sempre verificar cobertura (vetores/chunks) apÃ³s qualquer operaÃ§Ã£o de reindex ou housekeeping.

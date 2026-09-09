@@ -621,11 +621,11 @@ Quando ativa o Gate (score 0.4–0.7), a Contradiction Engine envia:
 contradiction_gate_input:
   engine: "contradiction-v2"
   decision_id: "DEC-2026-07-30-001"
-  
+
   contradiction_score: 0.692
   count_contra: 4
   count_favor: 1
-  
+
   evidence_contra:
     - source: "learning"
       agent: "cosca-backend"
@@ -633,26 +633,26 @@ contradiction_gate_input:
       title: "Sempre verificar go list -deps antes de remover provider"
       confidence: 0.92
       contradiction_type: "dependence_violation"
-    
+
     - source: "failure"
       agent: "cosca-database"
       id: "F005"
       title: "Remoção do provider SQLite causou downtime de 45min"
       confidence: 0.88
       contradiction_type: "past_failure_repeat"
-    
+
     - source: "ddna"
       ddna_id: "DDNA-2026-07-15-003"
       title: "Decisão de manter provider X por dependências críticas"
       confidence: 0.85
       contradiction_type: "ddna_opposite_decision"
-    
+
     - source: "trust_registry"
       agent: "cosca-backend"
       metric: "success_rate"
       value: 0.40
       contradiction_type: "low_agent_credibility"
-  
+
   recommendation: "Gate recomenda ESCALATE — 4 evidências contra vs 1 a favor"
   override_possible: true
   don_override_if_approved: true
@@ -731,7 +731,7 @@ contradiction_entropy_feed:
       contradiction_score: 0.692
       status: "active"           # active | resolved | dismissed
       resolution: null
-    
+
     - pair_id: "C-005"
       evidence_a:
         source: "ddna"
@@ -1020,7 +1020,7 @@ contradiction_engine:
 
       RECOMENDAÇÃO: BLOQUEAR. Contradição forte (score 0.738 > 0.7).
       Escalonar ao Don para decisão final.
-      
+
     recommendation: "BLOCK — 5 evidências CONTRA vs 1 a FAVOR. Score 0.738 > 0.7 threshold."
 
   # ── DON RESPONSE (preenchido após decisão do Don) ──────────────────────
@@ -1165,11 +1165,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run Contradiction Scan
         run: |
           cosca contradiction scan --format json --output contradiction-report.json
-      
+
       - name: Check for Blocking Contradictions
         run: |
           SCORE=$(jq '.contradiction_score' contradiction-report.json)

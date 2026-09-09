@@ -260,7 +260,7 @@ quase-certo é ~0.01, invisível para julgamento humano.
 
 > **Síntese:** o índice (int16) é **fiél** ao oracle — recall/NDCG ≈ 1.0. O que
 > degrada a qualidade percebida é **dado** (duplicatas + providers misturados) e
-> **ausência de ranking/calibração**, não a quantização. 
+> **ausência de ranking/calibração**, não a quantização.
 
 ---
 

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-testing-e2e
 agent: cosca-specialist-testing-e2e
 type: prompt
@@ -25,13 +25,13 @@ EXAMPLE:
 ```go
 func TestE2E_FullWorkflow(t *testing.T) {
     dir := t.TempDir()
-    
+
     // Init project
     cmd := exec.Command("./bin/cosca", "init", "--dir", dir)
     out, err := cmd.CombinedOutput()
     require.NoError(t, err)
     assert.Contains(t, string(out), "initialized")
-    
+
     // Start server
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-migration
 agent: cosca-migration
 type: prompt

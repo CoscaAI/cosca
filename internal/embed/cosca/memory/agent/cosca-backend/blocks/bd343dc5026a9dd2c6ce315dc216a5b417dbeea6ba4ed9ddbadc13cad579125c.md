@@ -1,7 +1,7 @@
 PREV: 87a53acb7c5ccfefe6104e7a0fe3e4ef6929b0cffa76ffcab829498be885df29
 ID: 2026-07-31
 TIME: 2026-07-31
-LEVEL: 
+LEVEL:
 TAGS: #g1 #singleton #registry #per-request #dependency-injection #no-leak #handler #rest
 ---
 ### 2026-07-31 — resolveRegistry no RunHandler elimina Select mutante no global

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-backend-service
 agent: cosca-specialist-backend-service
 type: prompt

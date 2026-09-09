@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-critic
 agent: cosca-critic
 type: prompt

@@ -70,7 +70,7 @@ Only 1 file in the entire codebase (a test file) contains TODO markers. This ind
 ## 3. Debt Cross-Reference Validation
 
 ### Finding 1: COV-01 — api/rest/handler/ at 0% coverage ✅ CONFIRMED (Worse)
-- Scorecard claims: "11 handlers at 0%" 
+- Scorecard claims: "11 handlers at 0%"
 - Actual: **19 handler files**, still at **0% test coverage**
 - Scorecard count is stale by ~8 files; severity is actually higher than reported
 

@@ -61,7 +61,7 @@ Review API designs for consistency, correctness, security, and adherence to orga
 
 ### Step 5: Final Decision
 - **Chief**: API Chief
-- **Specialists**: — 
+- **Specialists**: —
 - **Task**: Consolidate feedback, approve or request changes
 - **Output**: Final review decision
 

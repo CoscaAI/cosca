@@ -52,13 +52,13 @@ gaps_encontrados:
     problema: "Soft delete implementado, mas hard delete não automatizado"
     risco: medium
     remediacao: "Agendar script de hard delete semanal (prazo: 30 dias)"
-    
+
   - controle: portabilidade
     status: fail
     problema: "API de export não inclui histórico de eventos"
     risco: high
     remediacao: "Adicionar eventos à export API (prazo: 15 dias)"
-    
+
   - controle: DPA com provedor de email
     status: fail
     problema: "SendGrid DPA não assinado"

@@ -1,7 +1,7 @@
 # Phase 4: Final Polish — Implementation Workflow
 
 > **Status:** complete ✅ | **Owner:** Workflow Chief | **Last Updated:** 2026-07-27
-> **Completed:** 2026-07-27 | **Delivered:** All 6 blocks (A-F) completed  
+> **Completed:** 2026-07-27 | **Delivered:** All 6 blocks (A-F) completed
 > **Target:** 6–8 weeks of disciplined, sequentially-gated sprints — delivered in a single session
 > **Dependencies:** Phases 0–3 complete (17 frontend routes, 36 REST endpoints, ~100+ feature files)
 > **Related:** [ADR-007 (Frontend Architecture)](../adr/ADR-007-frontend-architecture.md) | [State Audit (historical)](state-audit-2026-07-25.md) | [CHANGELOG](../../CHANGELOG.md)

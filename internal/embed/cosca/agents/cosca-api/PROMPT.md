@@ -1,4 +1,4 @@
-﻿---
+---
 agent: cosca-api
 type: prompt
 version: 1.0.0

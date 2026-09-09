@@ -11,11 +11,11 @@ audit_version: v1.4.0-dev
 
 # GDPR & LGPD Compliance Self-Assessment
 
-> **Plataforma**: Cosca v1.4.0-dev  
-> **Data da auditoria**: 2026-07-28  
-> **Auditor**: cosca-compliance (Compliance Chief)  
-> **Execução**: 1ª task real de compliance  
-> **Status**: Completada  
+> **Plataforma**: Cosca v1.4.0-dev
+> **Data da auditoria**: 2026-07-28
+> **Auditor**: cosca-compliance (Compliance Chief)
+> **Execução**: 1ª task real de compliance
+> **Status**: Completada
 
 ---
 

@@ -65,7 +65,7 @@ status: active
 **Context**: User restarted OpenCode in another terminal. Error: "Unrecognized key: agents".
 **Root cause**: Global config at ~/.config/opencode/opencode.json had `agents` (plural) and `skills` — both unrecognized by OpenCode. Created during initial Cosca global installation.
 **Fix**: Renamed `agents` → `agent` (singular). Converted `skills` list → `command` dict format. Fixed in ~/.config/opencode/opencode.json.
-**Prevention**: 
+**Prevention**:
 - OpenCode uses `agent` (singular), `command` (dict), never `agents` or `skills`
 - Project is now self-contained via .opencode/opencode.json — global config is for global tools only
 - If adding global agents, use correct key: `agent` not `agents`

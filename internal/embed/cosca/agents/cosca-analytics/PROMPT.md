@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-analytics
 agent: cosca-analytics
 type: prompt

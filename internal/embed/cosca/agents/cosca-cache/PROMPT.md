@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-cache
 agent: cosca-cache
 type: prompt

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-database-sql
 agent: cosca-specialist-database-sql
 type: prompt

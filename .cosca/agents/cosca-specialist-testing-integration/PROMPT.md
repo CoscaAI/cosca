@@ -30,7 +30,7 @@ func TestIntegration_AgentList(t *testing.T) {
     handler := NewAgentsHandler(mgr)
     srv := httptest.NewServer(setupRouter(handler))
     defer srv.Close()
-    
+
     resp, err := http.Get(srv.URL + "/v1/agents")
     require.NoError(t, err)
     assert.Equal(t, http.StatusOK, resp.StatusCode)

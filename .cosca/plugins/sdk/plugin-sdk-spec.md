@@ -22,7 +22,7 @@ abstract class PluginBase {
   abstract init(config: PluginConfig): Promise<void>;
   abstract start(): Promise<void>;
   abstract stop(): Promise<void>;
-  
+
   // Optional hooks
   onConfigChange?(config: PluginConfig): Promise<void>;
   onEvent?(event: PluginEvent): Promise<void>;
@@ -52,9 +52,9 @@ abstract class PluginBase {
     "license": { "type": "string" },
     "entry": { "type": "string" },
     "runtime": { "type": "string", "enum": ["nodejs", "python", "wasm"] },
-    "permissions": { 
+    "permissions": {
       "type": "array",
-      "items": { 
+      "items": {
         "type": "string",
         "enum": ["api:read", "api:write", "events:publish", "events:subscribe",
                  "files:read", "files:write", "network:http", "network:websocket",

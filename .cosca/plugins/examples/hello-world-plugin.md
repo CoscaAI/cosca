@@ -29,9 +29,9 @@ class HelloWorldPlugin extends PluginBase {
 
   async start() {
     this.logger.info('Plugin started!');
-    await this.publishEvent('plugin:started', { 
+    await this.publishEvent('plugin:started', {
       plugin: this.id,
-      greeting: this.greeting 
+      greeting: this.greeting
     });
   }
 

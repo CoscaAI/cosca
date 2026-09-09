@@ -1,7 +1,7 @@
 # Kubernetes + Temporal Ecosystem Patterns
 
-> **Sources**: `kubernetes/kubernetes` (31K+ files, Go), `temporalio/temporal` (Go), SDKs (Go/Python/TypeScript/Java), `kubernetes/test-infra`, `kubernetes/autoscaler`  
-> **Analyzed**: 2026-08-09 — Análise cross-agent do ecossistema Kubernetes (API server, controller, scheduler, CRDs, client-go, code-generator, test-infra, autoscaler) + ecossistema Temporal (API, SDKs, ai-cookbook)  
+> **Sources**: `kubernetes/kubernetes` (31K+ files, Go), `temporalio/temporal` (Go), SDKs (Go/Python/TypeScript/Java), `kubernetes/test-infra`, `kubernetes/autoscaler`
+> **Analyzed**: 2026-08-09 — Análise cross-agent do ecossistema Kubernetes (API server, controller, scheduler, CRDs, client-go, code-generator, test-infra, autoscaler) + ecossistema Temporal (API, SDKs, ai-cookbook)
 > **Confidence**: 0.95 (contratos validados via leitura direta: Object, REST Storage, SharedInformer, Workqueue, Scheduler Framework, Leader Election, CRD types, proto contracts, SDK patterns)
 
 ## Intent
@@ -54,7 +54,7 @@ AddFunc: func(obj) { dc.enqueueDeployment(obj) }
 
 // Worker loop: Get → Sync → Done (ou AddRateLimited no erro)
 func worker() {
-    for { key, shutdown := dc.queue.Get(); ... 
+    for { key, shutdown := dc.queue.Get(); ...
           dc.syncHandler(ctx, key); dc.queue.Done(key) }
 }
 ```

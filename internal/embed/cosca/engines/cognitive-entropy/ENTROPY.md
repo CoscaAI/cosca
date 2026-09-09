@@ -344,11 +344,11 @@ function calculate_cognitive_entropy():
     stale = wisdom_decay.get_stale_learnings(freshness < 0.30)    // de F1.4
     gaps = gap_detection.get_open_gaps_without_ddna()             // de F1.3
     total = knowledge_inventory.count_total_learnings()
-    
+
     // Fase 2: Cálculo
     raw = (contradictions.count × 3) + (stale.count × 2) + (gaps.count × 1)
     entropy = raw / max(total, 1)  // evitar divisão por zero
-    
+
     // Fase 3: Classificação
     if entropy < 0.10:
         classification = "LOW"       // 🟢
@@ -356,7 +356,7 @@ function calculate_cognitive_entropy():
         classification = "MEDIUM"    // 🟡
     else:
         classification = "HIGH"      // 🔴
-    
+
     // Fase 4: Tendência
     last = load_last_measurement()
     delta = entropy - last.entropy
@@ -366,7 +366,7 @@ function calculate_cognitive_entropy():
         trend = "↓ improving"
     else:
         trend = "→ stable"
-    
+
     // Fase 5: Alerta
     if classification == "HIGH":
         alert("🔴 Cognitive Entropy HIGH: #{entropy}")
@@ -374,7 +374,7 @@ function calculate_cognitive_entropy():
             consecutive_high_weeks += 1
             if consecutive_high_weeks >= 2:
                 alert_p1("Entropy HIGH for 2+ consecutive weeks. Mandatory curation.")
-    
+
     // Fase 6: Registro
     record = {
         timestamp: now(),
@@ -388,7 +388,7 @@ function calculate_cognitive_entropy():
         alert: classification == "HIGH"
     }
     append_to_timeline(record)
-    
+
     return record
 ```
 
@@ -684,11 +684,11 @@ CHI_corrigido = CHI × max(0, 1.0 - entropy)
 Exemplo:
   CHI = 79.0 (da sessão atual, F1.5 §8.3)
   entropy = 0.433
-  
+
   CHI_corrigido = 79.0 × max(0, 1.0 - 0.433)
                 = 79.0 × 0.567
                 = 44.8
-                
+
   Interpretação: O CHI aparente (79.0) é 🟡 Bom, mas quando corrigido
   pela entropia (44.8), cai para 🔴 Crítico. A diferença (34.2 pontos)
   é o "risco oculto" do conhecimento desorganizado.
@@ -771,11 +771,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Calculate Entropy
         run: |
           cosca entropy calc --format json --output entropy-report.json
-      
+
       - name: Check Threshold
         run: |
           ENTROPY=$(jq '.entropy' entropy-report.json)
@@ -884,13 +884,13 @@ Total:                                  7/30 = 0.433
 Interpretação:
   • A maior contribuição (57.1%) vem de gaps sem DDNA — problemas conhecidos
     mas sem decisão registrada. Solução: criar DDNAs para os 4 gaps.
-    
+
   • Contradições ativas contribuem com 42.9%. A única contradição ativa
     (Level 3 vs Level 4) é relatível de resolver — atualizar capability-profile.md.
-    
+
   • Stale knowledge não contribui (0%) porque o sistema é muito jovem.
     Em 3 meses, será o componente dominante se não houver revalidação.
-    
+
   • A entropia de 0.433 reflete um sistema em construção: conhecimento
     recente e fresco (zero stale), mas com gaps de rastreabilidade (4 gaps
     sem DDNA) e uma contradição que precisa de resolução.

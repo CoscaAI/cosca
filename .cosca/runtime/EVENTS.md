@@ -292,12 +292,12 @@ serialization:
   wire_format: "JSON (UTF-8, no BOM)"
   binary_format: "Protocol Buffers (proto3, for high-throughput)"
   schema_registry: "Confluent Schema Registry | Apicurio"
-  
+
   compatibility:
     - "BACKWARD: new schema can read old data"
     - "FORWARD: old schema can read new data"
     - "Validation: on publish AND on consume"
-    
+
   compression:
     algorithm: "gzip (level 6) for payload > 1KB"
     min_size_bytes: 1024
@@ -309,16 +309,16 @@ serialization:
 ```yaml
 schema_registry:
   purpose: "Enforce event schema compatibility"
-  
+
   operations:
     register:
       trigger: "New event type or schema change"
       validation: "Compatibility check against previous version"
-      
+
     validate:
       trigger: "Every publish (producer-side)"
       action: "Reject if schema incompatible"
-      
+
     evolve:
       compatibility: "BACKWARD_TRANSITIVE"
       rules:
@@ -326,7 +326,7 @@ schema_registry:
         - "May not remove required fields"
         - "May not change field types"
         - "May change field names (with annotation)"
-        
+
   storage:
     backend: "Database (source of truth)"
     cache: "Redis (fast lookup)"
@@ -352,22 +352,22 @@ Every event has a specified **delivery guarantee** that determines how the Event
 ```yaml
 exactly_once:
   mechanism: "Transaction log + idempotent consumer + deduplication"
-  
+
   producer_side:
     - "Write event to transaction log (WAL)"
     - "Commit WAL before publishing to bus"
     - "Include deduplication key in event metadata"
-    
+
   broker_side:
     - "Deduplicate by event.id (UUID v7)"
     - "Store in persistent topic log"
     - "Acknowledge only after durable storage"
-    
+
   consumer_side:
     - "Idempotent processing (same event → same result)"
     - "Record processed event.id in consumer offset store"
     - "Skip if event.id already processed"
-    
+
   failure:
     - "On producer failure: retry until WAL committed"
     - "On broker failure: leader election, no data loss"
@@ -379,17 +379,17 @@ exactly_once:
 ```yaml
 at_least_once:
   mechanism: "Persistent queue + retry + redelivery"
-  
+
   retry_policy:
     max_attempts: 5
     backoff: "exponential (1s, 2s, 4s, 8s, 16s)"
     max_backoff_ms: 30000
-    
+
   redelivery:
     on_failure: "Re-queue with retry_count + 1"
     on_timeout: "Re-queue with retry_count + 1"
     dead_letter_after: 5
-    
+
   ordering:
     per_partition: "guaranteed"
     cross_partition: "not guaranteed"
@@ -414,29 +414,29 @@ at_least_once:
 ```yaml
 replay:
   supported: true
-  
+
   trigger:
     - "Consumer recovery after crash"
     - "Debugging and RCA"
     - "Testing and simulation"
     - "Data backfill"
     - "Compliance audit"
-    
+
   modes:
     full:
       description: "Replay all events from a point in time"
       time_range: "start_timestamp → end_timestamp"
       rate: "1x, 10x, 100x (configurable)"
-      
+
     filtered:
       description: "Replay events matching filter criteria"
       filters: ["event_name", "session_id", "publisher", "topic"]
-      
+
     session:
       description: "Replay all events for a specific session"
       session_id: "uuid"
       preserve_order: true
-      
+
   limitations:
     - "Hot tier only (last 24h) for real-time replay"
     - "Warm+ tiers require load from persistent storage"
@@ -455,16 +455,16 @@ subscription:
     id: "consumer-group-name"
     members: ["consumer-1", "consumer-2"]
     rebalance: "cooperative-sticky"
-    
+
   topic_filter:
     pattern: "events/v1/{domain}/*"
     include: ["session/", "workflow/"]
     exclude: ["health/", "system/metrics"]
-    
+
   event_filter:
     include: ["SessionStarted", "SessionFinished", "Execution*"]
     exclude: ["HealthCheckPassed"]
-    
+
   quality_of_service:
     delivery: "at-least-once"
     max_retries: 5
@@ -504,24 +504,24 @@ backpressure:
     metric: "consumer_lag > threshold"
     threshold: 1000  # Unprocessed events
     window_ms: 10000
-    
+
   actions:
     level_1:  # Lag > 1000
       action: "Scale up consumers"
       details: "Add consumer group members"
-      
+
     level_2:  # Lag > 5000
       action: "Drop LOW and DEBUG events"
       details: "Prioritize CRITICAL and HIGH"
-      
+
     level_3:  # Lag > 20000
       action: "Reject new NON-CRITICAL publishes"
       details: "Return 429 Too Many Requests"
-      
+
     level_4:  # Lag > 50000
       action: "Circuit breaker on Event Bus"
       details: "Fall back to local logging, replay on recovery"
-      
+
   recovery:
     - "Replay dropped events from warm tier"
     - "Resume normal consumption"
@@ -576,7 +576,7 @@ security:
     issuer: "Kernel"
     audience: "event-bus"
     token_lifetime: "session duration"
-    
+
   authorization:
     model: "RBAC (Role-Based Access Control)"
     roles:
@@ -590,12 +590,12 @@ security:
         - "Can create/modify topics"
         - "Can manage consumer groups"
         - "Can access dead letter queue"
-        
+
   encryption:
     in_transit: "TLS 1.3"
     at_rest: "AES-256-GCM (events in storage)"
     key_rotation: "90 days"
-    
+
   audit:
     - "All publish attempts logged (success + failure)"
     - "All consume attempts logged (success + failure)"
@@ -688,20 +688,20 @@ Event Bus routes to subscribed consumers
 ```yaml
 saga:
   pattern: "Choreography-based saga"
-  
+
   steps:
     - capability: "CAP-ENG-001"
       action: "Deploy service"
       compensator: "Rollback deployment"
       success_event: "DeploymentCompleted"
       failure_event: "DeploymentFailed"
-      
+
     - capability: "CAP-DATA-004"
       action: "Run migration"
       compensator: "Revert migration"
       success_event: "MigrationCompleted"
       failure_event: "MigrationFailed"
-      
+
   compensation:
     trigger: "Any failure event in saga"
     action: "Execute compensators in reverse order"
@@ -718,17 +718,17 @@ Events MAY be used as the **source of truth** for state reconstruction (Event So
 event_sourcing:
   supported: true
   scope: "Per-session | Per-workflow | Per-capability"
-  
+
   state_reconstruction:
     method: "Replay all events for aggregate from start"
     performance: "O(n) where n = events for aggregate"
     optimization: "Snapshots every 100 events"
-    
+
   snapshot:
     frequency: "Every 100 events or every hour"
     storage: "Same as event store"
     recovery: "Load latest snapshot + replay events since snapshot"
-    
+
   use_cases:
     - "Session state recovery after crash"
     - "Workflow execution audit"
@@ -752,18 +752,18 @@ dead_letter_queue:
     - "Schema validation failed"
     - "Consumer returned permanent error"
     - "Event TTL expired before processing"
-    
+
   storage:
     primary: "Dedicated DLQ topic (persistent)"
     retention: "30 days"
     max_size: "10,000 events (then oldest dropped)"
-    
+
   management:
     inspect: "List DLQ events with metadata"
     replay: "Replay selected events to original topic"
     discard: "Acknowledge and remove from DLQ"
     alert: "Notification when DLQ > 100 events"
-    
+
   analysis:
     - "Group by error type"
     - "Group by publisher"
@@ -783,35 +783,35 @@ eventbus_config:
     type: "redis | kafka | in-memory"
     hosts: ["localhost:6379"]
     cluster_mode: true
-    
+
   topics:
     auto_create: true
     default_partitions: 4
     replication_factor: 2
-    
+
   persistence:
     hot_retention_hours: 24
     warm_retention_days: 90
     cold_retention_days: 365
     archive_enabled: true
-    
+
   security:
     tls_enabled: true
     auth_required: true
     acl_enabled: true
-    
+
   performance:
     max_message_bytes: 1048576  # 1MB
     max_batch_bytes: 5242880    # 5MB
     compression: true
     compression_algorithm: "gzip"
-    
+
   consumer:
     max_poll_records: 500
     max_poll_interval_ms: 300000
     heartbeat_interval_ms: 3000
     session_timeout_ms: 10000
-    
+
   monitoring:
     metrics_enabled: true
     health_check_enabled: true

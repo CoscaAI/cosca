@@ -1,6 +1,6 @@
 # Analytics & Observability Audit Report
 
-> **Author**: cosca-analytics | **Date**: 2026-07-28 | **Task**: Ond 5 Activation  
+> **Author**: cosca-analytics | **Date**: 2026-07-28 | **Task**: Ond 5 Activation
 > **Status**: Complete | **Version**: 1.0.0
 
 ---
@@ -30,7 +30,7 @@ O projeto CoscaAI possui uma fundação sólida de telemetria e métricas compos
 | `update_checked` | current/latest version | Update awareness |
 | `sync_completed` | sync_type, items | Sync operations |
 
-**Storage**: SQLite local (`telemetry.db`) → batched HTTP reporting to `telemetry.cosca.enterprise`  
+**Storage**: SQLite local (`telemetry.db`) → batched HTTP reporting to `telemetry.cosca.enterprise`
 **Privacy**: No PII, no file contents, opt-in/opt-out via `COSCA_TELEMETRY_ENABLED`
 
 ### 2.2 Runtime Metrics (`internal/runtime/metrics.go`)

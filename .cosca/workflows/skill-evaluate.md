@@ -151,6 +151,6 @@ Run the A/B meta-loop for a skill (ADR-8101, incremento 1) and promote a candida
 
 ## Gate de Regressao (Fase 3 - benchmarks-as-gates)
 
-- **SplitEval 50/25/25** (treino/validação/holdout, deterministico, anti-overfit)
+- **SplitEval 50/25/25** (treino/validaÃ§Ã£o/holdout, deterministico, anti-overfit)
 - **RegressionGate**: avalia baseline vs candidato **so no holdout**; 	hreshold 0.02; candidato que melhora no treino mas regride >2% no holdout => REJEITADO
 - **So promove se**: guardrails ok E RegressionGate.Passed E A/B IsCandidate (PR evolve/<skill>-<ts>, nunca auto-deploy)

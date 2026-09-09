@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-mobile
 agent: cosca-mobile
 type: prompt

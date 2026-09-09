@@ -92,8 +92,8 @@ The Dashboard is the landing page (`/dashboard`). It provides an at-a-glance hea
 
 #### US-001: System Health Overview
 
-**As a** developer,  
-**I want** to see system health at a glance with component status indicators,  
+**As a** developer,
+**I want** to see system health at a glance with component status indicators,
 **so that** I know immediately whether Cosca is running properly without running CLI commands.
 
 **Acceptance Criteria:**
@@ -118,8 +118,8 @@ The Dashboard is the landing page (`/dashboard`). It provides an at-a-glance hea
 
 #### US-002: Quick Stats Cards
 
-**As a** developer,  
-**I want** to see quick stats (indexed documents, memory records, plugins count, uptime),  
+**As a** developer,
+**I want** to see quick stats (indexed documents, memory records, plugins count, uptime),
 **so that** I understand system usage and scale at a glance.
 
 **Acceptance Criteria:**
@@ -143,8 +143,8 @@ The Dashboard is the landing page (`/dashboard`). It provides an at-a-glance hea
 
 #### US-003: Provider Status Section
 
-**As a** developer,  
-**I want** to see which AI/embedding providers are available,  
+**As a** developer,
+**I want** to see which AI/embedding providers are available,
 **so that** I know which services are configured and can be used by agents.
 
 **Acceptance Criteria:**
@@ -173,8 +173,8 @@ The Knowledge Explorer page (`/knowledge`) enables searching and browsing the in
 
 #### US-004: Knowledge Search
 
-**As a** developer,  
-**I want** to search my project's knowledge base with a text query,  
+**As a** developer,
+**I want** to search my project's knowledge base with a text query,
 **so that** I can find relevant documentation, code, and entities without using the CLI.
 
 **Acceptance Criteria:**
@@ -200,8 +200,8 @@ The Knowledge Explorer page (`/knowledge`) enables searching and browsing the in
 
 #### US-005: Search Facets and Explanation
 
-**As a** developer,  
-**I want** to see search facets (type, language) and result explanations,  
+**As a** developer,
+**I want** to see search facets (type, language) and result explanations,
 **so that** I understand *why* certain results were returned and can filter effectively.
 
 **Acceptance Criteria:**
@@ -224,8 +224,8 @@ The Knowledge Explorer page (`/knowledge`) enables searching and browsing the in
 
 #### US-006: Knowledge Stats Panel
 
-**As a** developer,  
-**I want** to view knowledge engine statistics (indexed docs, chunks, entities, vectors, graph nodes, DB size, last indexed time),  
+**As a** developer,
+**I want** to view knowledge engine statistics (indexed docs, chunks, entities, vectors, graph nodes, DB size, last indexed time),
 **so that** I understand the size and freshness of the knowledge base.
 
 **Acceptance Criteria:**
@@ -249,8 +249,8 @@ The Knowledge Explorer page (`/knowledge`) enables searching and browsing the in
 
 #### US-007: Search Pagination and Sorting
 
-**As a** developer,  
-**I want** to paginate through search results and sort by relevance or recency,  
+**As a** developer,
+**I want** to paginate through search results and sort by relevance or recency,
 **so that** I can explore large result sets without overwhelming the UI.
 
 **Acceptance Criteria:**
@@ -279,8 +279,8 @@ The Memory Viewer page (`/memory`) enables browsing and searching memory records
 
 #### US-008: Memory Layer Browser
 
-**As a** developer,  
-**I want** to browse memory records by layer (Global, Workspace, Project, Session, Temp),  
+**As a** developer,
+**I want** to browse memory records by layer (Global, Workspace, Project, Session, Temp),
 **so that** I can inspect stored knowledge at the appropriate scope.
 
 **Acceptance Criteria:**
@@ -304,8 +304,8 @@ The Memory Viewer page (`/memory`) enables browsing and searching memory records
 
 #### US-009: Memory Record Search
 
-**As a** developer,  
-**I want** to search memory records by keyword, type, and layer filters,  
+**As a** developer,
+**I want** to search memory records by keyword, type, and layer filters,
 **so that** I can find specific decisions, patterns, or bug reports.
 
 **Acceptance Criteria:**
@@ -330,8 +330,8 @@ The Memory Viewer page (`/memory`) enables browsing and searching memory records
 
 #### US-010: Memory Stats Overview
 
-**As a** developer,  
-**I want** to view memory statistics per layer (record count, size),  
+**As a** developer,
+**I want** to view memory statistics per layer (record count, size),
 **so that** I understand memory usage and storage footprint.
 
 **Acceptance Criteria:**
@@ -355,8 +355,8 @@ The Memory Viewer page (`/memory`) enables browsing and searching memory records
 
 #### US-011: Memory Record Detail View
 
-**As a** developer,  
-**I want** to click a memory record to see its full content with metadata,  
+**As a** developer,
+**I want** to click a memory record to see its full content with metadata,
 **so that** I can read the complete record without truncation.
 
 **Acceptance Criteria:**
@@ -387,8 +387,8 @@ The Runtime Monitor page (`/runtime`) provides detailed system status, state mac
 
 #### US-012: Runtime Status Overview
 
-**As a** developer,  
-**I want** to see runtime state, health, uptime, and version,  
+**As a** developer,
+**I want** to see runtime state, health, uptime, and version,
 **so that** I know the exact status of the Cosca runtime.
 
 **Acceptance Criteria:**
@@ -412,8 +412,8 @@ The Runtime Monitor page (`/runtime`) provides detailed system status, state mac
 
 #### US-013: Subsystem Health Grid
 
-**As a** developer,  
-**I want** to see the health of each subsystem (knowledge, memory, plugins, discovery, cache, watcher, editors),  
+**As a** developer,
+**I want** to see the health of each subsystem (knowledge, memory, plugins, discovery, cache, watcher, editors),
 **so that** I can diagnose which subsystem is causing issues.
 
 **Acceptance Criteria:**
@@ -438,8 +438,8 @@ The Runtime Monitor page (`/runtime`) provides detailed system status, state mac
 
 #### US-014: State Machine Visualization (Static)
 
-**As a** developer,  
-**I want** to see a visual representation of the Cosca state machine with the current state highlighted,  
+**As a** developer,
+**I want** to see a visual representation of the Cosca state machine with the current state highlighted,
 **so that** I understand the runtime lifecycle and where the system is in it.
 
 **Acceptance Criteria:**
@@ -469,8 +469,8 @@ The Settings page (`/settings`) displays the current Cosca configuration and ins
 
 #### US-015: Configuration Viewer
 
-**As a** developer,  
-**I want** to view the current Cosca configuration as structured data,  
+**As a** developer,
+**I want** to view the current Cosca configuration as structured data,
 **so that** I understand how the system is configured without opening config files.
 
 **Acceptance Criteria:**
@@ -494,8 +494,8 @@ The Settings page (`/settings`) displays the current Cosca configuration and ins
 
 #### US-016: Installed Plugins List
 
-**As a** developer,  
-**I want** to see a list of installed plugins with their status, version, and runtime,  
+**As a** developer,
+**I want** to see a list of installed plugins with their status, version, and runtime,
 **so that** I know what extensions are available in the system.
 
 **Acceptance Criteria:**
@@ -518,8 +518,8 @@ The Settings page (`/settings`) displays the current Cosca configuration and ins
 
 #### US-017: System Information Footer
 
-**As a** developer,  
-**I want** to see system-level information (Go version, OS, architecture, build info),  
+**As a** developer,
+**I want** to see system-level information (Go version, OS, architecture, build info),
 **so that** I can include accurate environment details when reporting issues.
 
 **Acceptance Criteria:**

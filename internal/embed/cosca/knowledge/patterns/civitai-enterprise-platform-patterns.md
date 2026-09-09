@@ -1,7 +1,7 @@
 # CivitAI Enterprise Platform Patterns
 
-> **Source**: https://github.com/civitai/civitai — Apache 2.0, ~7.700 arquivos, monorepo pnpm  
-> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)  
+> **Source**: https://github.com/civitai/civitai — Apache 2.0, ~7.700 arquivos, monorepo pnpm
+> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)
 > **Confidence**: 0.92 (validado por leitura direta de código fonte)
 
 ## Intent

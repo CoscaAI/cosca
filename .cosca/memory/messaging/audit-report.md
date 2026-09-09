@@ -159,19 +159,19 @@ The Cosca platform has **5 independent event/streaming systems**, none of which 
   │  ExecuteStream() → <-chan StreamEvent ──────────────────┘
   │  Events: progress, chunk, stage_transition, error       │
   └──────────────────────────────────────────────────────────┘
-                                                             
+
   ┌──────────────────────────────────────────────────────────┐
   │         Runtime EventBus (separate, isolated)            │
   │  Events: state_change, startup_complete, shutdown, etc. │
   │  Consumers: Only in tests — no production subscribers    │
   └──────────────────────────────────────────────────────────┘
-                                                             
+
   ┌──────────────────────────────────────────────────────────┐
   │         Plugin EventBus (separate, isolated)             │
   │  Events: index.*, search.*, memory.*, plugin.*, etc.    │
   │  Consumers: Plugin lifecycle manager only               │
   └──────────────────────────────────────────────────────────┘
-                                                             
+
   ┌──────────────────────────────────────────────────────────┐
   │              Telemetry (separate, isolated)               │
   │  Events → SQLite → Batch Report → External Server        │

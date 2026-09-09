@@ -1,17 +1,17 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: API Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # API AUDIT SKILL
-> 
+>
 > ## Description
 > Use this skill to audit API contracts and implementations. Validates OpenAPI specifications, checks API consistency, ensures versioning compliance, and verifies security patterns.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | api_spec_path | Yes | Path to OpenAPI/Swagger/GraphQL spec |
 > | api_code_path | Yes | Path to API implementation code |
 > | audit_scope | Yes | `contract`, `implementation`, `security`, `full` |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
@@ -19,22 +19,22 @@
 > | Violations list | Contract-implementation mismatches |
 > | Security findings | API security vulnerabilities |
 > | Recommendations | API improvement suggestions |
-> 
+>
 > ## Audit Checks
-> 
+>
 > ### Contract Validation
 > - OpenAPI 3.x compliance
 > - All endpoints documented
 > - Request/response schemas defined
 > - Error responses documented
 > - API versioning strategy clear
-> 
+>
 > ### Implementation Validation
 > - Contract matches implementation
 > - Status codes match specification
 > - Response formats match schemas
 > - Validation logic exists for required fields
-> 
+>
 > ### API Security
 > - Authentication required
 > - Authorization checks present
@@ -42,21 +42,21 @@
 > - Input validation implemented
 > - CORS configured properly
 > - HTTPS enforced
-> 
+>
 > ### API Design Quality
 > - RESTful naming conventions
 > - Consistent error format
 > - Pagination for list endpoints
 > - HATEOAS links (where applicable)
 > - Idempotent PUT/DELETE operations
-> 
+>
 > ## Success Criteria
 > - [ ] Contract validated against OpenAPI standard
 > - [ ] Implementation matches contract
 > - [ ] Security patterns verified
 > - [ ] Design quality assessed
 > - [ ] Recommendations provided
-> 
+>
 > ## Related
 > - [API Chief](../../departments/api/SKILL.md)
 > - [OpenAPI Validation](./OPENAPI_VALIDATION.md)

@@ -13,7 +13,7 @@
 ```
 F7 — Engineering Intelligence
   ↓ (dados históricos)
-F8 — Capability Market  
+F8 — Capability Market
   ↓ (roteamento inteligente)
 F9 — Experience Compiler
   ↓ (conhecimento → princípios)

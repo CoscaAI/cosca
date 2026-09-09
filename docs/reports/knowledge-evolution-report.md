@@ -1,7 +1,7 @@
 # Relatório: Evolução Knowledge-First do Cosca
 
-**Para:** Don  
-**Data:** 2026-08-06  
+**Para:** Don
+**Data:** 2026-08-06
 **Status:** Análise — aguardando aprovação para implementação
 
 ---

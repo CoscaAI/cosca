@@ -1,4 +1,4 @@
-﻿---
+---
 agent: cosca-semantic-memory
 type: prompt
 version: 1.0.0

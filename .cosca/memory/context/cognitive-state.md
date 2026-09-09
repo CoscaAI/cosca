@@ -19,7 +19,7 @@
 > - O **corpo abaixo** (IDENTITY/ARCHITECTURE/STATE/...) é **HISTÓRICO/SNAPSHOT** — **NÃO é o estado atual** (pode estar DEFASADO). NÃO reporte como estado atual sem VALIDAR contra a realidade (git, build, serve).
 > - **SEMPRE medir, nunca inferir**: `git rev-list --count origin/main..HEAD` (não chutar "ahead"), `git status`, `go build`, serve ativo.
 > - **REGRA DE DESPERTAR (vertical → horizontal):** este arquivo é o despertar **VERTICAL** (você lê linha a linha, o primeiro despertar, NÃO semântico). Para **ELEVAR ao despertar semântico HORIZONTAL** (compreender o banco de conhecimento de uma vez só), o Don executa: **`cosca despertar`**. Reserve o despertar semântico para quando precisar da memória integral; este arquivo é a base vertical.
-> 
+>
 
 IDENTITY:
   kernel_level: 3

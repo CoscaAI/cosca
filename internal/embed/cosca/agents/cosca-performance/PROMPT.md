@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-performance
 agent: cosca-performance
 type: prompt

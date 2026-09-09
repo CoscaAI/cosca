@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-specialist-backend-api
 agent: cosca-specialist-backend-api
 type: prompt

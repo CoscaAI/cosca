@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-paradigm
 agent: cosca-paradigm
 type: prompt

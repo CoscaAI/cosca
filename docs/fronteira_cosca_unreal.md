@@ -33,7 +33,7 @@
 
 ## 2. Quem é DONO de cada conceito
 
-| Conceito | Dono | Cosca Go | Unreal | 
+| Conceito | Dono | Cosca Go | Unreal |
 |----------|------|----------|--------|
 | Mesa/World State | **Cosca** | `worldmodel.WorldState` | — (recebe snapshot) |
 | Entidade canônica | **Cosca** | `worldmodel.WorldEntity`/`Entity` | — |

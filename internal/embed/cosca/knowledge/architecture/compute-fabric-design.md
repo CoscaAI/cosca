@@ -88,23 +88,23 @@ HardwareProbe {
         Model:          "AMD Ryzen 7" // /proc/cpuinfo
         Frequency:      3.8GHz  // /proc/cpuinfo
         CacheL3:        32MB    // /sys/devices/system/cpu/
-        
+
     Memory:
         TotalRAM:       31GB    // /proc/meminfo
         AvailableRAM:   23GB    // realtime, atualiza a cada probe
         SwapTotal:      4GB
         PageSize:       4KB
-        
+
     GPU (opcional):
         Available:      false   // nvidia-smi ou rocm-smi
         Model:          ""
         VRAM:           0
-        
+
     IO:
         DiskType:       "NVMe"  // /sys/block/
         IOPS:           500K    // benchmark rápido na inicialização
         Throughput:     3.5GB/s
-        
+
     Load (realtime):
         Load1:          0.5     // /proc/loadavg
         Load5:          0.8
@@ -133,7 +133,7 @@ WorkerPool {
     MaxWorkers:     12          // teto (75% dos cores)
     QueueSize:      100         // buffer de tasks pendentes
     StealEnabled:   true        // work stealing ativo
-    
+
     Métricas:
         ActiveWorkers:  8
         IdleWorkers:    2
@@ -250,7 +250,7 @@ CircuitBreaker {
     FailureThreshold:   5       // Abre após 5 falhas consecutivas
     SuccessThreshold:   2       // Fecha após 2 sucessos no HALF_OPEN
     Timeout:            30s     // Tempo em OPEN antes de tentar HALF_OPEN
-    
+
     Por pool:
         Pool "agent":
             State:      CLOSED
@@ -264,10 +264,10 @@ CircuitBreaker {
 RateLimiter {
     TokensPerSecond:    100     // Para LLM calls (custo $$)
     BurstSize:          10      // Permite rajadas curtas
-    
+
     TokensPerSecond:    1000    // Para tool calls (locais)
     BurstSize:          50
-    
+
     Algoritmo: token bucket por categoria
 }
 ```
@@ -282,12 +282,12 @@ MemoryBudget {
     ToolPool:           4GB     // Máximo para ferramentas
     SessionCache:       2GB     // Cache de sessões
     Headroom:           3GB     // Margem de segurança
-    
+
     Current:
         AgentUsage:     1.2GB   // Monitorado em tempo real
         ToolUsage:      0.5GB
         SessionUsage:   0.3GB
-        
+
     Alocação:
         Allocate(agentType, estimatedMB) → bool
         Release(agentType, actualMB)
@@ -469,16 +469,16 @@ A cada 5 segundos (intervalo configurável):
 3. DECIDE:
    if loadFactor < 0.5 && queueDepth > 0:
        → SCALE UP: +1 worker no pool mais sobrecarregado
-   
+
    if loadFactor > 0.8:
        → SCALE DOWN: -1 worker no pool menos utilizado
-   
+
    if avgLatency > threshold:
        → ALERTA: pool "agent" está saturado
-   
+
    if memoryUsage > 80%:
        → BACKPRESSURE: recusar novas tasks, drenar fila
-   
+
    if circuitBreaker == OPEN:
        → RECOVERY: tentar HALF_OPEN após timeout
 

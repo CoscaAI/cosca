@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-plugin
 agent: cosca-plugin
 type: prompt

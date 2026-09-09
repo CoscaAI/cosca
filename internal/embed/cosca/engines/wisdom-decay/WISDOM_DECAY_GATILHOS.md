@@ -514,21 +514,21 @@ wisdom_decay_gatilhos:
     day: sunday                 # day of week (se weekly)
     time: "00:00"               # hora de execução
     timezone: UTC
-  
+
   auto_revalidate: true         # Se true, executa revalidação automática para P1/P2
                                 # Se false, só cria tasks (Don decide quando executar)
-  
+
   deadlines:
     p0_hours: 24               # P0 deve ser resolvido em 24h
     p1_days: 7                  # P1 deve ser resolvido em 7 dias
     p2_days: 30                 # P2 deve ser resolvido em 30 dias
     auto_deprecate_days: 14     # Após 14 dias em P0 sem resposta → deprecia automática
-  
+
   notification:
     p0_channel: don_urgent      # P0 notifica Don com urgência
     p1_channel: don_digest      # P1 notifica Don no resumo semanal
     p2_channel: agent_log       # P2 só registra no log do agente
-  
+
   exceptions:
     immutable_tags:             # Learnings com estas tags NUNCA são depreciados
       - "#constitutional"
@@ -1190,33 +1190,33 @@ revalidation_task:
     source: "wisdom_decay"        # wisdom_decay | contradiction | external_event | schedule
     freshness_at_trigger: 0.22
     priority: "P1"                # P0 | P1 | P2 | info
-  
+
   learning:
     id: "2026-07-28 — Onda 6"
     agent: "cosca-kernel"
     tags: ["#onda-6", "#agent-activation"]
     level: 3
     decay_category: "STABLE"
-  
+
   assignment:
     assigned_to: "cosca-kernel"   # agent_id
     assigned_at: "2026-07-30T00:00:00Z"
     deadline: "2026-08-06T00:00:00Z"
     status: "pending"             # pending | in_progress | completed | deprecated | escalated
-  
+
   revalidation:
     result: null                  # valid | partial | invalid | null (se pendente)
     validated_at: null
     validated_by: null
     note: null
-  
+
   escalation:
     original_priority: "P1"
     current_priority: "P1"
     escalated_at: null
     escalated_to: null
     escalation_reason: null
-  
+
   history:
     - event: "created"
       at: "2026-07-30T00:00:00Z"

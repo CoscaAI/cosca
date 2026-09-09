@@ -1,7 +1,7 @@
 # WORKSPACE STATE — Cosca v1.4.0-dev
 
 > **Git**: `8eb40e8` (main, com mudanças locais) | **Updated**: 2026-08-01
-> 
+>
 > Este arquivo modela **o estado do projeto**.
 > Para **como o Kernel está pensando**, veja `cognitive-state.md`.
 

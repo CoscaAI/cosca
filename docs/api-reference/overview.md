@@ -195,7 +195,7 @@ When running in daemon mode (`cosca serve`), Cosca exposes a REST API on the con
 
 ### Endpoints
 
-> Port: All endpoints served on `http://localhost:14120` under `/v1/` prefix (36 registered endpoints).  
+> Port: All endpoints served on `http://localhost:14120` under `/v1/` prefix (36 registered endpoints).
 > For the full OpenAPI 3.0 specification with 50 operations and 62 schemas, see `api/rest/openapi.yaml`.
 
 #### Health & Readiness

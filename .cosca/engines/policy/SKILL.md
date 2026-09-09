@@ -78,7 +78,7 @@ policy:
   severity: error       # error (block) | warn (allow with warning) | info (log only)
   owner: Release Chief
   approved_by: CTO
-  
+
   rule:
     condition:
       type: day_of_week
@@ -87,19 +87,19 @@ policy:
     scope:
       environments: [production]
       workflows: [deployment, release]
-    
+
   action: deny
-  
+
   override:
     allowed: true
     required_role: CTO
     justification_required: true
     max_override_ttl: 24h
-    
+
   message: |
     Production deployments are blocked on Fridays to prevent
     weekend incidents. Override requires CTO approval.
-    
+
   exceptions:
     - condition: "severity == 'critical' AND type == 'security_fix'"
       action: allow

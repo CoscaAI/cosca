@@ -1,10 +1,10 @@
 # CRITIC REVIEW — Onda 2 Activation Plan
 
-> **Reviewer**: cosca-critic (Decision Critic Chief)  
-> **Decision Reviewed**: Plano de Ativação Onda 2 (onda-2-plan.md)  
-> **Decision Owner**: cosca-ceo, approved by Don  
-> **Review Date**: 2026-07-28  
-> **Framework**: 5-Question Adversarial Challenge  
+> **Reviewer**: cosca-critic (Decision Critic Chief)
+> **Decision Reviewed**: Plano de Ativação Onda 2 (onda-2-plan.md)
+> **Decision Owner**: cosca-ceo, approved by Don
+> **Review Date**: 2026-07-28
+> **Framework**: 5-Question Adversarial Challenge
 > **Evidence Level**: Level 2 (cross-reference with semantic index, bug registry, risk registry, ADRs, LEARNING_PROTOCOL)
 
 ---
@@ -394,6 +394,6 @@ Se as 6 conditions forem atendidas, o plano tem alta probabilidade de sucesso. S
 
 ---
 
-> **Confidence nesta crítica**: 0.70 (baseline 0.25 + 0.05 task + 0.08 novel technique + 0.32 depth of analysis)  
-> **Próximo passo**: Cosca-critic deve revisar a resposta do CEO a estas conditions e emitir veredito final.  
+> **Confidence nesta crítica**: 0.70 (baseline 0.25 + 0.05 task + 0.08 novel technique + 0.32 depth of analysis)
+> **Próximo passo**: Cosca-critic deve revisar a resposta do CEO a estas conditions e emitir veredito final.
 > **Memória**: Primeira aplicação real do 5-Question Challenge. Framework se mostrou eficaz para identificar gaps não óbvios (math, confirmation bias, inconsistencies between foundational documents).

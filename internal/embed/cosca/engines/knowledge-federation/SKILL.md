@@ -403,21 +403,21 @@ heuristic_transfer_examples:
     validated_in: ["cosca-core", "django-cosca-app", "react-cosca-dashboard"]
     applicability_score: 0.95
     propagation: "universal"
-    
+
   - heuristic_id: "H-UNIV-002"
     title: "Extrair função antes de testar (extract-then-test)"
     source: "F0.2 (cosca-core, refactoring pattern)"
     validated_in: ["cosca-core", "python-ml-pipeline", "go-microservices"]
     applicability_score: 0.90
     propagation: "universal"
-    
+
   - heuristic_id: "H-UNIV-003"
     title: "Verificar documentação contra código fonte (cross-source audit)"
     source: "H-009 (cosca-core, PostgreSQL fantasy detection)"
     validated_in: ["cosca-core", "enterprise-api", "mobile-app"]
     applicability_score: 0.88
     propagation: "universal"
-    
+
   - heuristic_id: "H-UNIV-004"
     title: "Nunca reivindicar capacidade não verificada (capability honesty)"
     source: "H-010 (cosca-core, memory fiction pattern)"
@@ -444,7 +444,7 @@ signature:
     agent: "cosca-kernel"              # Agente que gerou o conhecimento
     learning_id: "L22"                 # ID do learning/task de origem
     timestamp: "2026-07-30T14:00:00Z"  # Quando foi gerado
-  
+
   # === CLASSIFICAÇÃO SEMÂNTICA ===
   domain: "security"                    # Domínio primário (lowercase, snake_case)
   subdomain: "jail_isolation"           # Subdomínio específico
@@ -452,13 +452,13 @@ signature:
     - "runtime"
     - "configuration"
     - "orchestration"
-  
+
   # === TIPO DE CONHECIMENTO ===
   knowledge_type: "failure"             # pattern | failure | heuristic | principle | discovery
   pattern_type: "extract-then-test"     # Tipo específico do padrão (se knowledge_type=pattern)
   failure_type: "jail_breach"           # Tipo específico de failure (se knowledge_type=failure)
   heuristic_type: "universal"           # domain_specific | universal (se knowledge_type=heuristic)
-  
+
   # === PRÉ-CONDIÇÕES DE APLICABILIDADE ===
   preconditions:
     structural:                         # Condições estruturais do código/problema
@@ -473,13 +473,13 @@ signature:
       - "projeto sem CI/CD"
       - "sem testes de regressão automatizados"
     stack_agnostic: true                # true = aplicável a qualquer stack
-  
+
   # === MÉTRICAS DE APLICABILIDADE ===
   applicability_score: 0.85             # 0-1: probabilidade de ser útil cross-domain
   domain_coupling: 0.30                 # 0-1: quão acoplado ao domínio original (0 = universal)
   abstraction_level: 4                  # 1-5: 1=concreto/stack-specific, 5=princípio abstrato
   transfer_readiness: 0.82              # 0-1: combinação de applicability + (1 - domain_coupling)
-  
+
   # === PROVENIÊNCIA E VALIDAÇÃO ===
   provenances:
     - project: "cosca-core"
@@ -500,7 +500,7 @@ signature:
       validations: 1
       last_validated: "2026-09-01"
       success_rate: 0.5                 # Funcionou parcialmente — adaptação necessária
-  
+
   # === PRIVACIDADE E COMPARTILHAMENTO ===
   visibility: "public"                  # public | namespace | private
   namespace: "cosca-official"           # Se visibility=namespace, qual namespace
@@ -508,14 +508,14 @@ signature:
   share_context: false                  # Compartilhar contexto específico do projeto
   share_provenance: true                # Compartilhar dados de proveniência
   anonymize_level: "project_name"       # none | project_name | full_anonymize
-  
+
   # === EVOLUÇÃO E VERSIONAMENTO ===
   version: "v3"                         # Versão atual da assinatura
   supersedes: ["KSIG-2026-07-28-002"]  # Assinaturas que esta substitui
   superseded_by: null                   # Se obsoleta, qual a substituta
   status: "active"                      # active | deprecated | superseded | contested
   gravity_score: 7.4                    # Massa gravitacional (C1 — Cognitive Gravity)
-  
+
   # === META-HEURÍSTICAS ===
   related_signatures:                   # Assinaturas semanticamente relacionadas
     - "KSIG-2026-07-28-005"            # Relacionamento forte
@@ -523,7 +523,7 @@ signature:
   anti_patterns:                        # Padrões que CONTRADIZEM este conhecimento
     - "KSIG-2026-07-15-003"
   contradiction_threshold: 0.75         # Similarity acima disso = contradição (Immune System)
-  
+
   # === EMBEDDING ===
   embedding:
     model: "text-embedding-3-small"
@@ -611,7 +611,7 @@ controlled_vocabulary:
     - runtime
     - configuration
     - dependency_management
-    
+
   knowledge_types:
     - pattern          # Solução reutilizável
     - failure          # Algo que deu errado (negative memory)
@@ -619,7 +619,7 @@ controlled_vocabulary:
     - principle        # Verdade universal extraída de N casos (Cognitive Compression)
     - discovery        # Insight proativo (Insight Generator)
     - antipattern      # Padrão a ser EVITADO
-    
+
   pattern_types:
     - extract_then_test        # Extrair lógica → testar isoladamente
     - cross_agent_audit        # Auditoria com múltiplos agentes em paralelo
@@ -629,7 +629,7 @@ controlled_vocabulary:
     - isolate_and_contract     # Isolar módulo → definir contrato → implementar
     - observe_before_optimize  # Medir antes de otimizar
     - decompose_and_delegate   # Decompor problema → delegar para especialistas
-    
+
   failure_types:
     - jail_breach              # Bypass de isolamento/sandbox
     - documentation_fiction    # Documentação descreve funcionalidade inexistente
@@ -723,7 +723,7 @@ Sob demanda, via CLI:
 # Push: publicar conhecimento local no Hub
 cosca federation push --project cosca-core --signatures recent
 
-# Pull: buscar conhecimento federado de outros projetos  
+# Pull: buscar conhecimento federado de outros projetos
 cosca federation pull --project cosca-test --since 2026-08-01
 
 # Sync completo bidirecional
@@ -748,7 +748,7 @@ privacy_model:
         - principles            # Princípios universais (sempre public)
         - antipatterns          # Anti-padrões (sempre public)
       restrictions: none
-        
+
     namespace:
       description: "Conhecimento compartilhado apenas dentro de um namespace (ex: mesma organização)"
       applies_to:
@@ -757,7 +757,7 @@ privacy_model:
       restrictions:
         - "Apenas projetos no mesmo namespace podem acessar"
         - "Namespace definido em $HOME/.cosca/federation/config.yaml"
-        
+
     private:
       description: "Conhecimento que NUNCA é federado"
       applies_to:
@@ -769,7 +769,7 @@ privacy_model:
       restrictions:
         - "Nunca exportado do projeto"
         - "Armazenado apenas em internal/embed/cosca/memory/ (local)"
-        
+
   defaults:
     patterns: public
     heuristics: public
@@ -778,7 +778,7 @@ privacy_model:
     principles: public
     decisions: private
     agent_learnings: namespace  # Learnings específicos do agente
-    
+
   override:
     description: "Qualquer entrada pode ter visibilidade alterada via flag"
     mechanism: "Campo 'visibility' na signature YAML"
@@ -843,7 +843,7 @@ dedup_criteria:
   semantic_overlap_min: 0.70       # Overlap de preconditions
   domain_match_required: true      # Mesmo domain primário
   pattern_type_match_required: true # Mesmo pattern_type
-  
+
   merge_strategy:
     provenance: "union"            # União de proveniências
     validation_count: "sum"        # Soma de validações
@@ -851,7 +851,7 @@ dedup_criteria:
     gravity_score: "recalc"        # Recalculado com massa combinada
     preconditions: "union"         # União de preconditions (enriquece)
     applicability_score: "max"     # Mantém o maior score
-    
+
   conflict_resolution:
     detection: "Cognitive Immune System (C5)"
     method: "Gravity-based arbitration"
@@ -1043,7 +1043,7 @@ integration_semantic_memory:
     description: "O índice semântico local (FTS5 + vector) é estendido com conhecimento federado"
     mechanism: "Federation Adapter injeta assinaturas do Hub como entradas 'federadas' no índice local"
     flag: "source: federated vs source: local"
-    
+
   search_level:
     description: "Queries semânticas no Stage 2 incluem escopo cross-project"
     mechanism: |
@@ -1051,7 +1051,7 @@ integration_semantic_memory:
       Resultados federados são mesclados com resultados locais.
       Ranking ajustado: local × 1.1 (mais relevante por contexto), federated × 0.9.
       Flag visual: 🏷️ FEDERADO nos resultados.
-      
+
   feedback_level:
     description: "Validações cross-project realimentam o índice semântico"
     mechanism: |
@@ -1120,7 +1120,7 @@ A dimensão **Transferência** do CMI (15% do índice, peso 0.15) é diretamente
 ```yaml
 cmi_transferencia_integration:
   current_baseline: 87  # Transferência = 87/100
-  
+
   federation_impact:
     pre_federation:
       description: "Transferência limitada ao projeto atual"
@@ -1129,7 +1129,7 @@ cmi_transferencia_integration:
         heuristics_extracted: 20       # De um único projeto
         cross_project_applications: 0  # ZERO — é o gap que este engine resolve
       score: 87
-        
+
     post_federation:
       description: "Transferência cross-project ativa"
       target_metrics:
@@ -1139,7 +1139,7 @@ cmi_transferencia_integration:
         projects_federated: 5          # Alvo: 5 projetos ativos na federação
         universal_heuristics: 5        # Alvo: 5 heurísticas promovidas a universal
       target_score: 97                 # +10 (ganho F2.3)
-      
+
   b4_metric_expanded:
     definition: "Conhecimento Reutilizado (expandido para cross-project)"
     current: 12  # Reutilizações dentro do projeto
@@ -1148,7 +1148,7 @@ cmi_transferencia_integration:
       B4_local:   Aplicações de padrões/heurísticas do próprio projeto
       B4_federated: Aplicações de padrões/heurísticas de OUTROS projetos
       B4_total = B4_local + B4_federated
-      
+
   calculation:
     formula: |
       Transferência_Score = (B4_total / B4_target × 100) × 0.4
@@ -1236,7 +1236,7 @@ O Federation Adapter expõe uma API interna para os agentes:
 ```yaml
 federation_adapter_api:
   # === CONSULTA (usado no Stage 1-3) ===
-  
+
   matchPattern:
     input:
       task_signature: "assinatura YAML da task atual"
@@ -1244,29 +1244,29 @@ federation_adapter_api:
       min_applicability: 0.60
     output:
       matches: [{signature, similarity, applicability, provenance}]
-      
+
   matchFailure:
     input:
       operation_signature: "assinatura YAML da operação planejada"
       min_similarity: 0.70
     output:
       warnings: [{signature, severity, root_cause, mitigation}]
-      
+
   getUniversalHeuristics:
     input:
       domain: "refactoring"
     output:
       heuristics: [{id, title, description, applicability_score}]
-      
+
   # === PUBLICAÇÃO (usado no Stage 7) ===
-  
+
   publishSignature:
     input:
       signature: "assinatura YAML completa (ver §5.1)"
     output:
       signature_id: "KSIG-2026-07-30-001"
       status: "published | merged | conflicted"
-      
+
   validateSignature:
     input:
       signature_id: "KSIG-2026-07-30-001"
@@ -1274,9 +1274,9 @@ federation_adapter_api:
       outcome: "success | partial | failure"
     output:
       updated_provenance: {...}
-      
+
   # === SINCRONIZAÇÃO ===
-  
+
   sync:
     input:
       direction: "pull | push | full"
@@ -1286,9 +1286,9 @@ federation_adapter_api:
       pushed: 3
       merged: 1
       conflicts: 0
-      
+
   # === ADMINISTRAÇÃO ===
-  
+
   getStatus:
     output:
       hub_connected: true
@@ -1379,7 +1379,7 @@ implementation_plan:
       - "Schema SQLite para vector index + signature store"
       - "Configuração global com defaults de privacidade"
       - "CLI básica: cosca federation init"
-      
+
   stage_2_signatures:
     duration: "6-8 horas"
     description: "Implementar geração e publicação de Knowledge Signatures"
@@ -1388,7 +1388,7 @@ implementation_plan:
       - "Vocabulário controlado de domínios, knowledge_types, pattern_types"
       - "Federation Adapter: publishSignature(), validateSignature()"
       - "Integração com Stage 7 (EXTRACT PATTERN)"
-      
+
   stage_3_matching:
     duration: "6-8 horas"
     description: "Implementar Pattern Matching e Failure Avoidance"
@@ -1398,7 +1398,7 @@ implementation_plan:
       - "getUniversalHeuristics() — propagação automática de heurísticas universais"
       - "Integração com Stage 1-3 do metacognition pipeline"
       - "FederationWarning UI no Kernel"
-      
+
   stage_4_dedup_privacy:
     duration: "4-6 horas"
     description: "Implementar deduplicação, privacidade e sincronização"
@@ -1407,7 +1407,7 @@ implementation_plan:
       - "Privacy Filter (public/namespace/private enforcement)"
       - "Sync automático (background 6h + on-task-completion)"
       - "CLI completa: sync, push, pull, search, search-failures, heuristics, validate, status"
-      
+
   stage_5_metrics_integration:
     duration: "2-4 horas"
     description: "Integrar métricas, CMI e dashboard"
@@ -1432,7 +1432,7 @@ scalability:
     vector_index_size: "~50MB"    # Para 10000 embeddings 1536-dim
     sync_time: "< 10s"            # Sync completo para 10000 assinaturas
     query_time: "< 500ms"         # Busca top-5 com filtro
-    
+
   future_remote_hub:
     description: "Hub remoto para federação multi-machine (Fase 3+)"
     candidates:

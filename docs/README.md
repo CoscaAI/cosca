@@ -230,5 +230,5 @@ cosca/
 
 ---
 
-> **Maintained by**: Cosca Documentation Chief  
+> **Maintained by**: Cosca Documentation Chief
 > **Questions?**: Open an issue on GitHub

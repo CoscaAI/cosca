@@ -1,9 +1,9 @@
 # Cosca Semantic Memory — Index v2.0.0
 
-> **Cycle**: C2 (Second Indexing Cycle)  
-> **Generated**: 2026-08-29  
-> **Indexed By**: cosca-semantic-memory  
-> **Files Analyzed**: 494  
+> **Cycle**: C2 (Second Indexing Cycle)
+> **Generated**: 2026-08-29
+> **Indexed By**: cosca-semantic-memory
+> **Files Analyzed**: 494
 > **Status**: active (replaces C1)
 
 ---
@@ -45,7 +45,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Architecture patterns | `pattern/architecture-patterns.md`, `pattern/go-provider-pattern.md`, `pattern/go-editor-adapter-pattern.md`, `pattern/go-plugin-wasm-pattern.md`, `pattern/pattern-enterprise-gaps.md` |
 | Agent capability | `agent/cosca-architecture/capability-profile.md`, `agent/cosca-architecture/learnings.md` |
 
-**Agents involved**: cosca-architecture (L3), cosca-cto (L2), cosca-kernel (L3), cosca-documentation (L3), cosca-backend (L3)  
+**Agents involved**: cosca-architecture (L3), cosca-cto (L2), cosca-kernel (L3), cosca-documentation (L3), cosca-backend (L3)
 **Keywords**: `layered-monolith`, `single-binary`, `sqlite`, `interface-driven`, `editor-agnostic`, `provider-agnostic`, `plugin-extensible`, `5-layer-model`, `gRPC-3-services-12-RPCs`, `WebSocket/SSE-streaming`, `MCP-tools`, `ADR`, `design-patterns`
 
 ---
@@ -63,7 +63,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | **FTS5 schema bug (documents_fts)** | `performance/baseline-report.md` §2.2, `agent/cosca-performance/learnings.md` |
 | Agent capability | `agent/cosca-database/capability-profile.md`, `agent/cosca-specialist-database-sql/capability-profile.md`, `agent/cosca-migration/capability-profile.md` |
 
-**Agents involved**: cosca-database (L2), cosca-performance (L3), cosca-specialist-database-sql (L1), cosca-migration (L2)  
+**Agents involved**: cosca-database (L2), cosca-performance (L3), cosca-specialist-database-sql (L1), cosca-migration (L2)
 **Keywords**: `sqlite`, `modernc.org/sqlite`, `WAL-mode`, `FTS5`, `sqlite-vec`, `BM25`, `vector-fusion`, `single-writer`, `embedded`, `schema-migration`, `EXPLAIN-QUERY-PLAN`, `documents_fts-content-column-mismatch`
 
 ---
@@ -80,7 +80,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Abstraction pitfalls | `agent/cosca-backend/failures.md` (CRUDHandler over-abstraction, caching failure) |
 | Agent capability | `agent/cosca-backend/capability-profile.md` (L3), `agent/cosca-specialist-backend-api/capability-profile.md` (L2), `agent/cosca-specialist-backend-service/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-backend (L3), cosca-specialist-backend-api (L2), cosca-specialist-backend-service (L2), cosca-security (L3)  
+**Agents involved**: cosca-backend (L3), cosca-specialist-backend-api (L2), cosca-specialist-backend-service (L2), cosca-security (L3)
 **Keywords**: `REST`, `36-endpoints`, `10-domains`, `middleware-chain`, `SecurityHeaders→Auth→CSRF→RateLimit→CORS→Logging`, `RBAC`, `typed-contextKey`, `CRUD-coverage`, `gRPC-unary`, `SSE-sendSSE`
 
 ---
@@ -99,7 +99,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Bug references | `bug/bug-003-race-conditions.md`, `bug/bug-004-provider-caching.md` |
 | Agent capability | `agent/cosca-security/capability-profile.md` (L3), `agent/cosca-compliance/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-security (L3), cosca-backend (L3), cosca-frontend (L3), cosca-compliance (L2), cosca-critic (L3)  
+**Agents involved**: cosca-security (L3), cosca-backend (L3), cosca-frontend (L3), cosca-compliance (L2), cosca-critic (L3)
 **Keywords**: `3-tier-auth`, `API-Key→Cookie-JWT→Bearer`, `HMAC-SHA256`, `bcrypt-cost-12`, `brute-force-lockout`, `double-submit-CSRF`, `ConstantTimeCompare`, `token-bucket-rate-limit`, `GDPR-20-controls`, `LGPD-15-controls`, `OWASP-Top-10`, `govulncheck`, `STRIDE`
 
 ---
@@ -116,7 +116,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Testing pyramid (frontend) | `agent/cosca-frontend/learnings.md`, `testing/strategy.md` |
 | Agent capability | `agent/cosca-frontend/capability-profile.md` (L3), `agent/cosca-uiux/capability-profile.md` (L2), `agent/cosca-specialist-frontend-component/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-frontend (L3), cosca-uiux (L2), cosca-specialist-frontend-component (L2), cosca-product (L1)  
+**Agents involved**: cosca-frontend (L3), cosca-uiux (L2), cosca-specialist-frontend-component (L2), cosca-product (L1)
 **Keywords**: `Next.js-15`, `App-Router`, `26-routes`, `27-feature-modules`, `14-Radix-primitives`, `shadcn/ui`, `TanStack-Query`, `staleTime-60s`, `httpOnly-cookies`, `sentinel-cookie`, `PWA`, `MSW-mocking`, `WCAG-2.1-AA`
 
 ---
@@ -133,7 +133,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Known bugs (Restart, EventStartupComplete) | `bug/bug-006-restart-broken.md`, `bug/bug-007-startup-event-timing.md`, `bug/bug-008-metrics-misdocumented.md` |
 | Agent capability | `agent/cosca-runtime/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-runtime (L2), cosca-performance (L3), cosca-monitoring (L2), cosca-backend (L3)  
+**Agents involved**: cosca-runtime (L2), cosca-performance (L3), cosca-monitoring (L2), cosca-backend (L3)
 **Keywords**: `state-machine`, `8-states-20-transitions`, `Restart-broken`, `EventStartupComplete-premature`, `daemon-watchdog`, `pid-file`, `signal-handling`, `atomic-counters`, `durationHistogram`, `sync.Map`, `hot-reload-missing`
 
 ---
@@ -151,7 +151,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Bug-005 root cause (FTS5 correctness) | `performance/baseline-report.md` §2.2, `bug/bug-005-sqlite-first-run.md` |
 | Agent capability | `agent/cosca-performance/capability-profile.md` (L3), `agent/cosca-monitoring/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-performance (L3), cosca-monitoring (L2), cosca-database (L2), cosca-runtime (L2)  
+**Agents involved**: cosca-performance (L3), cosca-monitoring (L2), cosca-database (L2), cosca-runtime (L2)
 **Keywords**: `vector-search-bruteforce`, `WAL-mode`, `single-writer`, `goroutine-leak`, `pprof`, `benchstat`, `EXPLAIN-QUERY-PLAN`, `go-benchmark`, `SLO-5`, `SLI`, `Prometheus-60-metrics`, `OpenTelemetry`, `FAISS/ANN-index`
 
 ---
@@ -167,7 +167,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Memory health (494 files) | `memory-chief/activation-report.md`, `agent/cosca-memory-chief/learnings.md`, `agent/cosca-documentation/learnings.md` |
 | Agent capability | `agent/cosca-documentation/capability-profile.md` (L3), `agent/cosca-memory-chief/capability-profile.md` (L2), `agent/cosca-specialist-documentation-writer/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-documentation (L3), cosca-memory-chief (L2), cosca-specialist-documentation-writer (L2), cosca-kernel (L3)  
+**Agents involved**: cosca-documentation (L3), cosca-memory-chief (L2), cosca-specialist-documentation-writer (L2), cosca-kernel (L3)
 **Keywords**: `887-doc-assets`, `badge-drift`, `version-inconsistency`, `postgresql-fantasy`, `doc-code-validator`, `frontmatter-coverage`, `cross-reference-integrity`, `stale-content`, `number-verification`
 
 ---
@@ -186,7 +186,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Specialist wave review | `review/onda-3-specialist-review.md` |
 | Agent capability | `agent/cosca-qa/capability-profile.md` (L3), `agent/cosca-testing/capability-profile.md` (L3), `agent/cosca-specialist-testing-unit/capability-profile.md` (L1), `agent/cosca-specialist-testing-integration/capability-profile.md` (L2), `agent/cosca-specialist-testing-e2e/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-qa (L3), cosca-testing (L3), cosca-specialist-testing-unit (L1), cosca-specialist-testing-integration (L2), cosca-specialist-testing-e2e (L2)  
+**Agents involved**: cosca-qa (L3), cosca-testing (L3), cosca-specialist-testing-unit (L1), cosca-specialist-testing-integration (L2), cosca-specialist-testing-e2e (L2)
 **Keywords**: `quality-gates-G0-G9`, `testing-pyramid`, `AAA-pattern`, `go-test`, `-race`, `Vitest`, `Playwright`, `Storybook`, `MSW`, `coverage-70%`, `flaky-tests`, `integration-suite`
 
 ---
@@ -206,7 +206,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Framework decisions | `decision/decision-enterprise-evolution-2026-07-23.md`, `decision/decision-enterprise-prompt-2026-07-12.md`, `decision/decision-audit-2026-07-12.md` |
 | Agent capability | `agent/cosca-kernel/capability-profile.md` (L3), `agent/cosca-critic/capability-profile.md` (L3), `agent/cosca-evolution/capability-profile.md` (L2), `agent/cosca-governance/capability-profile.md` (L1), `agent/cosca-paradigm/capability-profile.md` (L1) |
 
-**Agents involved**: cosca-kernel (L3), cosca-critic (L3), cosca-governance (L1), cosca-evolution (L2), cosca-paradigm (L1)  
+**Agents involved**: cosca-kernel (L3), cosca-critic (L3), cosca-governance (L1), cosca-evolution (L2), cosca-paradigm (L1)
 **Keywords**: `constitution`, `confidence-model`, `curation-engine`, `metacognition-pipeline`, `DNA-v3.0`, `28-fields`, `quality-gates-G0-G9`, `evidence-weights`, `curation-score`, `paradigm-shift`, `decision-critique`, `99.1%-compliance`
 
 ---
@@ -224,7 +224,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | ADR (platform, cache) | `architecture/adr/adr-2000-platform.md`, `architecture/adr/adr-3159-cache.md` |
 | Agent capability | `agent/cosca-devops/capability-profile.md` (L3), `agent/cosca-platform/capability-profile.md` (L2), `agent/cosca-infrastructure/capability-profile.md` (L2), `agent/cosca-cache/capability-profile.md` (L3) |
 
-**Agents involved**: cosca-devops (L3), cosca-platform (L2), cosca-infrastructure (L2), cosca-cache (L3)  
+**Agents involved**: cosca-devops (L3), cosca-platform (L2), cosca-infrastructure (L2), cosca-cache (L3)
 **Keywords**: `CI/CD`, `Helm`, `Kubernetes`, `Docker`, `IaC`, `Terraform`, `blue-green-deploy`, `immutable-infrastructure`, `secrets-management`, `redis`, `CDN`, `multi-tier-cache`
 
 ---
@@ -240,7 +240,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | AI deliberation / orchestration mining | `agent/cosca-ai/learnings.md`, `agent/cosca-architecture/learnings.md` (ADR-011 Mega Brain) |
 | Agent capability | `agent/cosca-provider/capability-profile.md` (L2), `agent/cosca-ai/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-provider (L2), cosca-ai (L2), cosca-architecture (L3), cosca-kernel (L3)  
+**Agents involved**: cosca-provider (L2), cosca-ai (L2), cosca-architecture (L3), cosca-kernel (L3)
 **Keywords**: `OpenAI`, `Anthropic`, `Ollama`, `LLM-providers`, `RAG`, `embeddings`, `prompt-engineering`, `injection-attacks`, `provider-failover`, `cost-optimization`, `deliberation`, `convergence-calculated`
 
 ---
@@ -256,7 +256,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Project overview | `project/cosca-cli-overview.md` |
 | Agent capability | `agent/cosca-sdk/capability-profile.md` (L2), `agent/cosca-cli/capability-profile.md` (L1) |
 
-**Agents involved**: cosca-sdk (L2), cosca-cli (L1)  
+**Agents involved**: cosca-sdk (L2), cosca-cli (L1)
 **Keywords**: `TypeScript-SDK`, `@cosca/sdk`, `Vitest`, `Cobra-CLI`, `POSIX`, `shell-completion`, `code-generators`, `NPM-publication`
 
 ---
@@ -270,7 +270,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Plugin pattern (Go/WASM/External) | `pattern/go-plugin-wasm-pattern.md`, `architecture/adr/adr-1430-plugin.md`, `plugin/audit-report.md` |
 | Agent capability | `agent/cosca-plugin/capability-profile.md` (L2) |
 
-**Agents involved**: cosca-plugin (L2)  
+**Agents involved**: cosca-plugin (L2)
 **Keywords**: `WASM`, `wazero`, `plugin-runtime`, `sandboxing`, `hot-reload`, `SDK-contracts`, `plugin-registry`
 
 ---
@@ -286,7 +286,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | Session context | `context/session.md`, `context/cognitive-state.md` |
 | Agent capability | `agent/cosca-bootstrap/capability-profile.md` (L1), `agent/cosca-discovery/capability-profile.md` (L1), `agent/cosca-context/capability-profile.md` (L1) |
 
-**Agents involved**: cosca-bootstrap (L1), cosca-discovery (L1), cosca-context (L1), cosca-automation (L3)  
+**Agents involved**: cosca-bootstrap (L1), cosca-discovery (L1), cosca-context (L1), cosca-automation (L3)
 **Keywords**: `bootstrap`, `startup-optimization`, `cognitive-state`, `fast-path`, `Phase-0`, `codebase-scan`, `glob-grep`, `stack-detection`, `module-boundaries`
 
 ---
@@ -318,7 +318,7 @@ Each topic maps to all relevant memory files, regardless of directory or agent. 
 | 2-zone air-gap architecture (ADR-012) | `agent/cosca-architecture/learnings.md`, `agent/cosca-security/learnings.md`, `agent/cosca-infrastructure/learnings.md` |
 | Project goal | `project/architecture-initiative.md`, `project/current-projects.md` |
 
-**Agents involved**: cosca-kernel (L3), cosca-architecture (L3), cosca-security (L3), cosca-infrastructure (L2), cosca-ai (L2)  
+**Agents involved**: cosca-kernel (L3), cosca-architecture (L3), cosca-security (L3), cosca-infrastructure (L2), cosca-ai (L2)
 **Keywords**: `living-world`, `unreal-UE5`, `PCG`, `vision/spatial/VFX/audio layers`, `Sceelix`, `Gaussian-Splatting`, `ComfyUI`, `ACoscaAgentPawn`, `plan-only`, `boardroom-2-zone`, `air-gap`, `ADR-011`, `ADR-012`
 
 ---
@@ -734,7 +734,7 @@ This index is a living derived document. It is regenerated from the canonical so
 
 ---
 
-> **Generated by**: cosca-semantic-memory (Semantic Memory Chief)  
-> **Based on**: 494 files across 27 topic groups, 54 agents  
-> **Cycle**: C2 — Re-index; canonical source unchanged, derived index regenerated  
+> **Generated by**: cosca-semantic-memory (Semantic Memory Chief)
+> **Based on**: 494 files across 27 topic groups, 54 agents
+> **Cycle**: C2 — Re-index; canonical source unchanged, derived index regenerated
 > **Next cycle**: C3 — Bug-fix wave + capability-profile sync + Living World codification

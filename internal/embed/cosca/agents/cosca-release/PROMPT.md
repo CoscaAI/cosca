@@ -1,4 +1,4 @@
-﻿---
+---
 agent: cosca-release
 type: prompt
 version: 1.0.0

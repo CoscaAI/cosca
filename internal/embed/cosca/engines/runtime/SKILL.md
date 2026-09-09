@@ -86,25 +86,25 @@ runtime:
   port: 3000
   shutdown_timeout_ms: 10000
   max_request_size: "10mb"
-  
+
   cors:
     origins: ["*"]
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     headers: ["Content-Type", "Authorization"]
-    
+
   rate_limit:
     window_ms: 60000
     max_requests: 100
-    
+
   logging:
     level: "info"
     format: "json"
     redact: ["password", "token", "secret"]
-    
+
   health:
     enabled: true
     path: "/health"
-    
+
   compression:
     enabled: true
     threshold: 1024

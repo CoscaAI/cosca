@@ -1,4 +1,4 @@
-﻿# cosca-sdk - learnings.md PRE-FIX (conteudo nao-registrado na chain)
+# cosca-sdk - learnings.md PRE-FIX (conteudo nao-registrado na chain)
 
 > Arquivo gerado em 20260908 antes da reconstrucao do indice de gatilhos.
 > Conteudo preservado - leia por grep, nunca inteiro.

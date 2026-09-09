@@ -1,7 +1,7 @@
 # COGNITIVE STATE — UCSS v1.0
 
 > **Spec**: Cognitive_State_Specification.md | **Updated**: 2026-08-02T00:00:00Z
-> 
+>
 > Este arquivo modela **como o Kernel pensa e interage**.
 > Para **o que o Kernel está trabalhando**, veja `workspace-state.md`.
 

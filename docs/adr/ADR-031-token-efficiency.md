@@ -100,7 +100,7 @@ cache_key = hash(task) + knowledge_snapshot + agent_capability
 - **Maior impacto** nas tarefas em paralelo (o "40 agentes" que o professor brincou).
 - Diferente do cache de busca já existente: este cacheia o **resultado da tarefa** (a resposta/descoberta), não os resultados de busca.
 
-### 2.2 Frente 3 — Progressive disclosure (contexto em camadas) 
+### 2.2 Frente 3 — Progressive disclosure (contexto em camadas)
 
 ```
 L0 — Task

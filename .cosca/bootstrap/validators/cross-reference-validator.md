@@ -153,7 +153,7 @@ None detected.
 Bootstrap Phase 9 (Quality Validation):
   → Language Detector
   → Framework Detector
-  → ... 
+  → ...
   → Cross-Reference Validator ← runs here
   → Cosca Component Validator
   → Dependency Validator

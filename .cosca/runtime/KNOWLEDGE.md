@@ -72,57 +72,57 @@ The Knowledge Graph is a **labeled property graph** that connects all knowledge 
 knowledge_graph:
   name: "Cosca Knowledge Graph"
   storage: "pgvector + adjacency table"
-  
+
   node_types:
     Capability:
       properties: [id, name, category, version, status, quality_score]
       indexes: [id, category, status]
-      
+
     Workflow:
       properties: [id, name, steps, category, owner]
       indexes: [id, category]
-      
+
     Decision:
       properties: [id, title, rationale, alternatives, outcome, confidence, authority, timestamp]
       indexes: [id, authority, timestamp]
-      
+
     Pattern:
       properties: [id, name, category, content, confidence, times_used, times_succeeded]
       indexes: [id, category, confidence]
-      
+
     Agent:
       properties: [id, name, type, department, performance_score]
       indexes: [id, type, department]
-      
+
     Session:
       properties: [id, timestamp, duration_ms, quality_score, runtime_type]
       indexes: [id, timestamp]
-      
+
     Incident:
       properties: [id, title, severity, status, resolved_at, root_cause]
       indexes: [id, severity, status]
-      
+
   edge_types:
     DEPENDS_ON:
       description: "Capability A depends on Capability B"
       properties: [strength, type]
-      
+
     IMPLEMENTS:
       description: "Workflow implements Capability"
       properties: [completeness]
-      
+
     RESOLVES:
       description: "Decision resolves a problem"
       properties: [efficacy]
-      
+
     TRIGGERS:
       description: "Session triggered a Learning event"
       properties: [timestamp]
-      
+
     RELATES_TO:
       description: "Pattern relates to Capability"
       properties: [relevance_score]
-      
+
     CAUSED_BY:
       description: "Incident caused by root cause"
       properties: [confidence]
@@ -149,7 +149,7 @@ The Decision Graph is a **specialized subgraph** of the Knowledge Graph that tra
 ```yaml
 decision_graph:
   description: "Complete decision lineage — who decided what, when, and why"
-  
+
   node_schema:
     Decision:
       id: "uuid"
@@ -163,24 +163,24 @@ decision_graph:
       session_id: "uuid"
       timestamp: "ISO8601"
       tags: []
-      
+
   edge_schema:
     SUPERSEDES:
       description: "Decision B supersedes Decision A"
       direction: "B → A"
-      
+
     ALTERNATIVE_TO:
       description: "Decision B was an alternative to Decision A"
       direction: "bidirectional"
-      
+
     IMPLEMENTED_BY:
       description: "Decision implemented by Workflow/Session"
       direction: "Decision → Workflow"
-      
+
     REQUIRES:
       description: "Decision requires another decision as prerequisite"
       direction: "Decision → Decision"
-      
+
   queries:
     - "Show full decision lineage for a given topic"
     - "Find all decisions made by a specific authority"
@@ -198,7 +198,7 @@ The Pattern Graph catalogs **what works, what doesn't, and why**.
 ```yaml
 pattern_graph:
   description: "Patterns, anti-patterns, and their relationships"
-  
+
   node_schema:
     Pattern:
       id: "uuid"
@@ -213,29 +213,29 @@ pattern_graph:
       times_used: 0
       times_succeeded: 0
       success_rate: 0.0  # computed
-      
+
   edge_schema:
     SOLVES:
       description: "Pattern solves a specific problem type"
       direction: "Pattern → Problem"
-      
+
     CONFLICTS_WITH:
       description: "Pattern conflicts with another pattern"
       direction: "bidirectional"
-      
+
     COMPOSES_WITH:
       description: "Patterns compose well together"
       direction: "bidirectional"
-      
+
     PRECEDES:
       description: "Pattern A should be applied before Pattern B"
       direction: "A → B"
-      
+
   scoring:
     success_rate: "times_succeeded / times_used"
     confidence_boost: "success_rate × log2(times_used + 1)"
     final_confidence: "min(base_confidence + confidence_boost, 1.0)"
-    
+
   queries:
     - "Find highest-confidence pattern for a problem"
     - "Find anti-patterns related to a technology"
@@ -269,7 +269,7 @@ chunking:
   chunk_size: 512  # tokens
   chunk_overlap: 64
   separators: ["\n## ", "\n### ", "\n\n", "\n", ". ", " "]
-  
+
   document_types:
     markdown: "Split by section (## heading boundaries)"
     yaml: "Split by top-level keys"
@@ -286,7 +286,7 @@ embedding:
   batch_size: 20
   max_retries: 3
   timeout_ms: 30000
-  
+
   supported_models:
     - name: "text-embedding-ada-002"
       dimensions: 1536
@@ -297,7 +297,7 @@ embedding:
     - name: "multilingual-e5-large"
       dimensions: 1024
       provider: "local"
-      
+
   index_types:
     ivfflat:
       description: "Inverted file with flat quantization"
@@ -320,7 +320,7 @@ embedding:
 semantic_search:
   endpoint: "/api/v1/knowledge/search"
   method: "POST"
-  
+
   request:
     query: "string (natural language)"
     filters:
@@ -331,7 +331,7 @@ semantic_search:
       date_to: "ISO8601"
     top_k: 20
     min_score: 0.7
-    
+
   response:
     results:
       - id: "uuid"
@@ -342,12 +342,12 @@ semantic_search:
         confidence: 0.85
         freshness_hours: 72
         url: "knowledge/patterns/..."
-        
+
   search_strategy:
     primary: "Vector similarity (cosine)"
     hybrid: "Vector + keyword (BM25 fusion)"
     fallback: "Keyword-only (when vector unavailable)"
-    
+
   fusion:
     method: "Reciprocal rank fusion (RRF)"
     formula: "score = Σ(1 / (k + rank_vector(i))) + Σ(1 / (k + rank_keyword(i)))"
@@ -361,7 +361,7 @@ semantic_search:
 ```yaml
 knowledge_snapshots:
   description: "Point-in-time captures of knowledge state"
-  
+
   creation:
     automatic:
       - "Pre-release (before Gate 3)"
@@ -370,7 +370,7 @@ knowledge_snapshots:
     manual:
       - "User-initiated via API"
       - "Pre/post major refactoring"
-      
+
   schema:
     snapshot:
       id: "uuid"
@@ -381,12 +381,12 @@ knowledge_snapshots:
       graph_nodes: 0
       graph_edges: 0
       embedding_count: 0
-      
+
   storage:
     format: "JSON + compressed vectors"
     retention: "90 days"
     max_snapshots: 52  # One per week
-    
+
   restoration:
     - "Select snapshot by ID"
     - "Validate integrity (hash check)"
@@ -404,23 +404,23 @@ knowledge_snapshots:
 ```yaml
 knowledge_replay:
   description: "Replay knowledge timeline for analysis, debugging, audit"
-  
+
   replay_modes:
     full:
       description: "Replay all knowledge events from start time to end time"
       rate: "1x, 10x, 100x"
       use_case: "Audit trail analysis"
-      
+
     filtered:
       description: "Replay events matching filter criteria"
       filters: ["store", "entity_type", "event_type"]
       use_case: "Debug specific knowledge change"
-      
+
     session:
       description: "Replay knowledge changes that occurred during a session"
       session_id: "uuid"
       use_case: "Session impact analysis"
-      
+
   replay_engine:
     source: "Knowledge changelog (append-only log)"
     event_types:
@@ -430,7 +430,7 @@ knowledge_replay:
       - "knowledge.embedded"
       - "knowledge.searched"
     output: "Timeline visualization + metrics"
-    
+
   use_cases:
     - "Audit: What knowledge changed and when?"
     - "Debug: Why did a search return different results?"
@@ -445,7 +445,7 @@ knowledge_replay:
 ```yaml
 knowledge_timeline:
   description: "Temporal visualization of knowledge evolution"
-  
+
   timeline_events:
     - "Decision created"
     - "Pattern discovered"
@@ -454,7 +454,7 @@ knowledge_timeline:
     - "Workflow modified"
     - "Snapshot created"
     - "Knowledge pruned"
-    
+
   visualization:
     format: "Interactive timeline (JSON for dashboard)"
     grouping: "By store, by day, by week"
@@ -467,7 +467,7 @@ knowledge_timeline:
         color: "red"
       - name: "Snapshots"
         color: "purple"
-        
+
   queries:
     - "Show all knowledge events in date range"
     - "Show knowledge velocity (events per day)"
@@ -482,28 +482,28 @@ knowledge_timeline:
 ```yaml
 correlation_engine:
   description: "Connects related knowledge across stores, sessions, and time"
-  
+
   correlation_types:
     semantic:
       description: "Content-based similarity (embedding cosine)"
       threshold: 0.85
-      
+
     temporal:
       description: "Events occurring within same time window"
       window_ms: 3600000  # 1 hour
-      
+
     causal:
       description: "Event A caused Event B (from causal analysis)"
       confidence: 0.0-1.0
-      
+
     structural:
       description: "Entities connected by graph edges"
       max_hops: 3
-      
+
     cooccurrence:
       description: "Entities appearing together frequently"
       min_cooccurrences: 3
-      
+
   correlation_graph:
     description: "Meta-graph of knowledge correlations"
     edges:
@@ -512,7 +512,7 @@ correlation_engine:
       - type: "causally_connected_to"
       - type: "structurally_dependent_on"
       - type: "cooccurs_with"
-      
+
   use_cases:
     - "Find all knowledge related to a specific decision"
     - "Identify patterns that correlate with successful outcomes"
@@ -527,35 +527,35 @@ correlation_engine:
 ```yaml
 memory_compression:
   description: "Reduce memory footprint while preserving intelligence"
-  
+
   compression_strategies:
     deduplication:
       method: "MinHash + LSH for near-duplicate detection"
       threshold: 0.90  # Jaccard similarity
       action: "Keep highest-confidence version, link duplicates"
-      
+
     summarization:
       method: "Extractive summarization (LLM)"
       ratio: "4:1 compression"
       trigger: "Memory size > 10KB per record"
-      
+
     pruning:
       method: "Remove low-confidence, low-utility entries"
       criteria:
         - "confidence < 0.3"
         - "not accessed in 90 days"
         - "superseded by newer entry"
-        
+
     archiving:
       method: "Move cold entries to compressed archive"
       trigger: "Not accessed in 180 days"
       storage: "JSON Lines (gzip, ~10:1 compression)"
-      
+
     aggregation:
       method: "Roll up similar entries into summary"
       trigger: "> 10 related entries on same topic"
       action: "Create aggregate entry, archive individuals"
-      
+
   compression_pipeline:
     schedule: "Weekly (Sunday 3am)"
     steps:
@@ -567,7 +567,7 @@ memory_compression:
       6. "Run aggregation"
       7. "Rebuild indexes"
       8. "Publish CompressionCompleted event"
-      
+
   metrics:
     - "compression.ratio: pre/post size ratio"
     - "compression.entries_removed: dedup + pruned count"
@@ -583,7 +583,7 @@ memory_compression:
 ```yaml
 knowledge_ranking:
   description: "Rank knowledge results by combined relevance score"
-  
+
   ranking_formula:
     final_score = 0.35 × vector_similarity
                 + 0.20 × keyword_relevance
@@ -591,32 +591,32 @@ knowledge_ranking:
                 + 0.15 × freshness_score
                 + 0.10 × popularity_score
                 + 0.05 × authority_score
-                
+
   score_components:
     vector_similarity:
       description: "Cosine similarity of embeddings"
       range: 0.0-1.0
-      
+
     keyword_relevance:
       description: "BM25 keyword matching score"
       range: 0.0-1.0
-      
+
     confidence_score:
       description: "Pattern/decision confidence"
       range: 0.0-1.0
-      
+
     freshness_score:
       description: "Recency: 1.0 if < 7 days, decays to 0.1 after 1 year"
       formula: "max(0.1, 1.0 - days_since_update / 365)"
-      
+
     popularity_score:
       description: "Times accessed / total accesses"
       formula: "log2(access_count + 1) / log2(max_access_count + 1)"
-      
+
     authority_score:
       description: "Authority of the source (CEO = 1.0, Specialist = 0.3)"
       values: { CEO: 1.0, CTO: 0.9, Chief: 0.7, Specialist: 0.3, Engine: 0.5, System: 0.4 }
-      
+
   re_ranking:
     trigger: "Initial results returned"
     action: "Apply cross-encoder model for precision re-ranking"

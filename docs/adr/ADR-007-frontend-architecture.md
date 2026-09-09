@@ -362,7 +362,7 @@ import { DashboardClient } from "@/features/dashboard";
 
 export default async function DashboardPage() {
   const queryClient = new QueryClient();
-  
+
   // Prefetch on the server
   await queryClient.prefetchQuery({
     queryKey: knowledgeKeys.stats(),
@@ -632,7 +632,7 @@ spec:
         limits:
           cpu: 500m
           memory: 512Mi
-    
+
     - name: cosca-frontend
       image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
       ports:
@@ -661,7 +661,7 @@ spec:
 services:
   cosca-backend:
     # existing service
-  
+
   cosca-frontend:
     build:
       context: .

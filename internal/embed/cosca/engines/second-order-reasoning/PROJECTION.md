@@ -911,7 +911,7 @@ cognitive_economy.check_projection_depth(decision_priority):
   if priority == P0: max_depth = 5
   if priority == P1: max_depth = 4
   if priority == P2: max_depth = 3
-  
+
   for depth in 1..max_depth:
     cost_of_depth = estimate_projection_cost(depth)
     value_of_depth = estimate_information_value(depth)
@@ -987,19 +987,19 @@ Stage 8 (UPDATE CAPABILITY MODEL):
 def generate_consequence_tree(action, context, priority):
     tree = ConsequenceTree(root=action)
     max_depth = get_max_depth(priority)  # 5 para P0, 4 para P1, 3 para P2
-    
+
     # Fase 1: Expansão
     expand_node(tree.root, depth=1, max_depth=max_depth)
-    
+
     # Fase 2: Scoring
     for each path in tree.paths:
         path.cumulative_prob = product(node.probability for node in path)
         path.max_impact = max(node.impact for node in path)
         path.risk_score = path.cumulative_prob * path.max_impact
-    
+
     # Fase 3: Poda
     tree.prune(lambda node: node.cumulative_prob < 0.05 and node.impact < 0.90)
-    
+
     # Fase 4: Intervenções
     interventions = []
     for each node in tree.nodes:
@@ -1012,9 +1012,9 @@ def generate_consequence_tree(action, context, priority):
             )
             intervention.score = intervention.risk_reduction / intervention.cost
             interventions.append(intervention)
-    
+
     interventions.sort(by=score, descending=True)
-    
+
     # Fase 5: Decisão
     worst_path_risk = max(path.risk_score for path in tree.paths)
     if worst_path_risk < 0.05: return PROCEED
@@ -1025,9 +1025,9 @@ def generate_consequence_tree(action, context, priority):
 def expand_node(node, depth, max_depth):
     if depth > max_depth:
         return
-    
+
     consequences = infer_consequences(node.action, node.context)
-    
+
     for consequence in consequences:
         child = ConsequenceNode(
             description=consequence.description,
@@ -1117,21 +1117,21 @@ calibration_metrics:
     definition: "Proporção de projeções que acertaram dentro da margem"
     target: 0.60  # 60% para horizonte de 5 passos
     current: 0.00  # Motor ainda não operacional
-    
+
   calibration_error:
     definition: "Diferença média entre probabilidade projetada e frequência real"
     formula: "mean(|P_projetada - P_real|)"
     target: < 0.15
-    
+
   impact_error:
     definition: "Diferença média entre impacto projetado e impacto real"
     formula: "mean(|I_projetado - I_real|)"
     target: < 0.20
-    
+
   missed_consequences:
     definition: "Consequências que ocorreram mas não estavam na árvore"
     target: 0  # Nenhuma consequência não antecipada
-    
+
   intervention_effectiveness:
     definition: "Intervenções aplicadas que realmente reduziram o risco"
     formula: "(RISK_BEFORE - RISK_AFTER) / RISK_BEFORE"
@@ -1171,18 +1171,18 @@ second_order_reasoning:
   engine_version: "1.0.0"
   timestamp: "2026-07-30T15:42:00Z"
   decision_priority: P0
-  
+
   action:
     description: "Bypassar COSCA_JAILED=1 para executar cosca init --force"
     domain: "runtime_bootstrap"
     is_destructive: true
     affects_framework: true
-    
+
   consequence_tree:
     max_depth: 5
     total_paths: 7
     pruned_paths: 1
-    
+
     paths:
       - id: "path-1"
         description: "Jail bypass → init --force → templates outdated → regression → permanent loss"
@@ -1191,12 +1191,12 @@ second_order_reasoning:
         max_impact: 0.95
         risk_score: 0.406
         classification: "CRITICAL"
-        
+
   risk_assessment:
     cumulative_risk: 0.406
     risk_classification: "CRITICAL"
     worst_path: "path-1"
-    
+
   interventions:
     ranked:
       - rank: 1
@@ -1207,7 +1207,7 @@ second_order_reasoning:
         risk_reduction: 1.00
         score: ∞
         recommendation: "APLICAR IMEDIATAMENTE"
-        
+
       - rank: 2
         point: "STEP 3b"
         description: "Verificar status do embed-sync antes do init"
@@ -1216,7 +1216,7 @@ second_order_reasoning:
         risk_reduction: 0.85
         score: 21.25
         recommendation: "APLICAR"
-        
+
       - rank: 3
         point: "STEP 2"
         description: "Executar DRY_RUN antes de --force"
@@ -1225,7 +1225,7 @@ second_order_reasoning:
         risk_reduction: 0.90
         score: 11.25
         recommendation: "APLICAR"
-        
+
   decision:
     outcome: "ABORT"
     rationale: |
@@ -1234,7 +1234,7 @@ second_order_reasoning:
       Ação recomendada: solicitar autorização do Don com a árvore de
       consequências completa. Se autorizado, aplicar intervenções 2 e 3
       antes de prosseguir.
-      
+
   cognitive_economy:
     tokens_spent_projection: 850
     tokens_saved_by_abort: "~15,000 (custo estimado de correção pós-dano)"
@@ -1306,27 +1306,27 @@ acceptance_criteria:
   - id: AC1
     criterion: "Árvore de consequências para cada decisão estratégica"
     measurement: "Toda decisão P0/P1 gera árvore com N >= 5 passos (P0) ou N >= 3 passos (P1)"
-    
+
   - id: AC2
     criterion: "Cada passo avalia probabilidade, impacto, dependências, efeitos colaterais"
     measurement: "Campos obrigatórios presentes em 100% dos nós da árvore"
-    
+
   - id: AC3
     criterion: "Poda de ramos com probabilidade acumulada < 5%"
     measurement: "Nenhum ramo com P_acumulada < 0.05 na árvore (exceto impacto > 0.90)"
-    
+
   - id: AC4
     criterion: "Feedback loop: consequências reais vs projeções"
     measurement: "Todo ciclo decisão→execução→resultado registra comparação projeção vs realidade"
-    
+
   - id: AC5
     criterion: "Integração com contrafactual gate (F1.2)"
     measurement: "Engine executa APÓS contrafactual gate. Output do contrafactual é input do 2nd-order."
-    
+
   - id: AC6
     criterion: "Visualização: árvore de decisão com heatmap de risco"
     measurement: "Output ASCII inclui indicadores de risco (🟢🟡🟠🔴) e scores numéricos"
-    
+
   - id: AC7
     criterion: "Acurácia de projeção ≥ 60% para horizonte de 5 passos"
     measurement: "Média móvel das últimas 20 projeções: acertos / total ≥ 0.60"
@@ -1360,7 +1360,7 @@ implementation_roadmap:
       - "Impact scorer (4 dimensões)"
       - "Reversibility classifier (↺ ⚠ ✗)"
       - "Integração com KERNEL.md pipeline (após Gate 0.5)"
-      
+
   phase_2:
     name: "Risk Propagation & Intervention"
     effort: "1-2 dias"
@@ -1370,7 +1370,7 @@ implementation_roadmap:
       - "Detector de pontos de intervenção"
       - "Score de intervenção (RISK_REDUCTION / COST)"
       - "Ranqueamento de intervenções"
-      
+
   phase_3:
     name: "Cognitive Economy Integration"
     effort: "1 dia"
@@ -1379,7 +1379,7 @@ implementation_roadmap:
       - "Cálculo de INTERVENTION_COST via Cognitive Economy"
       - "Net Cost Analysis (custo intervenção vs custo dano)"
       - "Token budget para projeções"
-      
+
   phase_4:
     name: "Feedback Loop & Calibration"
     effort: "1-2 dias"
@@ -1389,7 +1389,7 @@ implementation_roadmap:
       - "Ajuste automático de parâmetros do estimator"
       - "Registro de 'consequências não antecipadas' em failures.md"
       - "Integração com Metacognition Pipeline (Stages 7-8)"
-      
+
   total_effort: "5-8 dias (alinhado com estimativa F3.3: 4-6 dias)"
 ```
 

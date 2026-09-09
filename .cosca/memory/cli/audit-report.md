@@ -1,6 +1,6 @@
 # Cosca CLI Audit Report
 
-> **Date**: 2026-07-28 | **Auditor**: cosca-cli | **Level**: 1 → 2  
+> **Date**: 2026-07-28 | **Auditor**: cosca-cli | **Level**: 1 → 2
 > **Scope**: Full CLI command coverage, UX, and gap analysis
 
 ---
@@ -67,8 +67,8 @@
 
 ### 1.2 Full Leaf Command Count
 
-Top-level (no subcommands): 16  
-Subcommands: 89 (including memory snapshot sub-sub-commands)  
+Top-level (no subcommands): 16
+Subcommands: 89 (including memory snapshot sub-sub-commands)
 **Total leaf commands**: 105
 
 ---

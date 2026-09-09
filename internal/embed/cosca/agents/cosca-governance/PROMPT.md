@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-governance
 agent: cosca-governance
 type: prompt

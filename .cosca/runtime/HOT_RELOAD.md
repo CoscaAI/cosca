@@ -59,7 +59,7 @@ The Runtime MUST support hot-reloading all configuration, capability, workflow, 
 ```yaml
 file_watcher:
   enabled: true
-  
+
   watch_paths:
     - "${COSCA_DIR}/"           # Main Cosca directory
     - "${COSCA_DIR}/capabilities/"
@@ -69,21 +69,21 @@ file_watcher:
     - "${COSCA_DIR}/company/"
     - "${COSCA_DIR}/engines/"
     - "${COSCA_DIR}/departments/"
-    
+
   watch_patterns:
     - "*.md"
     - "*.yaml"
     - "*.yml"
-    
+
   exclude_patterns:
     - "**/archive/**"
     - "**/node_modules/**"
     - "**/.git/**"
-    
+
   detection:
     primary: "inotify (Linux) | FSEvents (macOS) | ReadDirectoryChanges (Windows)"
     fallback: "Polling (every 5s)"
-    
+
   debounce:
     window_ms: 1000
     max_batch: 50
@@ -121,23 +121,23 @@ Each stage has a formal contract with input, output, error handling, and rollbac
 hr_stage_detect:
   name: "Detect Change"
   position: 1
-  
+
   input:
     file_path: "string"
     event_type: "create | modify | delete"
     file_hash: "SHA-256"
-    
+
   output:
     change_record:
       file: "path/to/file.md"
       type: "create | modify | delete"
       hash: "abc123..."
       timestamp: "ISO8601"
-      
+
   error_handling:
     - "File disappeared before read → log, skip"
     - "Permission denied → log, skip"
-    
+
   rollback: "Not applicable (detection only)"
 ```
 
@@ -147,31 +147,31 @@ hr_stage_detect:
 hr_stage_queue:
   name: "Queue Change"
   position: 2
-  
+
   input:
     change_record: {}
-    
+
   output:
     queued: true | false
     batch_id: "uuid"
-    
+
   debounce:
     window_ms: 1000
     logic: "If same file queued within window, coalesce (last change wins)"
-    
+
   batch:
     max_size: 50
     flush_interval_ms: 2000
-    
+
   priority:
     high: ["KERNEL.md", "QUALITY_GATES.md", "MEMORY_MODEL.md"]
     normal: ["capabilities/**", "workflows/**"]
     low: ["memory/**", "knowledge/**"]
-    
+
   error_handling:
     - "Queue full → flush immediately, process batch"
     - "Duplicate detected → deduplicate, keep latest"
-    
+
   rollback: "Not applicable (queuing only)"
 ```
 
@@ -181,30 +181,30 @@ hr_stage_queue:
 hr_stage_parse:
   name: "Parse File"
   position: 3
-  
+
   input:
     file_path: "string"
     raw_content: "string"
     file_type: "markdown | yaml | yml"
-    
+
   output:
     ast: {}
     frontmatter: {}
     sections: []
     parse_duration_ms: 0
-    
+
   parsers:
     markdown:
       frontmatter: "YAML between --- markers"
       body: "CommonMark-compliant markdown"
     yaml:
       parser: "Strict YAML 1.2"
-      
+
   error_handling:
     - "Parse error → fail, log error, skip to rollback"
     - "Empty file → warn, skip"
     - "Encoding error → fail, skip to rollback"
-    
+
   rollback: "Discard parsed AST (no side effects yet)"
 ```
 
@@ -214,32 +214,32 @@ hr_stage_parse:
 hr_stage_validate:
   name: "Validate Changes"
   position: 4
-  
+
   input:
     ast: {}
     file_path: "string"
     previous_ast: {}  # For comparison
-    
+
   output:
     valid: true | false
     violations: []
     warnings: []
-    
+
   checks:
     - "Schema compliance (all required fields)"
     - "Reference integrity (links resolve)"
     - "Cross-file consistency"
     - "No breaking changes to contracts"
-    
+
   severity:
     block: "Block hot reload, trigger rollback"
     warn: "Allow hot reload, log warning"
-    
+
   error_handling:
     - "Breaking contract change → BLOCK, rollback, notify"
     - "Broken reference → WARN, allow, log"
     - "Schema violation → BLOCK, rollback"
-    
+
   rollback: "Discard validation results (no side effects)"
 ```
 
@@ -249,26 +249,26 @@ hr_stage_validate:
 hr_stage_transform:
   name: "Transform AST → Models"
   position: 5
-  
+
   input:
     valid_ast: {}
     file_type: "string"
-    
+
   output:
     runtime_models: []
     model_types: []
-    
+
   transforms:
     capability_file: "Generate CapabilityModel"
     workflow_file: "Generate WorkflowModel"
     memory_file: "Generate MemoryRecord"
     knowledge_file: "Generate KnowledgeEntry"
     governance_file: "Generate GovernanceDocument"
-    
+
   error_handling:
     - "Transform error → fail, rollback"
     - "Type mismatch → fail, rollback"
-    
+
   rollback: "Discard generated models"
 ```
 
@@ -278,29 +278,29 @@ hr_stage_transform:
 hr_stage_db:
   name: "Update Database"
   position: 6
-  
+
   input:
     runtime_models: []
     change_type: "create | update | delete"
-    
+
   output:
     db_updated: true | false
     records_affected: 0
-    
+
   operations:
     create: "INSERT"
     update: "UPDATE (diff-based, only changed fields)"
     delete: "DELETE (or soft-delete)"
-    
+
   transaction:
     begin: "Before first write"
     commit: "After all writes"
     rollback: "On any error"
-    
+
   error_handling:
     - "DB error → rollback transaction, fail"
     - "Constraint violation → rollback, log"
-    
+
   rollback: "ROLLBACK transaction → DB restored to pre-reload state"
 ```
 
@@ -310,24 +310,24 @@ hr_stage_db:
 hr_stage_cache:
   name: "Update Cache"
   position: 7
-  
+
   input:
     changed_keys: []
     change_type: "create | update | delete"
-    
+
   output:
     cache_updated: true | false
     keys_invalidated: 0
     keys_written: 0
-    
+
   operations:
     create: "SET key value WITH TTL"
     update: "DELETE key (lazy re-cache) or SET new value"
     delete: "DELETE key AND remove from indexes"
-    
+
   error_handling:
     - "Redis error → log, continue (cache will be rebuilt on next read)"
-    
+
   rollback: "Re-write previous values (from pre-reload snapshot)"
 ```
 
@@ -337,28 +337,28 @@ hr_stage_cache:
 hr_stage_runtime:
   name: "Update Runtime In-Memory"
   position: 8
-  
+
   input:
     runtime_models: []
     change_type: "create | update | delete"
-    
+
   output:
     runtime_updated: true | false
     registries_updated: []
-    
+
   updates:
     - "capability_registry"
     - "workflow_registry"
     - "memory_context"
     - "knowledge_context"
-    
+
   atomicity:
     mechansim: "Copy-on-write for registries"
     effect: "In-flight queries see old version, new queries see new version"
-    
+
   error_handling:
     - "Memory error → rollback, log critical"
-    
+
   rollback: "Restore previous registry snapshots from pre-reload backup"
 ```
 
@@ -368,23 +368,23 @@ hr_stage_runtime:
 hr_stage_event:
   name: "Publish Event"
   position: 9
-  
+
   input:
     change_record: {}
     success: true | false
     duration_ms: 0
     errors: []
-    
+
   output:
     event_published: true | false
-    
+
   events:
     success:
       name: "HotReloadCompleted"
       payload:
         file: "path"
         duration_ms: 1500
-        changes: ["capability_registry", "workflow_registry"] 
+        changes: ["capability_registry", "workflow_registry"]
     failure:
       name: "HotReloadFailed"
       payload:
@@ -392,10 +392,10 @@ hr_stage_event:
         duration_ms: 3000
         error: "Validation failed"
         rolled_back: true
-        
+
   error_handling:
     - "Event bus unavailable → log, continue (dashboard refresh skipped)"
-    
+
   rollback: "Not applicable (event is final)"
 ```
 
@@ -405,24 +405,24 @@ hr_stage_event:
 hr_stage_dashboard:
   name: "Refresh Dashboard"
   position: 10
-  
+
   input:
     change_summary: {}
-    
+
   output:
     dashboard_refreshed: true | false
-    
+
   mechanism: "SSE push with change payload"
-  
+
   payload:
     event: "hot_reload"
     file: "path/to/file.md"
     timestamp: "ISO8601"
     changes_summary: "Updated capability registry (CAP-ENG-001)"
-    
+
   error_handling:
     - "SSE client disconnected → will pick up on next poll"
-    
+
   rollback: "Not applicable (dashboard refresh is final)"
 ```
 
@@ -439,7 +439,7 @@ hot_reload_rollback:
     - "Validation failure (block severity)"
     - "Database write failure"
     - "Runtime model update failure"
-    
+
   mechanism:
     pre_reload:
       action: "Snapshot current state before starting pipeline"
@@ -447,21 +447,21 @@ hot_reload_rollback:
         - "DB: BEGIN TRANSACTION"
         - "Cache: Backup current values for affected keys"
         - "Runtime: Snapshot current registries"
-        
+
     on_failure:
       action: "Restore snapshot in reverse order"
       sequence:
         - "1. Runtime: Restore registry snapshots"
         - "2. Cache: Restore previous values"
         - "3. DB: ROLLBACK TRANSACTION"
-        
+
     on_success:
       action: "Commit changes"
       sequence:
         - "1. DB: COMMIT TRANSACTION"
         - "2. Cache: Confirm new values"
         - "3. Runtime: Release old snapshots"
-        
+
   state_after_rollback: "Runtime returns to exact state before hot reload began"
   notification: "Publish HotReloadFailed event with rollback confirmation"
 ```
@@ -492,7 +492,7 @@ When file A changes, the engine determines which other files might be affected:
 ```yaml
 dependency_reload:
   enabled: true
-  
+
   rules:
     - "CAPABILITY_CATALOG.md change → Reload all capability references"
     - "ORGCHART.md change → Reload all department references"
@@ -500,7 +500,7 @@ dependency_reload:
     - "MEMORY_MODEL.md change → Reload memory store configuration"
     - "Workflow file change → Reload workflow registry"
     - "Engine SKILL.md change → Reload engine registry"
-    
+
   cross_reference_index:
     purpose: "Pre-computed map of file → dependent files"
     update: "On every hot reload"
@@ -538,7 +538,7 @@ cannot_hot_reload:
   - "Changes to metrics schema"
   - "Removal of required contracts"
   - "Changes to the hot reload configuration itself"
-  
+
   action: "Require explicit Runtime restart"
   detection: "Automatically detected during validation stage"
   notification: "Publish HotReloadRequiresRestart event"
@@ -588,12 +588,12 @@ hot_reload_security:
     - "Executable files (*.sh, *.py, *.js) are NEVER hot-reloaded"
     - "Binary files are NEVER hot-reloaded"
     - "Files > 10MB are skipped (log warning)"
-    
+
   audit:
     - "All hot reloads are logged to sync_audit table"
     - "All failed hot reloads are logged as incidents"
     - "All rollbacks are logged with pre/post state"
-    
+
   rate_limiting:
     max_per_minute: 60
     max_per_hour: 1000
@@ -607,29 +607,29 @@ hot_reload_security:
 ```yaml
 hot_reload_config:
   enabled: true
-  
+
   file_watcher:
     enabled: true
     mechanism: "auto-detect"
     polling_interval_ms: 5000
-    
+
   pipeline:
     timeout_ms: 30000
     fail_on_error: true
-    
+
   debounce:
     window_ms: 1000
     max_batch: 50
-    
+
   rollback:
     enabled: true
     snapshot_runtime: true
     snapshot_cache: true
-    
+
   dashboard:
     refresh_on_complete: true
     push_via_sse: true
-    
+
   security:
     restrict_to_aos_dir: true
     max_file_size_bytes: 10485760  # 10MB

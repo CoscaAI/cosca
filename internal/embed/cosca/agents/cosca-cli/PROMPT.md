@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-cli
 agent: cosca-cli
 type: prompt

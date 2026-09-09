@@ -1,7 +1,7 @@
 # Backstage Plugin Platform Patterns
 
-> **Source**: https://github.com/backstage/backstage — Apache 2.0, ~12.000 arquivos, monorepo Yarn  
-> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)  
+> **Source**: https://github.com/backstage/backstage — Apache 2.0, ~12.000 arquivos, monorepo Yarn
+> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)
 > **Confidence**: 0.93 (validado por leitura direta de código fonte: 3 reports cross-agent em ~200 arquivos-chave)
 
 ## Intent
@@ -199,7 +199,7 @@ const catalogPage = PageBlueprint.makeWithOverrides({
 });
 
 // Blueprints disponíveis
-PageBlueprint, ApiBlueprint, AppRootElementBlueprint, 
+PageBlueprint, ApiBlueprint, AppRootElementBlueprint,
 EntityCardBlueprint, HomePageWidgetBlueprint, ...
 ```
 

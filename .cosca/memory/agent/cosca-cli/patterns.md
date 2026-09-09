@@ -2,7 +2,7 @@
 
 ## Pattern: CLI Command Audit Pipeline
 
-**Discovered**: 2026-07-28  
+**Discovered**: 2026-07-28
 **Context**: Full audit of Cobra-based CLI with 37 top-level + 105 leaf commands
 
 **Pipeline**:
@@ -18,7 +18,7 @@
 
 **When to use**: Any Cobra CLI audit task. Scales to any Go CLI codebase.
 
-**Key signals**: 
+**Key signals**:
 - `NewXxxCommand() *cobra.Command` functions
 - `cmd.AddCommand()` registration pattern
 - Adapter files bridging CLI → internal packages

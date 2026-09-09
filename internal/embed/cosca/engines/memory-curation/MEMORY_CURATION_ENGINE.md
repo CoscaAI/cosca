@@ -85,7 +85,7 @@ Where each component is normalized to [0.0, 1.0]:
    partial           → 0.55
    failure           → 0.30
    unknown/seed      → 0.15
-   
+
 2. USAGE (weight: 0.25)
    usage_count = number of times this entry was retrieved for a task
    normalized: min(usage_count, 10) / 10
@@ -175,18 +175,18 @@ function condense_duplicates(entry_a, entry_b):
     ELSE:
         KEEPER = entry_b
         REMOVED = entry_a
-    
+
     // Merge metadata
     KEEPER.tags = UNION(KEEPER.tags, REMOVED.tags)
     KEEPER.related = UNION(KEEPER.related, REMOVED.related)
     KEEPER.times_consolidated += 1
     KEEPER.consolidated_from = APPEND(KEEPER.consolidated_from, REMOVED.key)
-    
+
     // Archive removed entry
     REMOVED.status = "consolidated"
     REMOVED.consolidated_into = KEEPER.key
     MOVE(REMOVED → memory/agent/{agent}/deprecated/)
-    
+
     RETURN KEEPER
 ```
 
@@ -222,11 +222,11 @@ For each agent at current_level = N:
     → Mark as "superseded"
     → Move to deprecated/
     → Reason: Agent has mastered techniques 2 levels above this
-    
+
   Entries at level N-1:
     → Keep active (historical reference)
     → Add note: "Superseded by Level {N} technique: {technique_name}"
-    
+
   Exception: FAILURE entries are NEVER removed by level obsolescence
     → Failures have preventive value regardless of agent level
     → See R5 instead
@@ -240,11 +240,11 @@ cosca-backend at Level 3:
   Level 1 entries (N-2):
     "Standard backend patterns — project conventions" [seed data]
     → SUPERSEDED. Move to deprecated/.
-    
+
   Level 2 entries (N-1):
     "Complete API Surface Mapping" [useful history]
     → KEEP. Add reference to Level 3 techniques.
-    
+
   Level 3 entries (current):
     "Metacognition Layer implementation"
     → ACTIVE.
@@ -298,7 +298,7 @@ An entry is promoted when ALL of these are true:
 Entry: "Auth Middleware Chain Audit" (cosca-security, CS=0.92)
   Applied: 7 times, 100% success
   Validated by: cosca-backend, cosca-documentation
-  
+
   PROMOTED TO PATTERN:
   Pattern: "middleware-chain-audit"
   Domain: security, backend

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-automation
 agent: cosca-automation
 type: prompt

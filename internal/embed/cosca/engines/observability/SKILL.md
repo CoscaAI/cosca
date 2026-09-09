@@ -59,7 +59,7 @@ metrics:
     - avg_task_duration_ms
     - success_rate
     - last_active
-    
+
   workflows:
     - workflow_name
     - executions_total
@@ -68,7 +68,7 @@ metrics:
     - p50_duration_ms
     - p99_duration_ms
     - failure_reasons
-    
+
   quality:
     - overall_score
     - architecture_score
@@ -76,7 +76,7 @@ metrics:
     - security_score
     - test_coverage_pct
     - documentation_score
-    
+
   system:
     - active_agents_count
     - pending_tasks_count

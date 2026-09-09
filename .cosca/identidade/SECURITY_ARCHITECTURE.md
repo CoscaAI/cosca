@@ -61,7 +61,7 @@ RBAC Layer:
 
 ABAC Layer:
   Subject (who) + Action (what) + Resource (where) + Context (when/why)
-  
+
   Example: "Backend Chief CAN write_file ON src/api/ DURING business hours FROM approved IP"
 ```
 
@@ -305,7 +305,7 @@ Todo evento relevante para segurança deve ser registrado:
   - Onde (recurso, IP)
   - Resultado (sucesso/falha)
   - Contexto (ID do workflow, ID da sessão)
-  
+
   Logs devem ser:
   - Imutáveis (append-only, sem exclusão)
   - Anti-fraude (cadeia de hash)

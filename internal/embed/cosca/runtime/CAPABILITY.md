@@ -43,52 +43,52 @@ Every capability in the Cosca ecosystem MUST conform to this contract schema:
 capability:
   id: "CAP-CAT-NNN"
   name: "Capability Name"
-  
+
   metadata:
     version: "1.0.0"
     status: "active | deprecated | retired"
     category: "architecture | engineering | quality | security | infrastructure | ai | data | platform | governance | product | operations | integration"
     owner: "Provider Name"
     since: "v1.0"
-    
+
   description:
     purpose: "What this capability does"
     scope: "Boundaries of what this capability covers"
     limitations: "What this capability does NOT cover"
-    
+
   input_contract:
     required: []
     optional: []
     validation_rules: []
-    
+
   output_contract:
     success: {}
     failure: {}
     artifacts: []
-    
+
   quality_criteria:
     min_score: 0.0         # Minimum quality score (0-10)
     critical_checks: []     # Must-pass checks
     automated_checks: []    # Auto-verifiable checks
-    
+
   dependencies:
     requires: []            # Capability IDs this depends on
     optional_with: []       # Capabilities that can substitute
     conflicts_with: []      # Capabilities that conflict
-    
+
   constraints:
     timeout_ms: 300000
     max_retries: 3
     resource_profile: "light | medium | heavy"
     concurrency_limit: 5
-    
+
   slo:
     p50_duration_ms: 30000
     p95_duration_ms: 240000
     p99_duration_ms: 240000
     availability: 0.995     # 99.5% uptime
     max_failure_rate: 0.01  # 1% max failures
-    
+
   provider:
     primary: "Chief | Engine Name"
     secondary: "Fallback Provider"
@@ -613,19 +613,19 @@ Between capabilities in a SEQUENCE composition, data is passed through a formal 
 handoff:
   source_capability: "CAP-XXX-XXX"
   target_capability: "CAP-YYY-YYY"
-  
+
   contract:
     output_of_source_matches_input_of_target: true
-    
+
   data:
     passed_directly: []      # Fields passed as-is
     transformed: []           # Fields with transformation rules
     enriched: []              # Fields enriched by source
-  
+
   quality_gate:
     required_before_handoff: true
     gate_type: "contract_validation | quality_check"
-    
+
   error_handling:
     on_mismatch: "reject | transform | escalate"
 ```
@@ -694,12 +694,12 @@ Capabilities are discovered and registered through an automated protocol.
 ```yaml
 registration:
   trigger: "Capability Engine startup | Provider deployment | Manual request"
-  
+
   steps:
     1. submit_proposal:
         artifact: "Capability Contract (YAML)"
         target: "Capability Engine"
-        
+
     2. validate_contract:
         checks:
           - All required fields present
@@ -707,20 +707,20 @@ registration:
           - Provider exists in ORGCHART.md
           - Dependencies reference existing capabilities
           - No circular dependencies
-          
+
     3. approve:
         authority: "CTO (for new) | Provider Chief (for updates)"
         artifact: "Approval ADR"
-        
+
     4. register:
         action: "Add to CAPABILITY_CATALOG.md"
         state: "REGISTERED"
-        
+
     5. activate:
         precondition: "Provider ready + Gate 1 passed"
         state: "ACTIVE"
         event: "CapabilityRegistered"
-        
+
   auto_discovery:
     enabled: true
     scan: "engines/*/SKILL.md and departments/*/SKILL.md"

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-ceo
 agent: cosca-ceo
 type: prompt

@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-security
 agent: cosca-security
 type: prompt

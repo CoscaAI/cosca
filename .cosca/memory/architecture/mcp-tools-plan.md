@@ -112,7 +112,7 @@ type Server struct {
     knowledgeEngine *knowledge.Engine
     memoryEngine    *memory.MemoryEngine
     runtimeInstance *runtime.Runtime
-    
+
     // NEW - to be added
     agentManager    *agents.Manager
     skillManager    *skills.Manager

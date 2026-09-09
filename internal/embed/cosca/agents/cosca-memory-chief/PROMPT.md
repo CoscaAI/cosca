@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-memory-chief
 agent: cosca-memory-chief
 type: prompt

@@ -54,7 +54,7 @@ Every runtime MUST implement the Runtime Adapter Contract to be Cosca-compliant.
 ```yaml
 runtime_adapter_contract:
   version: "1.0.0"
-  
+
   mandatory_interfaces:
     - name: "Session Lifecycle"
       methods:
@@ -63,51 +63,51 @@ runtime_adapter_contract:
         - "route(request) → execution_plan"
         - "execute(plan) → execution_result"
         - "teardown(session_id) → void"
-        
+
     - name: "Event Bus"
       methods:
         - "publish(event) → void"
         - "subscribe(topic, handler) → subscription_id"
         - "unsubscribe(subscription_id) → void"
-        
+
     - name: "State Machine"
       methods:
         - "get_state() → state"
         - "transition(event) → state"
         - "persist_state() → void"
         - "restore_state() → state"
-        
+
     - name: "Capability Resolution"
       methods:
         - "resolve_capabilities(request) → capability[]"
         - "resolve_provider(capability) → provider"
-        
+
     - name: "Memory Management"
       methods:
         - "load_memory(types) → memory_map"
         - "store_memory(record) → void"
         - "search_memory(query) → results"
-        
+
     - name: "Quality Gates"
       methods:
         - "enforce_gate(gate_id, artifacts) → gate_result"
-        
+
     - name: "Tool Interface"
       methods:
         - "execute_tool(tool_name, params) → tool_result"
         - "list_tools() → tool[]"
-        
+
   optional_interfaces:
     - name: "Dashboard Integration"
       methods:
         - "push_event(event) → void"
         - "get_status() → status"
-        
+
     - name: "Hot Reload"
       methods:
         - "watch_files(paths) → void"
         - "reload_file(file) → void"
-        
+
   compliance:
     mandatory: "ALL mandatory interfaces MUST be implemented"
     optional: "Optional interfaces SHOULD be implemented for full compliance"
@@ -129,7 +129,7 @@ runtime_aos_go:
   language: "Go"
   since: "v2.0"
   status: "active"
-  
+
   capabilities:
     - "Full Kernel implementation"
     - "Native Event Bus (Redis)"
@@ -140,11 +140,11 @@ runtime_aos_go:
     - "Dashboard integration (SSE)"
     - "REST API"
     - "CLI"
-    
+
   limitations:
     - "Requires Go 1.25+"
     - "Requires Redis + PostgreSQL"
-    
+
   integration:
     type: "direct"
     package: "github.com/cosca/runtime"
@@ -159,7 +159,7 @@ runtime_opencode:
   type: "IDE Agent"
   since: "v1.0"
   status: "active"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "Skill-based engine loading"
@@ -167,20 +167,20 @@ runtime_opencode:
     - "File I/O via tools"
     - "Git integration"
     - "Memory management"
-    
+
   limitations:
     - "No native event bus (simulated via in-memory)"
     - "No native scheduler (sequential execution model)"
     - "No native dashboard"
     - "Session lifecycle managed by IDE"
-    
+
   adapter:
     mechanism: "SKILL.md directives + tool interface"
     bootstrapping: "KERNEL.md loaded as system prompt"
     execution: "Sequential via tool calls"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     config: ".cosca/cosca.config.yaml"
@@ -195,7 +195,7 @@ runtime_claude_code:
   type: "CLI Agent"
   since: "v1.2"
   status: "active"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "CLAUDE.md-based configuration"
@@ -203,20 +203,20 @@ runtime_claude_code:
     - "File I/O"
     - "Git operations"
     - "Session persistence"
-    
+
   limitations:
     - "No native event bus"
     - "Sequential execution model"
     - "No dashboard integration"
     - "Limited parallel execution"
-    
+
   adapter:
     mechanism: "CLAUDE.md directives + tool interface"
     bootstrapping: "KERNEL.md loaded as system prompt"
     execution: "Sequential via tool calls"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     config: "CLAUDE.md"
@@ -231,27 +231,27 @@ runtime_codex:
   type: "CLI Agent"
   since: "v2.0"
   status: "beta"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "Plugin-based execution"
     - "Tool interface"
     - "File I/O"
     - "Git operations"
-    
+
   limitations:
     - "No native event bus"
     - "Sequential execution"
     - "Limited memory management"
     - "Beta status — some features pending"
-    
+
   adapter:
     mechanism: "Codex actions + tool interface"
     bootstrapping: "KERNEL.md loaded as system prompt"
     execution: "Action-based execution"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     contracts: "RUNTIME_CONTRACT.md"
@@ -265,26 +265,26 @@ runtime_gemini_cli:
   type: "CLI Agent"
   since: "v2.0"
   status: "beta"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "Tool-based execution"
     - "File I/O"
     - "Git operations"
-    
+
   limitations:
     - "No native event bus"
     - "Sequential execution"
     - "Limited parallel capabilities"
     - "Beta status"
-    
+
   adapter:
     mechanism: "Gemini CLI tools + prompt directives"
     bootstrapping: "KERNEL.md loaded as system prompt"
     execution: "Sequential via tool calls"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     contracts: "RUNTIME_CONTRACT.md"
@@ -298,26 +298,26 @@ runtime_cursor:
   type: "IDE Agent"
   since: "v2.0"
   status: "beta"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "IDE-integrated execution"
     - "File I/O"
     - "Git integration"
     - "Inline editing"
-    
+
   limitations:
     - "No native event bus"
     - "IDE-dependent lifecycle"
     - "Limited background execution"
-    
+
   adapter:
     mechanism: "Cursor rules + agent interface"
     bootstrapping: "KERNEL.md loaded as context"
     execution: "Sequential via agent"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     contracts: "RUNTIME_CONTRACT.md"
@@ -331,25 +331,25 @@ runtime_continue:
   type: "IDE Plugin"
   since: "v2.0"
   status: "beta"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "Plugin-based execution"
     - "File I/O"
     - "IDE integration"
-    
+
   limitations:
     - "No native event bus"
     - "Plugin lifecycle constraints"
     - "Limited execution scope"
-    
+
   adapter:
     mechanism: "Continue.json config + plugin API"
     bootstrapping: "KERNEL.md loaded as context"
     execution: "Sequential via plugin"
     events: "In-memory event bus"
     state: "Session-scoped state"
-    
+
   integration:
     type: "adapter"
     contracts: "RUNTIME_CONTRACT.md"
@@ -364,18 +364,18 @@ runtime_adk_go:
   language: "Go"
   since: "v2.0"
   status: "active"
-  
+
   capabilities:
     - "Full Kernel specification compliance"
     - "Programmatic API"
     - "Embeddable in Go applications"
     - "Custom provider support"
     - "Custom plugin support"
-    
+
   limitations:
     - "Go only"
     - "Requires manual integration"
-    
+
   integration:
     type: "sdk"
     package: "github.com/cosca/adk-go"
@@ -417,21 +417,21 @@ runtime_detection:
     - detection: "Environment variable"
       variable: "COSCA_RUNTIME"
       values: ["cosca-go", "opencode", "claude-code", "codex", "gemini-cli", "cursor", "continue", "adk-go"]
-      
+
     - detection: "Tool availability"
       checks:
         - "Has 'skill' tool? → OpenCode"
         - "Has 'task' tool? → OpenCode"
         - "Has 'Claude' in user-agent? → Claude Code"
         - "Has 'Codex' in user-agent? → Codex"
-        
+
     - detection: "Configuration file"
       checks:
         - "Has .opencode/ directory? → OpenCode"
         - "Has CLAUDE.md? → Claude Code"
         - "Has .cursor/ directory? → Cursor"
         - "Has .continue/ directory? → Continue"
-        
+
   auto_configuration:
     on_detect:
       - "Load runtime-specific adapter"
@@ -439,7 +439,7 @@ runtime_detection:
       - "Configure scheduler (sequential for adapters)"
       - "Set feature flags based on compliance matrix"
       - "Publish RuntimeDetected event"
-      
+
   fallback: "Assume full Cosca Go Runtime capabilities"
 ```
 
@@ -472,7 +472,7 @@ adapter_development:
     - "Read RUNTIME_CONTRACT.md"
     - "Read KERNEL.md (this specification)"
     - "Understand target runtime's extension model"
-    
+
   steps:
     step_1: "Implement Session Lifecycle (init, discover, route, execute, teardown)"
     step_2: "Implement Event Bus (publish, subscribe, unsubscribe)"
@@ -484,7 +484,7 @@ adapter_development:
     step_8: "Implement optional interfaces (Dashboard, Hot Reload)"
     step_9: "Pass Runtime Certification Suite"
     step_10: "Register in COSCA_INDEX.md"
-    
+
   certification:
     suite: "cosca/runtime-certification/"
     tests: 50+
@@ -499,44 +499,44 @@ adapter_development:
 ```yaml
 runtime_certification:
   description: "Automated test suite for runtime compliance"
-  
+
   test_categories:
     - category: "Session Lifecycle"
       tests: 8
       mandatory: true
-      
+
     - category: "Event Bus"
       tests: 6
       mandatory: true
-      
+
     - category: "State Machine"
       tests: 10
       mandatory: true
-      
+
     - category: "Capability Resolution"
       tests: 6
       mandatory: true
-      
+
     - category: "Memory Management"
       tests: 6
       mandatory: true
-      
+
     - category: "Quality Gates"
       tests: 4
       mandatory: true
-      
+
     - category: "Tool Interface"
       tests: 6
       mandatory: true
-      
+
     - category: "Dashboard (optional)"
       tests: 4
       mandatory: false
-      
+
     - category: "Hot Reload (optional)"
       tests: 4
       mandatory: false
-      
+
   passing_score: "100% on mandatory tests"
   certification_validity: "12 months"
   recertification: "On major runtime or contract changes"

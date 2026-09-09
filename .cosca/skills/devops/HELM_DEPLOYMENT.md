@@ -132,12 +132,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build and push Docker image
         run: |
           docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} .
           docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-      
+
       - name: Deploy to staging
         run: |
           helm upgrade --install cosca-staging deploy/helm/cosca/ \
@@ -145,12 +145,12 @@ jobs:
             -f deploy/helm/cosca/values.staging.yaml \
             --set image.tag=${{ github.ref_name }} \
             --wait --timeout 5m
-      
+
       - name: Run smoke tests
         run: |
           kubectl wait --for=condition=ready pod -l app=cosca -n cosca-staging --timeout=60s
           curl -f http://cosca-staging:14120/health
-      
+
       - name: Deploy to production
         if: success()
         run: |

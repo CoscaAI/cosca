@@ -1031,11 +1031,11 @@ $ cosca tm 2026-07-28
 ❌ Erro: 3 arquivos não-commitados detectados.
    O Time Machine precisa de um working directory limpo
    para fazer git checkout seguro.
-   
+
    Soluções:
    • git add . && git commit -m "wip: antes do time machine"
    • git stash
-   
+
    Após o time machine, execute 'cosca tm return' para
    restaurar o estado atual.
 ```

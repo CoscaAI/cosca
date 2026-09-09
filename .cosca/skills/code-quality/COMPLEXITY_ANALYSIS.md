@@ -1,17 +1,17 @@
 > **Version**: 1.0.0 | **Status**: active | **Owner**: Technical Debt Chief | **Last Updated**: 2026-07-23
-> 
+>
 > # COMPLEXITY ANALYSIS SKILL
-> 
+>
 > ## Description
 > Use this skill to analyze code complexity metrics. Calculates cyclomatic complexity, cognitive complexity, maintainability index, and provides recommendations to reduce complexity.
-> 
+>
 > ## Inputs
 > | Input | Required | Description |
 > |-------|----------|-------------|
 > | code_path | Yes | Path to code to analyze |
 > | complexity_threshold | No | Maximum allowed cyclomatic complexity (default: 10) |
 > | cognitive_threshold | No | Maximum allowed cognitive complexity (default: 15) |
-> 
+>
 > ## Outputs
 > | Output | Description |
 > |--------|-------------|
@@ -19,7 +19,7 @@
 > | Hotspots | Functions exceeding thresholds |
 > | Recommendations | Specific refactoring suggestions |
 > | Trend data | Complexity changes over time |
-> 
+>
 > ## Metrics Calculated
 > - Cyclomatic complexity per function
 > - Cognitive complexity per function
@@ -27,13 +27,13 @@
 > - Function length in lines
 > - Parameter count per function
 > - Nesting depth
-> 
+>
 > ## Success Criteria
 > - [ ] All functions analyzed
 > - [ ] Hotspots identified with locations
 > - [ ] Recommendations provided
 > - [ ] Trend data available for comparison
-> 
+>
 > ## Related
 > - [Technical Debt Chief](../../departments/technical-debt/SKILL.md)
 > - [Refactoring](./REFACTORING.md)

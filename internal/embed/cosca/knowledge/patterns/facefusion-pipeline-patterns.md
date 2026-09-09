@@ -1,7 +1,7 @@
 # FaceFusion Pipeline & Job System Patterns
 
-> **Source**: https://github.com/facefusion/facefusion — MIT/OpenRAIL-AS, ~246 arquivos, Python 3, ONNX Runtime  
-> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (2 agentes em paralelo)  
+> **Source**: https://github.com/facefusion/facefusion — MIT/OpenRAIL-AS, ~246 arquivos, Python 3, ONNX Runtime
+> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (2 agentes em paralelo)
 > **Confidence**: 0.93 (validado por leitura direta de código fonte)
 
 ## Intent

@@ -1,7 +1,7 @@
 # Cosca — Visão Geral da Plataforma
 
-> **Versão**: 1.4.0-dev (codename: Nova) | **Data**: 2026-07-27  
-> **Licença**: MIT | **Linguagem**: Go 1.25 + TypeScript (Next.js 15)  
+> **Versão**: 1.4.0-dev (codename: Nova) | **Data**: 2026-07-27
+> **Licença**: MIT | **Linguagem**: Go 1.25 + TypeScript (Next.js 15)
 > **Score Atual**: 74/100 (Enterprise Platform Alpha)
 
 ---

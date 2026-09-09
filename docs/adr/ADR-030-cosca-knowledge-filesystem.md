@@ -255,7 +255,7 @@ Decision → knowledge_snapshot (ADR-029 §2.4)
 >
 > | Primitiva CAS | Onde | Estado |
 > |---|---|---|
-> | Hash de conteúdo (SHA-256) | `computeHash(content)` — `indexer.go:1175` | ✅ | 
+> | Hash de conteúdo (SHA-256) | `computeHash(content)` — `indexer.go:1175` | ✅ |
 > | Incremental (skip doc inalterado) | `docHashCache[path]` + `if exists && oldHash == hash` — `indexer.go:232-234` | ✅ |
 > | **Dedup pré-embed** (reusa vetor existente) | `existingVectorForContent` — `indexer.go:587-698` | ✅ |
 > | **Dedup preventivo** (conteúdo igual + com vetor → `dedup_of=<canonical>`, sem vetor novo) | `dedupCache[chunk.Hash]` + coluna `dedup_of` — `indexer.go:854-891` | ✅ |

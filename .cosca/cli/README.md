@@ -30,7 +30,7 @@ cosca discover --json
 # Ver workflows disponíveis
 cosca workflow list --json
 
-# Pegar um workflow específico  
+# Pegar um workflow específico
 cosca workflow get security-audit --json
 
 # Executar quality gate

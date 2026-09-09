@@ -47,7 +47,7 @@ execution_graph:
   id: "dag-uuid"
   session_id: "session-uuid"
   plan_id: "plan-uuid"
-  
+
   metadata:
     created_at: "ISO8601"
     version: 1
@@ -57,51 +57,51 @@ execution_graph:
     estimated_duration_ms: 60000
     critical_path_length: 4
     parallel_groups: 3
-    
+
   nodes:
     - id: "node-uuid-1"
       type: "capability | workflow | task | review | quality | documentation | decision | gate | sync"
       capability: "CAP-XXX-XXX"
       name: "Human-readable name"
       description: "What this node does"
-      
+
       provider:
         type: "chief | engine | specialist | system"
         id: "provider-identity"
-        
+
       dependencies: []
       priority: 50
-      
+
       timing:
         timeout_ms: 300000
         estimated_duration_ms: 30000
         deadline: "ISO8601 (optional)"
-        
+
       retry:
         max: 3
         backoff_ms: 5000
         strategy: "exponential | linear | immediate | jitter"
         max_backoff_ms: 60000
-        
+
       resource_profile:
         cpu: "low | medium | high"
         memory: "low | medium | high"
         concurrency_key: "resource-pool-name"
-        
+
       execution:
         type: "sync | async | fire-and-forget"
         cancel_strategy: "graceful | force | skip"
-        
+
       success_criteria: []
       input_schema: {}
       output_schema: {}
-      
+
       parallel_group: "group-name (optional)"
       checkpoint: true | false
-      
+
     - id: "node-uuid-2"
       ...
-      
+
   edges:
     - from: "node-uuid-1"
       to: "node-uuid-2"
@@ -186,43 +186,43 @@ node_contract:
     output: "Capability output per CAP-XXX-XXX contract"
     execution: "Invoke provider with capability_id"
     failure: "Retry per retry policy, then fail"
-    
+
   workflow:
     input: "Workflow input parameters"
     output: "Workflow execution results"
     execution: "Load workflow definition, create sub-DAG"
     failure: "Sub-DAG failure → this node failure"
-    
+
   task:
     input: "Task description, context, constraints"
     output: "Task artifacts, code, documentation"
     execution: "Assign to specialist via task tool"
     failure: "Retry per retry policy, escalate"
-    
+
   review:
     input: "Artifacts to review, review type"
     output: "Review report, score, issues"
     execution: "Invoke Review Engine"
     failure: "Escalate to Review Chief"
-    
+
   quality:
     input: "Artifacts, gate_id"
     output: "Gate result, score, violations"
     execution: "Invoke Quality Engine"
     failure: "Blocking gate failure → node fail"
-    
+
   decision:
     input: "Decision question, options, context"
     output: "Decision record (ADR)"
     execution: "Route to Organizational Layer"
     failure: "Escalate to CTO"
-    
+
   gate:
     input: "Condition expression, context"
     output: "True/False, with sub-DAG for each branch"
     execution: "Evaluate condition, activate matching branch"
     failure: "Condition error → node fail"
-    
+
   sync:
     input: "Data to sync, target stores"
     output: "Sync confirmation per store"
@@ -304,13 +304,13 @@ V-20  Parallel groups balanced (no group >> others)
 ```yaml
 dag_validation:
   trigger: "DRAFT → VALIDATED transition"
-  
+
   execution:
     structural: "O(V + E) topological sort + BFS"
     semantic: "O(V) registry lookups + schema checks"
     resource: "O(V) resource summation"
     performance: "O(V + E) critical path calculation"
-    
+
   output:
     on_pass:
       status: "VALIDATED"
@@ -418,22 +418,22 @@ The Scheduler determines **which nodes execute in parallel** based on the DAG st
 ```
 Parallelism Rule P-01:
   Nodes with no transitive dependency MAY execute in parallel
-  
+
 Parallelism Rule P-02:
   Nodes in the same parallel_group execute concurrently when ready
-  
+
 Parallelism Rule P-03:
   Nodes with different resource profiles MAY share a parallel group
-  
+
 Parallelism Rule P-04:
   Maximum parallel nodes = min(available_workers, concurrency_limit)
-  
+
 Parallelism Rule P-05:
   Priority inversion: higher-priority nodes MAY preempt lower-priority nodes
-  
+
 Parallelism Rule P-06:
   Data_flow edges create implicit ordering (consumer waits for producer)
-  
+
 Parallelism Rule P-07:
   Parallel groups are bounded by resource pool limits
 ```
@@ -449,9 +449,9 @@ parallelism_algorithm:
   step_5: "Apply priority ordering within group"
   step_6: "Dispatch up to concurrency_limit nodes"
   step_7: "Monitor utilization, adjust dispatch rate"
-  
+
   complexity: "O(V + E) per tick"
-  
+
   re_evaluation: "Every 100ms or on node completion"
 ```
 
@@ -485,11 +485,11 @@ parallelism_algorithm:
 priority_inversion:
   detection:
     - "Low-priority node holds resource needed by high-priority node"
-    
+
   prevention:
     method: "Priority inheritance"
     mechanism: "Temporarily raise low-priority node's priority to blocking node's priority"
-    
+
   resolution:
     - "Resource preemption (if cancel_strategy = force)"
     - "Resource escalation (add temporary capacity)"
@@ -562,18 +562,18 @@ Cascading CF-06:
 partial_completion:
   enabled: true
   scope: "Non-critical nodes only"
-  
+
   conditions:
     - "Failed node is not on critical path"
     - "Failed node output is not required by any unexecuted node"
     - "Quality score with partial results >= minimum threshold"
-    
+
   actions:
     - "Mark failed node as SKIPPED (not FAILED)"
     - "Log partial completion warning"
     - "Adjust final quality score downward"
     - "Include skipped nodes in delivery report"
-    
+
   on_reject:
     - "If conditions not met → DAG FAILED normally"
     - "Escalate to CTO for manual override"
@@ -647,19 +647,19 @@ dag_health_dashboard:
         - "Progress bar: completed / total nodes"
         - "Timeline: running nodes with ETA"
         - "Status: COMPLETED | FAILED | CANCELLED"
-        
+
     - name: "Parallelism"
       widgets:
         - "Gauge: current parallel count / max"
         - "Timeline: parallelism over time"
         - "Histogram: node duration by type"
-        
+
     - name: "Critical Path"
       widgets:
         - "Timeline: critical path nodes with durations"
         - "Gauge: critical path remaining / total"
         - "Alert: if critical path duration > estimate"
-        
+
     - name: "Failures & Retries"
       widgets:
         - "List: failed nodes with error details"
@@ -676,7 +676,7 @@ dag_health_dashboard:
 ```yaml
 critical_path_analysis:
   algorithm: "Forward-backward pass (O(V + E))"
-  
+
   outputs:
     critical_path: ["node-1", "node-3", "node-7", "node-12"]
     critical_path_duration_ms: 45000
@@ -685,7 +685,7 @@ critical_path_analysis:
       "node-2": 5000     # 5s slack
       "node-3": 0       # On critical path
       "node-7": 0       # On critical path
-      
+
   uses:
     - "Identify optimization candidates (nodes with high duration on critical path)"
     - "Resource reallocation (add resources to critical path nodes)"
@@ -698,12 +698,12 @@ critical_path_analysis:
 ```yaml
 topological_sort:
   algorithm: "Kahn's algorithm (BFS-based, O(V + E))"
-  
+
   guarantees:
     - "Produces valid execution order respecting all dependencies"
     - "Preserves parallel_group boundaries"
     - "Maximizes parallelism (nodes ready earlier are scheduled first)"
-    
+
   tie_breaking:
     primary: "Priority (higher = earlier)"
     secondary: "Estimated duration (shorter = earlier)"
@@ -715,14 +715,14 @@ topological_sort:
 ```yaml
 resource_leveling:
   purpose: "Avoid resource contention by shifting node start times"
-  
+
   algorithm: "Priority-based resource leveling"
-  
+
   constraints:
     - "Cannot violate dependency order"
     - "Cannot exceed resource pool limits"
     - "Cannot delay critical path"
-    
+
   optimization:
     target: "Minimize peak resource usage"
     method: "Delay non-critical nodes within slack"
@@ -741,7 +741,7 @@ dag_persistence:
     active_dag: "Redis (in-memory, fast access)"
     completed_dag: "Database (durable, queryable)"
     archived_dag: "Object storage (long-term)"
-    
+
   schema:
     dag_id: "uuid (partition key)"
     session_id: "uuid"
@@ -752,12 +752,12 @@ dag_persistence:
     metrics: "JSON"
     created_at: "timestamp"
     completed_at: "timestamp (nullable)"
-    
+
   persistence_trigger:
     - "On every node status change"
     - "On DAG status change"
     - "Every 60 seconds (heartbeat checkpoint)"
-    
+
   recovery:
     on_crash: "Load active DAG from Redis, resume execution"
     on_node_fail: "Re-queue node from last checkpoint"
@@ -837,12 +837,12 @@ Multi-DAG Rule M-07:
 ```yaml
 inter_dag_dependency:
   type: "Event-based"
-  
+
   mechanism:
     - "DAG-A publishes DAGCompleted event"
     - "DAG-B subscribes to DAG-A completion"
     - "On event: DAG-B dependency resolved, DAG-B starts"
-    
+
   schema:
     waiting_dag: "dag-uuid-b"
     waiting_node: "node-uuid"
@@ -859,24 +859,24 @@ The DAG schema evolves over time. All versions are tracked.
 ```yaml
 dag_schema_versioning:
   current_version: "2.0"
-  
+
   changelog:
     "1.0":
       - "Initial DAG schema"
       - "Nodes: id, type, capability, provider, dependencies, priority"
       - "Edges: from, to, type"
-      
+
     "2.0":
       - "Added resource_profile to nodes"
       - "Added data_flow and control_flow edge types"
       - "Added success_criteria to nodes"
       - "Added parallel_group for explicit parallelism"
       - "Added checkpoint flag for recovery points"
-      
+
   compatibility:
     forward: "v2.0 runtimes can execute v1.0 DAGs (with defaults for new fields)"
     backward: "v1.0 runtimes cannot execute v2.0 DAGs"
-    
+
   migration:
     trigger: "On planner upgrade"
     action: "Update DAG template to latest version"

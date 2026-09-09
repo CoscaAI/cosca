@@ -54,7 +54,7 @@ A `cosca/` tem 109 subdirs em `internal/`, mas **nenhum** exclusivo relevante:
 
 ## 5. VEREDICTO
 
-> **A `cosca/` é uma árvore ÓRFÃ mais antiga/incompleta.** 
+> **A `cosca/` é uma árvore ÓRFÃ mais antiga/incompleta.**
 > - NÃO contém trabalho exclusivo de valor (falta exatamente o Living World + bridge).
 > - É gitignored (nunca foi versionada).
 > - É uma cópia antiga do framework, provavelmente de uma instalação/snapshot anterior.

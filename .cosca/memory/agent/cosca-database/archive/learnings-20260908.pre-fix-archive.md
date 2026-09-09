@@ -1,4 +1,4 @@
-﻿# cosca-database - learnings.md EDITOR PRE-FIX
+# cosca-database - learnings.md EDITOR PRE-FIX
 
 > Arquivo gerado em 20260908. Conteudo preservado - leia por grep, nunca inteiro.
 

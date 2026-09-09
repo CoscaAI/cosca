@@ -1,4 +1,4 @@
-﻿---
+---
 agent: cosca-qa
 type: prompt
 version: 1.0.0

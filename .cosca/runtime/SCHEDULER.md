@@ -84,31 +84,31 @@ queue_immediate:
   name: "Immediate Queue"
   priority: 100
   description: "Highest priority — executes now, blocks until complete"
-  
+
   characteristics:
     concurrency: 10
     persistence: "Memory (no durability needed)"
     ordering: "FIFO within priority"
     preemption: "Can preempt any other queue"
-    
+
   item_schema:
     id: "uuid"
     type: "critical_request | error | escalation"
     payload: {}
     priority: 100
     submitted_at: "ISO8601"
-    
+
   lifecycle:
     - "Submitted by: Kernel, Error Handler, Escalation Engine"
     - "Dispatched to: First available worker"
     - "On success: Log, publish SchedulerTaskCompleted"
     - "On failure: Immediate retry (max 1), then escalate"
     - "Completion: Remove from queue, record in history"
-    
+
   backpressure:
     max_depth: 100
     on_full: "Block caller (backpressure), publish warning"
-    
+
   uses: ["user-facing requests", "error handling", "escalation"]
 ```
 
@@ -119,13 +119,13 @@ queue_priority:
   name: "Priority Queue"
   priority_range: "50-99"
   description: "Normal execution, priority-sorted — feature work, reviews"
-  
+
   characteristics:
     concurrency: 5
     persistence: "Redis"
     ordering: "Priority (descending) → FIFO within same priority"
     preemption: "Not preempted by background/delayed"
-    
+
   item_schema:
     id: "uuid"
     type: "feature | bug | refactor | review"
@@ -133,12 +133,12 @@ queue_priority:
     priority: 50-99
     submitted_at: "ISO8601"
     timeout_ms: 300000
-    
+
   priority_levels:
     critical: { value: 99, label: "Critical feature/bug" }
     high: { value: 75, label: "High-priority work" }
     normal: { value: 50, label: "Standard priority" }
-    
+
   lifecycle:
     - "Submitted by: Kernel after capability resolution"
     - "Sorted by: Priority (desc), then submission time (asc)"
@@ -146,12 +146,12 @@ queue_priority:
     - "On success: Log, publish SchedulerTaskCompleted"
     - "On failure: Move to Retry Queue"
     - "On timeout: Move to Retry Queue (if retries remain)"
-    
+
   backpressure:
     max_depth: 1000
     on_warning: depth > 500 → scale workers
     on_critical: depth > 800 → throttle non-critical submissions
-    
+
   uses: ["feature development", "bug fixes", "refactoring", "reviews"]
 ```
 
@@ -162,13 +162,13 @@ queue_dependency:
   name: "Dependency Queue"
   priority_range: "0-49"
   description: "Steps waiting for prerequisites to complete"
-  
+
   characteristics:
     concurrency: "Dependent on dependency resolution"
     persistence: "Database"
     ordering: "By dependency DAG (topological order)"
     blocking: "Items are BLOCKED until all dependencies resolve"
-    
+
   item_schema:
     id: "uuid"
     type: "blocked_step"
@@ -177,7 +177,7 @@ queue_dependency:
     blocking_count: 2
     resolved_count: 0
     submitted_at: "ISO8601"
-    
+
   lifecycle:
     - "Submitted by: DAG Planner for blocked nodes"
     - "Dependencies monitored: On every dependency completion"
@@ -185,12 +185,12 @@ queue_dependency:
     - "On all resolved: Move to Priority Queue (with original priority)"
     - "On dependency failure: Evaluate cascading failure rules"
     - "On timeout: Escalate, notify CTO"
-    
+
   dependency_resolution:
     check_frequency: "on_dependency_completion_event"
     resolve_action: "Move item to Priority Queue"
     fail_action: "If dependency failed permanently → fail this item too"
-    
+
   uses: ["DAG blocked nodes", "inter-workflow dependencies"]
 ```
 
@@ -200,12 +200,12 @@ queue_dependency:
 queue_retry:
   name: "Retry Queue"
   description: "Failed steps awaiting retry with configurable backoff"
-  
+
   characteristics:
     concurrency: 3
     persistence: "Redis"
     ordering: "By next_retry_at (ascending)"
-    
+
   item_schema:
     id: "uuid"
     original_queue: "priority | dependency | delayed"
@@ -216,7 +216,7 @@ queue_retry:
     backoff_ms: 5000
     strategy: "exponential | linear | immediate"
     next_retry_at: "ISO8601"
-    
+
   backoff_strategies:
     exponential:
       formula: "delay = base × 2^attempt"
@@ -230,7 +230,7 @@ queue_retry:
     jitter:
       formula: "delay × (1 + random(-0.1, 0.1))"
       note: "Added to any strategy to prevent thundering herd"
-      
+
   lifecycle:
     - "Submitted by: Priority/Delayed Queue on failure"
     - "Waiting: Until next_retry_at timestamp"
@@ -238,7 +238,7 @@ queue_retry:
     - "On success: Remove from retry tracking"
     - "On max retries: Move to Dead Letter Queue"
     - "On max_retries exceeded: Publish TaskFailed permanently"
-    
+
   uses: ["failed steps", "transient errors", "timeout recovery"]
 ```
 
@@ -248,13 +248,13 @@ queue_retry:
 queue_delayed:
   name: "Delayed Queue"
   description: "Steps scheduled for future execution"
-  
+
   characteristics:
     concurrency: 5
     persistence: "Database"
     ordering: "By scheduled_at (ascending)"
     accuracy: "±1s"
-    
+
   item_schema:
     id: "uuid"
     type: "deferred_task"
@@ -263,18 +263,18 @@ queue_delayed:
     target_queue: "priority | immediate"
     priority: 50
     submitted_at: "ISO8601"
-    
+
   lifecycle:
     - "Submitted by: User, Planning Engine, Scheduler API"
     - "Waiting: Until scheduled_at timestamp"
     - "Ready: Moves to target_queue at scheduled time"
     - "On past due: Execute immediately"
     - "On cancel: Remove from queue, publish TaskCancelled"
-    
+
   timer_wheel:
     resolution_ms: 1000  # Checks every second
     max_delay_days: 365
-    
+
   uses: ["future-dated tasks", "maintenance windows", "deferred execution"]
 ```
 
@@ -284,12 +284,12 @@ queue_delayed:
 queue_cron:
   name: "Cron Queue"
   description: "Recurring scheduled tasks"
-  
+
   characteristics:
     concurrency: 3
     persistence: "Database"
     scheduling: "cron expressions (5-field standard)"
-    
+
   item_schema:
     id: "uuid"
     name: "task-name"
@@ -301,7 +301,7 @@ queue_cron:
     last_run: "ISO8601 | null"
     next_run: "ISO8601"
     enabled: true
-    
+
   cron_format:
     standard: "minute hour day month weekday"
     examples:
@@ -310,7 +310,7 @@ queue_cron:
       weekly_monday: "0 0 * * 1"
       month_end: "0 0 28-31 * *"
       custom: "*/15 * * * *"  # Every 15 minutes
-      
+
   lifecycle:
     - "Registered by: User, System, Evolution Engine"
     - "Evaluation: Every minute (cron daemon)"
@@ -318,7 +318,7 @@ queue_cron:
     - "On completion: Update last_run, calculate next_run"
     - "On failure: Log, retry (max 3), then skip this occurrence"
     - "On disable: Stop scheduling, retain configuration"
-    
+
   built_in_crons:
     - name: "knowledge_evolution"
       cron: "0 2 * * *"  # Daily at 2am
@@ -335,7 +335,7 @@ queue_cron:
     - name: "backup"
       cron: "0 4 * * *"  # Daily at 4am
       task: "create_snapshot"
-      
+
   uses: ["scheduled maintenance", "periodic reports", "health checks", "backup"]
 ```
 
@@ -346,31 +346,31 @@ queue_background:
   name: "Background Queue"
   priority: 0
   description: "Low-priority, non-urgent processing"
-  
+
   characteristics:
     concurrency: 10
     persistence: "Redis"
     ordering: "FIFO"
     preemptable: true  # Can be preempted by any other queue
-    
+
   item_schema:
     id: "uuid"
     type: "learning | sync | metric | cleanup"
     payload: {}
     submitted_at: "ISO8601"
     timeout_ms: 600000  # 10 minutes
-    
+
   lifecycle:
     - "Submitted by: Learning Engine, Sync Engine, Evolution Engine"
     - "Dispatched to: Idle workers only"
     - "On success: Log"
     - "On failure: Retry (max 1), then skip"
     - "On preemption: Re-queue (will be retried)"
-    
+
   backpressure:
     max_depth: 5000
     on_full: "Drop oldest items (LIFO drop)"
-    
+
   uses: ["learning", "knowledge sync", "metrics collection", "cleanup", "log rotation"]
 ```
 
@@ -383,11 +383,11 @@ Items that exhaust all retries are moved to the Dead Letter Queue for inspection
 ```yaml
 dead_letter_queue:
   description: "Items that failed permanently after all retries exhausted"
-  
+
   storage: "Database (persistent, append-only)"
   retention: "30 days"
   max_items: 10000
-  
+
   item_schema:
     id: "uuid"
     original_queue: "string"
@@ -396,13 +396,13 @@ dead_letter_queue:
     final_error: ""
     moved_at: "ISO8601"
     status: "pending_review | reviewed | discarded | replayed"
-    
+
   operations:
     inspect: "View DLQ items with full retry history"
     replay: "Re-submit item to original queue"
     discard: "Remove from DLQ permanently"
     replay_all: "Re-submit all items matching filter"
-    
+
   alert_rules:
     - "DLQ count > 100 → Warning notification"
     - "DLQ count > 500 → Critical notification"
@@ -419,7 +419,7 @@ The Dispatcher selects which item to execute next from all queues.
 dispatch_algorithm:
   name: "Priority-weighted fair scheduling"
   tick_rate_ms: 100  # 10 evaluations per second
-  
+
   algorithm:
     step_1: "Collect ready items from all queues"
     step_2: "Filter: only items with all dependencies resolved"
@@ -428,17 +428,17 @@ dispatch_algorithm:
     step_5: "Sort by score (descending)"
     step_6: "Select top N items (N = available workers)"
     step_7: "Assign to workers"
-    
+
   urgency_factor:
     description: "Increases score as item approaches deadline"
     formula: "1 + (wait_time_ms / max_wait_ms)"
     max_factor: 2.0
-    
+
   starvation_prevention:
     mechanism: "Aging"
     rule: "Every 60s in queue → priority +1 (max +10)"
     exception: "Immediate queue (already highest priority)"
-    
+
   worker_assignment:
     strategy: "Least-loaded-first"
     check: "Worker must have capacity for item's resource_profile"
@@ -453,20 +453,20 @@ worker_pool:
   min_workers: 2
   max_workers: 20
   scaling: "auto (based on queue depth)"
-  
+
   scaling_rules:
     scale_up:
       trigger: "queue_depth > 500 for > 30s"
       increment: 2
       max: 20
       cooldown_ms: 60000
-      
+
     scale_down:
       trigger: "queue_depth < 50 for > 120s"
       decrement: 1
       min: 2
       cooldown_ms: 240000
-      
+
   worker_schema:
     id: "uuid"
     status: "idle | busy | draining | dead"
@@ -474,12 +474,12 @@ worker_pool:
     started_at: "ISO8601"
     items_processed: 0
     resource_profile: { cpu: "low", memory: "medium" }
-    
+
   worker_health:
     check_interval: 5s
     heartbeat_timeout: 15s
     on_death: "Re-queue current item, spawn replacement"
-    
+
   worker_types:
     chief_worker: "Executes capability nodes (max 5)"
     engine_worker: "Executes engine nodes (max 10)"
@@ -540,12 +540,12 @@ scheduler_health:
     - "All queues initialized"
     - "Worker pool has at least min_workers"
     - "Queue storage accessible"
-    
+
   liveness:
     - "Dispatch loop running"
     - "Queue depth not growing unbounded"
     - "Workers reporting heartbeat"
-    
+
   degraded:
     - "Any queue depth > 80% of max → WARNING"
     - "Worker utilization > 90% for > 5min → WARNING"
@@ -561,43 +561,43 @@ scheduler_config:
   dispatch:
     tick_rate_ms: 100
     max_items_per_tick: 50
-    
+
   queues:
     immediate:
       concurrency: 10
       max_depth: 100
-      
+
     priority:
       concurrency: 5
       max_depth: 1000
       aging_increment: 1
       aging_interval_s: 60
-      
+
     dependency:
       check_on_completion: true
-      
+
     retry:
       concurrency: 3
       default_max_retries: 3
       default_backoff_ms: 5000
       default_strategy: "exponential"
-      
+
     delayed:
       concurrency: 5
       timer_resolution_ms: 1000
-      
+
     cron:
       concurrency: 3
       evaluation_interval_s: 60
-      
+
     background:
       concurrency: 10
       max_depth: 5000
-      
+
   dead_letter:
     retention_days: 30
     alert_threshold: 100
-    
+
   workers:
     min: 2
     max: 20

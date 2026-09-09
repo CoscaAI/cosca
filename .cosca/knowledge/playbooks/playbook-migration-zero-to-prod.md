@@ -20,8 +20,8 @@ psql -h $SOURCE_HOST -U $USER -d orders -c "SELECT pg_size_pretty(pg_database_si
 
 # 1.2. Listar todas as tabelas e row counts
 psql -h $SOURCE_HOST -U $USER -d orders -c "
-  SELECT schemaname, tablename, n_live_tup 
-  FROM pg_stat_user_tables 
+  SELECT schemaname, tablename, n_live_tup
+  FROM pg_stat_user_tables
   ORDER BY n_live_tup DESC;"
 
 # 1.3. Verificar versão do PostgreSQL
@@ -58,8 +58,8 @@ pg_restore -h $TARGET_HOST -U $USER -d orders \
 
 # 3.3. Verificar row counts
 psql -h $TARGET_HOST -U $USER -d orders -c "
-  SELECT schemaname, tablename, n_live_tup 
-  FROM pg_stat_user_tables 
+  SELECT schemaname, tablename, n_live_tup
+  FROM pg_stat_user_tables
   ORDER BY n_live_tup DESC;"
 ```
 

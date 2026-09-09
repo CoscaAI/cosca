@@ -1,15 +1,15 @@
 # SISTEMA IMUNOLÓGICO COGNITIVO — Cognitive Immune System
 
 > **Versão**: 1.0.0 | **Status**: active | **Owner**: Cosca Security Chief | **Criado**: 2026-07-30
-> 
+>
 > **Fase de Implementação**: Fase 2 (Motores) — F2.2 no [cognitive-maturity-implementation.md](../../workflows/cognitive-maturity-implementation.md)
-> 
+>
 > **Conceito Cognitivo**: C5 no [COGNITIVE_MATURITY.md](../../architecture/COGNITIVE_MATURITY.md)
-> 
+>
 > **CMI Impact**: Consistência +8, Autocrítica +5
-> 
+>
 > **Colaboradores**: cosca-qa (validação de benchmarks), cosca-memory-chief (registro de anticorpos)
-> 
+>
 > **Dependência**: F1.4 (Wisdom Decay — TTL de conhecimento necessário para distinguir validade temporal)
 
 ---
@@ -231,12 +231,12 @@ contradiction_check:
       - "Memória de decisão (.cosca/memory/decision/)"
       - "Capability profiles de agentes relevantes"
     method: "Semantic similarity search (motor da Semantic Memory Engine)"
-    
+
   step_2_compare:
     action: "Comparar a claim existente com a nova claim"
     method: "Análise de afirmações opostas"
     threshold: "similaridade > 0.7 + direção oposta da afirmação"
-    
+
   step_3_classify:
     action: "Classificar a severidade da contradição"
     severity:
@@ -246,21 +246,21 @@ contradiction_check:
           - "Claim A: 'O banco de dados é PostgreSQL' vs Claim B: 'O banco de dados é SQLite'"
           - "Claim A: 'Coverage threshold é 70%' vs Claim B: 'Coverage threshold é 85%'"
         action: "Bloquear ingestão imediatamente. Disparar Challenge Phase."
-        
+
       HIGH:
         definition: "Inconsistência significativa — as claims podem coexistir mas uma está provavelmente errada"
         examples:
           - "Claim A: 'A API suporta OAuth2' vs go.mod sem dependência OAuth2"
           - "Claim A: 'Deploy em Kubernetes' vs ausência de arquivos k8s/"
         action: "Marcar para Challenge Phase. Permitir ingestão com flag 'DISPUTED'."
-        
+
       MEDIUM:
         definition: "Diferença de versão ou escopo — uma claim pode estar desatualizada"
         examples:
           - "Claim A: 'Versão 1.3.0' vs CHANGELOG: 'Versão 1.4.0-dev'"
           - "Claim A: '34 comandos CLI' vs código: '39 comandos CLI'"
         action: "Alertar. Ingestão permitida com flag 'NEEDS_UPDATE'."
-        
+
       LOW:
         definition: "Diferença de redação — mesmo significado, palavras diferentes"
         examples:
@@ -284,7 +284,7 @@ source_validation:
       examples:
         - "Claim: 'Usa SQLite' → go.mod contém modernc.org/sqlite → CONFIRMADO"
         - "Claim: 'Usa PostgreSQL' → go.mod NÃO contém driver PostgreSQL → REFUTADO"
-        
+
     BENCHMARK:
       weight: 0.90
       description: "Claims respaldadas por medições e benchmarks executados"
@@ -292,7 +292,7 @@ source_validation:
       examples:
         - "Claim: 'Latência < 100ms' → benchmark mostra p95=87ms → CONFIRMADO"
         - "Claim: 'Cobertura 97.9%' → go test -cover mostra 71.3% → REFUTADO"
-        
+
     AUDIT:
       weight: 0.75
       description: "Claims respaldadas por auditoria sistemática"
@@ -300,7 +300,7 @@ source_validation:
       examples:
         - "Claim: '0 CVEs críticos' → govulncheck audit → CONFIRMADO"
         - "Claim: '98.1% DNA compliance' → auditoria de governança → CONFIRMADO"
-        
+
     ASSERTION:
       weight: 0.30
       description: "Claims sem evidência concreta — baseadas em raciocínio ou memória"
@@ -308,7 +308,7 @@ source_validation:
       examples:
         - "Claim: 'GDPR compliant' → sem evidência de auditoria → ASSERTION"
         - "Claim: 'Suporta Redis caching' → sem dependência no go.mod → ASSERTION"
-        
+
   decision_matrix:
     # Confiança da fonte × threshold mínimo para aprovação
     approval_thresholds:
@@ -342,7 +342,7 @@ consistency_check:
         - "Claim menciona cache Y → go.mod deve conter cliente Y"
         - "Claim menciona mensageria Z → go.mod deve conter cliente Z"
         - "Claim menciona framework W → go.mod deve conter framework W"
-        
+
     directory_structure:
       description: "Claims sobre estrutura devem ser verificadas contra o sistema de arquivos"
       rules:
@@ -350,7 +350,7 @@ consistency_check:
         - "Claim menciona Docker → deve existir Dockerfile"
         - "Claim menciona CI/CD específico → deve existir .github/workflows/ ou equivalente"
         - "Claim menciona N comandos CLI → count deve bater com código"
-        
+
     runtime_behavior:
       description: "Claims sobre comportamento devem ser verificadas contra o runtime"
       rules:
@@ -358,7 +358,7 @@ consistency_check:
         - "Claim menciona cobertura X% → verificar com go test -cover"
         - "Claim menciona latency < Xms → verificar com benchmark"
         - "Claim menciona nível de capability Y → verificar contra evolution.md"
-        
+
     numerical_consistency:
       description: "Números em documentação devem ser verificados contra realidade"
       rules:
@@ -452,7 +452,7 @@ challenge_rules:
       existing: "Coverage threshold: 80% (fonte: ASSERTION, doc antigo)"
       new: "Coverage threshold: 70% (fonte: CODE, go test -cover config)"
       resolution: "ATUALIZAR para 70%. Versão antiga marcada como deprecated."
-      
+
   rule_2_existente_mais_forte:
     condition: "Evidência existente tem peso maior que a evidência da nova claim"
     action: "REJEITAR"
@@ -465,7 +465,7 @@ challenge_rules:
       existing: "Banco de dados: SQLite (fonte: CODE, go.mod)"
       new: "Banco de dados: PostgreSQL (fonte: ASSERTION, sem evidência)"
       resolution: "REJEITAR. Claim falsa detectada. Registrar anticorpo."
-      
+
   rule_3_evidencias_iguais:
     condition: "Ambas as claims têm evidências de mesmo peso"
     action: "BENCHMARK"
@@ -478,7 +478,7 @@ challenge_rules:
       existing: "Estratégia de cache A é mais rápida (fonte: BENCHMARK antigo)"
       new: "Estratégia de cache B é mais rápida (fonte: BENCHMARK novo)"
       resolution: "Re-executar ambos os benchmarks em condições controladas."
-      
+
   rule_4_nenhuma_evidencia:
     condition: "Nenhuma das claims tem evidência concreta (ambas ASSERTION)"
     action: "QUARENTENA"
@@ -502,34 +502,34 @@ Toda resolução de challenge gera um registro no formato Decision DNA (C4), int
 immune_challenge_decision:
   id: "IMM-2026-07-30-001"
   timestamp: "2026-07-30T14:30:00Z"
-  
+
   claims:
     existing:
       content: "Banco de dados principal: SQLite"
       source_type: CODE
       source_location: "go.mod → modernc.org/sqlite v1.29.0"
       confidence: 1.00
-      
+
     new:
       content: "Banco de dados principal: PostgreSQL"
       source_type: ASSERTION
       source_location: "docs/architecture/database.md"
       confidence: 0.30
-      
+
   contradiction_severity: CRITICAL
-  
+
   resolution:
     action: REJECT_NEW
     reason: "Código executado é a verdade absoluta (CONSTITUTION.md P2). go.mod comprova SQLite."
     evidence_winner: EXISTING
     evidence_weight_existing: 1.00
     evidence_weight_new: 0.30
-    
+
   antibody_generated:
     id: "AB-001"
     signature: "docs:database_claim:go_mod_crosscheck"
     detection_rule: "Toda claim sobre tecnologia de banco de dados em documentação deve ser cruzada com go.mod"
-    
+
   reconsideration_triggers:
     - "Se go.mod passar a incluir driver PostgreSQL, reavaliar esta decisão"
     - "Se nova evidência (ex: configuration file) mencionar PostgreSQL, reavaliar"
@@ -551,7 +551,7 @@ Um anticorpo é uma regra de detecção que impede que o mesmo tipo de contamina
 antibody_schema:
   id: "AB-NNN"
   signature: "{domain}:{claim_type}:{detection_method}"
-  
+
   metadata:
     created: "ISO8601"
     created_from: "IMM-challenge-id"
@@ -559,17 +559,17 @@ antibody_schema:
     times_triggered: 0
     last_triggered: null
     status: "active | promoted_to_gate | deprecated"
-    
+
   pattern:
     domain: "docs | memory | capability_profile | heuristics | patterns"
     claim_type: "database_claim | dependency_claim | compliance_claim | threshold_claim | infrastructure_claim | version_claim"
     contamination_vector: "Como a contaminação entrou no sistema"
-    
+
   detection:
     rule: "Descrição da regra de detecção"
     cross_reference: "Quais fontes cruzar para verificar"
     false_positive_check: "Como evitar falsos positivos nesta regra"
-    
+
   evolution:
     promoted_from: null  # ID do anticorpo predecessor, se evoluiu
     promoted_to: null    # ID do anticorpo sucessor, se foi substituído
@@ -739,7 +739,7 @@ O Immune Memory é um catálogo persistente de todos os anticorpos ativos, seus 
 immune_memory:
   storage: "internal/embed/cosca/engines/cognitive-immune-system/antibodies/registry.yaml"
   backup: ".cosca/immune/antibodies.db (SQLite, FTS5 para busca)"
-  
+
   registry_schema:
     antibody_id: "AB-NNN"
     signature: "string"
@@ -753,7 +753,7 @@ immune_memory:
     created_from: "IMM-challenge-id"
     promoted_to_gate_at: "ISO8601 | null"
     deprecated_at: "ISO8601 | null"
-    
+
   metrics:
     total_antibodies: 5
     active: 5
@@ -774,22 +774,22 @@ antibody_evolution:
     condition: "true_positives >= 5 AND precision >= 0.80"
     action: "Promover anticorpo a MANDATORY GATE"
     effect: "Verificação executada em toda ingestão de conhecimento, sem exceção"
-    
+
   demotion_rule:
     condition: "precision < 0.50 AND times_triggered >= 10"
     action: "Reverter para ACTIVE com flag 'needs_refinement'"
     effect: "Anticorpo volta a ser vigilante, mas não é gate obrigatório"
-    
+
   refinement_rule:
     condition: "false_positives > true_positives"
     action: "Analisar falsos positivos e ajustar regra de detecção"
     effect: "Nova versão do anticorpo (v2) com regra refinada"
-    
+
   deprecation_rule:
     condition: "Nenhum acionamento em 90 dias E não é MANDATORY GATE"
     action: "Marcar como deprecated"
     effect: "Anticorpo removido da verificação ativa, preservado no histórico"
-    
+
   merging_rule:
     condition: "Dois anticorpos detectam padrões com sobreposição > 80%"
     action: "Fundir em um anticorpo composto com ambas as regras"
@@ -812,42 +812,42 @@ vaccination_scan:
     light_scan: "A cada inicialização do Kernel (§10.2 Context Discovery)"
     deep_scan: "A cada 10 sessões ou sob comando explícito do Don"
     full_audit: "Mensal, coordenado pelo cosca-security"
-    
+
   light_scan_steps:
     - step: "Cross-reference de claims em documentação contra go.mod"
       check: "Toda dependência mencionada em docs deve existir em go.mod"
       severity: CRITICAL
-      
+
     - step: "Cross-reference de contagens em docs contra filesystem"
       check: "Números de arquivos, pacotes, agentes em docs devem bater com find/go list"
       severity: HIGH
-      
+
     - step: "Cross-reference de versões em docs contra CHANGELOG/git tags"
       check: "Toda menção de versão em docs deve ser consistente com git"
       severity: MEDIUM
-      
+
   deep_scan_steps:
     - step: "Verificação de consistência entre todos os arquivos de memória"
       check: "learnings.md vs capability-profile.md vs evolution.md"
       severity: HIGH
-      
+
     - step: "Verificação de claims de compliance contra evidência real"
       check: "Toda claim de certificação deve ter artefato de evidência"
       severity: CRITICAL
-      
+
     - step: "Verificação de claims de performance contra benchmarks"
       check: "Toda claim numérica de performance deve ter benchmark correspondente"
       severity: HIGH
-      
+
     - step: "Verificação de capacidade de agentes contra tasks reais"
       check: "Capability level declarado vs tasks executadas (nível)"
       severity: HIGH
-      
+
   full_audit_steps:
     - step: "Auditoria completa de todos os 426+ arquivos do framework"
       check: "Cada claim em cada arquivo é verificada contra código, go.mod, filesystem"
       severity: VARIED
-      
+
     - step: "Geração de Contamination Report completo"
       check: "Lista todas as discrepâncias com severidade, fonte, evidência e remediação"
       severity: N/A
@@ -865,7 +865,7 @@ contamination_report:
     scanned_files: 426
     total_claims_verified: 0
     contaminations_found: 0
-    
+
   summary:
     critical: 0
     high: 0
@@ -873,7 +873,7 @@ contamination_report:
     low: 0
     total: 0
     cognitive_entropy_delta: 0  # Mudança no índice C2
-    
+
   findings:
     - id: "CONTAM-001"
       severity: CRITICAL
@@ -885,7 +885,7 @@ contamination_report:
       antibody_triggered: "AB-001"
       remediation: "Substituir 'PostgreSQL' por 'SQLite (modernc.org/sqlite)' em todo o documento"
       status: "pending_fix"
-      
+
   metrics:
     cognitive_entropy_before: 0
     cognitive_entropy_after: 0
@@ -901,30 +901,30 @@ vaccination_triggers:
     - event: "Kernel Bootstrap (§10.1)"
       scan: light
       description: "Scan rápido ao iniciar — verifica claims críticas"
-      
+
     - event: "Session Start"
       scan: light
       description: "Verificação de integridade antes de cada sessão"
-      
+
     - event: "10 sessions completed"
       scan: deep
       description: "Scan profundo a cada 10 sessões"
-      
+
     - event: "Cognitive Entropy > 25"
       scan: deep
       description: "Entropia alta dispara scan profundo automático (C2)"
-      
+
     - event: "Monthly cron"
       scan: full_audit
       description: "Auditoria completa mensal"
-      
+
   on_demand:
     - command: "Don: 'executar vacinação completa'"
       scan: full_audit
-      
+
     - command: "cosca-security: 'verificar claims de banco de dados'"
       scan: targeted (domínio específico)
-      
+
     - command: "Qualquer agente pode solicitar scan se detectar inconsistência"
       scan: targeted
 ```
@@ -1169,7 +1169,7 @@ immune_system_governance:
       - "Decidir sobre promoção de anticorpos a MANDATORY GATES"
       - "Aprovar ou rejeitar novas claims em caso de impasse"
       - "Reportar saúde do immune system ao CTO"
-      
+
   collaborators:
     - agent: cosca-qa
       role: "Validação de benchmarks"
@@ -1178,7 +1178,7 @@ immune_system_governance:
         - "Executar benchmarks quando duas claims têm evidências de peso igual"
         - "Documentar metodologia e resultados do benchmark"
         - "Reportar qual hipótese prevaleceu"
-        
+
     - agent: cosca-memory-chief
       role: "Registro e curadoria de anticorpos"
       reason: "Immune memory é uma extensão da memory architecture"
@@ -1187,14 +1187,14 @@ immune_system_governance:
         - "Garantir que anticorpos são persistidos corretamente"
         - "Coordenar deduplicação e merging de anticorpos"
         - "Implementar evolução automática de anticorpos"
-        
+
     - agent: cosca-discovery
       role: "Verificação de claims contra código real"
       reason: "CONSTITUTION.md P2 define código como verdade absoluta. Discovery Chief é o verificador."
       responsibilities:
         - "Cross-reference claims contra go.mod, filesystem, estrutura de diretórios"
         - "Fornecer evidência de nível CODE para o Challenge Phase"
-        
+
     - agent: cosca-critic
       role: "Revisão adversarial de decisões do immune system"
       reason: "O immune system pode cometer erros (falsos positivos). O Critic Chief revisa decisões de rejeição."
@@ -1212,7 +1212,7 @@ O Cognitive Immune System alimenta diretamente a dimensão **Consistência** do 
 cmi_consistencia_feed:
   metric: "consistency_score"
   weight: 0.10  # 10% do CMI total
-  
+
   immune_system_contribution:
     sub_metrics:
       contamination_free_rate:
@@ -1220,25 +1220,25 @@ cmi_consistencia_feed:
         formula: "claims_approved / total_claims_ingested"
         target: "> 95%"
         current_baseline: 0.95  # Estimado (5 contaminações conhecidas / ~100 claims)
-        
+
       contamination_resolution_time:
         definition: "Tempo médio entre detecção de contaminação e resolução"
         formula: "SUM(resolution_time) / num_contaminations"
         target: "< 1 hora"
         current_baseline: 0  # Ainda não medido
-        
+
       antibody_precision:
         definition: "Precisão média dos anticorpos ativos"
         formula: "AVG(true_positives / (true_positives + false_positives))"
         target: "> 0.80"
         current_baseline: 1.00  # Seed antibodies validados contra casos conhecidos
-        
+
       cognitive_entropy_reduction:
         definition: "Redução no índice de entropia cognitiva (C2) atribuível ao immune system"
         formula: "entropy_before_vaccination - entropy_after_vaccination"
         target: "> 0 por scan"
         current_baseline: 0  # Ainda não medido
-        
+
     cmi_impact:
       description: "Menos contaminação → maior Consistência → CMI sobe"
       baseline: 92  # Consistência atual (COGNITIVE_MATURITY.md §2.3)
@@ -1254,28 +1254,28 @@ integration_points:
     stage_2_retrieve_memory:
       description: "Stage 2 do pipeline de metacognição — antes de recuperar memória para uma task"
       immune_system_role: "Verificar se o conhecimento recuperado está em quarentena. Se sim, NÃO carregar."
-      
+
     stage_7_extract_pattern:
       description: "Stage 7 do pipeline — após extrair padrão de uma task"
       immune_system_role: "Inoculation: verificar se o padrão extraído contradiz conhecimento existente ANTES de registrá-lo."
-      
+
   quality_gates:
     gate_0_pre_work:
       description: "Gate 0 — validação antes de começar trabalho"
       immune_system_role: "Verificar se o domínio da task tem conhecimento não contaminado. Se C2 entropy > 25, bloquear e disparar deep scan."
-      
+
     gate_2_post_implementation:
       description: "Gate 2 — validação pós-implementação"
       immune_system_role: "Verificar se novo código/documentação introduziu contaminação. Inoculation em qualquer artefato novo."
-      
+
   semantic_memory:
     description: "Motor de busca semântica usado para Contradiction Check"
     immune_system_role: "Usar o mesmo motor de similaridade semântica (cosine) para detectar claims contraditórias"
-    
+
   evidence_confidence_model:
     description: "Modelo de confiança de evidência (engines/evidence/CONFIDENCE_MODEL.md)"
     immune_system_role: "Usar os mesmos níveis de evidência (CODE, BENCHMARK, AUDIT, ASSERTION) para Source Validation"
-    
+
   wisdom_decay:
     description: "Decaimento de conhecimento (F1.4)"
     immune_system_role: "Conhecimento antigo tem peso reduzido no Challenge Phase. Claims com TTL expirado são tratadas como ASSERTION."
@@ -1316,59 +1316,59 @@ immune_system_metrics:
     immune_system_active:
       type: Gauge
       description: "1 se o immune system está ativo, 0 se inativo"
-      
+
     antibodies_active:
       type: Gauge
       description: "Número de anticorpos ativos"
-      
+
     antibodies_promoted:
       type: Gauge
       description: "Número de anticorpos promovidos a MANDATORY GATES"
-      
+
   detection:
     claims_ingested:
       type: Counter
       description: "Total de claims interceptadas na Inoculation Phase"
-      
+
     claims_approved:
       type: Counter
       description: "Claims aprovadas após os 3 checks"
-      
+
     claims_rejected:
       type: Counter
       description: "Claims rejeitadas (REJECT no Challenge Phase)"
-      
+
     claims_quarantined:
       type: Counter
       description: "Claims em quarentena (sem evidência)"
-      
+
     contradictions_detected:
       type: Counter
       labels: [severity]
       description: "Contradições detectadas por severidade"
-      
+
   antibodies:
     antibody_triggers:
       type: Counter
       labels: [antibody_id, result]
       description: "Acionamentos de anticorpos (true_positive, false_positive)"
-      
+
     antibody_precision:
       type: Gauge
       labels: [antibody_id]
       description: "Precisão de cada anticorpo"
-      
+
   vaccination:
     vaccination_scans:
       type: Counter
       labels: [scan_type]
       description: "Scans de vacinação executados (light, deep, full)"
-      
+
     contaminations_found:
       type: Counter
       labels: [scan_type, severity]
       description: "Contaminações encontradas por scan"
-      
+
     scan_duration_ms:
       type: Histogram
       labels: [scan_type]
@@ -1385,22 +1385,22 @@ constraints:
     - "Inoculation Phase não deve adicionar > 500ms de latência à ingestão de conhecimento"
     - "Light Vaccination Scan não deve adicionar > 2s ao bootstrap do Kernel"
     - "Deep Vaccination Scan pode levar até 30s (executado em background)"
-    
+
   false_positives:
     - "Taxa de falsos positivos deve ser < 10% (precisão > 90%)"
     - "Falsos positivos devem ser registrados e analisados para refinamento de anticorpos"
     - "Nunca rejeitar automaticamente sem registrar o motivo (auditability)"
-    
+
   knowledge_safety:
     - "Conhecimento rejeitado NUNCA é deletado — é versionado e movido para histórico"
     - "Conhecimento em quarentena é preservado para auditoria futura"
     - "Decisões do immune system são sempre reversíveis (audit trail)"
-    
+
   authority:
     - "O Don sempre tem autoridade final — pode override de qualquer decisão do immune system"
     - "Overrides do Don são registrados como 'DON_OVERRIDE' no immune memory"
     - "O immune system NÃO pode bloquear comandos diretos do Don"
-    
+
   scope:
     - "O immune system valida CONHECIMENTO, não código executável"
     - "Claims em código fonte são domínio do compilador/testes, não do immune system"
@@ -1472,54 +1472,54 @@ immune_system_commands:
     - name: "immune scan light"
       description: "Executar light vaccination scan"
       handler: "cosca-security"
-      
+
     - name: "immune scan deep"
       description: "Executar deep vaccination scan"
       handler: "cosca-security"
-      
+
     - name: "immune scan full"
       description: "Executar full audit de contaminação"
       handler: "cosca-security"
-      
+
     - name: "immune scan domain <domain>"
       description: "Scan focado em domínio específico (ex: database, compliance, coverage)"
       handler: "cosca-security"
-      
+
   antibodies:
     - name: "immune antibodies list"
       description: "Listar todos os anticorpos ativos"
       handler: "cosca-security"
-      
+
     - name: "immune antibodies show <AB-ID>"
       description: "Mostrar detalhes de um anticorpo específico"
       handler: "cosca-security"
-      
+
     - name: "immune antibodies promote <AB-ID>"
       description: "Promover anticorpo a MANDATORY GATE"
       handler: "cosca-security (requer aprovação do CTO)"
-      
+
     - name: "immune antibodies deprecate <AB-ID>"
       description: "Depreciar anticorpo"
       handler: "cosca-security"
-      
+
   quarantine:
     - name: "immune quarantine list"
       description: "Listar claims em quarentena"
       handler: "cosca-memory-chief"
-      
+
     - name: "immune quarantine review <claim-id>"
       description: "Revisar e decidir sobre claim em quarentena"
       handler: "cosca-security + cosca-critic"
-      
+
     - name: "immune quarantine release <claim-id>"
       description: "Liberar claim da quarentena para a base"
       handler: "cosca-security (requer justificativa)"
-      
+
   report:
     - name: "immune report"
       description: "Gerar Contamination Report completo"
       handler: "cosca-security"
-      
+
     - name: "immune health"
       description: "Mostrar saúde do immune system (métricas)"
       handler: "cosca-security"

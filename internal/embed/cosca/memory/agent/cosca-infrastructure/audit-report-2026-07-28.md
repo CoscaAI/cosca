@@ -189,7 +189,7 @@ Components:
 
 ### 2.3 Additional Infrastructure Risks
 
-| # | Risk | Severity | 
+| # | Risk | Severity |
 |---|------|----------|
 | INF-01 | No HA deployment path — single replica everywhere | 🔴 High |
 | INF-02 | No TLS termination in any config | 🟠 High |

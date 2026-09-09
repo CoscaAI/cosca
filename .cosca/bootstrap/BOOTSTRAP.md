@@ -273,7 +273,7 @@ agents:
     name: cosca-kernel
     status: active
     capabilities: [orchestration, routing, quality-enforcement]
-    
+
   chiefs:
     - name: cosca-ceo
       department: ceo
@@ -282,7 +282,7 @@ agents:
       department: cto
       status: active
     # ... all 25 chiefs
-    
+
   specialists:
     - name: cosca-specialist-backend-api
       department: backend

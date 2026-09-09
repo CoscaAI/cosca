@@ -1366,7 +1366,7 @@ domain_strength:
 
 ### 7.1 Procedimento de Atualização
 
-1. **Após cada task:** Kernel adiciona entrada YAML na seção `entries:` 
+1. **Após cada task:** Kernel adiciona entrada YAML na seção `entries:`
 2. **Diariamente:** Kernel recalcula métricas (seções 2.1-2.5) baseado nas entradas
 3. **Semanalmente:** Kernel verifica decay e atualiza scores
 4. **Após cada atualização:** Kernel regenera INDEX.md

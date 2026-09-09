@@ -71,7 +71,7 @@ Execute disaster recovery procedures to restore system functionality after a cat
 
 ### Step 7: Communication
 - **Chief**: CEO
-- **Specialists**: — 
+- **Specialists**: —
 - **Task**: Communicate recovery status to stakeholders and users
 - **Output**: Status update
 

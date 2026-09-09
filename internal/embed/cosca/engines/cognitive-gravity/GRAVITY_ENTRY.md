@@ -312,7 +312,7 @@ planet_behavior:
 ```
 Todo novo conhecimento começa com:
   gravity_score = 10 (Dust → limite superior de Dust, quase Pebble)
-  
+
 Isso garante que:
   - Existe no knowledge graph (não é invisível)
   - Pode ser encontrado em buscas explícitas
@@ -351,7 +351,7 @@ Aplicado quando:
 
 Decaimento mínimo: gravity_score NUNCA cai abaixo de 10 (Dust superior)
   - Conhecimento "morto" ainda existe, só não influencia
-  
+
 Decaimento PARA se:
   - Uma revalidação é bem-sucedida → gravity restaurado ao valor pré-decay + bônus de revalidação (+5)
   - Uma revalidação FALHA → colapso (-30), podendo ir para quarantine
@@ -364,33 +364,33 @@ cross_agent_audit_pattern_trajectory:
   day_0:
     event: "Padrão extraído pela primeira vez (F0.2 — patterns.md)"
     gravity: 10  # Dust — novo, não validado
-    
+
   day_1:
     event: "Primeira aplicação bem-sucedida (L18 — Runtime Coverage Audit)"
     gravity: 25  # Pebble — +10 (primeira validação bônus) +5 (mesmo contexto)
-    
+
   day_3:
     event: "Segunda aplicação (L19 — CLI Coverage) + domínio DIFERENTE (cli/testing)"
     gravity: 45  # Stone — +15 (contexto diferente) +5 (validação adicional)
     note: "Já exerce influência moderada em decisões de auditoria"
-    
+
   day_5:
     event: "Terceira aplicação (L20 — Systemic Platform Audit) + terceiro domínio (platform)"
     gravity: 60  # Stone (limite superior) — +15 (contexto diferente)
-    
+
   day_7:
     event: "Quarta aplicação (L21 — Coverage + Doc Expurgo)"
     gravity: 65  # Boulder — +5 (mesmo contexto, saturação próxima)
-    
+
   day_30:
     event: "Quinta aplicação + evidência CODE (testes automatizados do padrão)"
     gravity: 75  # Boulder — +5 (validação) +10 (upgrade evidência: AUDIT→CODE) -2 (decay 1 mês)
-    
+
   day_60:
     event: "Primeira validação cross-project (Projeto B confirma o padrão)"
     gravity: 88  # Planet — +20 (cross-project) -2 (decay 2 meses) +5 (novo projeto)
     note: "Auto-aplicado — toda auditoria usa este padrão por default"
-    
+
   day_90:
     event: "Segunda validação cross-project (Projeto C) + Cognitive Compression aplicada"
     gravity: 100  # Planet (máximo) — +20 (cross-project) +10 (compression upgrade)
@@ -455,42 +455,42 @@ domain_adjacency:
 gravitational_field_example:
   decision: "Planejar auditoria de segurança do runtime"
   decision_domain: "security"
-  
+
   field_calculation:
     - knowledge: "Cross-Agent Audit Pattern"
       gravity: 65 (Boulder)
       relevance: 0.85  # "auditoria" é semanticamente próximo
       distance: 0.7  # orchestration → security = adjacent domain
       contribution: 65/100 × 0.85 × 0.7 = 0.387
-      
+
     - knowledge: "Security Audit Heuristic H-012"
       gravity: 45 (Stone)
       relevance: 0.95  # "segurança" é diretamente relevante
       distance: 1.0  # security → security = same domain
       contribution: 45/100 × 0.95 × 1.0 = 0.428
-      
+
     - knowledge: "Extract-Then-Test Pattern"
       gravity: 55 (Stone)
       relevance: 0.30  # Pouca relação com auditoria de segurança
       distance: 0.3  # testing → security = distant domain
       contribution: 55/100 × 0.30 × 0.3 = 0.050
-      
+
     - knowledge: "Database Migration Pattern (H-007)"
       gravity: 70 (Boulder)
       relevance: 0.05  # Nada a ver com segurança
       distance: 0.3  # data → security = distant domain
       contribution: 70/100 × 0.05 × 0.3 = 0.011
-      
+
   total_field_strength: 0.876
   dominant_influence: "Security Audit Heuristic H-012" (0.428) — same domain, alta relevância
   secondary_influence: "Cross-Agent Audit Pattern" (0.387) — adjacent domain, alta gravidade
-  
+
   decision_outcome: |
     O campo gravitacional sugere FORTEMENTE usar o Security Audit Heuristic
     (same domain) COMBINADO com o Cross-Agent Audit Pattern (padrão de execução).
     O Extract-Then-Test e Database Migration exercem atração desprezível (não aparecem
     nas sugestões automáticas).
-    
+
     Output do engine para o Stage 3:
     "Gravitational field strength: 0.876. Dominant: H-012 (security audit).
      Secondary: Cross-Agent Audit Pattern (execution strategy).
@@ -611,21 +611,21 @@ gravity_weighted_retrieval:
     query: "contexto da decisão atual"
     top_k: 10
     min_relevance: 0.20
-    
+
   process:
     1. semantic_search(query, top_k=50, min_relevance=0.20)
        # Busca ampla primeiro — pode trazer até 50 resultados
-    
+
     2. for each result:
          gravity_boost = gravity_score(result) / 100  # 0.0 a 1.0
          distance_penalty = distance_factor(result.domain, decision.domain)  # 1.0, 0.7, 0.3, 0.0
          final_score = relevance(result) × 0.4 + gravity_boost × 0.35 + (1 - distance_penalty) × 0.25
-       
+
        # 40% relevância semântica + 35% gravidade + 25% proximidade de domínio
-    
+
     3. sort by final_score DESC
     4. return top_k results
-    
+
   output:
     ranked_results:
       - entry: "Security Audit Heuristic H-012"
@@ -633,13 +633,13 @@ gravity_weighted_retrieval:
         gravity: 45 (Stone)
         distance: 1.0 (same domain)
         final_score: 0.85×0.4 + 0.45×0.35 + 0.0×0.25 = 0.498
-        
+
       - entry: "Cross-Agent Audit Pattern"
         relevance: 0.75
         gravity: 65 (Boulder)
         distance: 0.7 (adjacent domain)
         final_score: 0.75×0.4 + 0.65×0.35 + 0.3×0.25 = 0.603  # MAIOR — gravity compensa
-        
+
       # Cross-Agent Audit aparece ANTES apesar de menor relevância semântica,
       # porque sua gravidade (Boulder, 65) compensa a distância de domínio
 ```
@@ -715,7 +715,7 @@ cmi_contribution:
       - "cross_project_count mede transferência entre projetos"
       - "avg_cross_domain_gravity é uma métrica de health da dimensão"
     target: "avg_cross_domain_gravity > 40 (Stone) em 5+ domínios"
-    
+
   consistencia:
     weight_in_cmi: 10%
     how_gravity_feeds:
@@ -873,7 +873,7 @@ gravity_entry:
   knowledge_id: "cross-agent-audit-pattern"
   knowledge_type: "pattern"  # pattern | heuristic | principle | learning | decision
   knowledge_source: "internal/embed/cosca/memory/agent/cosca-kernel/patterns.md"
-  
+
   # Componentes da Fórmula
   validation_count: 4
   validation_history:
@@ -901,27 +901,27 @@ gravity_entry:
       outcome: "success"
       agent: "cosca-kernel"
       evidence: "AUDIT"
-  
+
   unique_domains_validated: ["orchestration", "testing", "documentation"]
   total_relevant_domains: 5  # orchestration, testing, documentation, quality, platform
   cross_project_validations:
     []  # Nenhum projeto externo ainda validou
-  
+
   last_validated: "2026-07-30"
   evidence_type: "AUDIT"
   evidence_score: 0.6
-  
+
   # Scores Calculados
   gravity_score: 44  # Recalculado com 3 domínios (orchestration, testing, documentation)
   gravity_level: "Stone"
   gravity_label: "●"
-  
+
   # Metadados de Influência
   times_suggested: 8  # Quantas vezes foi sugerido a agentes
   times_adopted: 6    # Quantas vezes foi efetivamente usado
   times_overridden: 1  # Quantas vezes foi ignorado (com justificativa)
   adoption_rate: 0.75  # times_adopted / times_suggested
-  
+
   # Histórico de Gravidade
   gravity_history:
     - date: "2026-07-28"
@@ -945,7 +945,7 @@ field_snapshot:
   session_id: "session-2026-07-30-001"
   calculated_at: "2026-07-30T14:30:00Z"
   ttl: 3600  # 1 hora — recalculado se expirar
-  
+
   domains:
     security:
       field_strength: 0.876
@@ -958,7 +958,7 @@ field_snapshot:
           contribution: 0.387
           gravity_level: "Boulder"
       health: "healthy"  # healthy | weak | critical
-      
+
     testing:
       field_strength: 0.920
       knowledge_count: 8
@@ -970,7 +970,7 @@ field_snapshot:
           contribution: 0.340
           gravity_level: "Boulder"
       health: "healthy"
-      
+
     frontend:
       field_strength: 0.120
       knowledge_count: 1
@@ -989,13 +989,13 @@ field_snapshot:
 example_cross_agent_audit:
   knowledge: "Cross-Agent Parallel Audit (Pattern 001)"
   source: "cosca-kernel/patterns.md"
-  
+
   # ─── DIA 0: Extração Inicial ───
   day_0:
     gravity: 10
     level: "Dust"
     status: "Hipótese — extraído do learning L18, nunca aplicado standalone"
-    
+
   # ─── DIA 1: Primeira Validação ───
   day_1:
     event: "Aplicado em L18 — Runtime Coverage Audit"
@@ -1004,7 +1004,7 @@ example_cross_agent_audit:
     gravity_gain: +10 (primeira validação) +5 (mesmo contexto) = +15
     new_gravity: 25
     new_level: "Pebble"
-    
+
   # ─── DIA 3: Validação em Contexto Diferente ───
   day_3:
     event: "Aplicado em L19 — CLI Coverage"
@@ -1014,7 +1014,7 @@ example_cross_agent_audit:
     new_gravity: 40
     new_level: "Stone"  # ATINGE INFLUÊNCIA MODERADA
     note: "Começa a ser sugerido em decisões de auditoria e testing"
-    
+
   # ─── DIA 5: Expansão para Platform ───
   day_5:
     event: "Aplicado em L20 — Systemic Platform Audit"
@@ -1023,7 +1023,7 @@ example_cross_agent_audit:
     gravity_gain: +15 (contexto diferente)
     new_gravity: 55
     new_level: "Stone" (limite superior)
-    
+
   # ─── DIA 7: Consolidação ───
   day_7:
     event: "Aplicado em L21 — Coverage + Doc Expurgo"
@@ -1033,14 +1033,14 @@ example_cross_agent_audit:
     new_gravity: 65  # Nota: 55 + 15 - 5 (saturação começa a aplicar)
     new_level: "Boulder"  # INFLUÊNCIA FORTE
     note: "Auto-sugerido para TODAS as tarefas de auditoria, testing, platform, documentation"
-    
+
   # ─── DIA 30: Upgrade de Evidência ───
   day_30:
     event: "Evidência atualizada para CODE (testes automatizados do padrão)"
     gravity_gain: +10 (upgrade AUDIT → CODE) -2 (decay 1 mês)
     new_gravity: 73
     new_level: "Boulder"
-    
+
   # ─── DIA 60: Primeira Validação Cross-Project (FUTURO) ───
   day_60_future:
     event: "Projeto B (cosca-analytics-dashboard) valida o padrão"
@@ -1051,7 +1051,7 @@ example_cross_agent_audit:
     new_gravity: 88  # 73 + 20 - 2 (decay 2 meses) - 3 (saturação)
     new_level: "Planet"
     note: "FUNDACIONAL. Nenhum agente audita sem este padrão."
-    
+
   # ─── DIA 90: Cenário de Falha (HIPOTÉTICO) ───
   day_90_failure_scenario:
     event: "FALHA — padrão causou race condition em auditoria paralela"
@@ -1069,7 +1069,7 @@ example_new_hypothesis:
   type: "hypothesis"
   source: "cosca-architecture/learnings.md"
   evidence: "ASSERTION"
-  
+
   current_state:
     gravity: 10
     level: "Dust"
@@ -1078,13 +1078,13 @@ example_new_hypothesis:
     cross_project_count: 0
     last_validated: null  # Nunca validado
     evidence_strength: 0.3  # ASSERTION
-    
+
   behavior:
     - "Aparece em buscas explícitas sobre 'paralelismo de agentes'"
     - "NUNCA sugerido automaticamente"
     - "NÃO influencia o gravitational field"
     - "Se um agente tentar aplicá-lo, alerta: 'Conhecimento não validado (Dust). Proceder com cautela.'"
-    
+
   path_to_influence:
     - "1ª validação → +15 (bônus primeira + mesmo contexto) → Gravity 25 (Pebble)"
     - "2ª validação em contexto diferente → +15 → Gravity 40 (Stone)"
@@ -1103,7 +1103,7 @@ example_disproven_pattern:
     - day_5: 3 validações bem-sucedidas, mesmo domínio → gravity 25 (Pebble)
     - day_15: 2 validações cross-domain → gravity 55 (Stone)
     - day_30: 1 validação cross-project → gravity 75 (Boulder)
-    
+
   collapse_event:
     day_45:
       event: "FALHA CRÍTICA — connection pool causou deadlock em produção"
@@ -1112,13 +1112,13 @@ example_disproven_pattern:
       gravity_loss: -30
       new_gravity: 45  # De Boulder (75) para Stone baixo (45)
       new_level: "Stone"
-      
+
   aftermath:
     - "Padrão perdeu 40% da gravidade em UMA falha"
     - "Não é mais auto-sugerido (precisa ser Boulder/Planet)"
     - "Marcado com flag: 'failed_validation: 2026-07-30, reason: deadlock'"
     - "Se falhar NOVAMENTE → gravity 15 (Dust) → movido para quarantine/"
-    
+
   recovery_path:
     - "Corrigir o padrão (v2)"
     - "Revalidar com sucesso em 2+ contextos diferentes"
@@ -1136,18 +1136,18 @@ example_disproven_pattern:
 gravity_update_policy:
   trigger: "Automático — após cada task (metacognition pipeline Stage 7-8)"
   manual_override: "Permitido apenas para Memory Chief + Critic Chief em consenso"
-  
+
   automatic_updates:
     - "Validação bem-sucedida → +5 a +20 (calculado pelo engine)"
     - "Falha de validação → -30 (colapso)"
     - "Decaimento mensal → -2/mês após 90 dias sem revalidação"
     - "Upgrade de evidência → +10/nível (ASSERTION→AUDIT→BENCHMARK→CODE)"
-    
+
   manual_overrides:
     - "Ajuste de gravity por decisão do Critic Chief (ex: padrão com viés conhecido)"
     - "Reset de gravity em migração de knowledge graph"
     - "Forçar gravity mínima para conhecimento crítico de compliance"
-    
+
   audit_trail:
     - "Toda mudança de gravity é registrada em gravity_history"
     - "Inclui: timestamp, evento, delta, novo_score, agente responsável"
@@ -1165,7 +1165,7 @@ gravity_review:
     - "Padrões com adoption_rate < 0.3 — por que não são adotados?"
     - "Domínios com field_strength < 0.30 — precisam de investimento?"
     - "Colapsos de gravidade no período — causas raiz?"
-    
+
   escalation:
     - "Padrão Planet com 0 adoções em 30 dias → alerta ao CTO Chief"
     - "Domínio com field_strength < 0.15 → prioridade de investimento"
@@ -1177,12 +1177,12 @@ gravity_review:
 ```yaml
 gravity_staleness:
   detection: "Background job semanal (domingo 00:00 UTC)"
-  
+
   stale_criteria:
     - "Gravity > 50 (Stone+) mas last_validated > 180 dias"
     - "Nenhuma sugestão adotada nos últimos 90 dias"
     - "adoption_rate caiu abaixo de 0.2"
-    
+
   action:
     - "Marcar como 'stale'"
     - "Reduzir time_factor para 0.1 (penalidade de recência)"
@@ -1205,7 +1205,7 @@ implementation_stack:
     - gravity_history: "log de todas as mudanças de gravidade"
     - domain_adjacency: "matriz de adjacência de domínios"
     - field_snapshots: "cache de campos gravitacionais por sessão"
-    
+
   computation: "Go runtime (engine/gravity/)"
   integration:
     - "Semantic Memory Engine: consulta similarity para relevance_score"
@@ -1222,7 +1222,7 @@ CREATE TABLE IF NOT EXISTS gravity_entries (
     knowledge_id TEXT PRIMARY KEY,
     knowledge_type TEXT NOT NULL,  -- pattern, heuristic, principle, learning, decision
     knowledge_source TEXT NOT NULL,
-    
+
     -- Componentes da fórmula
     validation_count INTEGER DEFAULT 0,
     unique_domains_validated TEXT,  -- JSON array
@@ -1230,18 +1230,18 @@ CREATE TABLE IF NOT EXISTS gravity_entries (
     cross_project_count INTEGER DEFAULT 0,
     last_validated TEXT,  -- ISO 8601
     evidence_type TEXT DEFAULT 'ASSERTION',
-    
+
     -- Scores calculados
     gravity_score REAL DEFAULT 10.0,
     gravity_level TEXT DEFAULT 'Dust',
     gravity_label TEXT DEFAULT '░░',
-    
+
     -- Métricas de influência
     times_suggested INTEGER DEFAULT 0,
     times_adopted INTEGER DEFAULT 0,
     times_overridden INTEGER DEFAULT 0,
     adoption_rate REAL DEFAULT 0.0,
-    
+
     -- Metadados
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -1312,21 +1312,21 @@ func (g *GravityEngine) AssessDomain(domain string) (*FieldStrength, error) {
 func (g *GravityEngine) GravityWeightedSearch(query string, domain string, topK int) ([]RankedResult, error) {
     // Busca semântica ampla (até 50 resultados)
     semanticResults := g.semanticMemory.Search(query, 50, 0.20)
-    
+
     // Reordenar por gravidade × relevância × distância
     for i, result := range semanticResults {
         gravity := g.getGravity(result.KnowledgeID)
         distance := g.getDomainDistance(result.Domain, domain)
-        semanticResults[i].FinalScore = 
-            result.Relevance * 0.4 + 
-            (gravity.Score / 100.0) * 0.35 + 
+        semanticResults[i].FinalScore =
+            result.Relevance * 0.4 +
+            (gravity.Score / 100.0) * 0.35 +
             (1.0 - distance) * 0.25
     }
-    
+
     sort.Slice(semanticResults, func(i, j int) bool {
         return semanticResults[i].FinalScore > semanticResults[j].FinalScore
     })
-    
+
     return semanticResults[:topK], nil
 }
 
@@ -1334,7 +1334,7 @@ func (g *GravityEngine) GravityWeightedSearch(query string, domain string, topK 
 func (g *GravityEngine) GetStrategySuggestions(domain string) ([]Suggestion, error) {
     // Conhecimentos com gravity ≥ 40 (Stone+) no domínio ou adjacentes
     entries := g.getGravityEntries(domain, 40)
-    
+
     var suggestions []Suggestion
     for _, entry := range entries {
         if entry.Level == "Boulder" || entry.Level == "Planet" {
@@ -1352,7 +1352,7 @@ func (g *GravityEngine) GetStrategySuggestions(domain string) ([]Suggestion, err
 // 4. Stage 7: EXTRACT PATTERN — atualizar gravidade
 func (g *GravityEngine) UpdateGravity(knowledgeID string, event ValidationEvent) (*GravityEntry, error) {
     entry := g.getGravityEntry(knowledgeID)
-    
+
     var delta float64
     switch event.Type {
     case "validation_success":
@@ -1373,22 +1373,22 @@ func (g *GravityEngine) UpdateGravity(knowledgeID string, event ValidationEvent)
     case "decay":
         delta = -2.0
     }
-    
+
     // Aplicar saturação
     newScore := math.Min(math.Max(entry.GravityScore + delta, 10.0), 100.0)
-    
+
     entry.GravityScore = newScore
     entry.Level = g.classifyGravity(newScore)
     entry.LastValidated = time.Now()
-    
+
     g.saveGravityEntry(entry)
     g.logGravityHistory(knowledgeID, event, delta, entry)
-    
+
     // Verificar se colapsou para quarantine
     if newScore <= 0 {
         g.quarantine(knowledgeID, "gravity_collapse")
     }
-    
+
     return entry, nil
 }
 ```
@@ -1434,27 +1434,27 @@ gravity_engine_kpis:
     target: "> 30 (média entre Pebble e Stone)"
     current: "A ser medido após Fase 2 deployment"
     alert: "< 20 → conhecimento não está sendo validado"
-    
+
   k2_gravity_momentum:
     description: "Delta da gravidade média nos últimos 30 dias"
     target: "> 0 (gravidade crescendo)"
     alert: "< -5 → mais colapsos que validações — sistema regredindo"
-    
+
   k3_domain_field_coverage:
     description: "% de domínios com field_strength > 0.50"
     target: "> 70%"
     alert: "< 40% → muitos domínios sem conhecimento gravitacional"
-    
+
   k4_adoption_rate:
     description: "Taxa média de adoção de sugestões de gravidade"
     target: "> 0.60 (60% das sugestões Boulder/Planet são adotadas)"
     alert: "< 0.30 → sugestões irrelevantes — recalibrar relevance_score"
-    
+
   k5_collapse_rate:
     description: "Colapsos de gravidade por mês"
     target: "< 2"
     alert: "> 5 → conhecimento instável — verificar Cognitive Entropy (C2)"
-    
+
   k6_staleness_ratio:
     description: "% de conhecimentos com gravity > 40 mas last_validated > 180 dias"
     target: "< 10%"

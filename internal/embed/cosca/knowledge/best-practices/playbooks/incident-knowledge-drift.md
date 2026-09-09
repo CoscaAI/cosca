@@ -125,7 +125,7 @@ A fonte canonica depende do tipo de discrepância:
 ```bash
 # Se for fabricacao: remover ou marcar [ASPIRATIONAL]
 # Exemplo real: compliance-framework.md reescrito com 5 passos concretos:
-# 1. at-rest encryption, 2. audit logging, 3. data mapping, 
+# 1. at-rest encryption, 2. audit logging, 3. data mapping,
 # 4. retention automation, 5. right-to-erasure
 
 # Se for desatualizacao: atualizar com valor real
@@ -158,7 +158,7 @@ grep -r "doc-validator" .github/workflows/
 # - Ignora false positives conhecidos (path resolution)
 
 # Verificar coverage do doc-validator
-# Onda 2 review (2026-07-28) identificou que o script retorna exit 0 
+# Onda 2 review (2026-07-28) identificou que o script retorna exit 0
 # mesmo com broken refs — "non-blocking warning for now"
 # ISSUE ABERTA: promover a blocking quando refs existentes forem corrigidas
 ```

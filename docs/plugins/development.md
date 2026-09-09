@@ -130,19 +130,19 @@ func NewHelloPlugin() *HelloPlugin {
 func (p *HelloPlugin) Init(ctx plugins.PluginContext) error {
     p.ctx = ctx
     ctx.Logger.Info("Hello Cosca plugin initialized!")
-    
+
     // Read configuration
     if greeting, err := ctx.GetConfig("greeting"); err == nil {
         ctx.Logger.Info(fmt.Sprintf("Custom greeting: %v", greeting))
     }
-    
+
     return nil
 }
 
 func (p *HelloPlugin) Start() error {
     p.startTime = time.Now()
     p.ctx.Logger.Info("Hello Cosca plugin started!")
-    
+
     // Register a hook
     _, err := p.ctx.RuntimeAPI.RegisterHook("on_startup", func(args interface{}) error {
         p.ctx.Logger.Info("Startup hook triggered!")
@@ -151,20 +151,20 @@ func (p *HelloPlugin) Start() error {
     if err != nil {
         return fmt.Errorf("register hook: %w", err)
     }
-    
+
     return nil
 }
 
 func (p *HelloPlugin) Stop() error {
     uptime := time.Since(p.startTime)
     p.ctx.Logger.Info(fmt.Sprintf("Hello Cosca plugin stopped (uptime: %s)", uptime))
-    
+
     // Emit shutdown event
     p.ctx.RuntimeAPI.EmitEvent("plugin_shutdown", map[string]interface{}{
         "plugin": p.ID(),
         "uptime": uptime.String(),
     })
-    
+
     return nil
 }
 
@@ -221,19 +221,19 @@ const (
     // Lifecycle hooks
     HookOnStartup  HookPoint = "on_startup"   // Runtime started
     HookOnShutdown HookPoint = "on_shutdown"  // Runtime shutting down
-    
+
     // Knowledge hooks
     HookOnSearch   HookPoint = "on_search"    // Search executed
     HookOnIndex    HookPoint = "on_index"     // Document indexed
     HookOnSync     HookPoint = "on_sync"      // Filesystem sync
-    
+
     // Plugin hooks
     HookOnInstall  HookPoint = "on_install"   // Plugin installed
     HookOnRemove   HookPoint = "on_remove"    // Plugin removed
-    
+
     // Config hooks
     HookOnConfigChange HookPoint = "on_config_change" // Config changed
-    
+
     // Error hooks
     HookOnError    HookPoint = "on_error"     // Error occurred
 )
@@ -249,7 +249,7 @@ func (p *MyPlugin) Start() error {
         p.ctx.Logger.Info(fmt.Sprintf("Search query: %v", params["query"]))
         return nil
     })
-    
+
     // Store hook ID for later unregistration
     p.hookID = id
     return nil
@@ -302,7 +302,7 @@ func (p *MyPlugin) Init(ctx plugins.PluginContext) error {
     // Read config values
     greeting, _ := ctx.GetConfig("greeting")
     maxItems, _ := ctx.GetConfig("max_items")
-    
+
     ctx.Logger.Info(fmt.Sprintf("Greeting: %v, Max items: %v", greeting, maxItems))
     return nil
 }
@@ -351,7 +351,7 @@ func (p *MyPlugin) Start() error {
     // Use context for long operations
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
-    
+
     return p.initializeWithContext(ctx)
 }
 ```
@@ -392,7 +392,7 @@ func TestHelloPlugin_Init(t *testing.T) {
         "./tmp/test-data",
         &mockRuntimeAPI{},
     )
-    
+
     err := plugin.Init(*ctx)
     if err != nil {
         t.Fatalf("Init failed: %v", err)

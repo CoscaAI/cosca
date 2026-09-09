@@ -102,7 +102,7 @@ grep -n "func\|os.Getenv\|path.Join\|flag\." <arquivo_problematico>
 # Depois: loadDotEnv() (15 linhas), resolveDataDir() (10 linhas), configureCORSFromEnv() (3 linhas)
 ```
 
-**Regra comprovada**: 
+**Regra comprovada**:
 - Função pequena (10-20 linhas) = trivial de cobrir
 - Função grande (500+ linhas) = impossível de cobrir
 - Extraia antes de testar — NUNCA tente "testar para cobrir" sem refatorar

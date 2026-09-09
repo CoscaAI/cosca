@@ -1,4 +1,4 @@
-﻿---
+---
 name: cosca-uiux
 agent: cosca-uiux
 type: prompt

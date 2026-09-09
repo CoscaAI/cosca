@@ -82,7 +82,7 @@ cosca memory pattern
 📋 Workflow: security-audit
    Category: security
    Scopo: Auditoria completa de segurança
-   
+
    Steps:
    1. Analisar código contra OWASP Top 10
    2. Escanear dependências por CVEs

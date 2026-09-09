@@ -1,4 +1,4 @@
-﻿# cosca-mobile - Semantic Learnings
+# cosca-mobile - Semantic Learnings
 
 > Auto-evolution memory. Search before acting. Record after learning.
 > INDICE DE GATILHOS - 1 linha por aprendizado. Conteudo completo nos blocos imutaveis (blocks/{sha256}.md).

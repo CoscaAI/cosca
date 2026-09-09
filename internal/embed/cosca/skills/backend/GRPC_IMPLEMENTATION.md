@@ -50,7 +50,7 @@ func NewServer(k KnowledgeService, m MemoryService, r RuntimeService) *Server {
         runtime:   r,
         health:    health.NewServer(),
     }
-    
+
     s.grpcServer = grpc.NewServer(
         grpc.ChainUnaryInterceptor(
             loggingInterceptor,
@@ -59,12 +59,12 @@ func NewServer(k KnowledgeService, m MemoryService, r RuntimeService) *Server {
         ),
         grpc.MaxRecvMsgSize(10*1024*1024), // 10MB
     )
-    
+
     pb.RegisterKnowledgeServiceServer(s.grpcServer, s)
     pb.RegisterMemoryServiceServer(s.grpcServer, s)
     pb.RegisterRuntimeServiceServer(s.grpcServer, s)
     grpc_health_v1.RegisterHealthServer(s.grpcServer, s.health)
-    
+
     return s
 }
 
@@ -92,7 +92,7 @@ func (s *Server) Search(ctx context.Context, req *pb.SearchRequest) (*pb.SearchR
     if req.Limit <= 0 || req.Limit > 100 {
         req.Limit = 20
     }
-    
+
     results, err := s.knowledge.Search(ctx, SearchParams{
         Query:    req.Query,
         Limit:    int(req.Limit),
@@ -102,7 +102,7 @@ func (s *Server) Search(ctx context.Context, req *pb.SearchRequest) (*pb.SearchR
     if err != nil {
         return nil, status.Errorf(codes.Internal, "search failed: %v", err)
     }
-    
+
     pbResults := make([]*pb.SearchResult, len(results.Items))
     for i, r := range results.Items {
         pbResults[i] = &pb.SearchResult{
@@ -113,7 +113,7 @@ func (s *Server) Search(ctx context.Context, req *pb.SearchRequest) (*pb.SearchR
             Path:  r.Path,
         }
     }
-    
+
     return &pb.SearchResponse{
         Results:    pbResults,
         Total:      int32(results.Total),
@@ -232,7 +232,7 @@ func TestKnowledgeService_Search(t *testing.T) {
     })
     go s.Serve(lis)
     defer s.Stop()
-    
+
     conn, _ := grpc.Dial("bufnet",
         grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
             return lis.Dial()
@@ -240,13 +240,13 @@ func TestKnowledgeService_Search(t *testing.T) {
         grpc.WithTransportCredentials(insecure.NewCredentials()),
     )
     defer conn.Close()
-    
+
     client := pb.NewKnowledgeServiceClient(conn)
     resp, err := client.Search(context.Background(), &pb.SearchRequest{
         Query: "test",
         Limit: 10,
     })
-    
+
     require.NoError(t, err)
     assert.NotNil(t, resp)
 }

@@ -1,7 +1,7 @@
 # OpenTelemetry + OpenFGA + Dapr + OpenHands — Infrastructure & Observability Patterns
 
-> **Sources**: `open-telemetry/opentelemetry-specification`, `openfga/openfga`, `dapr/dapr`, `All-Hands-AI/OpenHands`  
-> **Analyzed**: 2026-08-09 — Web research + cross-agent analysis  
+> **Sources**: `open-telemetry/opentelemetry-specification`, `openfga/openfga`, `dapr/dapr`, `All-Hands-AI/OpenHands`
+> **Analyzed**: 2026-08-09 — Web research + cross-agent analysis
 > **Confidence**: 0.92 (validado via documentação canônica + código fonte)
 
 ## Intent
@@ -184,7 +184,7 @@ class CmdRunAction:
     command: str
     thought: str
 
-# Observation (output, schema auto-gerado)  
+# Observation (output, schema auto-gerado)
 class CmdOutputObservation:
     command_id: int
     content: str

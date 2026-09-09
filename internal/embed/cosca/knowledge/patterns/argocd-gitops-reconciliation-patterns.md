@@ -1,7 +1,7 @@
 # Argo CD GitOps & Reconciliation Patterns
 
-> **Source**: https://github.com/argoproj/argo-cd — Apache 2.0, Go 1.26, CNCF Graduated  
-> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)  
+> **Source**: https://github.com/argoproj/argo-cd — Apache 2.0, Go 1.26, CNCF Graduated
+> **Analyzed**: 2026-08-09 — Análise profunda cross-agent (3 agentes em paralelo)
 > **Confidence**: 0.94 (validado por leitura direta: appcontroller.go 3.081 linhas, sync_context.go 1.876 linhas, diff.go 1.272 linhas)
 
 ## Intent

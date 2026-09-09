@@ -694,23 +694,23 @@ padrão identificado = "alta confiança Kernel, baixa fricção"
 ### 11.4 Recomendações de Meta-Melhoria
 
 ```
-R1. "Adicionar checkpoint de validação pós-onda" 
-    → Contra o viés de autoridade: mesmo com alta confiança, toda onda 
+R1. "Adicionar checkpoint de validação pós-onda"
+    → Contra o viés de autoridade: mesmo com alta confiança, toda onda
       precisa de verificação independente.
     → STATUS: JÁ IMPLEMENTADO como L33 — "Limite de Passos ≠ Task Concluída".
       O Don criou o padrão de validação pós-onda ANTES deste engine existir.
       A meta-análise teria recomendado exatamente o que o Don já fez —
       validação cruzada: o Don é o meta-raciocinador humano.
 
-R2. "Formalizar DDNA por onda P0/P1" 
-    → evidence_rate de 8% é o maior gap: sem DDNA não há dado para 
+R2. "Formalizar DDNA por onda P0/P1"
+    → evidence_rate de 8% é o maior gap: sem DDNA não há dado para
       meta-análise. Proposta: template DDNA obrigatório ao fechar onda.
 
-R3. "Ativar Gate G4 (P1 com risco) nas próximas ondas" 
+R3. "Ativar Gate G4 (P1 com risco) nas próximas ondas"
     → Contra o viés de custo: gate_usage 0% em decisões P0/P1.
 
-R4. "Registrar latência por decisão" 
-    → speed_quality_corr ficou "dado ausente". Sem a instrumentação 
+R4. "Registrar latência por decisão"
+    → speed_quality_corr ficou "dado ausente". Sem a instrumentação
       (F1.5/F7.4), a meta-análise não pode correlacionar velocidade × qualidade.
 ```
 
