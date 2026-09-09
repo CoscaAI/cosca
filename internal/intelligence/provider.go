@@ -110,15 +110,28 @@ func lineToSource(agent, line string) Source {
 		evidence = 4
 	}
 
-	// tópico = agente (ou primeira tag, se houver).
+	// tópico = agente (ou subtag, se houver). REFINO (2026-09-09): usa a
+	// 1ª + 2ª tag (ex: "devops/docker") para granularidade — sem isso, todos
+	// os learnings do mesmo agente têm topic = 1ª tag (ex: #devops), e a
+	// comparação par-a-par fica contaminada (compara docker com k8s). Com a
+	// subtag, os pares só se comparam dentro do MESMO subtema.
 	// Pula o 1º campo ("## data") que também começa com '#'.
 	topic := agent
 	for _, part := range parts[1:] {
 		t := strings.TrimSpace(part)
 		if strings.HasPrefix(t, "#") {
-			tags := strings.TrimPrefix(t, "#")
-			if strings.TrimSpace(tags) != "" {
-				topic = strings.Fields(tags)[0]
+			rawTags := strings.Fields(strings.TrimPrefix(t, "#"))
+			// limpa o '#' de cada tag ("#devops #docker" -> ["devops","docker"])
+			tags := make([]string, 0, len(rawTags))
+			for _, rt := range rawTags {
+				tags = append(tags, strings.TrimLeft(rt, "#"))
+			}
+			if len(tags) > 0 {
+				if len(tags) >= 2 {
+					topic = tags[0] + "/" + tags[1] // subtag granular
+				} else {
+					topic = tags[0]
+				}
 			}
 			break
 		}

@@ -77,8 +77,8 @@ func TestLineToSource_ParsesRealIndexLine(t *testing.T) {
 	line := "## 2026-07-30 | 2026-07-30 | 2026-07-30 — Cognitive Compression Engine — Spec Completa (Fase 3) | Level 4 | L | #cognitive-compression #fase-3 #principles | d78199d289c517f0"
 	s := lineToSource("cosca-ai", line)
 
-	if s.Topic != "cognitive-compression" {
-		t.Errorf("expected topic 'cognitive-compression', got %q", s.Topic)
+	if s.Topic != "cognitive-compression/fase-3" {
+		t.Errorf("expected topic 'cognitive-compression/fase-3' (subtag), got %q", s.Topic)
 	}
 	if s.Evidence != 5 {
 		t.Errorf("expected evidence 5 (hash de provenance), got %d", s.Evidence)
@@ -96,6 +96,10 @@ func TestLineToSource_NoHashLowerEvidence(t *testing.T) {
 	s := lineToSource("cosca-ai", line)
 	if s.Evidence != 3 {
 		t.Errorf("expected evidence 3 (sem hash completo), got %d", s.Evidence)
+	}
+	// só 1 tag de domínio + agente não detectável -> topic = primeira palavra
+	if s.Topic != "graph/code-imports" {
+		t.Errorf("expected topic 'graph/code-imports' (subtag), got %q", s.Topic)
 	}
 }
 
