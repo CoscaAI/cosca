@@ -24,8 +24,8 @@ const (
 	// PROJECT→GLOBAL).
 	ScopeGlobal = "global"
 	// ScopeProject é o escopo de TODO conteúdo de origem de projeto
-	// (.opencode/cosca/memory/agent/**, .cosca/fallback/memory/agent/**,
-	// docs/**). Defaulte de qualquer path não-embarcado.
+	// (.cosca/memory/agent/**, .cosca/fallback/memory/agent/**,
+	// docs/**). Default de qualquer path não-embarcado.
 	ScopeProject = "project"
 )
 
@@ -184,7 +184,7 @@ func ClassifyDoc(path string, frontmatter map[string]any, content string, agent 
 // embarcado — tanto em `internal/embed/cosca/**` (a fonte) quanto em
 // `.cosca/fallback/**` (a cópia materializada do mesmo cérebro via
 // MaterializeFallback). TUDO mais (conteúdo único de projeto: docs/**,
-// .opencode/cosca/memory/agent/**) → scope=project.
+// .cosca/memory/agent/**) → scope=project.
 //
 // Isso preserva a regra de ouro (origem de projeto NUNCA vira scope=global) E
 // evita poluir o escopo do projeto com conteúdo de framework: a cópia fallback
