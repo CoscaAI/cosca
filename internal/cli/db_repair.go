@@ -69,10 +69,11 @@ func repairNeedsAttention(s staterepair.Status) bool {
 // NewDBRepairCommand cria `cosca db repair`.
 func NewDBRepairCommand() *cobra.Command {
 	var (
-		dbSel  string
-		check  bool
-		dryRun bool
-		apply  bool
+		dbSel   string
+		dataDir string
+		check   bool
+		dryRun  bool
+		apply   bool
 	)
 
 	cmd := &cobra.Command{
@@ -130,7 +131,7 @@ recusado/falho.`,
 				return kindErr
 			}
 
-			dir, dirErr := resolveDataDir("")
+			dir, dirErr := resolveDataDir(dataDir)
 			if dirErr != nil {
 				return fmt.Errorf("resolve data directory: %w", dirErr)
 			}
@@ -182,6 +183,7 @@ recusado/falho.`,
 		},
 	}
 
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "diretório .cosca explícito (bypass da resolução config-first; ex.: para testes)")
 	cmd.Flags().StringVar(&dbSel, "db", "all", "classe de banco alvo: session|index|knowledge|vector|all (default all)")
 	cmd.Flags().BoolVar(&check, "check", false, "healthcheck read-only (PRAGMA quick_check) — não escreve")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "plano completo SEM escrever nada (zero arquivos)")

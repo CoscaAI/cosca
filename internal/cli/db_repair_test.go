@@ -206,9 +206,10 @@ func TestDBRepair_RegisteredUnderDB(t *testing.T) {
 
 // TestDBRepair_Check_Healthy_ExitsZero: banco válido → exit 0 e relatório ok.
 func TestDBRepair_Check_Healthy_ExitsZero(t *testing.T) {
-	setupDBRepairProject(t, false)
+	dir := setupDBRepairProject(t, false)
+	coscaDir := filepath.Join(dir, ".cosca")
 
-	out, err := executeDBRepair(t, "--db", "session", "--check")
+	out, err := executeDBRepair(t, "--db", "session", "--check", "--data-dir", coscaDir)
 	if err != nil {
 		t.Fatalf("db repair --check (saudável) deveria ter exit 0, got: %v\noutput:\n%s", err, out)
 	}
@@ -225,9 +226,10 @@ func TestDBRepair_Check_Healthy_ExitsZero(t *testing.T) {
 // TestDBRepair_Check_Corrupt_ExitsNonZero: banco doente → exit != 0 e relatório
 // "doente".
 func TestDBRepair_Check_Corrupt_ExitsNonZero(t *testing.T) {
-	setupDBRepairProject(t, true)
+	dir := setupDBRepairProject(t, true)
+	coscaDir := filepath.Join(dir, ".cosca")
 
-	out, err := executeDBRepair(t, "--db", "session", "--check")
+	out, err := executeDBRepair(t, "--db", "session", "--check", "--data-dir", coscaDir)
 	if err == nil {
 		t.Fatalf("db repair --check (doente) deveria ter exit != 0, got nil\noutput:\n%s", out)
 	}
@@ -247,7 +249,7 @@ func TestDBRepair_DryRun_WritesNothing(t *testing.T) {
 
 	before := treeSnapshotDBRepair(t, coscaDir)
 
-	out, err := executeDBRepair(t, "--db", "session", "--dry-run")
+	out, err := executeDBRepair(t, "--db", "session", "--dry-run", "--data-dir", coscaDir)
 	if err == nil {
 		t.Fatalf("dry-run de banco doente deveria sinalizar (exit != 0), got nil\noutput:\n%s", out)
 	}
@@ -313,9 +315,10 @@ func TestDBRepair_InvalidKindRejected(t *testing.T) {
 
 // TestDBRepair_JSONOutputValido: --json devolve JSON parseável.
 func TestDBRepair_JSONOutputValido(t *testing.T) {
-	setupDBRepairProject(t, true)
+	dir := setupDBRepairProject(t, true)
+	coscaDir := filepath.Join(dir, ".cosca")
 
-	out, err := executeDBRepair(t, "--db", "session", "--check", "--json")
+	out, err := executeDBRepair(t, "--db", "session", "--check", "--json", "--data-dir", coscaDir)
 	if err == nil {
 		t.Fatal("--check em banco doente deveria ter exit != 0 mesmo em JSON")
 	}
