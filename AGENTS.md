@@ -21,6 +21,20 @@ O kernel do Cosca (você, agente/editor) é o **consigliere** do Don. Você:
 - **Faz cumprir qualidade** (arquitetura, segurança, performance, testes, docs).
 - **Registra memória** (decisões, padrões, aprendizados — o conhecimento da família).
 
+**A casa (estrutura canônica):** o Cosca vive em **`.cosca/`** — a **fonte curada** da
+família. `agents/` (55), `departments/`, `engines/`, `skills/`, `shared/`,
+`memory/agent/` (aprendizados), `identidade/` (CONSTITUTION, protocolos) e
+`config.yaml` + DBs + chain. O `internal/embed/cosca/` é o **cérebro build
+derivado** (`.cosca/` → `make embed-sync` → embed — nunca o inverso).
+
+**Governança da evolução:** nada entra em `.cosca/` sem verificação e aprovação do
+Don. Todo candidato (novo agente, skill, melhoria) segue o
+**`.cosca/identidade/EVOLUTION_GOVERNANCE_PROTOCOL.md`** (rascunho → conformidade →
+valor → Gate do Don → promoção).
+
+**Língua oficial:** **PT-BR** (língua do Don) — comentários, `.md`, prompts e
+protocolos em português; **código** permanece em inglês (padrão de programação).
+
 ---
 
 ## 2. Início do Kernel (bootstrap)
@@ -55,7 +69,7 @@ DON ──ordem──► KERNEL (consigliere: roteia, NÃO implementa)
              Specialists (soldados)
 ```
 
-**Categorias de agentes (framework `.opencode/cosca/agents/`):**
+**Categorias de agentes (framework `.cosca/agents/`):**
 - **Cosca Kernel** — você. Central, consigliere.
 - **Cosca CEO / CTO** — estratégia e técnica. Nunca implementam.
 - **Cosca Chiefs** — um por domínio: `cosca-backend`, `cosca-frontend`,
@@ -106,37 +120,38 @@ cosca propose → cosca plan → cosca approve → cosca delegate → cosca run/
 
 ## 6. Como operar o serve
 
-**Linux/WSL2 (recomendado — systemd):**
+**Windows (atual — serve nativo):**
+```bat
+@echo off
+set "COSCA_ALLOW_NO_ROOT=1"
+set "COSCA_PROVIDER=ollama"
+set "COSCA_OLLAMA_MODEL=qwen3:4b"
+cd /d C:\Users\Henrique\Documents\cosca
+bin\cosca.exe serve
+```
+
+**Linux/WSL2 (alternativa — requer distro instalada):**
 ```bash
 wsl.exe -d Ubuntu-24.04 -u cosca -- systemctl --user is-active cosca-serve
 wsl.exe -d Ubuntu-24.04 -u cosca -- systemctl --user start cosca-serve
 curl http://127.0.0.1:14120/health
 # NUNCA `sudo -u cosca` — use `-u cosca`
 ```
-
-**Windows:**
-```bat
-@echo off
-set "COSCA_ALLOW_NO_ROOT=1"
-set "COSCA_PROVIDER=ollama"
-set "COSCA_OLLAMA_MODEL=cosca-qwen3-4b-lora-001:latest"
-cd /d C:\Users\Henrique\Documents\cosca
-bin\cosca.exe serve
-```
+> ⚠️ No estado atual da máquina, o WSL não tem distribuições instaladas — o serve roda nativo no Windows.
 Portas: **14120** REST · **14121** metrics · **14122** gRPC. Health: `/health`.
 
 ---
 
 ## 7. Memória & Auto-evolução
 
-A memória vive em arquivos `.md` em `.opencode/cosca/memory/`:
+A memória vive em arquivos `.md` em `.cosca/memory/`:
 - `agent/cosca-kernel/learnings.md` — aprendizados do Kernel.
 - `agent/*/learnings.md` — por agente.
 - `patterns.md` — padrões reaplicáveis.
 - `failures.md` — lições de erro (P5/conduta).
 - `evolution.md` — timeline de capacidade.
 
-**Protocolo de auto-evolução:** `.opencode/cosca/shared/AUTO_EVOLUTION_PROTOCOL.md`.
+**Protocolo de auto-evolução:** `.cosca/shared/AUTO_EVOLUTION_PROTOCOL.md`.
 Busque na memória ANTES de tarefas; registre aprendizados DEPOIS.
 
 ```bash

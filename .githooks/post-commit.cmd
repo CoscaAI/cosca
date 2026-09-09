@@ -33,13 +33,14 @@ if not defined REPO_ROOT exit /b 0
 
 if not defined COSCA_BIN set "COSCA_BIN=%USERPROFILE%\.cosca\bin\cosca.exe"
 
-rem --- Catálogo (.opencode\cosca) — generate-and-diff ---
+rem --- Catálogo (.cosca) — generate-and-diff ---
 set "CATALOG_CHANGED="
 for /f "usebackq delims=" %%f in (`git diff --name-only HEAD~1 HEAD 2^>nul`) do (
     set "FILE=%%f"
-    rem Prefixo ".opencode/cosca/" (16 chars) — qualquer mudanca no catálogo
-    set "CPREFIX=!FILE:~0,16!"
-    if /i "!CPREFIX!"==".opencode/cosca/" set "CATALOG_CHANGED=1"
+    rem Prefixo ".cosca/" (7 chars) — qualquer mudança COMMITADA em .cosca é
+    rem framework/catálogo (DBs de runtime são gitignored, não aparecem no diff)
+    set "CPREFIX=!FILE:~0,7!"
+    if /i "!CPREFIX!"==".cosca/" set "CATALOG_CHANGED=1"
 )
 if defined CATALOG_CHANGED (
     if exist "%COSCA_BIN%" (
@@ -54,7 +55,7 @@ if defined CATALOG_CHANGED (
 
 rem --- AUTO-BUILD global (repo bin) + restart do serve quando o CODIGO mudou ---
 rem Mudou codigo = paths que alimentam o binario do serve: cmd/, internal/, pkg/,
-rem api/, sdk/, go.mod, go.sum, Makefile. Docs/.opencode/cosca/.cosca/.githooks NAO disparam.
+rem api/, sdk/, go.mod, go.sum, Makefile. Docs/.cosca/.opencode/.githooks NAO disparam.
 rem IMPORTANTE: em cmd, `set "VAR="` define VAR como string vazia MAS definida, e
 rem `if defined VAR` seria SEMPRE true. Por isso usamos flag por VALOR (0/1).
 set "CODE_CHANGED=0"

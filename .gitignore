@@ -30,9 +30,10 @@ internal/memory/memory/index.db
 # Runtime derivado do embed canônico (internal/embed/cosca/) — regenerável via
 # `cosca init` (materialize fallback/framework). A FONTE é o embed, nunca aqui.
 # Mantidos FORA do git para o master reconstruir do zero sem runtime da máquina.
+# NOTA: .cosca/memory/ NÃO é todo ignorado — memory/agent é a memória VIVA versionada
+# (decisão do Don 2026-09-04); só os subpaths transitórios são ignorados (seção abaixo).
 .cosca/framework/
 .cosca/fallback/
-.cosca/memory/
 .cosca/handoffs/
 .cosca/sessions/
 .cosca/durable-events/
@@ -254,3 +255,6 @@ cosca/tela.png
 dsms-data/
 E:\trainer
 
+
+# Junction .opencode/cosca -> .cosca (o git NAO segue - fonte real e .cosca/).
+.opencode/cosca/

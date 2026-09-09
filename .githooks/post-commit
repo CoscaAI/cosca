@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # post-commit — reindexa o knowledge base quando o framework muda, valida o
-# catálogo (.opencode/cosca) e RE-ASSINA A CHAIN automaticamente quando o embed
+# catálogo (.cosca) e RE-ASSINA A CHAIN automaticamente quando o embed
 # mudou (ORDEM SAGRADA L199 — enforcement, não disciplina).
 #
 # A ordem sagrada: "todo commit que toca internal/embed/cosca exige re-assinar".
@@ -56,8 +56,8 @@ run_sign_auto() {
   fi
 }
 
-# --- Catálogo (.opencode/cosca) — generate-and-diff ---
-CATALOG_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^\.opencode/cosca/' | head -100 || true)"
+# --- Catálogo (.cosca) — generate-and-diff ---
+CATALOG_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^\.cosca/(agents|departments|engines|skills|shared|workflows|templates|identidade|knowledge|memory/agent|catalog\.manifest)' | head -100 || true)"
 if [ -n "$CATALOG_CHANGED" ]; then
   if [ -x "$COSCA_BIN" ]; then
     if ! (cd "$REPO_ROOT" && "$COSCA_BIN" gate catalog --check --summary >/tmp/cosca-catalog.log 2>&1); then
@@ -90,7 +90,7 @@ fi
 
 # --- Auto-build global + restart serve (quando o CÓDIGO mudou) ---
 # Mudou código = paths que alimentam o binário do serve: cmd/, internal/, pkg/,
-# api/, sdk/, go.mod, go.sum, Makefile. Docs/.opencode/cosca/.cosca/.githooks NÃO disparam.
+# api/, sdk/, go.mod, go.sum, Makefile. Docs/.cosca/.opencode/.githooks NÃO disparam.
 CODE_CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^(cmd/|internal/|pkg/|api/|sdk/|go\.mod$|go\.sum$|Makefile$)' | head -100 || true)"
 if [ -n "$CODE_CHANGED" ]; then
   # Tudo em background (setsid) — o post-commit NUNCA trava nem quebra o commit.
