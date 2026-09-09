@@ -128,6 +128,14 @@ func (s *Scheduler) ran() bool {
 func (s *Scheduler) tick(ctx context.Context) {
 	e := s.engine
 
+	// ROBUSTEZ (2026-09-09): sem engine o scheduler não tem o que avaliar.
+	// Antes, `e.Evaluate()` panicava (nil deref) em todo tick — recuperado no
+	// tickGuarded (o daemon não morria) mas poluía de erro e escondia o estado.
+	// Agora o pass é um no-op seguro: o daemon aguarda o engine ser injetado.
+	if e == nil {
+		return
+	}
+
 	// 1. Walk the state machine toward the idle clock's proposal.
 	if proposed := e.Evaluate(); proposed != e.State() {
 		_ = e.TransitionTo(proposed, "idle evaluation")

@@ -157,8 +157,8 @@ func TestRunORC_NoDir(t *testing.T) {
 	if result == nil {
 		t.Fatal("RunORC returned a nil result")
 	}
-	if len(result.Steps) != 8 {
-		t.Errorf("expected 8 steps, got %d", len(result.Steps))
+	if len(result.Steps) != 9 {
+		t.Errorf("expected 9 steps, got %d", len(result.Steps))
 	}
 	for _, s := range result.Steps {
 		if s.Status != "skipped" {
@@ -240,8 +240,8 @@ A test knowledge entry for the ORC pipeline.
 	if result == nil {
 		t.Fatal("RunORC returned a nil result")
 	}
-	if len(result.Steps) != 8 {
-		t.Fatalf("expected 8 steps, got %d", len(result.Steps))
+	if len(result.Steps) != 9 {
+		t.Fatalf("expected 9 steps, got %d", len(result.Steps))
 	}
 	for _, s := range result.Steps {
 		switch s.Status {

@@ -24,7 +24,9 @@ import (
 	"github.com/CoscaAI/cosca/internal/confidence"
 	"github.com/CoscaAI/cosca/internal/embeddings"
 	"github.com/CoscaAI/cosca/internal/graph"
+	"github.com/CoscaAI/cosca/internal/guardrails"
 	"github.com/CoscaAI/cosca/internal/indexer"
+	"github.com/CoscaAI/cosca/internal/intelligence"
 	"github.com/CoscaAI/cosca/internal/knowledge"
 	"github.com/CoscaAI/cosca/internal/markdown"
 	"github.com/CoscaAI/cosca/internal/parser"
@@ -407,6 +409,40 @@ func RunORC(ctx context.Context, coscaDir string) (*ORCResult, error) {
 	result.Steps = append(result.Steps, step)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("wisdom_decay: %v", err))
+	}
+
+	if ctx.Err() != nil {
+		return finishORC(result), ctx.Err()
+	}
+
+	// Step 7.5: intelligence_shadow — Intelligence Engine (ADR-047) em SHADOW-FIRST.
+	// SÓ observa, NUNCA aplica: calcula o curriculum e sinaliza conflitos (R6)
+	// sobre o conhecimento real, sem tocar em nada. A observação alimenta a
+	// decisão do Don antes de qualquer automação — o freio (G3) impede que o
+	// motor edite sozinho. Coração da "inteligência que se governa".
+	step, err = runStep("intelligence_shadow", func() (stepResult, error) {
+		if !coscaExists {
+			return skipResult("cosca dir not found"), nil
+		}
+		memDir := filepath.Join(coscaDir, "memory")
+		engine := intelligence.New(guardrails.DefaultDeps(), intelligence.MemoryProvider(memDir))
+
+		plan, err := engine.Plan(ctx)
+		if err != nil {
+			// ler o conhecimento é opcional — não derruba o ciclo
+			return skipResult("Plan: " + err.Error()), nil
+		}
+		srcs, _ := engine.Sources(ctx)
+		conflicts := engine.DetectConflicts(srcs, srcs, 0.4)
+
+		result.ItemsProcessed += len(plan.Items)
+		return okResult(fmt.Sprintf(
+			"shadow (sem escrita): %d itens no curriculum, %d conflito(s) sinalizado(s) R6; nada aplicado (G3) — decisão é do Don",
+			len(plan.Items), len(conflicts))), nil
+	})
+	result.Steps = append(result.Steps, step)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("intelligence_shadow: %v", err))
 	}
 
 	if ctx.Err() != nil {
