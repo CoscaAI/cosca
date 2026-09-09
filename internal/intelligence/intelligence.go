@@ -1,12 +1,12 @@
 // Package intelligence implementa o Intelligence Engine (ADR-047).
 //
-// O engine é a parte DETERMINÍSTICA e COMPUTÁVEL da inteligência da casa:
+// O engine Ã© a parte DETERMINÃSTICA e COMPUTÃVEL da inteligÃªncia da casa:
 // ele decide o que estudar (curriculum), detecta conflito de conhecimento (R6)
-// e propõe substituição/promoção — SEMPRE passando pelo freio (guardrails).
-// Ele NUNCA edita sozinho: sabe, propõe, passa pelo Contrato de Salvaguarda,
-// e só o que for aprovado é aplicado. Em shadow-first, nem aplica.
+// e propÃµe substituiÃ§Ã£o/promoÃ§Ã£o â€” SEMPRE passando pelo freio (guardrails).
+// Ele NUNCA edita sozinho: sabe, propÃµe, passa pelo Contrato de Salvaguarda,
+// e sÃ³ o que for aprovado Ã© aplicado. Em shadow-first, nem aplica.
 //
-// Princípio do Don: validar com CPU/cache (execução determinística), não
+// PrincÃ­pio do Don: validar com CPU/cache (execuÃ§Ã£o determinÃ­stica), nÃ£o
 // depender de LLM "achismo" para decidir o que a casa sabe.
 package intelligence
 
@@ -17,6 +17,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/CoscaAI/cosca/internal/embeddings"
 	"github.com/CoscaAI/cosca/internal/guardrails"
 )
 
@@ -24,34 +25,34 @@ import (
 // FONTES DE CONHECIMENTO
 // ============================================================
 
-// Source é uma unidade de conhecimento considerada pelo engine.
+// Source Ã© uma unidade de conhecimento considerada pelo engine.
 type Source struct {
 	ID           string    `json:"id"`
 	Content      string    `json:"content"`
 	Topic        string    `json:"topic"`
-	Evidence     int       `json:"evidence"`   // 0-5 (regra: >=4 é forte)
+	Evidence     int       `json:"evidence"`   // 0-5 (regra: >=4 Ã© forte)
 	Confidence   float64   `json:"confidence"` // 0-1
 	Recency      time.Time `json:"recency"`
 	UpdatedAt    time.Time `json:"updated_at"`
-	ParentCommit string    `json:"parent_commit"` // hash do commit git que gerou o aprendizado (proveniência de versão)
-	ParentDate   string    `json:"parent_date"`   // data do aprendizado no índice (id pai temporal; granular — cada aprendizado tem a sua)
+	ParentCommit string    `json:"parent_commit"` // hash do commit git que gerou o aprendizado (proveniÃªncia de versÃ£o)
+	ParentDate   string    `json:"parent_date"`   // data do aprendizado no Ã­ndice (id pai temporal; granular â€” cada aprendizado tem a sua)
 }
 
-// SourceProvider fornece as fontes do conhecimento semântico da casa.
+// SourceProvider fornece as fontes do conhecimento semÃ¢ntico da casa.
 type SourceProvider func(ctx context.Context) ([]Source, error)
 
 // ============================================================
-// PLANNING (CURRICULUM) — o que estudar e em que ordem
+// PLANNING (CURRICULUM) â€” o que estudar e em que ordem
 // ============================================================
 
-// StudyItem é um item do plano de estudo (curriculum).
+// StudyItem Ã© um item do plano de estudo (curriculum).
 type StudyItem struct {
 	SourceID string  `json:"source_id"`
 	Priority float64 `json:"priority"`
 	Reason   string  `json:"reason"`
 }
 
-// Plan é o curriculum — a ordem decidida deterministicamente.
+// Plan Ã© o curriculum â€” a ordem decidida deterministicamente.
 type Plan struct {
 	Items []StudyItem `json:"items"`
 }
@@ -60,10 +61,15 @@ type Plan struct {
 // ENGINE
 // ============================================================
 
-// Engine é o Intelligence Engine determinístico.
+// Engine Ã© o Intelligence Engine determinÃ­stico.
 type Engine struct {
-	guard   guardrails.Deps // o freio (injetável)
+	guard   guardrails.Deps // o freio (injetÃ¡vel)
 	sources SourceProvider  // fonte do conhecimento
+	// embedder (opcional): se setado, a similaridade Ã© por EMBEDDING semÃ¢ntico
+	// (cosine no vetor) em vez de Jaccard de texto. Detecta conflito por
+	// SIGNIFICADO (sinÃ´nimos/parÃ¡frases), mais preciso que palavras. Quando
+	// nil, usa Jaccard (determinÃ­stico, sem dependÃªncia externa).
+	embedder func(text string) ([]float64, error)
 }
 
 // New cria um Engine com o freio e a fonte de conhecimento.
@@ -74,24 +80,51 @@ func New(guard guardrails.Deps, sources SourceProvider) *Engine {
 	return &Engine{guard: guard, sources: sources}
 }
 
+// SetEmbedder injeta um provedor de embedding (vetor de um texto). Se setado,
+// o DetectConflicts/DetectDuplicates usam similaridade semÃ¢ntica por cosine.
+// Ex.: EmbeddingProvider.GenerateEmbedding da casa (Ollama/nomic).
+func (e *Engine) SetEmbedder(embed func(text string) ([]float64, error)) *Engine {
+	e.embedder = embed
+	return e
+}
+
+// similarity devolve a similaridade entre dois textos:
+//   - se embedder setado: cosine no embedding (semÃ¢ntico);
+//   - senÃ£o: Jaccard de token (texto) â€” determinÃ­stico, sem dependÃªncia.
+func (e *Engine) similarity(a, b string) float64 {
+	if e.embedder != nil {
+		va, err := e.embedder(a)
+		if err == nil {
+			vb, err := e.embedder(b)
+			if err == nil {
+				if sim, err := embeddings.CosineSimilarity(va, vb); err == nil {
+					return sim
+				}
+			}
+		}
+		// fallback: se o embedding falhar, usa Jaccard
+	}
+	return similarityApprox(a, b)
+}
+
 // ============================================================
-// CURRICULUM — decide o que estudar (determinístico)
+// CURRICULUM â€” decide o que estudar (determinÃ­stico)
 // ============================================================
 
-// weightPrioridade é a prioridade de estudo de uma fonte.
-// Determinístico: evidência (pesada) + confiança + recência.
-// Não usa LLM — é o "validar com CPU/cache" do Don.
+// weightPrioridade Ã© a prioridade de estudo de uma fonte.
+// DeterminÃ­stico: evidÃªncia (pesada) + confianÃ§a + recÃªncia.
+// NÃ£o usa LLM â€” Ã© o "validar com CPU/cache" do Don.
 func weightPriority(s Source) float64 {
-	// evidência: 0-5 → 0-1
+	// evidÃªncia: 0-5 â†’ 0-1
 	ev := float64(s.Evidence) / 5.0
 	conf := clamp01(s.Confidence)
 	rec := recencyScore(s.Recency)
 
-	// pesos: evidência 0.5, confiança 0.3, recência 0.2
+	// pesos: evidÃªncia 0.5, confianÃ§a 0.3, recÃªncia 0.2
 	p := 0.5*ev + 0.3*conf + 0.2*rec
-	// evidência é dominante: conhecimento comprovado por código/teste vale mais
+	// evidÃªncia Ã© dominante: conhecimento comprovado por cÃ³digo/teste vale mais
 	if s.Evidence >= 4 {
-		p *= 1.2 // bônus de "prova observável" (G6)
+		p *= 1.2 // bÃ´nus de "prova observÃ¡vel" (G6)
 	}
 	return clamp01(p)
 }
@@ -120,11 +153,11 @@ func (e *Engine) Plan(ctx context.Context) (*Plan, error) {
 		items = append(items, StudyItem{
 			SourceID: s.ID,
 			Priority: prio,
-			Reason:   fmt.Sprintf("evidência=%d confiança=%.2f recência=%.2f", s.Evidence, s.Confidence, recencyScore(s.Recency)),
+			Reason:   fmt.Sprintf("evidÃªncia=%d confianÃ§a=%.2f recÃªncia=%.2f", s.Evidence, s.Confidence, recencyScore(s.Recency)),
 		})
 	}
 
-	// ordena por prioridade descendente (estável)
+	// ordena por prioridade descendente (estÃ¡vel)
 	for i := 0; i < len(items); i++ {
 		for j := i + 1; j < len(items); j++ {
 			if items[j].Priority > items[i].Priority {
@@ -137,19 +170,19 @@ func (e *Engine) Plan(ctx context.Context) (*Plan, error) {
 }
 
 // ============================================================
-// CONFLITO (R6) — detecta, NÃO resolve (escala ao Don)
+// CONFLITO (R6) â€” detecta, NÃƒO resolve (escala ao Don)
 // ============================================================
 
 // DetectConflicts compara fontes novas contra as atuais e sinaliza CONFLITOS
 // reais (R6). Diferencia DUPLICATA de CONFLITO:
 //   - sim > duplicateSimilarityThreshold (0.85): MESMO aprendizado gravado de
-//     novo (duplicata) — NÃO é conflito, é redundância para condensar (R2).
-//     Não sinaliza como conflito (o Don não resolve "duplicata" como
-//     contradição).
-//   - similarityThreshold <= sim <= duplicateSimilarityThreshold: conclusões
-//     que DIVERGEM de fato (mesmo tema, conteúdo diferente) → conflito R6.
+//     novo (duplicata) â€” NÃƒO Ã© conflito, Ã© redundÃ¢ncia para condensar (R2).
+//     NÃ£o sinaliza como conflito (o Don nÃ£o resolve "duplicata" como
+//     contradiÃ§Ã£o).
+//   - similarityThreshold <= sim <= duplicateSimilarityThreshold: conclusÃµes
+//     que DIVERGEM de fato (mesmo tema, conteÃºdo diferente) â†’ conflito R6.
 //
-// Só detecta e escala — quem decide é o Don (guardrails G5).
+// SÃ³ detecta e escala â€” quem decide Ã© o Don (guardrails G5).
 func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold float64) []guardrails.Conflict {
 	var conflicts []guardrails.Conflict
 
@@ -164,29 +197,29 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 			if inc.Content == k.Content {
 				continue
 			}
-			sim := similarityApprox(inc.Content, k.Content)
-			// duplicata (mesmo aprendizado): condensar, não conflito
+			sim := e.similarity(inc.Content, k.Content)
+			// duplicata (mesmo aprendizado): condensar, nÃ£o conflito
 			if sim > duplicateSimilarityThreshold {
 				continue
 			}
 			if sim < similarityThreshold {
 				continue
 			}
-			// o novo tem evidência melhor ou igual → sinaliza conflito (R6)
+			// o novo tem evidÃªncia melhor ou igual â†’ sinaliza conflito (R6)
 			if inc.Evidence >= k.Evidence {
 				c := *guardrails.DetectConflict(k.ID, inc.ID, sim, true)
-				// Proveniência (id pai): commit (versão) + data (contexto temporal).
+				// ProveniÃªncia (id pai): commit (versÃ£o) + data (contexto temporal).
 				c.OldCommit = k.ParentCommit
 				c.NewCommit = inc.ParentCommit
 				c.OldDate = k.ParentDate
 				c.NewDate = inc.ParentDate
 				switch {
 				case k.ParentDate != "" && k.ParentDate == inc.ParentDate:
-					c.Note = "conflito na MESMA data (" + k.ParentDate + ") — mesmo contexto temporal, conclusões divergem; contradição provável (R6)"
+					c.Note = "conflito na MESMA data (" + k.ParentDate + ") â€” mesmo contexto temporal, conclusÃµes divergem; contradiÃ§Ã£o provÃ¡vel (R6)"
 				case k.ParentCommit != "" && k.ParentCommit == inc.ParentCommit:
-					c.Note = "conflito no MESMO commit (" + k.ParentCommit + ") — mesma versão, conclusões divergem (R6)"
+					c.Note = "conflito no MESMO commit (" + k.ParentCommit + ") â€” mesma versÃ£o, conclusÃµes divergem (R6)"
 				default:
-					c.Note = "conflito (conclusões divergem) — escala ao Don, o engine não decide quem vence (R6)"
+					c.Note = "conflito (conclusÃµes divergem) â€” escala ao Don, o engine nÃ£o decide quem vence (R6)"
 				}
 				conflicts = append(conflicts, c)
 			}
@@ -196,13 +229,13 @@ func (e *Engine) DetectConflicts(known, incoming []Source, similarityThreshold f
 	return conflicts
 }
 
-// duplicateSimilarityThreshold: acima dele, duas fontes são o MESMO aprendizado
-// (duplicata), não conclusões divergentes. Usado para não confundir redundância
-// (condensar/R2) com contradição (conflito/R6).
+// duplicateSimilarityThreshold: acima dele, duas fontes sÃ£o o MESMO aprendizado
+// (duplicata), nÃ£o conclusÃµes divergentes. Usado para nÃ£o confundir redundÃ¢ncia
+// (condensar/R2) com contradiÃ§Ã£o (conflito/R6).
 const duplicateSimilarityThreshold = 0.85
 
-// DetectedDuplicate é um par de fontes que são o mesmo aprendizado gravado mais
-// de uma vez (similaridade muito alta) — candidatos à condensação (R2).
+// DetectedDuplicate Ã© um par de fontes que sÃ£o o mesmo aprendizado gravado mais
+// de uma vez (similaridade muito alta) â€” candidatos Ã  condensaÃ§Ã£o (R2).
 type DetectedDuplicate struct {
 	SourceA    string  `json:"source_a"`
 	SourceB    string  `json:"source_b"`
@@ -210,18 +243,18 @@ type DetectedDuplicate struct {
 }
 
 // DetectDuplicates retorna os pares duplicados (mesmo aprendizado, sim > 0.85)
-// para a curadoria R2 (condensar) — separado dos CONFLITOS. Não tem relação com
-// a regra de ouro: duplicata é redundância, não divergência.
+// para a curadoria R2 (condensar) â€” separado dos CONFLITOS. NÃ£o tem relaÃ§Ã£o com
+// a regra de ouro: duplicata Ã© redundÃ¢ncia, nÃ£o divergÃªncia.
 func (e *Engine) DetectDuplicates(known, incoming []Source) []DetectedDuplicate {
 	var dups []DetectedDuplicate
 	for _, inc := range incoming {
 		for _, k := range known {
 			if inc.ID == k.ID || inc.ID <= k.ID {
-				continue // só um lado do par (evita A<->B e B<->A)
+				continue // sÃ³ um lado do par (evita A<->B e B<->A)
 			}
-			// Conteúdo idêntico OU quase idêntico = MESMO aprendizado (duplicata).
-			// Não se pula conteúdo igual — é o caso mais claro de duplicata.
-			sim := similarityApprox(inc.Content, k.Content)
+			// ConteÃºdo idÃªntico OU quase idÃªntico = MESMO aprendizado (duplicata).
+			// NÃ£o se pula conteÃºdo igual â€” Ã© o caso mais claro de duplicata.
+			sim := e.similarity(inc.Content, k.Content)
 			if sim > duplicateSimilarityThreshold {
 				dups = append(dups, DetectedDuplicate{SourceA: k.ID, SourceB: inc.ID, Similarity: sim})
 			}
@@ -231,11 +264,11 @@ func (e *Engine) DetectDuplicates(known, incoming []Source) []DetectedDuplicate 
 }
 
 // ============================================================
-// PROMOÇÃO (R4) — propõe elevar a global (GATEADA)
+// PROMOÃ‡ÃƒO (R4) â€” propÃµe elevar a global (GATEADA)
 // ============================================================
 
-// PromoteProposal constrói uma proposta GATEADA de promoção.
-// Passa pelo freio (guardrails) — sem aprovação do Don, é só proposta.
+// PromoteProposal constrÃ³i uma proposta GATEADA de promoÃ§Ã£o.
+// Passa pelo freio (guardrails) â€” sem aprovaÃ§Ã£o do Don, Ã© sÃ³ proposta.
 func (e *Engine) PromoteProposal(p Proposal) (guardrails.Proposal, guardrails.Result) {
 	proposal := guardrails.Proposal{
 		ID:            p.ID,
@@ -252,7 +285,7 @@ func (e *Engine) PromoteProposal(p Proposal) (guardrails.Proposal, guardrails.Re
 	return proposal, res
 }
 
-// Proposal é o DTO de promoção/substituição que o engine monta.
+// Proposal Ã© o DTO de promoÃ§Ã£o/substituiÃ§Ã£o que o engine monta.
 type Proposal struct {
 	ID            string
 	Resource      string
@@ -265,7 +298,7 @@ type Proposal struct {
 }
 
 // ============================================================
-// HELPERS determinísticos
+// HELPERS determinÃ­sticos
 // ============================================================
 
 func clamp01(v float64) float64 {
@@ -296,8 +329,8 @@ func recencyScore(t time.Time) float64 {
 	}
 }
 
-// similarityApprox: aproximação determinística de similaridade de texto.
-// Usa sobreposição de palavras (Jaccard simplificado) — sem LLM.
+// similarityApprox: aproximaÃ§Ã£o determinÃ­stica de similaridade de texto.
+// Usa sobreposiÃ§Ã£o de palavras (Jaccard simplificado) â€” sem LLM.
 func similarityApprox(a, b string) float64 {
 	wa := tokenize(a)
 	wb := tokenize(b)
