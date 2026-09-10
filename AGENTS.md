@@ -144,12 +144,23 @@ Portas: **14120** REST · **14121** metrics · **14122** gRPC. Health: `/health`
 
 ## 7. Memória & Auto-evolução
 
-A memória vive em arquivos `.md` em `.cosca/memory/`:
-- `agent/cosca-kernel/learnings.md` — aprendizados do Kernel.
-- `agent/*/learnings.md` — por agente.
-- `patterns.md` — padrões reaplicáveis.
-- `failures.md` — lições de erro (P5/conduta).
-- `evolution.md` — timeline de capacidade.
+**Cofre canônico (chain-tracked):** `internal/embed/cosca/memory/agent/<agente>/`.
+`learnings.md` é apenas o **índice de gatilhos** (1 linha por aprendizado); o
+conteúdo imutável vive em `blocks/{sha256}.md` + `chain.dat` + `merkle/`. É para
+lá que `cosca memory register` escreve e de lá que `cosca learning rebuild` lê.
+
+**Derivados (NUNCA editar à mão):**
+- `.cosca/fallback/memory/` — cópia materializada do embed (`MaterializeFallback`).
+- `.cosca/memory/agent/**/learnings.md` — espelhos legados de gatilhos, **sem**
+  `blocks/` nem `chain.dat`; não são cofre.
+
+> ⚠️ Para a memória de aprendizados a direção é a **inversa** do fluxo geral do
+> §1: o cofre canônico é o **embed**; `.cosca/memory/` é espelho derivado.
+
+**Regra de ouro:** nunca editar `learnings.md` à mão (nem o do embed, nem o
+espelho). Registrar aprendizado SOMENTE via `cosca memory register` — que exige a
+presença do Don (TTY real + fator de máquina + token de consentimento) e grava
+bloco + gatilho + `chain.dat` + merkle de uma vez.
 
 **Protocolo de auto-evolução:** `.cosca/shared/AUTO_EVOLUTION_PROTOCOL.md`.
 Busque na memória ANTES de tarefas; registre aprendizados DEPOIS.

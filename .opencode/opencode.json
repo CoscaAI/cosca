@@ -4,31 +4,6 @@
                        "auto":  false,
                        "prune":  false
                    },
-    "mcp":  {
-                "Roblox_Studio":  {
-                                      "type":  "local",
-                                      "command":  [
-                                                      "cmd.exe",
-                                                      "/c",
-                                                      "%LOCALAPPDATA%\\Roblox\\mcp.bat"
-                                                  ],
-                                      "enabled":  true
-                                  },
-                "cosca":  {
-                              "type":  "local",
-                              "command":  [
-                                              "bin\\cosca.exe",
-                                              "mcp",
-                                              "serve"
-                                          ],
-                              "environment":  {
-                                                  "COSCA_ENABLE_MCP":  "1",
-                                                  "COSCA_ALLOW_NO_ROOT":  "1",
-                                                  "COSCA_MCP_ALLOW_WRITE":  "1"
-                                              },
-                              "enabled":  true
-                          }
-            },
     "command":  {
                     "deploy":  {
                                    "description":  "Start deployment workflow",
