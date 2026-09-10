@@ -47,7 +47,7 @@ func (a *indexerAdapter) scanFiles() (totalFiles int, totalSize int64, byExt map
 				return filepath.SkipDir
 			}
 			switch name {
-			case "node_modules", "vendor", "dist", "build", "target", "__pycache__":
+			case "node_modules", "vendor", "dist", "build", "target", "__pycache__", "laboratory":
 				return filepath.SkipDir
 			}
 			return nil

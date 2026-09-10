@@ -682,7 +682,7 @@ func (e *Engine) CleanupDanglingVectors() (int, error) {
 		`DELETE FROM vectors
 		 WHERE chunk_id NOT IN (SELECT id FROM chunks)
 		   AND entity_id = ''
-		   AND created_at < `+vectorGracePeriod,
+		   AND created_at < ` + vectorGracePeriod,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("delete dangling vectors: %w", err)
@@ -1539,36 +1539,33 @@ func (e *Engine) Verify() (*VerificationResult, error) {
 			result.Checks["vector_store_healthy"] = true
 			// PÓS-CORTE (Plano D): quando o vecStore é um PartitionStore (o
 			// leitor modular), Stats() soma os vetores das partições
-			// vector-*.db — a verdade que a busca semântica lê de fato. O
-			// monólito (knowledge.db) é drenado pós-corte, então a tabela
-			// vectors dele teria 0 (o bug histórico "0 vectors vs N chunks"):
-			// por isso, no modo modular, o count vem do leitor modular, não de
-			// SQL direto no monólito. No modo LEGADO (store base/monólito),
-			// mantemos o filtro entity_id='' para não contar vetores de
-			// entidades do grafo, que nunca devem causar falso mismatch.
-			//
-			// Nota (mismatch legítimo): num sistema modular as partições
-			// guardam vetores de MÚLTIPLAS fontes (code/docs/memory/embed...),
-			// sem correspondência 1:1 com chunks — mesmo com o cosseno funcional
-			// o "vector count mismatch" pode persistir, agora com os números
-			// REAIS em vez de 0.
-			var chunkVectors int
+			// vector-*.db — a verdade que a busca semântica lê de fato. No
+			// modo modular as partições agregam vetores de MÚLTIPLAS fontes
+			// (code/docs/memory/embed) e NÃO têm correspondência 1:1 com os
+			// chunks do monólito: comparar os dois totais é falso-positivo
+			// (universos diferentes). A integridade do split é validada por
+			// `cosca db verify` (soma das partições vs a tabela vectors da
+			// fonte) e a cobertura por checkVectorCoverage no boot; aqui apenas
+			// confirmamos que o leitor modular respondeu. No modo LEGADO
+			// (store base/monólito), mantemos o filtro entity_id='' para não
+			// contar vetores de entidades do grafo, que nunca devem causar
+			// falso mismatch.
 			if e.vectorPartitionsExist() {
-				// Modular ativo: a verdade é a soma das partições.
-				chunkVectors = vecStats.TotalVectors
+				result.Checks["vector_chunk_match"] = true
 			} else {
 				// Legado (monólito, sem corte): conta só vetores de chunk.
+				var chunkVectors int
 				if cErr := e.db.QueryRow("SELECT COUNT(*) FROM vectors WHERE entity_id = ''").Scan(&chunkVectors); cErr != nil {
 					log.Warn().Err(cErr).Msg("verify: failed to count chunk vectors")
 					chunkVectors = vecStats.TotalVectors
 				}
-			}
-			if chunkVectors != chunkCount {
-				result.Issues = append(result.Issues,
-					fmt.Sprintf("vector count mismatch: %d vectors vs %d chunks", chunkVectors, chunkCount))
-				result.Checks["vector_chunk_match"] = false
-			} else {
-				result.Checks["vector_chunk_match"] = true
+				if chunkVectors != chunkCount {
+					result.Issues = append(result.Issues,
+						fmt.Sprintf("vector count mismatch: %d vectors vs %d chunks", chunkVectors, chunkCount))
+					result.Checks["vector_chunk_match"] = false
+				} else {
+					result.Checks["vector_chunk_match"] = true
+				}
 			}
 		}
 	}
@@ -2329,7 +2326,7 @@ func computeHash(content string) string {
 // de vetores vem do LEITOR modular (e.vecStore.Stats() — PartitionStore soma
 // as partições vector-*.db), nunca da tabela vectors do monólito (drenada —
 // reportaria 0/falso "CRITICAL"). Em modo legado (sem corte) mantém a query
-// entity_id='' do monólito, para não contar vetores de entidade do grafo.
+// entity_id=” do monólito, para não contar vetores de entidade do grafo.
 // Chunks continuam no monólito (fonte da verdade dos documentos).
 func (e *Engine) VectorCoverageCounts() (chunks, vectors int) {
 	if e.db == nil {
@@ -2397,4 +2394,3 @@ func (e *Engine) checkVectorCoverage() {
 			Msg("vector coverage CRITICAL — index crashed; run 'cosca knowledge vectors-backfill' immediately")
 	}
 }
-

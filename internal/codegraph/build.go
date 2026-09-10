@@ -31,6 +31,7 @@ var skipDirs = map[string]bool{
 	"bin":          true,
 	"obj":          true,
 	"out":          true,
+	"laboratory":   true, // experimentos/modelos locais (gitignored) — nunca no índice de código
 }
 
 // indexFiles are treated as the entry point of their directory when a bare

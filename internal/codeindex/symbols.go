@@ -92,19 +92,20 @@ func ExtractFile(path string) ([]Symbol, error) {
 // skipDirs são diretórios de cache/dependências/runtime que nunca contêm
 // código-fonte do projeto — pular evita varrer GOMODCACHE, node_modules etc.
 var skipDirs = map[string]bool{
-	".git":            true,
-	".cosca":          true,
-	"node_modules":    true,
-	"go-build-cache":  true,
-	"vendor":          true,
-	"lib":             true,
-	"lib64":           true,
-	"usr":             true,
-	"tmp":             true,
-	"proc":            true,
-	"run":             true,
-	"go":              true,
-	"dist":            true,
+	".git":           true,
+	".cosca":         true,
+	"node_modules":   true,
+	"go-build-cache": true,
+	"vendor":         true,
+	"lib":            true,
+	"lib64":          true,
+	"usr":            true,
+	"tmp":            true,
+	"proc":           true,
+	"run":            true,
+	"go":             true,
+	"dist":           true,
+	"laboratory":     true, // experimentos/modelos locais (gitignored) — nunca no índice de código
 }
 
 // WalkDir extrai símbolos de todos os arquivos Go (exclui _test.go) sob root.
