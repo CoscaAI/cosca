@@ -1,9 +1,9 @@
 {
   "epoch": 13,
   "start_block": 416,
-  "end_block": 434,
-  "block_count": 19,
-  "merkle_root": "d3a64360331a1d76b6b23a4e48ac72f314893fb252824124615e40a6bf6ad8a6",
+  "end_block": 435,
+  "block_count": 20,
+  "merkle_root": "560a7c0b3a67113b492e12e5faaed98840269b862e3aa5c332c9c3ac5e4b381e",
   "first_block": "835ab9d586f07a50b4ea85e41a6bf57d553e1316410abe377ca23b9ed77261da",
-  "last_block": "f3f93c99c279865fbf0e6d9d7599492682092f9f6a83b34bc66f6631dcd49821"
+  "last_block": "4213ae3f0f72cb8f062018c015bd40904420245484fffeda6fe5b3834bc2909e"
 }
