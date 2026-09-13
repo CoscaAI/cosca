@@ -9,6 +9,19 @@
 
 ---
 
+Incidente de segurança — preservação e investigação
+
+Foi identificado um comportamento considerado anômalo durante o desenvolvimento do projeto, com indícios de possível manipulação não autorizada de arquivos, documentação e/ou ambiente de execução.
+
+Neste momento, nenhuma conclusão definitiva sobre autoria, origem ou mecanismo do incidente está sendo declarada. O ambiente e os artefatos relacionados estão sendo tratados como evidência.
+
+A prioridade é preservar o estado original e manter a cadeia de evidências íntegra. Alterações, limpeza, reconstrução ou sobrescrita dos artefatos potencialmente envolvidos devem ser evitadas até que a coleta e a validação sejam concluídas.
+
+Os registros disponíveis incluem histórico de sessões, arquivos de projeto, documentação, artefatos de execução e demais evidências relacionadas ao período investigado. Hashes e inventários devem ser utilizados para verificar a integridade dos materiais preservados.
+
+Status: investigação / preservação de evidências.
+Regra: não modificar ou destruir os artefatos sob investigação sem registro e validação prévia.
+
 ## Índice
 
 - [O que é o Cosca](#o-que-é-o-cosca)
