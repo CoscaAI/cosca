@@ -7,6 +7,11 @@
 > recupera informação validada, e delega execução numa hierarquia operacional
 > onde cada agente tem papel definido.
 
+⚠️ GOLD / REFERENCE BUILD / gold-modular-2026-09-04
+Esta versão corresponde à tag Gold do repositório CoscaAI/cosca e deve ser tratada como uma referência preservada/imutável. O estado publicado e o estado local derivado dessa referência não devem ser confundidos com versões posteriores do projeto.
+
+A base dos erros ou qualquer evento corrupto foram aparti dessa data!
+
 ---
 
 Incidente de segurança — preservação e investigação
