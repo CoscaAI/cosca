@@ -36,6 +36,263 @@ Regra: não modificar ou destruir os artefatos sob investigação sem registro e
 
 ---
 
+# Esclarecimentos sobre o estado atual e referências históricas
+
+## 1. Objetivo
+
+Este documento estabelece como interpretar os resultados, decisões e evidências presentes no estado atual do projeto quando existirem referências anteriores, benchmarks históricos ou decisões registradas em commits anteriores.
+
+O princípio fundamental é:
+
+> **O estado atual não reescreve a história do projeto. Resultados anteriores permanecem válidos como evidência histórica do estado em que foram medidos, salvo quando uma nova medição demonstrar explicitamente o contrário.**
+
+---
+
+## 2. Referência ao estado atual
+
+O commit atualmente analisado deve ser tratado como um **estado específico do código**, e não como uma representação retroativa de todo o histórico do projeto.
+
+Portanto:
+
+* resultados medidos em commits anteriores pertencem aos respectivos commits;
+* decisões tomadas anteriormente devem permanecer associadas às evidências que as originaram;
+* alterações posteriores de código, plataforma, ambiente ou configuração não devem ser projetadas retroativamente sobre esses resultados;
+* uma diferença entre o comportamento atual e um resultado histórico não invalida automaticamente o resultado histórico.
+
+Quando necessário, a comparação deve seguir:
+
+**commit → código → ambiente → experimento → resultado → decisão**
+
+---
+
+## 3. Referências anteriores ao fato
+
+Resultados anteriores podem e devem ser utilizados como **referências históricas**, especialmente quando foram registrados antes de uma mudança relevante.
+
+Essas referências são particularmente importantes para estabelecer:
+
+* baseline;
+* comportamento esperado;
+* regressões;
+* mudanças de desempenho;
+* alterações de arquitetura;
+* mudanças de plataforma;
+* mudanças de compilador/runtime;
+* mudanças de hardware ou configuração;
+* surgimento ou desaparecimento de determinados comportamentos.
+
+Uma evidência anterior não deve ser descartada simplesmente porque o estado atual apresenta comportamento diferente.
+
+Ao contrário:
+
+> **A divergência entre o resultado histórico e o resultado atual constitui uma hipótese de investigação.**
+
+---
+
+## 4. Exemplo: campanha de performance
+
+A campanha de performance registrada anteriormente constitui um baseline histórico.
+
+Ela documenta medições realizadas sob condições específicas, incluindo hardware, dataset, representação, número de workers, páginas aquecidas e metodologia definida no próprio registro.
+
+Esses números devem continuar sendo interpretados como:
+
+**MEASURED no ambiente e estado em que foram obtidos.**
+
+Eles não devem ser automaticamente apresentados como:
+
+**MEASURED no commit atual.**
+
+Caso o commit atual produza números diferentes, o correto é registrar um novo experimento e estabelecer a relação entre os dois:
+
+```text
+Baseline histórico
+    ↓
+commit anterior
+    ↓
+ambiente anterior
+    ↓
+resultado medido
+
+        comparação
+
+commit atual
+    ↓
+ambiente atual
+    ↓
+novo resultado medido
+```
+
+---
+
+## 5. Mudança de plataforma
+
+Quando houver uma transição entre ambientes — por exemplo, Linux → Windows — a mudança de comportamento deve ser investigada como uma possível variável experimental.
+
+Não é correto concluir previamente que:
+
+> "o Windows causou o problema"
+
+nem:
+
+> "o benchmark antigo estava errado".
+
+A conclusão correta depende de isolamento das variáveis.
+
+Devem ser comparados, quando possível:
+
+* commit do código;
+* versão do Go;
+* compilador;
+* flags de compilação;
+* runtime;
+* número de CPUs/workers;
+* afinidade e scheduling;
+* alocação de memória;
+* comportamento de páginas/cache;
+* filesystem;
+* mmap;
+* temperatura e frequência da CPU;
+* configuração do sistema operacional;
+* dataset;
+* harness do benchmark;
+* metodologia de medição.
+
+Somente depois dessa comparação uma regressão pode ser atribuída a uma causa específica.
+
+---
+
+## 6. Integridade dos benchmarks históricos
+
+Benchmarks anteriores não devem ser editados para refletir descobertas posteriores.
+
+Se uma conclusão mudar, deve ser criado um novo registro contendo:
+
+1. referência ao benchmark anterior;
+2. hipótese que motivou o novo teste;
+3. alterações experimentais;
+4. ambiente;
+5. resultado;
+6. interpretação;
+7. decisão;
+8. evidência necessária para confirmação.
+
+Assim:
+
+```text
+Benchmark A
+    ↓
+resultado original
+    ↓
+nova hipótese
+    ↓
+Benchmark B
+    ↓
+novo resultado
+```
+
+e não:
+
+```text
+Benchmark A
+    ↓
+resultado antigo apagado
+    ↓
+resultado novo
+```
+
+---
+
+## 7. Classificação epistemológica
+
+As referências históricas devem preservar sua classificação original.
+
+### FACT
+
+Fato estrutural ou verificável independentemente do experimento.
+
+### MEASURED
+
+Resultado efetivamente medido em determinado ambiente e estado do código.
+
+### PROFILE
+
+Caracterização observada a partir de medições.
+
+### INFERRED
+
+Interpretação derivada dos dados, ainda não diretamente demonstrada.
+
+### DECISION
+
+Escolha de engenharia baseada nas evidências disponíveis naquele momento.
+
+### UNKNOWN
+
+Questão ainda não demonstrada.
+
+Uma decisão histórica pode continuar sendo útil mesmo quando uma decisão posterior a substitui. Nesse caso, a decisão anterior permanece como parte da evolução do projeto.
+
+---
+
+## 8. Regra de comparação
+
+Quando o estado atual apresentar comportamento diferente do histórico:
+
+> **Não apagar o histórico. Não corrigir retroativamente o número. Não atribuir causalidade sem experimento.**
+
+Em vez disso:
+
+```text
+HISTÓRICO
+commit X
+→ resultado Y
+
+ATUAL
+commit Z
+→ resultado W
+
+DIFERENÇA
+Y ≠ W
+
+HIPÓTESE
+qual mudança entre X e Z explica a diferença?
+
+EVIDÊNCIA NECESSÁRIA
+novo experimento controlado
+```
+
+---
+
+## 9. Referências anteriores ao fato
+
+Referências anteriores ao fato são especialmente relevantes porque estabelecem uma condição conhecida **antes da ocorrência da alteração investigada**.
+
+Quando uma evidência anterior demonstra que determinada capacidade funcionava sob condições específicas, ela deve ser tratada como:
+
+> **baseline histórico anterior ao evento**
+
+e não como opinião ou reconstrução posterior.
+
+Isso é particularmente importante para investigação de regressões: o objetivo não é provar antecipadamente uma causa, mas identificar **o primeiro ponto em que o comportamento deixou de ser reproduzível**.
+
+---
+
+## 10. Princípio final
+
+O projeto deve preservar a seguinte cadeia:
+
+**evidência histórica → estado do código → ambiente → medição → interpretação → decisão**
+
+Uma nova versão pode substituir uma decisão técnica, mas não substitui a existência histórica da decisão anterior.
+
+Portanto:
+
+> **O commit atual deve ser analisado no seu próprio contexto, enquanto os commits anteriores permanecem como referências independentes para comparação, reprodução, regressão e auditoria.**
+
+> **Histórico não é ruído: é evidência.**
+
+
 ## O que é o Cosca
 
 O Cosca é uma **plataforma de orquestração de agentes de IA** em Go. Ele não é
