@@ -7,25 +7,26 @@
 > recupera informação validada, e delega execução numa hierarquia operacional
 > onde cada agente tem papel definido.
 
-⚠️ GOLD / REFERENCE BUILD / gold-modular-2026-09-04
-Esta versão corresponde à tag Gold do repositório CoscaAI/cosca e deve ser tratada como uma referência preservada/imutável. O estado publicado e o estado local derivado dessa referência não devem ser confundidos com versões posteriores do projeto.
+⚠️ **GOLD / REFERENCE BUILD**
+**Tag:** `Gold` · **Reference:** `gold-modular-2026-09-04`
 
-A base dos erros ou qualquer evento corrupto foram aparti dessa data!
+Esta versão corresponde à tag **Gold** do repositório `CoscaAI/cosca` e deve ser tratada como uma **referência preservada e imutável**. O estado publicado e o estado local derivado dessa referência não devem ser confundidos com versões posteriores do projeto.
 
----
+**Ponto de corte da referência:** `2026-09-04`. Eventos, alterações, inconsistências ou possíveis corrupções observados posteriormente devem ser analisados separadamente e não devem ser atribuídos à Gold sem evidência.
 
-Incidente de segurança — preservação e investigação
+### Incidente de segurança — preservação e investigação
 
-Foi identificado um comportamento considerado anômalo durante o desenvolvimento do projeto, com indícios de possível manipulação não autorizada de arquivos, documentação e/ou ambiente de execução.
+Foi identificado um comportamento considerado anômalo durante o desenvolvimento do projeto, com indícios de possível alteração não autorizada de arquivos, documentação e/ou ambiente de execução.
 
-Neste momento, nenhuma conclusão definitiva sobre autoria, origem ou mecanismo do incidente está sendo declarada. O ambiente e os artefatos relacionados estão sendo tratados como evidência.
+Neste momento, **nenhuma conclusão definitiva sobre autoria, origem ou mecanismo do incidente está sendo declarada**. O ambiente e os artefatos relacionados estão sendo tratados como evidência.
 
 A prioridade é preservar o estado original e manter a cadeia de evidências íntegra. Alterações, limpeza, reconstrução ou sobrescrita dos artefatos potencialmente envolvidos devem ser evitadas até que a coleta e a validação sejam concluídas.
 
 Os registros disponíveis incluem histórico de sessões, arquivos de projeto, documentação, artefatos de execução e demais evidências relacionadas ao período investigado. Hashes e inventários devem ser utilizados para verificar a integridade dos materiais preservados.
 
-Status: investigação / preservação de evidências.
-Regra: não modificar ou destruir os artefatos sob investigação sem registro e validação prévia.
+**Status:** investigação / preservação de evidências.
+**Regra:** não modificar ou destruir artefatos sob investigação sem registro e validação prévia.
+
 
 ## Índice
 
